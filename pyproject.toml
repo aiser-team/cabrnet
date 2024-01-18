@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cabrnet"
+version = "0.1-alpha"
+authors = [
+    { name = "Romain Xu-Darme", email = "romain.xu-darme@cea.fr" },
+    { name = "Aymeric Varasse", email = "aymeric.varasse@cea.fr" },
+]
+description = "Generic library for prototype-based classifiers"
+readme = "README.md"
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: Proprietary CEA",
+    "Operating System :: OS Independent",
+]
+
+[project.scripts]
+cabrnet = "main:main"
+
+[tool.black]
+line-length = 120
+
+[[tool.mypy.overrides]]
+module = ["gdown", "torch.*", "torchvision.*"]
+ignore_missing_imports = true
