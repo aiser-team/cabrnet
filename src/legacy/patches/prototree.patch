@@ -1,3 +1,21 @@
+diff --git a/__init__.py b/__init__.py
+new file mode 100644
+index 0000000..2c5f4b1
+--- /dev/null
++++ b/__init__.py
+@@ -0,0 +1,12 @@
++# Allows legacy Prototree models to be loaded properly
++from .prototree import *
++from .features import *
++from .util import *
++from . import prototree
++from . import features
++from . import util
++import sys
++
++sys.modules["prototree"] = prototree
++sys.modules["features"] = features
++sys.modules["util"] = util
 diff --git a/features/resnet_features.py b/features/resnet_features.py
 index 95f4584..b79203d 100644
 --- a/features/resnet_features.py
