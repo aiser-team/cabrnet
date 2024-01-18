@@ -1,0 +1,22 @@
+param_groups:
+  backbone:
+    start: null
+    # stop: null
+    stop: extractor.convnet.layer4.1.bn2.bias
+  add_on_layers: extractor.add_on
+
+optimizer:
+  name: Adam
+  config:
+    backbone:
+      lr: 0.001
+      weight_decay_rate: 0.0
+      momentum: 0.9
+    add_on_layers:
+      lr: 0.001
+      weight_decay_rate: 0.0
+      momentum: 0.9
+  params:
+    lr: 0.001
+
+num_epochs: 1

@@ -1,0 +1,12 @@
+.venv
+venv
+__pycache__
+data
+runs
+.vscode
+.idea
+*.egg-info/
+build/
+dist/
+examples/
+src/legacy/prototree

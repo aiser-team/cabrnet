@@ -1,0 +1,229 @@
+diff --git a/features/resnet_features.py b/features/resnet_features.py
+index 95f4584..b79203d 100644
+--- a/features/resnet_features.py
++++ b/features/resnet_features.py
+@@ -13,7 +13,7 @@ model_urls = {
+     'resnet152': 'https://download.pytorch.org/models/resnet152-b121ed2d.pth',
+ }
+ 
+-model_dir = './pretrained_models'
++model_dir = './src/legacy/prototree/pretrained_models'
+ 
+ def conv3x3(in_planes, out_planes, stride=1):
+     """3x3 convolution with padding"""
+@@ -277,7 +277,7 @@ def resnet50_features_inat(pretrained=False, **kwargs):
+     if pretrained:
+         #use BBN pretrained weights of the conventional learning branch (from BBN.iNaturalist2017.res50.180epoch.best_model.pth)
+         #https://openaccess.thecvf.com/content_CVPR_2020/papers/Zhou_BBN_Bilateral-Branch_Network_With_Cumulative_Learning_for_Long-Tailed_Visual_Recognition_CVPR_2020_paper.pdf
+-        model_dict = torch.load(os.path.join(os.path.join('features', 'state_dicts'), 'BBN.iNaturalist2017.res50.180epoch.best_model.pth'))
++        model_dict = torch.load(os.path.join('examples','pretrained_conv_extractors', 'resnet50_inat.pth'))
+         # rename last residual block from cb_block to layer4.2
+         new_model = copy.deepcopy(model_dict)
+         for k in model_dict.keys():
+@@ -294,7 +294,7 @@ def resnet50_features_inat(pretrained=False, **kwargs):
+             elif k.startswith('module.classifier'):
+                 del new_model[k]
+         # print(new_model.keys())
+-        model.load_state_dict(new_model, strict=True)
++        model.load_state_dict(new_model, strict=False)
+     return model
+ 
+ 
+diff --git a/prototree/branch.py b/prototree/branch.py
+index 2257eb5..722b573 100644
+--- a/prototree/branch.py
++++ b/prototree/branch.py
+@@ -41,7 +41,8 @@ class Branch(Node):
+         if not self._log_probabilities:
+             pa = node_attr.setdefault((self, 'pa'), torch.ones(batch_size, device=xs.device))
+         else:
+-            pa = node_attr.setdefault((self, 'pa'), torch.ones(batch_size, device=xs.device))
++            # Fix bug in root probability when using log of probabilities
++            pa = node_attr.setdefault((self, 'pa'), torch.zeros(batch_size, device=xs.device))
+ 
+         # Obtain the probabilities of taking the right subtree
+         ps = self.g(xs, **kwargs)  # shape: (bs,)
+diff --git a/prototree/node.py b/prototree/node.py
+index 6bed4cd..b37f9a6 100644
+--- a/prototree/node.py
++++ b/prototree/node.py
+@@ -47,3 +47,7 @@ class Node(nn.Module):
+     @property
+     def depth(self) -> int:
+         raise NotImplementedError
++
++    def __hash__(self):
++        # Turns the mapping between tree nodes and prototypes into a deterministic process.
++        return hash(self._index)
+\ No newline at end of file
+diff --git a/prototree/project.py b/prototree/project.py
+index 495984a..ee80405 100644
+--- a/prototree/project.py
++++ b/prototree/project.py
+@@ -80,7 +80,7 @@ def project(tree: ProtoTree,
+                     # Check if the latent patch is closest for all data samples seen so far
+                     if min_distance < global_min_proto_dist[j]:
+                         global_min_proto_dist[j] = min_distance
+-                        global_min_patches[j] = closest_patch
++                        global_min_patches[j] = closest_patch.cpu() # Avoid GPU memory leaks
+                         global_min_info[j] = {
+                             'input_image_ix': i * batch_size + batch_i,
+                             'patch_ix': min_distance_ix.item(),  # Index in a flattened array of the feature map
+@@ -89,21 +89,25 @@ def project(tree: ProtoTree,
+                             'W1': W1,
+                             'H1': H1,
+                             'distance': min_distance.item(),
+-                            'nearest_input': torch.unsqueeze(xs[batch_i],0),
++                            'nearest_input': torch.unsqueeze(xs[batch_i],0).cpu(), # Avoid GPU memory leaks
+                             'node_ix': node.index,
+                         }
+ 
+             # Update the progress bar if required
+             projection_iter.set_postfix_str(f'Batch: {i + 1}/{len(project_loader)}')
+ 
+-            del features_batch
+-            del distances_batch
+-            del out_map
++        # Move final projection infos to device
++        for key in global_min_info:
++            global_min_info[key]['nearest_input'] = global_min_info[key]['nearest_input'].to(device)
++        for key in global_min_patches:
++            if global_min_patches[key] is None:
++                print(f"Pruned proto {key}")
++            global_min_patches[key] = global_min_patches[key].to(device)
++
+         # Copy the patches to the prototype layer weights
+         projection = torch.cat(tuple(global_min_patches[j].unsqueeze(0) for j in range(tree.num_prototypes)),
+                                 dim=0,
+                                 out=tree.prototype_layer.prototype_vectors)
+-        del projection
+ 
+     return global_min_info, tree
+ 
+@@ -189,7 +193,7 @@ def project_with_class_constraints(tree: ProtoTree,
+                         # Check if the latent patch is closest for all data samples seen so far
+                         if min_distance < global_min_proto_dist[j]:
+                             global_min_proto_dist[j] = min_distance
+-                            global_min_patches[j] = closest_patch
++                            global_min_patches[j] = closest_patch.cpu() # Avoid GPU memory leaks
+                             global_min_info[j] = {
+                                 'input_image_ix': i * batch_size + batch_i,
+                                 'patch_ix': min_distance_ix.item(),  # Index in a flattened array of the feature map
+@@ -198,20 +202,23 @@ def project_with_class_constraints(tree: ProtoTree,
+                                 'W1': W1,
+                                 'H1': H1,
+                                 'distance': min_distance.item(),
+-                                'nearest_input': torch.unsqueeze(xs[batch_i],0),
++                                'nearest_input': torch.unsqueeze(xs[batch_i],0).cpu(), # Avoid GPU memory leaks
+                                 'node_ix': node.index,
+                             }
+ 
+             # Update the progress bar if required
+             projection_iter.set_postfix_str(f'Batch: {i + 1}/{len(project_loader)}')
+ 
+-            del features_batch
+-            del distances_batch
+-            del out_map
++        # Move final projection infos to device
++        for key in global_min_info:
++            global_min_info[key]['nearest_input'] = global_min_info[key]['nearest_input'].to(device)
++        for key in global_min_patches:
++            if global_min_patches[key] is None:
++                print(f"Pruned proto {key}")
++            global_min_patches[key] = global_min_patches[key].to(device)
+ 
+         # Copy the patches to the prototype layer weights
+         projection = torch.cat(tuple(global_min_patches[j].unsqueeze(0) for j in range(tree.num_prototypes)),
+                                 dim=0, out=tree.prototype_layer.prototype_vectors)
+-        del projection
+ 
+     return global_min_info, tree
+diff --git a/prototree/train.py b/prototree/train.py
+index 995680b..3160286 100644
+--- a/prototree/train.py
++++ b/prototree/train.py
+@@ -17,6 +17,7 @@ def train_epoch(tree: ProtoTree,
+                 epoch: int,
+                 disable_derivative_free_leaf_optim: bool,
+                 device,
++                max_batches: int | None = None,
+                 log: Log = None,
+                 log_prefix: str = 'log_train_epochs',
+                 progress_prefix: str = 'Train Epoch'
+@@ -102,6 +103,10 @@ def train_epoch(tree: ProtoTree,
+         if log is not None:
+             log.log_values(log_loss, epoch, i + 1, loss.item(), acc)
+ 
++        if max_batches is not None and i == max_batches:
++            # Early abort when checking compatibility with CaBRNet
++            break
++
+     train_info['loss'] = total_loss/float(i+1)
+     train_info['train_accuracy'] = total_acc/float(i+1)
+     return train_info 
+@@ -113,6 +118,7 @@ def train_epoch_kontschieder(tree: ProtoTree,
+                 epoch: int,
+                 disable_derivative_free_leaf_optim: bool,
+                 device,
++                max_batches: int | None = None,
+                 log: Log = None,
+                 log_prefix: str = 'log_train_epochs',
+                 progress_prefix: str = 'Train Epoch'
+@@ -185,7 +191,11 @@ def train_epoch_kontschieder(tree: ProtoTree,
+ 
+         if log is not None:
+             log.log_values(log_loss, epoch, i + 1, loss.item(), acc)
+-        
++
++        if max_batches is not None and i == max_batches:
++            # Early abort when checking compatibility with CaBRNet
++            break
++
+     train_info['loss'] = total_loss/float(i+1)
+     train_info['train_accuracy'] = total_acc/float(i+1)
+     return train_info 
+diff --git a/util/data.py b/util/data.py
+index 21deaaf..27b8949 100644
+--- a/util/data.py
++++ b/util/data.py
+@@ -52,7 +52,7 @@ def get_dataloaders(args: argparse.Namespace):
+                                              shuffle=False,
+                                              pin_memory=cuda
+                                              )
+-    print("Num classes (k) = ", len(classes), flush=True)
++    #print("Num classes (k) = ", len(classes), flush=True)
+     return trainloader, projectloader, testloader, classes, c
+ 
+ 
+diff --git a/util/net.py b/util/net.py
+index ac79d37..901d2ff 100644
+--- a/util/net.py
++++ b/util/net.py
+@@ -1,4 +1,5 @@
+ import argparse
++import torch
+ import torch.nn as nn
+ import torch.nn.functional as F
+ from prototree.prototree import ProtoTree
+@@ -30,7 +31,7 @@ base_architecture_to_features = {'resnet18': resnet18_features,
+     Create network with pretrained features and 1x1 convolutional layer
+ 
+ """
+-def get_network(num_in_channels: int, args: argparse.Namespace):
++def get_network(num_in_channels: int, args: argparse.Namespace, seed: int | None = None):
+     # Define a conv net for estimating the probabilities at each decision node
+     features = base_architecture_to_features[args.net](pretrained=not args.disable_pretrained)            
+     features_name = str(features).upper()
+@@ -42,7 +43,11 @@ def get_network(num_in_channels: int, args: argparse.Namespace):
+             [i for i in features.modules() if isinstance(i, nn.BatchNorm2d)][-1].num_features
+     else:
+         raise Exception('other base base_architecture NOT implemented')
+-    
++
++    if seed is not None:
++        # For RNG resynchronisation with CaBRNet
++        torch.manual_seed(seed)
++
+     add_on_layers = nn.Sequential(
+                     nn.Conv2d(in_channels=first_add_on_layer_in_channels, out_channels=args.num_features, kernel_size=1, bias=False),
+                     nn.Sigmoid()
