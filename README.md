@@ -9,18 +9,22 @@ Create a conda/mamba environment using the provided environment file. With
 `micromamba`:
 
 ```bash
-micromamba env create -f environment.yml
+micromamba create -f environment.yml
 ```
+This may take a while. Then activate the environment.
 
-This may take a while. Then activate the environment. Once the dependencies are
-downloaded, to build using `pyproject.toml` with package build installed, you
+```bash
+micromamba activate cabrnet
+```
+Once the dependencies are downloaded, to build using `pyproject.toml` with package build installed, you
 can use `python3 -m build`
 
 ## Testing a ProtoTree training on MNIST
 
 ```bash
-cabrnet --device cpu --seed 42 --logger-level DEBUG train --model-config configs/prototree/mnist/model.yml --dataset configs/prototree/mnist/data.yml --training configs/prototree/mnist.training.yml --training-dir logs/
+cabrnet --device cpu --seed 42 --verbose --logger-level DEBUG train --model-config configs/prototree/mnist/model.yml --dataset configs/prototree/mnist/data.yml --training configs/prototree/mnist/training.yml --training-dir logs/
 ```
+
 
 ## Adding new applications
 
