@@ -15,8 +15,8 @@ dependencies:
   - tqdm~=4.62.3
   - pyyaml~=6.0.1
   - loguru~=0.7.2
-  - zenodo_get~=1.5.1
   - python-graphviz
   - pip
   - pip:
+      - zenodo_get~=1.5.1
       - opencv-python-headless
