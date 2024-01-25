@@ -7,7 +7,79 @@ import copy
 import operator
 from abc import ABC, abstractmethod
 from typing import Any
+from torch import Tensor
+from cabrnet.utils.similarities import L2Similarities
 from captum.attr._utils.lrp_rules import PropagationRule, IdentityRule
+
+
+class DecisionLRPWrapper(nn.Module):
+    """Replacement for the decision layer of a ProtoClassifier
+
+    Args:
+        classifier (nn.Module): source decision layer
+        stability_factor (float): epsilon value used for numerical stability
+    """
+
+    def __init__(self, classifier: nn.Module, stability_factor: float = 1e-12) -> None:
+        super().__init__()
+        for attr in ["prototypes", "num_prototypes", "num_features"]:
+            if not hasattr(classifier, attr):
+                raise ValueError(
+                    f"Invalid source module when building {self.__class__.__name__}: " f"Missing attribute {attr}"
+                )
+        self.prototypes = copy.deepcopy(classifier.prototypes)
+        self.similarity_layer = L2Similarities(
+            # Do not used classifier.num_prototypes as it might have changed after pruning
+            num_prototypes=self.prototypes.size(0),
+            num_features=classifier.num_features,
+        )
+
+        self.stability_factor = stability_factor
+        self.rule = GradientRule()
+        self.autograd_func = self._autograd_func()
+
+    def _autograd_func(self) -> torch.autograd.Function:
+        class SimilarityAutoGradFunc(torch.autograd.Function):
+            def forward(ctx: Any, features: Tensor) -> Tensor:
+                # Compute raw L2 distances
+                distances = self.similarity_layer.L2_square_distance(features=features, prototypes=self.prototypes)
+                # Use ReLU to filter out negative values coming from approximations
+                distances = F.relu(distances)
+                # Converts to similarity scores following ProtoPNet method
+                # i.e. sim = log( (distance+1)/(distance + epsilon))
+                similarities = torch.log((distances + 1) / (distances + 1e-4))
+                ctx.save_for_backward(features)
+                return similarities
+
+            def backward(ctx, grad_output):
+                features = ctx.saved_tensors
+                i = features.shape[2]
+                j = features.shape[3]
+                c = features.shape[1]
+                p = self.prototypes.shape[0]
+                ## Broadcast conv to Nxsize(conv) (No. of prototypes)
+                conv = features.repeat(p, 1, 1, 1)
+                prototype = self.prototypes.repeat(1, 1, i, j)
+                conv = conv.squeeze()
+
+                l2 = (conv - prototype) ** 2
+                print(l2.shape)
+                d = 1 / (l2**2 + 1e-12)
+                denom = torch.sum(d, dim=1, keepdim=True) + 1e-12
+                denom = denom.repeat(1, c, 1, 1) + 1e-12
+                R = torch.div(d, denom)
+                grad_output = grad_output.repeat(c, 1, 1, 1)
+                grad_output = grad_output.permute(1, 0, 2, 3)
+
+                R = R * grad_output
+                R = torch.sum(R, dim=0)
+                R = torch.unsqueeze(R, dim=0)
+                return R, None, None
+
+        return SimilarityAutoGradFunc()
+
+    def forward(self, x: Tensor) -> Tensor:
+        return self.autograd_func.apply(x)
 
 
 class GradientRule(PropagationRule):
@@ -52,19 +124,19 @@ class ZBetaLayer(ABC):
         self.rule = GradientRule()
 
     @abstractmethod
-    def _legacy_forward(self, x: torch.Tensor) -> torch.Tensor:
+    def _legacy_forward(self, x: Tensor) -> Tensor:
         """Legacy forward function for this layer"""
         raise NotImplementedError
 
     @abstractmethod
-    def _modified_forward(self, x: torch.Tensor, lower_bound: torch.Tensor, upper_bound: torch.Tensor) -> torch.Tensor:
+    def _modified_forward(self, x: Tensor, lower_bound: Tensor, upper_bound: Tensor) -> Tensor:
         """Modified forward function"""
         raise NotImplementedError
 
     def _autograd_func(self) -> torch.autograd.Function:
         class ZBetaAutoGradFunc(torch.autograd.Function):
             @staticmethod
-            def forward(ctx: Any, *args, **kwargs) -> torch.Tensor:
+            def forward(ctx: Any, *args, **kwargs) -> Tensor:
                 ctx.save_for_backward(*args)
                 # Keep original inference
                 return self._legacy_forward(*args)
@@ -92,7 +164,7 @@ class ZBetaLayer(ABC):
 
         return ZBetaAutoGradFunc()
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: Tensor) -> Tensor:
         return self.autograd_func.apply(x)
 
 
@@ -143,13 +215,11 @@ class ZBetaLinear(ZBetaLayer, nn.Linear):  # ZBetaLayer takes precedence to supe
         self.positive_b = None if module.bias is None else module.bias.data.clamp(min=0)
         self.negative_b = None if module.bias is None else module.bias.data.clamp(max=0)
 
-    def _legacy_forward(self, x: torch.Tensor) -> torch.Tensor:
+    def _legacy_forward(self, x: Tensor) -> Tensor:
         """Legacy forward function for this layer"""
         return F.linear(x, self.weight, self.bias)
 
-    def _modified_forward(
-        self, x: torch.Tensor, l_bound_tensor: torch.Tensor, u_bound_tensor: torch.Tensor
-    ) -> torch.Tensor:
+    def _modified_forward(self, x: Tensor, l_bound_tensor: Tensor, u_bound_tensor: Tensor) -> Tensor:
         return (
             F.linear(x, self.weight, self.bias if not self.set_bias_to_zero else None)
             - F.linear(l_bound_tensor, self.positive_w, self.positive_b if not self.set_bias_to_zero else None)
@@ -213,13 +283,11 @@ class ZBetaConv2d(ZBetaLayer, nn.Conv2d):  # ZBetaLayer takes precedence to supe
         self.positive_b = None if module.bias is None else module.bias.data.clamp(min=0)
         self.negative_b = None if module.bias is None else module.bias.data.clamp(max=0)
 
-    def _legacy_forward(self, x: torch.Tensor) -> torch.Tensor:
+    def _legacy_forward(self, x: Tensor) -> Tensor:
         """Legacy forward function for this layer"""
         return self._conv_forward(x, self.weight, self.bias)
 
-    def _modified_forward(
-        self, x: torch.Tensor, l_bound_tensor: torch.Tensor, u_bound_tensor: torch.Tensor
-    ) -> torch.Tensor:
+    def _modified_forward(self, x: Tensor, l_bound_tensor: Tensor, u_bound_tensor: Tensor) -> Tensor:
         return (
             self._conv_forward(x, self.weight, self.bias if not self.set_bias_to_zero else None)
             - self._conv_forward(
@@ -253,19 +321,19 @@ class Alpha1Beta0Layer(ABC):
         self.rule = GradientRule()
 
     @abstractmethod
-    def _legacy_forward(self, x: torch.Tensor) -> torch.Tensor:
+    def _legacy_forward(self, x: Tensor) -> Tensor:
         """Legacy forward function for this layer"""
         raise NotImplementedError
 
     @abstractmethod
-    def _modified_forward(self, x: torch.Tensor) -> torch.Tensor:
+    def _modified_forward(self, x: Tensor) -> Tensor:
         """Modified forward function"""
         raise NotImplementedError
 
     def _autograd_func(self) -> torch.autograd.Function:
         class ZBetaAutoGradFunc(torch.autograd.Function):
             @staticmethod
-            def forward(ctx: Any, *args, **kwargs) -> torch.Tensor:
+            def forward(ctx: Any, *args, **kwargs) -> Tensor:
                 ctx.save_for_backward(*args)
                 # Keep original inference
                 return self._legacy_forward(*args)
@@ -288,7 +356,7 @@ class Alpha1Beta0Layer(ABC):
 
         return ZBetaAutoGradFunc()
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: Tensor) -> Tensor:
         return self.autograd_func.apply(x)
 
 
@@ -330,11 +398,11 @@ class Alpha1Beta0Linear(Alpha1Beta0Layer, nn.Linear):
         self.positive_b = None if module.bias is None else module.bias.data.clamp(min=0)
         self.negative_b = None if module.bias is None else module.bias.data.clamp(max=0)
 
-    def _legacy_forward(self, x: torch.Tensor) -> torch.Tensor:
+    def _legacy_forward(self, x: Tensor) -> Tensor:
         """Legacy forward function for this layer"""
         return F.linear(x, self.weight, self.bias)
 
-    def _modified_forward(self, x: torch.Tensor) -> torch.Tensor:
+    def _modified_forward(self, x: Tensor) -> Tensor:
         return F.linear(
             x.clamp(min=0), self.positive_w, self.positive_b if not self.set_bias_to_zero else None
         ) + F.linear(x.clamp(max=0), self.negative_w, None)
@@ -387,11 +455,11 @@ class Alpha1Beta0Conv2d(Alpha1Beta0Layer, nn.Conv2d):
         self.positive_b = None if module.bias is None else module.bias.data.clamp(min=0)
         self.negative_b = None if module.bias is None else module.bias.data.clamp(max=0)
 
-    def _legacy_forward(self, x: torch.Tensor) -> torch.Tensor:
+    def _legacy_forward(self, x: Tensor) -> Tensor:
         """Legacy forward function for this layer"""
         return self._conv_forward(x, self.weight, self.bias)
 
-    def _modified_forward(self, x: torch.Tensor) -> torch.Tensor:
+    def _modified_forward(self, x: Tensor) -> Tensor:
         return self._conv_forward(
             x.clamp(min=0), self.positive_w, self.positive_b if not self.set_bias_to_zero else None
         ) + self._conv_forward(x.clamp(max=0), self.negative_w, None)
@@ -414,20 +482,20 @@ class StackedSum(nn.Module):
         self.autograd_func = self._autograd_func()
         self.rule = GradientRule()
 
-    def forward(self, a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
+    def forward(self, a: Tensor, b: Tensor) -> Tensor:
         return self.autograd_func.apply(a, b)
 
     def _autograd_func(self) -> torch.autograd.Function:
         class StackedSumAutoGradFunc(torch.autograd.Function):
             @staticmethod
-            def forward(ctx: Any, a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
+            def forward(ctx: Any, a: Tensor, b: Tensor) -> Tensor:
                 """Replacement operator for the addition of residual blocks"""
                 stacked = torch.stack([a, b], dim=0)
                 ctx.save_for_backward(stacked)
                 return torch.sum(stacked, dim=0)
 
             @staticmethod
-            def backward(ctx: Any, grad_output: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+            def backward(ctx: Any, grad_output: Tensor) -> tuple[Tensor, Tensor]:
                 (stacked,) = ctx.saved_tensors
                 stacked = stacked.clone().detach().requires_grad_(True)
                 with torch.enable_grad():
@@ -446,7 +514,7 @@ class StackedSum(nn.Module):
         return StackedSumAutoGradFunc()
 
 
-def get_lrp_composite_model(
+def get_extractor_lrp_composite_model(
     model: nn.Module,
     set_bias_to_zero: bool,
     stability_factor: float = 1e-6,
@@ -454,7 +522,7 @@ def get_lrp_composite_model(
     zbeta_lower_bound: float = min([-0.485 / 0.229, -0.456 / 0.224, -0.406 / 0.225]),
     zbeta_upper_bound: float = max([(1 - 0.485) / 0.229, (1 - 0.456) / 0.224, (1 - 0.406) / 0.225]),
 ) -> nn.Module:
-    """Prepare a model for composite LRP
+    """Prepare a feature extractor for composite LRP
 
     Args:
         model: target model
@@ -570,7 +638,7 @@ def get_lrp_composite_model(
             )
 
     # Set custom rule policy
-    policy = {"MaxPool2d": GradientRule, "BatchNorm2d": IdentityRule}
+    policy = {"MaxPool2d": GradientRule, "BatchNorm2d": IdentityRule, "Sigmoid": IdentityRule}
 
     def _set_policy(module: nn.Module, child_path: str = "") -> None:
         """Set propagation rules depending on module type
@@ -588,4 +656,57 @@ def get_lrp_composite_model(
             _set_policy(child, child_path=f"{child_path}{name}.")
 
     _set_policy(lrp_model)
+    return lrp_model
+
+
+def get_cabrnet_lrp_composite_model(
+    model: nn.Module,
+    set_bias_to_zero: bool,
+    stability_factor: float = 1e-6,
+    use_zbeta: bool = True,
+    zbeta_lower_bound: float = min([-0.485 / 0.229, -0.456 / 0.224, -0.406 / 0.225]),
+    zbeta_upper_bound: float = max([(1 - 0.485) / 0.229, (1 - 0.456) / 0.224, (1 - 0.406) / 0.225]),
+) -> nn.Module:
+    """Prepare a CaBRNet ProtoClassifier model for composite LRP
+
+    Args:
+        model: target model
+        set_bias_to_zero: ignore bias in linear layers
+        stability_factor (float): epsilon value used for numerical stability
+        use_zbeta: use z-beta rule on first convolution
+        zbeta_lower_bound (float): smallest admissible pixel value (used in z-beta rule)
+        zbeta_upper_bound (float): largest admissible pixel value (used in z-beta rule)
+
+    Returns:
+        copy of the model, ready for running Captum LRP
+    """
+    if not hasattr(model, "extractor"):
+        # Check attribute presence rather than using isinstance(model, ProtoClassifier) to avoid circular dependencies
+        logger.warning("Target model is not a ProtoClassifier, using generic function instead.")
+        # Try to convert the model using the more generic function
+        return get_extractor_lrp_composite_model(
+            model=model,
+            set_bias_to_zero=set_bias_to_zero,
+            stability_factor=stability_factor,
+            use_zbeta=use_zbeta,
+            zbeta_lower_bound=zbeta_lower_bound,
+            zbeta_upper_bound=zbeta_upper_bound,
+        )
+
+    lrp_model = copy.deepcopy(model)
+
+    # Convert feature extractor
+    lrp_model.extractor = get_extractor_lrp_composite_model(
+        model=lrp_model.extractor,
+        set_bias_to_zero=set_bias_to_zero,
+        stability_factor=stability_factor,
+        use_zbeta=use_zbeta,
+        zbeta_lower_bound=zbeta_lower_bound,
+        zbeta_upper_bound=zbeta_upper_bound,
+    )
+
+    # Replace decision layer
+    lrp_model.classifier = DecisionLRPWrapper(classifier=lrp_model.classifier, stability_factor=1e-12)
+    # Mark the model as ready for LRP
+    lrp_model.lrp_ready = True
     return lrp_model
