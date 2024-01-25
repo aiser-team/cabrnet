@@ -79,7 +79,7 @@ def load_checkpoint(directory_path: str) -> Mapping[str, Any]:
         raise ValueError(f"Unknown checkpoint directory {directory_path}")
 
     model = ProtoClassifier.build_from_config(os.path.join(directory_path, "model.yml"))
-    model.load_state_dict(torch.load(os.path.join(directory_path, "model_state.pth")))
+    model.load_state_dict(torch.load(os.path.join(directory_path, "model_state.pth"), map_location="cpu"))
 
     trainer = load_config(os.path.join(directory_path, "training.yml"))
     param_groups = get_param_groups(trainer, model)
