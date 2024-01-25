@@ -1,4 +1,4 @@
-name: cabrnet
+name: cabrnet2
 channels:
   - pytorch
   - nvidia
@@ -10,13 +10,16 @@ dependencies:
   - torchvision~=0.16.0
   - captum~=0.7.0
   - numpy>=1.19.5
-  - pillow==9.0.0
+  - pillow>=10.0.1
   - setuptools~=60.2.0
   - tqdm~=4.62.3
   - pyyaml~=6.0.1
   - loguru~=0.7.2
-  - zenodo_get~=1.5.1
+  - scipy~=1.11.3
+  - scikit-image~=0.22.0
+  - loguru~=0.7.2
   - python-graphviz
   - pip
   - pip:
       - opencv-python-headless
+      - zenodo_get~=1.5.1
