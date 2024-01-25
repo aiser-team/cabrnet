@@ -53,7 +53,7 @@ class ConvExtractor(nn.Module):
             model = torch_models.get_model(arch)
         elif os.path.isfile(weights):
             logger.info(f"Loading state dict for feature extractor: {weights}")
-            loaded_weights = torch.load(weights)
+            loaded_weights = torch.load(weights, map_location="cpu")
             model = torch_models.get_model(arch)
             if isinstance(loaded_weights, dict):
                 model.load_state_dict(loaded_weights)
