@@ -90,7 +90,10 @@ class ConvExtractor(nn.Module):
         Returns:
             The tensor resulting from the inference of the model.
         """
-        x = self.convnet(x)["convnet"]
+        x = self.convnet(x)
+        if isinstance(x, dict):
+            # Output of a create_feature_extractor
+            x = x["convnet"]
         x = self.add_on(x)
         return x
 
