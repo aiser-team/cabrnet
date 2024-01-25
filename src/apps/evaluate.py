@@ -2,6 +2,7 @@
 
 import os
 import sys
+import torch
 from argparse import ArgumentParser, Namespace
 
 from loguru import logger
@@ -43,7 +44,9 @@ def execute(args: Namespace) -> None:
     logger.configure(handlers=[{"sink": sys.stderr, "level": "INFO"}])
     model: ProtoClassifier = ProtoClassifier.build_from_config(args.model_config)  # type: ignore
     if args.legacy_state_dict_dir:
-        model.load_legacy_state_dict(torch.load(os.path.join(args.legacy_state_dict_dir, "model_state.pth")))  # type: ignore
+        model.load_legacy_state_dict(
+            torch.load(os.path.join(args.legacy_state_dict_dir, "model_state.pth"), map_location="cpu")
+        )  # type: ignore
     model.eval()
 
     # Dataloaders
