@@ -171,7 +171,7 @@ class ProtoClassifier(nn.Module):
 
         if state_dict_path is not None:
             logger.info(f"Loading model state from {state_dict_path}")
-            model.load_state_dict(state_dict=torch.load(state_dict_path))
+            model.load_state_dict(state_dict=torch.load(state_dict_path, map_location="cpu"))
 
         return model
 
