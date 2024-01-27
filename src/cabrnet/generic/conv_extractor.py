@@ -66,7 +66,7 @@ class ConvExtractor(nn.Module):
             loaded_weights = getattr(torch_models.get_model_weights(arch), weights)
             model = torch_models.get_model(arch, weights=loaded_weights)
         else:
-            raise ValueError(f"Weights {weights} are wrong for model of type {arch}")
+            raise ValueError(f"Cannot load weights {weights} for model of type {arch}. Possible typo or missing file.")
 
         if seed is not None:
             # Reset random generator (compatibility tests only)
