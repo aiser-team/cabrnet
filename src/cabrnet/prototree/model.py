@@ -478,7 +478,7 @@ class ProtoTree(ProtoClassifier):
             if node.proto_idxs is None:
                 # Leaf
                 class_idx = torch.argmax(node.distribution)
-                graph.node(name=f"node_{node.node_id}", label=f"Class {class_idx}", height="0.5")
+                graph.node(name=f"node_{node.node_id}", label=f"Class {class_idx}", fontsize="25", height="0.5")
             else:
                 proto_idx = node.proto_idxs[0]
                 img_path = os.path.relpath(
@@ -492,7 +492,7 @@ class ProtoTree(ProtoClassifier):
                         tail_name=f"node_{node.node_id}",
                         head_name=f"node_{child.node_id}",
                         label=similarity,
-                        fontsize="10",
+                        fontsize="25",
                     )
             return graph
 
