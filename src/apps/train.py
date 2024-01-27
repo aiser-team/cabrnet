@@ -91,6 +91,8 @@ def execute(args: Namespace) -> None:
                 training_config=args.training,
                 dataset_config=args.dataset,
                 epoch=epoch,
+                seed=args.seed,
+                device=device,
                 stats=train_info,
             )
 

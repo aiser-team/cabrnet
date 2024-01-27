@@ -300,6 +300,8 @@ def cabrnet_process(
         training_config=training_config,
         dataset_config=dataset_config,
         epoch=0,
+        seed=seed,
+        device=device,
         stats=None,
     )
     load_checkpoint(os.path.join(root_directory, "model"))
