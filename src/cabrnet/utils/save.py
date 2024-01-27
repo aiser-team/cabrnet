@@ -17,12 +17,12 @@ def save_checkpoint(
     directory_path: str,
     model: ProtoClassifier,
     model_config: str,
-    optimizer: torch.optim.Optimizer,
+    optimizer: torch.optim.Optimizer | None,
     scheduler: torch.optim.lr_scheduler.LRScheduler | None,
-    training_config: str,
+    training_config: str | None,
     dataset_config: str,
     epoch: int,
-    seed: int,
+    seed: int | None,
     device: str,
     stats: dict[str, Any] | None = None,
 ) -> None:
@@ -46,11 +46,13 @@ def save_checkpoint(
     model.eval()  # NOTE: do we want this?
 
     torch.save(model.state_dict(), os.path.join(directory_path, "model_state.pth"))
-    torch.save(optimizer.state_dict(), os.path.join(directory_path, "optimizer_state.pth"))
+    if optimizer is not None:
+        torch.save(optimizer.state_dict(), os.path.join(directory_path, "optimizer_state.pth"))
     if scheduler is not None:  # NOTE: do we save something if there is no scheduler?
         torch.save(scheduler.state_dict(), os.path.join(directory_path, "scheduler_state.pth"))
     shutil.copyfile(src=model_config, dst=os.path.join(directory_path, "model.yml"))
-    shutil.copyfile(src=training_config, dst=os.path.join(directory_path, "training.yml"))
+    if training_config is not None:
+        shutil.copyfile(src=training_config, dst=os.path.join(directory_path, "training.yml"))
     shutil.copyfile(src=dataset_config, dst=os.path.join(directory_path, "dataset.yml"))
 
     state = {
