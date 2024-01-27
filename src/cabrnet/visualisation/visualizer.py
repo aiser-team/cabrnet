@@ -26,6 +26,7 @@ class SimilarityVisualizer(nn.Module):
         view_fn: Callable,
         retrace_params: dict | None = None,
         view_params: dict | None = None,
+        config_file: str | None = None,
         *args,
         **kwargs,
     ):
@@ -36,12 +37,14 @@ class SimilarityVisualizer(nn.Module):
             view_fn: viewing function
             retrace_params: optional parameters to retrace function
             view_params: optional parameters to viewing function
+            config_file: optional path to the file used to configure the visualizer
         """
         super().__init__(*args, **kwargs)
         self.retrace = retrace_fn
         self.retrace_params = retrace_params if retrace_params is not None else {}
         self.view = view_fn
         self.view_params = view_params if view_params is not None else {}
+        self.config_file = config_file
 
     def forward(
         self,
@@ -140,4 +143,5 @@ class SimilarityVisualizer(nn.Module):
             view_fn=view_fn,
             retrace_params=retrace_params,
             view_params=view_params,
+            config_file=config_file,
         )
