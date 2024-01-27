@@ -22,6 +22,8 @@ def save_checkpoint(
     training_config: str,
     dataset_config: str,
     epoch: int,
+    seed: int,
+    device: str,
     stats: dict[str, Any] | None = None,
 ) -> None:
     """Save everything needed to restart a training process.
@@ -35,6 +37,8 @@ def save_checkpoint(
         training_config: Path to the training configuration file
         dataset_config: Path to the dataset configuration file
         epoch: Current epoch
+        seed: Initial random seed (recorded for reproducibility)
+        device: Target hardware device (recorded for reproducibility)
         stats: Other optional statistics
     """
     os.makedirs(directory_path, exist_ok=True)
@@ -61,6 +65,10 @@ def save_checkpoint(
 
     with open(os.path.join(directory_path, "state.pickle"), "wb") as file:
         pickle.dump(state, file)
+
+    # Add reproducibility information
+    with open(os.path.join(directory_path, "reproducibility.txt"), "w") as file:
+        file.write(f"seed: {seed}\n" f"device: {device}")
 
     logger.info(f"Successfully saved checkpoint at epoch {epoch}.")
 
@@ -102,6 +110,10 @@ def load_checkpoint(directory_path: str) -> Mapping[str, Any]:
     stats = state.get("stats")
 
     logger.info(f"Successfully loaded checkpoint from epoch {epoch}.")
+
+    with open(os.path.join(directory_path, "reproducibility.txt"), "r") as file:
+        for line in file.readlines():
+            logger.info(f"Reproducibility information. {line.rstrip()}")
 
     return {
         "model": model,
