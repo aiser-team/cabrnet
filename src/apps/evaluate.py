@@ -1,6 +1,5 @@
 """Declare the necessary functions to create an app to evaluate a CABRNet classifier."""
 
-import os
 import sys
 import torch
 from argparse import ArgumentParser, Namespace
@@ -24,11 +23,11 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     parser = ProtoClassifier.create_parser(parser)
     parser = create_dataset_parser(parser)
     parser.add_argument(
-        "--legacy-state-dict-dir",
+        "--legacy-state-dict",
         type=str,
         required=False,
-        metavar="path/to/state_dict/directory",
-        help="Path to directory containing state dictionary of a legacy model",
+        metavar="path/to/state/dict",
+        help="Path to state dictionary of a legacy model",
     )
     return parser
 
@@ -42,17 +41,21 @@ def execute(args: Namespace) -> None:
     """
     # Set logger level
     logger.configure(handlers=[{"sink": sys.stderr, "level": "INFO"}])
-    model: ProtoClassifier = ProtoClassifier.build_from_config(args.model_config)  # type: ignore
-    if args.legacy_state_dict_dir:
-        model.load_legacy_state_dict(
-            torch.load(os.path.join(args.legacy_state_dict_dir, "model_state.pth"), map_location="cpu")
-        )  # type: ignore
+    model = ProtoClassifier.build_from_config(args.model_config, state_dict_path=args.model_state_dict)
+    if args.legacy_state_dict:
+        if args.model_state_dict is not None:
+            logger.warning(
+                f"Overwriting model state {args.model_state_dict} with legacy state {args.legacy_state_dict}."
+            )
+        model.load_legacy_state_dict(torch.load(args.legacy_state_dict, map_location="cpu"))  # type: ignore
     model.eval()
 
     # Dataloaders
     dataloaders = get_dataloaders(config_file=args.dataset)
     model.to(args.device)
 
-    stats = model.evaluate(dataloader=dataloaders["test_set"], device=args.device, progress_bar_position=0)
+    stats = model.evaluate(
+        dataloader=dataloaders["test_set"], device=args.device, progress_bar_position=0, verbose=args.verbose
+    )
     for name, value in stats.items():
         logger.info(f"{name}: {value:.2f}")
