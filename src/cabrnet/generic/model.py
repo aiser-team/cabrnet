@@ -2,11 +2,9 @@ from __future__ import annotations
 
 import argparse
 import importlib
+import shutil
 import os.path
-from loguru import logger
-from tqdm import tqdm
 from typing import Any, Callable
-from PIL import Image
 import torch
 import torch.nn as nn
 from loguru import logger
@@ -378,6 +376,10 @@ class ProtoClassifier(nn.Module):
         logger.info("Extracting prototype visualization")
         # Create destination directory if necessary
         os.makedirs(dir_path, exist_ok=True)
+        # Copy visualizer configuration file
+        if os.path.isfile(visualizer.config_file):
+            shutil.copyfile(src=visualizer.config_file, dst=os.path.join(dir_path, "visualization.yml"))
+
         # Show progress on progress bar if needed
         data_iter = tqdm(
             projection_info,
