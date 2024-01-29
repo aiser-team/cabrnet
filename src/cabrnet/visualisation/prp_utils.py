@@ -498,7 +498,7 @@ class StackedSum(nn.Module):
                     output_detached = output.clone().detach()
 
                     normalized = grad_output.detach() / (
-                        output_detached + self.stability_factor * output_detached.sign()
+                        output_detached + self.stability_factor * (output_detached.sign() + output_detached == 0)
                     )
                     # Backward pass
                     output.backward(normalized)
