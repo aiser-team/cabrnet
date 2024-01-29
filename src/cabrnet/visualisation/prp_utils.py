@@ -12,6 +12,56 @@ from cabrnet.utils.similarities import L2Similarities
 from captum.attr._utils.lrp_rules import PropagationRule, IdentityRule
 
 
+class L2SimilaritiesLRPWrapper(L2Similarities):
+    """Replacement for the L2 similarity layer
+
+    Args:
+        num_prototypes: Number of prototypes
+        num_features: Size of each prototype
+        stability_factor (float): epsilon value used for numerical stability
+    """
+
+    def __init__(self, num_prototypes: int, num_features: int, stability_factor: float = 1e-12) -> None:
+        super().__init__(num_prototypes=num_prototypes, num_features=num_features)
+        self.stability_factor = stability_factor
+        self.rule = GradientRule()
+        self.autograd_func = self._autograd_func()
+
+    def _autograd_func(self) -> torch.autograd.Function:
+        class SimilarityAutoGradFunc(torch.autograd.Function):
+            def forward(ctx: Any, features: Tensor, prototypes: Tensor) -> Tensor:
+                # Compute raw L2 distances
+                distances = self.L2_square_distance(features=features, prototypes=prototypes)
+                # Use ReLU to filter out negative values coming from approximations
+                distances = F.relu(distances)
+                # Converts to similarity scores following ProtoPNet method
+                # i.e. sim = log( (distance+1)/(distance + epsilon))
+                similarities = torch.log((distances + 1) / (distances + 1e-4))
+                ctx.save_for_backward(features, prototypes)
+                return similarities
+
+            def backward(ctx, grad_output):
+                features, prototypes = ctx.saved_tensors
+                # Compute channel-wise similarities from features (N x C x H x W) and prototypes (P x C x 1 x 1)
+                # the result shape is (N x P x C x H x W)
+                tiled_prototypes = torch.unsqueeze(prototypes, dim=0)  # Shape 1 x P x C x 1 x 1
+                tiled_features = torch.unsqueeze(features, dim=1)  # Shape N x 1 x C x H x W
+                gamma_mc = 1 / ((tiled_features - tiled_prototypes) ** 2 + self.stability_factor)
+                sum_gamma = torch.sum(gamma_mc, dim=2, keepdim=True) + self.stability_factor
+                contributions = gamma_mc / sum_gamma  # sum_gamma is broadcast to (N x P x C x H x W)
+
+                # Tile gradients from N x P x H x W to N x P x 1 x H x W
+                tiled_grads = torch.unsqueeze(grad_output, dim=2)
+                # Aggregate results across all prototypes
+                grads = torch.sum(contributions * tiled_grads, dim=1)  # Shape N x C x H x W
+                return grads, None
+
+        return SimilarityAutoGradFunc()
+
+    def forward(self, features: Tensor, prototypes: Tensor) -> Tensor:
+        return self.autograd_func.apply(features, prototypes)
+
+
 class DecisionLRPWrapper(nn.Module):
     """Replacement for the decision layer of a ProtoClassifier
 
@@ -28,58 +78,15 @@ class DecisionLRPWrapper(nn.Module):
                     f"Invalid source module when building {self.__class__.__name__}: " f"Missing attribute {attr}"
                 )
         self.prototypes = copy.deepcopy(classifier.prototypes)
-        self.similarity_layer = L2Similarities(
-            # Do not used classifier.num_prototypes as it might have changed after pruning
-            num_prototypes=self.prototypes.size(0),
+        self.similarity_layer = L2SimilaritiesLRPWrapper(
+            # Do not use classifier.num_prototypes as it might have changed after pruning
+            num_prototypes=classifier.prototypes.size(0),
             num_features=classifier.num_features,
+            stability_factor=stability_factor,
         )
 
-        self.stability_factor = stability_factor
-        self.rule = GradientRule()
-        self.autograd_func = self._autograd_func()
-
-    def _autograd_func(self) -> torch.autograd.Function:
-        class SimilarityAutoGradFunc(torch.autograd.Function):
-            def forward(ctx: Any, features: Tensor) -> Tensor:
-                # Compute raw L2 distances
-                distances = self.similarity_layer.L2_square_distance(features=features, prototypes=self.prototypes)
-                # Use ReLU to filter out negative values coming from approximations
-                distances = F.relu(distances)
-                # Converts to similarity scores following ProtoPNet method
-                # i.e. sim = log( (distance+1)/(distance + epsilon))
-                similarities = torch.log((distances + 1) / (distances + 1e-4))
-                ctx.save_for_backward(features)
-                return similarities
-
-            def backward(ctx, grad_output):
-                features = ctx.saved_tensors
-                i = features.shape[2]
-                j = features.shape[3]
-                c = features.shape[1]
-                p = self.prototypes.shape[0]
-                ## Broadcast conv to Nxsize(conv) (No. of prototypes)
-                conv = features.repeat(p, 1, 1, 1)
-                prototype = self.prototypes.repeat(1, 1, i, j)
-                conv = conv.squeeze()
-
-                l2 = (conv - prototype) ** 2
-                print(l2.shape)
-                d = 1 / (l2**2 + 1e-12)
-                denom = torch.sum(d, dim=1, keepdim=True) + 1e-12
-                denom = denom.repeat(1, c, 1, 1) + 1e-12
-                R = torch.div(d, denom)
-                grad_output = grad_output.repeat(c, 1, 1, 1)
-                grad_output = grad_output.permute(1, 0, 2, 3)
-
-                R = R * grad_output
-                R = torch.sum(R, dim=0)
-                R = torch.unsqueeze(R, dim=0)
-                return R, None, None
-
-        return SimilarityAutoGradFunc()
-
     def forward(self, x: Tensor) -> Tensor:
-        return self.autograd_func.apply(x)
+        return self.similarity_layer(x, self.prototypes)
 
 
 class GradientRule(PropagationRule):
