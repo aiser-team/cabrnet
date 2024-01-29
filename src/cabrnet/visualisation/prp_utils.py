@@ -151,7 +151,7 @@ class ZBetaLayer(ABC):
                     output = self._modified_forward(x, lower_bound_tensor, upper_bound_tensor)
                     output_detached = output.clone().detach()
                     normalized = grad_output.detach() / (
-                        output_detached + self.stability_factor * output_detached.sign()
+                        output_detached + self.stability_factor * (output_detached.sign() + (output_detached == 0))
                     )
                     # Backward pass
                     output.backward(normalized)
@@ -347,7 +347,9 @@ class Alpha1Beta0Layer(ABC):
                     output_detached = output.clone().detach()
 
                     normalized = grad_output.detach() / (
-                        output_detached + self.stability_factor * output_detached.sign()
+                        output_detached
+                        + self.stability_factor * output_detached.sign()
+                        + 1e-12 * (output_detached == 0)  # Fixed stability factor when grads are 0
                     )
                     # Backward pass
                     output.backward(normalized)
