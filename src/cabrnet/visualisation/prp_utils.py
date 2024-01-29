@@ -209,12 +209,6 @@ class ZBetaLinear(ZBetaLayer, nn.Linear):  # ZBetaLayer takes precedence to supe
         )
         self.load_state_dict(module.state_dict())
 
-        # Make two additional copies of the module weights, taking signs into account
-        self.positive_w = module.weight.data.clamp(min=0)
-        self.negative_w = module.weight.data.clamp(max=0)
-        self.positive_b = None if module.bias is None else module.bias.data.clamp(min=0)
-        self.negative_b = None if module.bias is None else module.bias.data.clamp(max=0)
-
     def _legacy_forward(self, x: Tensor) -> Tensor:
         """Legacy forward function for this layer"""
         return F.linear(x, self.weight, self.bias)
@@ -222,8 +216,16 @@ class ZBetaLinear(ZBetaLayer, nn.Linear):  # ZBetaLayer takes precedence to supe
     def _modified_forward(self, x: Tensor, l_bound_tensor: Tensor, u_bound_tensor: Tensor) -> Tensor:
         return (
             F.linear(x, self.weight, self.bias if not self.set_bias_to_zero else None)
-            - F.linear(l_bound_tensor, self.positive_w, self.positive_b if not self.set_bias_to_zero else None)
-            - F.linear(u_bound_tensor, self.negative_w, self.negative_b if not self.set_bias_to_zero else None)
+            - F.linear(
+                l_bound_tensor,
+                self.weight.data.clamp(min=0),
+                self.bias.data.clamp(min=0) if not self.set_bias_to_zero else None,
+            )
+            - F.linear(
+                u_bound_tensor,
+                self.weight.data.clamp(max=0),
+                self.bias.data.clamp(max=0) if not self.set_bias_to_zero else None,
+            )
         )
 
 
@@ -277,12 +279,6 @@ class ZBetaConv2d(ZBetaLayer, nn.Conv2d):  # ZBetaLayer takes precedence to supe
         )
         self.load_state_dict(module.state_dict())
 
-        # Make two additional copies of the module weights, taking signs into account
-        self.positive_w = module.weight.data.clamp(min=0)
-        self.negative_w = module.weight.data.clamp(max=0)
-        self.positive_b = None if module.bias is None else module.bias.data.clamp(min=0)
-        self.negative_b = None if module.bias is None else module.bias.data.clamp(max=0)
-
     def _legacy_forward(self, x: Tensor) -> Tensor:
         """Legacy forward function for this layer"""
         return self._conv_forward(x, self.weight, self.bias)
@@ -291,10 +287,14 @@ class ZBetaConv2d(ZBetaLayer, nn.Conv2d):  # ZBetaLayer takes precedence to supe
         return (
             self._conv_forward(x, self.weight, self.bias if not self.set_bias_to_zero else None)
             - self._conv_forward(
-                l_bound_tensor, self.positive_w, self.positive_b if not self.set_bias_to_zero else None
+                l_bound_tensor,
+                self.weight.data.clamp(min=0),
+                self.bias.data.clamp(min=0) if not self.set_bias_to_zero else None,
             )
             - self._conv_forward(
-                u_bound_tensor, self.negative_w, self.negative_b if not self.set_bias_to_zero else None
+                u_bound_tensor,
+                self.weight.data.clamp(max=0),
+                self.bias.data.clamp(max=0) if not self.set_bias_to_zero else None,
             )
         )
 
@@ -394,20 +394,16 @@ class Alpha1Beta0Linear(Alpha1Beta0Layer, nn.Linear):
         )
         self.load_state_dict(module.state_dict())
 
-        # Make two additional copies of the module weights, taking signs into account
-        self.positive_w = module.weight.data.clamp(min=0)
-        self.negative_w = module.weight.data.clamp(max=0)
-        self.positive_b = None if module.bias is None else module.bias.data.clamp(min=0)
-        self.negative_b = None if module.bias is None else module.bias.data.clamp(max=0)
-
     def _legacy_forward(self, x: Tensor) -> Tensor:
         """Legacy forward function for this layer"""
         return F.linear(x, self.weight, self.bias)
 
     def _modified_forward(self, x: Tensor) -> Tensor:
         return F.linear(
-            x.clamp(min=0), self.positive_w, self.positive_b if not self.set_bias_to_zero else None
-        ) + F.linear(x.clamp(max=0), self.negative_w, None)
+            x.clamp(min=0),
+            self.weight.data.clamp(min=0),
+            self.bias.data.clamp(min=0) if not self.set_bias_to_zero else None,
+        ) + F.linear(x.clamp(max=0), self.weight.data.clamp(max=0), None)
 
 
 class Alpha1Beta0Conv2d(Alpha1Beta0Layer, nn.Conv2d):
@@ -451,20 +447,16 @@ class Alpha1Beta0Conv2d(Alpha1Beta0Layer, nn.Conv2d):
         )
         self.load_state_dict(module.state_dict())
 
-        # Make two additional copies of the module weights, taking signs into account
-        self.positive_w = module.weight.data.clamp(min=0)
-        self.negative_w = module.weight.data.clamp(max=0)
-        self.positive_b = None if module.bias is None else module.bias.data.clamp(min=0)
-        self.negative_b = None if module.bias is None else module.bias.data.clamp(max=0)
-
     def _legacy_forward(self, x: Tensor) -> Tensor:
         """Legacy forward function for this layer"""
         return self._conv_forward(x, self.weight, self.bias)
 
     def _modified_forward(self, x: Tensor) -> Tensor:
         return self._conv_forward(
-            x.clamp(min=0), self.positive_w, self.positive_b if not self.set_bias_to_zero else None
-        ) + self._conv_forward(x.clamp(max=0), self.negative_w, None)
+            x.clamp(min=0),
+            self.weight.data.clamp(min=0),
+            self.bias.data.clamp(min=0) if not self.set_bias_to_zero else None,
+        ) + self._conv_forward(x.clamp(max=0), self.weight.data.clamp(max=0), None)
 
 
 class StackedSum(nn.Module):
