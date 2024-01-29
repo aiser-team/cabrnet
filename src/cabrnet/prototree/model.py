@@ -10,7 +10,7 @@ from typing import Any, Mapping, Callable
 from tqdm import tqdm
 from cabrnet.generic.model import ProtoClassifier
 from cabrnet.utils.tree import TreeNode, MappingMode
-from cabrnet.prototree.decision import SamplingStrategy
+from cabrnet.prototree.decision import SamplingStrategy, ProtoTreeClassifier
 from cabrnet.visualisation.visualizer import SimilarityVisualizer
 from cabrnet.visualisation.explainer import ExplanationGraph
 import copy
@@ -30,10 +30,13 @@ class ProtoTree(ProtoClassifier):
         # Constant tensor for internal computations
         self.register_buffer("_eye", torch.eye(self.classifier.num_classes))
 
-    def get_extra_state(self) -> Mapping[str, Any]:
+    def get_extra_state(self) -> Mapping[str, Any] | None:
         """Decision tree architecture to be saved in state_dict.
         This is automatically called by state_dict()"""
-        return self.classifier.tree.export_arch()
+        if isinstance(self.classifier, ProtoTreeClassifier):
+            return self.classifier.tree.export_arch()
+        # When using PRP visualization with Captum, classifier is no longer a ProtoTreeClassifier
+        return None
 
     def set_extra_state(self, state: Mapping[str, Any]) -> None:
         """Rebuild decision tree from architecture information
@@ -42,7 +45,9 @@ class ProtoTree(ProtoClassifier):
         Args:
             state: information returned by get_extra_state()
         """
-        self.classifier.tree = TreeNode.build_from_arch(state)
+        if isinstance(self.classifier, ProtoTreeClassifier):
+            # When using PRP visualization with Captum, classifier is no longer a ProtoTreeClassifier
+            self.classifier.tree = TreeNode.build_from_arch(state)
 
     def load_legacy_state_dict(self, legacy_state: dict) -> None:
         """Load state dictionary from legacy format
