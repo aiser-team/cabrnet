@@ -6,7 +6,7 @@ from PIL import Image
 import argparse
 from cabrnet.utils.parser import load_config
 from cabrnet.visualisation.upsampling import cubic_upsampling
-from cabrnet.visualisation.gradients import smoothgrad, randgrad
+from cabrnet.visualisation.gradients import smoothgrad, randgrad, prp
 import cabrnet.visualisation.view as viewing_module
 from typing import Callable
 
@@ -15,7 +15,7 @@ supported_retrace_functions = {
     "cubic_upsampling": cubic_upsampling,
     "smoothgrad": smoothgrad,
     "randgrad": randgrad,
-    "prp": None,
+    "prp": prp,
 }
 
 
