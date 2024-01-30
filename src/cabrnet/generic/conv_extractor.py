@@ -8,17 +8,10 @@ import torch.nn as nn
 import torchvision.models as torch_models
 from loguru import logger
 from torchvision.models.feature_extraction import create_feature_extractor, get_graph_node_names
+from torchvision.models.feature_extraction import create_feature_extractor
+from cabrnet.utils.init import layer_init_functions
 
 warnings.filterwarnings("ignore")
-
-
-# Layer initialisation functions
-def init_weights_xavier(module: nn.Module):
-    if isinstance(module, torch.nn.Conv2d):
-        torch.nn.init.xavier_normal_(module.weight, gain=torch.nn.init.calculate_gain("sigmoid"))
-
-
-layer_init_functions = {"XAVIER": init_weights_xavier}
 
 
 class ConvExtractor(nn.Module):
