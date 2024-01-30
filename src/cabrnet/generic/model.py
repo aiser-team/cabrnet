@@ -386,6 +386,7 @@ class ProtoClassifier(nn.Module):
             position=progress_bar_position,
             disable=not verbose,
         )
+        visualizer_model = visualizer.prepare_model(self)
         for proto_idx in data_iter:
             if projection_info[proto_idx]["img_idx"] == -1:
                 # Skip pruned prototype
@@ -396,7 +397,12 @@ class ProtoClassifier(nn.Module):
             img_tensor = dataloader.dataset[projection_info[proto_idx]["img_idx"]][0]
             h, w = projection_info[proto_idx]["h"], projection_info[proto_idx]["w"]
             prototype_part = visualizer.forward(
-                model=self, img=img, img_tensor=img_tensor, proto_idx=proto_idx, device=device, location=(h, w)
+                model=visualizer_model,
+                img=img,
+                img_tensor=img_tensor,
+                proto_idx=proto_idx,
+                device=device,
+                location=(h, w),
             )
             img_path = os.path.join(dir_path, f"prototype_{proto_idx}.png")
             prototype_part.save(fp=img_path)

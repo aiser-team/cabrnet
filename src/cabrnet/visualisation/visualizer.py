@@ -7,6 +7,7 @@ import argparse
 from cabrnet.utils.parser import load_config
 from cabrnet.visualisation.upsampling import cubic_upsampling
 from cabrnet.visualisation.gradients import smoothgrad, randgrad, prp
+from cabrnet.visualisation.prp_utils import get_cabrnet_lrp_composite_model
 import cabrnet.visualisation.view as viewing_module
 from typing import Callable
 
@@ -75,6 +76,12 @@ class SimilarityVisualizer(nn.Module):
             **self.retrace_params,
         )
         return self.view(img=img, sim_map=sim_map, **self.view_params)
+
+    def prepare_model(self, model: nn.Module) -> nn.Module:
+        # Perform model preparation (depends on retrace function)
+        if self.retrace == prp:
+            return get_cabrnet_lrp_composite_model(model)
+        return model
 
     @staticmethod
     def create_parser(
