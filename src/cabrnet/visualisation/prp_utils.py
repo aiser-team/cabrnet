@@ -226,12 +226,12 @@ class ZBetaLinear(ZBetaLayer, nn.Linear):  # ZBetaLayer takes precedence to supe
             - F.linear(
                 l_bound_tensor,
                 self.weight.data.clamp(min=0),
-                self.bias.data.clamp(min=0) if not self.set_bias_to_zero else None,
+                self.bias.data.clamp(min=0) if not self.set_bias_to_zero and self.bias is not None else None,
             )
             - F.linear(
                 u_bound_tensor,
                 self.weight.data.clamp(max=0),
-                self.bias.data.clamp(max=0) if not self.set_bias_to_zero else None,
+                self.bias.data.clamp(max=0) if not self.set_bias_to_zero and self.bias is not None else None,
             )
         )
 
@@ -296,12 +296,12 @@ class ZBetaConv2d(ZBetaLayer, nn.Conv2d):  # ZBetaLayer takes precedence to supe
             - self._conv_forward(
                 l_bound_tensor,
                 self.weight.data.clamp(min=0),
-                self.bias.data.clamp(min=0) if not self.set_bias_to_zero else None,
+                self.bias.data.clamp(min=0) if not self.set_bias_to_zero and self.bias is not None else None,
             )
             - self._conv_forward(
                 u_bound_tensor,
                 self.weight.data.clamp(max=0),
-                self.bias.data.clamp(max=0) if not self.set_bias_to_zero else None,
+                self.bias.data.clamp(max=0) if not self.set_bias_to_zero and self.bias is not None else None,
             )
         )
 
@@ -409,7 +409,7 @@ class Alpha1Beta0Linear(Alpha1Beta0Layer, nn.Linear):
         return F.linear(
             x.clamp(min=0),
             self.weight.data.clamp(min=0),
-            self.bias.data.clamp(min=0) if not self.set_bias_to_zero else None,
+            self.bias.data.clamp(min=0) if not self.set_bias_to_zero and self.bias is not None else None,
         ) + F.linear(x.clamp(max=0), self.weight.data.clamp(max=0), None)
 
 
@@ -462,7 +462,7 @@ class Alpha1Beta0Conv2d(Alpha1Beta0Layer, nn.Conv2d):
         return self._conv_forward(
             x.clamp(min=0),
             self.weight.data.clamp(min=0),
-            self.bias.data.clamp(min=0) if not self.set_bias_to_zero else None,
+            self.bias.data.clamp(min=0) if not self.set_bias_to_zero and self.bias is not None else None,
         ) + self._conv_forward(x.clamp(max=0), self.weight.data.clamp(max=0), None)
 
 
@@ -662,7 +662,7 @@ def get_extractor_lrp_composite_model(
 
 def get_cabrnet_lrp_composite_model(
     model: nn.Module,
-    set_bias_to_zero: bool,
+    set_bias_to_zero: bool = True,
     stability_factor: float = 1e-6,
     use_zbeta: bool = True,
     zbeta_lower_bound: float = min([-0.485 / 0.229, -0.456 / 0.224, -0.406 / 0.225]),
