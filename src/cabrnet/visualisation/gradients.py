@@ -4,6 +4,15 @@ from PIL import Image
 import torch.nn as nn
 import numpy as np
 from cabrnet.visualisation.postprocess import post_process
+def _check_tensor_dims(x: Tensor) -> Tensor:
+    if x.dim() not in [3, 4]:
+        raise ValueError(f"Unsupported number of dimensions in tensor. Expected 3 or 4, got {x.dim()}")
+    if x.dim() == 3:
+        # Fix number of dimensions
+        x = torch.unsqueeze(x, dim=0)
+    elif x.size(0) != 1:
+        raise ValueError(f"Gradient operations only support single images. Received batch of size {x.size(0)}")
+    return x
 
 
 def smoothgrad(
@@ -41,9 +50,7 @@ def smoothgrad(
     Returns:
         similarity map
     """
-    if img_tensor.dim() != 4:
-        # Fix number of dimensions if necessary
-        img_tensor = torch.unsqueeze(img_tensor, dim=0)
+    img_tensor = _check_tensor_dims(img_tensor)
 
     # Map model to device
     model.eval()
@@ -53,7 +60,6 @@ def smoothgrad(
     h_max, w_max = -1, -1
     if single_location:
         if location is None:
-            # Find location of feature vector closest to target node
             with torch.no_grad():
                 # Compute similarity map
                 sim_map = model.similarities(img_tensor.to(device))[0, proto_idx].cpu().numpy()
@@ -142,8 +148,8 @@ def randgrad(
     Returns:
         similarity map
     """
-    if img_tensor.dim() > 3:
-        img_tensor = img_tensor[0]
+    img_tensor = _check_tensor_dims(img_tensor)
+
     grads = np.random.random(img_tensor.shape)
     return post_process(
         array=grads,
