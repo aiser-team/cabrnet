@@ -515,6 +515,25 @@ class StackedSum(nn.Module):
         return StackedSumAutoGradFunc()
 
 
+def attach_lrp_comp_rules(module: nn.Module, module_path: str = "") -> None:
+    # Custom rule policy (overrules Captum default behaviour)
+    policy = {
+        torch.nn.MaxPool2d: GradientRule,
+        torch.nn.BatchNorm2d: IdentityRule,
+        torch.nn.Sigmoid: IdentityRule,
+        StackedSum: GradientRule,
+        L2SimilaritiesLRPWrapper: GradientRule,
+        ZBetaLayer: GradientRule,
+        Alpha1Beta0Layer: GradientRule,
+    }
+    for name, child in module.named_children():
+        for key in policy.keys():
+            if isinstance(child, key):
+                logger.debug(f"Setting rule {policy[key].__name__} to module {module_path}{name} of type {key}")
+                child.rule = policy[key]()
+        attach_lrp_comp_rules(child, module_path=f"{module_path}{name}.")
+
+
 def get_extractor_lrp_composite_model(
     model: nn.Module,
     set_bias_to_zero: bool,
@@ -638,25 +657,7 @@ def get_extractor_lrp_composite_model(
                 ),
             )
 
-    # Set custom rule policy
-    policy = {"MaxPool2d": GradientRule, "BatchNorm2d": IdentityRule, "Sigmoid": IdentityRule}
-
-    def _set_policy(module: nn.Module, child_path: str = "") -> None:
-        """Set propagation rules depending on module type
-
-        Args:
-            module: target module
-            child_path: path inside module
-
-        """
-        for name, child in module.named_children():
-            key = type(child).__name__
-            if key in policy:
-                logger.debug(f"Setting rule {policy[key].__name__} to module {child_path}{name} of type {key}")
-                child.rule = policy[key]()
-            _set_policy(child, child_path=f"{child_path}{name}.")
-
-    _set_policy(lrp_model)
+    attach_lrp_comp_rules(lrp_model)
     return lrp_model
 
 
