@@ -369,8 +369,8 @@ class ProtoTree(CaBRNet):
                                 max_sim_idxs[img_idx, proto_idx].item() // W,
                                 max_sim_idxs[img_idx, proto_idx].item() % W,
                             )
-                            projection_info[proto_idx] = {
-                                "img_idx": batch_idx * data_loader.batch_size + img_idx,
+                            projection_info[proto_idx] = {  # type: ignore
+                                "img_idx": batch_idx * data_loader.batch_size + img_idx,  # type: ignore
                                 "h": h,
                                 "w": w,
                                 "score": max_sim[img_idx, proto_idx].item(),
@@ -493,7 +493,7 @@ class ProtoTree(CaBRNet):
                 graph.node(name=f"node_{node.node_id}", image=img_path, imagescale="True")
                 for child_name, similarity in zip(["nsim", "sim"], ["not similar", "similar"]):
                     child = node.get_submodule(f"{node.node_id}_child_{child_name}")
-                    graph = build_tree_explanation(child, graph)
+                    graph = build_tree_explanation(child, graph)  # type: ignore
                     graph.edge(
                         tail_name=f"node_{node.node_id}",
                         head_name=f"node_{child.node_id}",

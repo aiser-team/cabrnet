@@ -384,8 +384,8 @@ class CaBRNet(nn.Module):
         # Create destination directory if necessary
         os.makedirs(dir_path, exist_ok=True)
         # Copy visualizer configuration file
-        if os.path.isfile(visualizer.config_file):
-            shutil.copyfile(src=visualizer.config_file, dst=os.path.join(dir_path, "visualization.yml"))
+        if os.path.isfile(visualizer.config_file):  # type: ignore
+            shutil.copyfile(src=visualizer.config_file, dst=os.path.join(dir_path, "visualization.yml"))  # type: ignore
 
         # Show progress on progress bar if needed
         data_iter = tqdm(

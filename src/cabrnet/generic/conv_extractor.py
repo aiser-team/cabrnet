@@ -92,7 +92,7 @@ class ConvExtractor(nn.Module):
         x = self.convnet(x)
         if isinstance(x, dict):
             # Output of a create_feature_extractor
-            x = x["convnet"]
+            x = x["convnet"]  # type: ignore
         x = self.add_on(x)
         return x
 

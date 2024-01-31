@@ -148,7 +148,7 @@ class ProtoTreeClassifier(nn.Module):
             # leaf_idxs has shape batch_size
             leaf_idxs = torch.argmax(leaf_probabilities, dim=0)
             prediction = torch.index_select(input=leaf_distributions, dim=0, index=leaf_idxs[..., 0])
-            tree_info["decision_leaf"] = [leaf_names[leaf_idx.item()] for leaf_idx in leaf_idxs]
+            tree_info["decision_leaf"] = [leaf_names[leaf_idx.item()] for leaf_idx in leaf_idxs]  # type: ignore
         return prediction, tree_info
 
     @staticmethod
