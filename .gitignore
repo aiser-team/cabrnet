@@ -10,3 +10,4 @@ build/
 dist/
 examples/
 src/legacy/prototree
+src/legacy/protopnet
