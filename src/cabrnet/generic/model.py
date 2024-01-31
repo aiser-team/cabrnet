@@ -67,10 +67,12 @@ class ProtoClassifier(nn.Module):
     @staticmethod
     def create_parser(
         parser: argparse.ArgumentParser | None = None,
+        mandatory_config: bool = True,
     ) -> argparse.ArgumentParser:
         """Create the argument parser for a ProtoClassifier.
         Args:
             parser: Existing parser (if any)
+            mandatory_config: Make model configuration mandatory
 
         Returns:
             The parser itself.
@@ -79,7 +81,7 @@ class ProtoClassifier(nn.Module):
             parser = argparse.ArgumentParser(description="Build a ProtoClassifier")
         parser.add_argument(
             "--model-config",
-            default="configs/prototree/model.yml",
+            required=mandatory_config,
             metavar="/path/to/file.yml",
             help="Path to the model configuration file",
         )
