@@ -18,7 +18,7 @@ from cabrnet.utils.parser import (
 from cabrnet.utils.save import save_checkpoint, load_checkpoint
 from cabrnet.visualisation.visualizer import SimilarityVisualizer
 
-description = "training a CaBRNet classifier"
+description = "train a CaBRNet classifier"
 
 
 def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
