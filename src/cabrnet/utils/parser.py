@@ -204,4 +204,11 @@ def create_training_parser(parser: argparse.ArgumentParser | None = None) -> arg
         metavar="metric",
         help="Save best model based on accuracy or loss",
     )
+    parser.add_argument(
+        "--checkpoint-frequency",
+        type=int,
+        required=False,
+        metavar="num_epochs",
+        help="Checkpoint frequency (in epochs)",
+    )
     return parser

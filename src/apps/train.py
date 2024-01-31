@@ -139,6 +139,20 @@ def execute(args: Namespace) -> None:
                 device=device,
                 stats=train_info,
             )
+        if args.checkpoint_frequency is not None and (epoch % args.checkpoint_frequency == 0):
+            save_checkpoint(
+                directory_path=os.path.join(root_dir, f"epoch_{epoch}"),
+                model=model,
+                model_config=model_config,
+                optimizer=optimizer,
+                scheduler=scheduler,
+                training_config=training_config,
+                dataset_config=dataset_config,
+                epoch=epoch,
+                seed=seed,
+                device=device,
+                stats=train_info,
+            )
 
     # Load best model
     model = load_checkpoint(directory_path=os.path.join(root_dir, "best"))["model"]
