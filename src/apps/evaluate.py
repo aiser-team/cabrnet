@@ -10,7 +10,7 @@ from loguru import logger
 from cabrnet.generic.model import ProtoClassifier
 from cabrnet.utils.data import create_dataset_parser, get_dataloaders
 
-description = "evaluating a CaBRNet classifier"
+description = "evaluate a CaBRNet classifier"
 
 
 def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:

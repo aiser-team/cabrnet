@@ -35,7 +35,7 @@ import copy
 import numpy as np
 import random
 
-description = "converting an existing ProtoTree into a cabrnet version"
+description = "convert an existing ProtoTree into a CaBRNet version"
 
 
 class DummyLogger:
