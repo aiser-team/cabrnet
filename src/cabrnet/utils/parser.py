@@ -172,13 +172,21 @@ def create_training_parser(parser: argparse.ArgumentParser | None = None) -> arg
     """
     if parser is None:
         parser = argparse.ArgumentParser(description="Load datasets.")
-    parser.add_argument(
+
+    # Either provide a training configuration file or the path to a checkpoint directory
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument(
         "--training",
         "-t",
-        required=True,
         type=str,
         metavar="/path/to/file.yml",
         help="Path to the training configuration file",
+    )
+    group.add_argument(
+        "--resume-from",
+        type=str,
+        metavar="/path/to/checkpoint/directory",
+        help="Path to existing checkpoint directory",
     )
     parser.add_argument(
         "--training-dir",

@@ -9,8 +9,6 @@ import numpy as np
 import torch
 from loguru import logger
 from cabrnet.generic.model import ProtoClassifier
-from cabrnet.utils.parser import get_optimizer, get_param_groups, get_scheduler, load_config
-from cabrnet.utils.data import get_dataloaders
 
 
 def save_checkpoint(
@@ -62,42 +60,43 @@ def save_checkpoint(
             "python_rng_state": random.getstate(),
         },
         "epoch": epoch,
+        "seed": seed,
+        "device": device,
         "stats": stats,
     }
 
     with open(os.path.join(directory_path, "state.pickle"), "wb") as file:
         pickle.dump(state, file)
 
-    # Add reproducibility information
-    with open(os.path.join(directory_path, "reproducibility.txt"), "w") as file:
-        file.write(f"seed: {seed}\n" f"device: {device}")
-
     logger.info(f"Successfully saved checkpoint at epoch {epoch}.")
 
 
-# TODO: this function returns dataloaders by default, add hidden `return_datasets` option to return datasets instead
-def load_checkpoint(directory_path: str) -> Mapping[str, Any]:
+def load_checkpoint(
+    directory_path: str,
+    model: ProtoClassifier,
+    optimizer: torch.optim.Optimizer,
+    scheduler: torch.optim.lr_scheduler.LRScheduler | None,
+) -> Mapping[str, Any]:
     """Restore training process using checkpoint directory.
 
     Args:
         directory_path: Target location
+        model: ProtoClassifier
+        optimizer: Optimizer
+        scheduler: Scheduler
 
     Returns:
-        dictionary containing checkpoint state (model, optimizer, scheduler, dataloaders, epoch, stats)
+        dictionary containing auxiliary state information (epoch, seed, device, stats)
     """
     if not os.path.isdir(directory_path):
         raise ValueError(f"Unknown checkpoint directory {directory_path}")
 
-    model = ProtoClassifier.build_from_config(os.path.join(directory_path, "model.yml"))
     model.load_state_dict(torch.load(os.path.join(directory_path, "model_state.pth"), map_location="cpu"))
+    optimizer.load_state_dict(torch.load(os.path.join(directory_path, "optimizer_state.pth"), map_location="cpu"))
+    if scheduler is not None:
+        scheduler.load_state_dict(torch.load(os.path.join(directory_path, "scheduler_state.pth"), map_location="cpu"))
 
-    trainer = load_config(os.path.join(directory_path, "training.yml"))
-    param_groups = get_param_groups(trainer, model)
-    optimizer = get_optimizer(trainer, param_groups)
-    scheduler = get_scheduler(trainer, optimizer)
-
-    dataloaders = get_dataloaders(os.path.join(directory_path, "dataset.yml"))
-
+    # Restore RNG state
     with open(os.path.join(directory_path, "state.pickle"), "rb") as file:
         state = pickle.load(file)
 
@@ -110,18 +109,14 @@ def load_checkpoint(directory_path: str) -> Mapping[str, Any]:
 
     epoch = state.get("epoch")
     stats = state.get("stats")
+    seed = state.get("seed")
+    device = state.get("device")
 
     logger.info(f"Successfully loaded checkpoint from epoch {epoch}.")
 
-    with open(os.path.join(directory_path, "reproducibility.txt"), "r") as file:
-        for line in file.readlines():
-            logger.info(f"Reproducibility information. {line.rstrip()}")
-
     return {
-        "model": model,
-        "optimize": optimizer,
-        "scheduler": scheduler,
-        "dataloaders": dataloaders,
         "epoch": epoch,
+        "seed": seed,
+        "device": device,
         "stats": stats,
     }
