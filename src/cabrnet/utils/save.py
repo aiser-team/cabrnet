@@ -39,6 +39,14 @@ def save_checkpoint(
         device: Target hardware device (recorded for reproducibility)
         stats: Other optional statistics
     """
+
+    def safe_copy(src: str, dst: str):
+        try:
+            shutil.copyfile(src=src, dst=dst)
+        except shutil.SameFileError:
+            logger.warning(f"Ignoring file copy from {src} to itself.")
+            pass
+
     os.makedirs(directory_path, exist_ok=True)
 
     model.eval()  # NOTE: do we want this?
@@ -48,10 +56,10 @@ def save_checkpoint(
         torch.save(optimizer.state_dict(), os.path.join(directory_path, "optimizer_state.pth"))
     if scheduler is not None:  # NOTE: do we save something if there is no scheduler?
         torch.save(scheduler.state_dict(), os.path.join(directory_path, "scheduler_state.pth"))
-    shutil.copyfile(src=model_config, dst=os.path.join(directory_path, "model.yml"))
+    safe_copy(src=model_config, dst=os.path.join(directory_path, "model.yml"))
     if training_config is not None:
-        shutil.copyfile(src=training_config, dst=os.path.join(directory_path, "training.yml"))
-    shutil.copyfile(src=dataset_config, dst=os.path.join(directory_path, "dataset.yml"))
+        safe_copy(src=training_config, dst=os.path.join(directory_path, "training.yml"))
+    safe_copy(src=dataset_config, dst=os.path.join(directory_path, "dataset.yml"))
 
     state = {
         "random_generators": {
