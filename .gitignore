@@ -11,3 +11,5 @@ dist/
 examples/
 src/legacy/prototree
 src/legacy/protopnet
+legacy_states/
+pretrained_models/
