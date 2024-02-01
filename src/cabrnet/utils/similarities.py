@@ -1,19 +1,24 @@
 import torch.nn as nn
 import torch
 from torch import Tensor
+from loguru import logger
 
 
 class L2Similarities(nn.Module):
-    def __init__(self, num_prototypes: int, num_features: int) -> None:
+    def __init__(self, num_prototypes: int, num_features: int, protopnet_compatibility: bool = False) -> None:
         """
         Create module for computing similarities based on L2 distance
         Args:
             num_prototypes: Number of prototypes
             num_features: Size of each prototype
+            protopnet_compatibility: Compatibility mode with ProtoPNet
 
         """
         super().__init__()
         self.register_buffer("_summation_kernel", torch.ones((num_prototypes, num_features, 1, 1)))
+        self.protopnet_compatibility = protopnet_compatibility
+        if self.protopnet_compatibility:
+            logger.warning("Compatibility mode with ProtoPNet enabled when computing similarity scores ")
 
     def L2_square_distance(self, features: Tensor, prototypes: Tensor):
         """Returns the square of the L2 distance between each vector of features
@@ -34,6 +39,10 @@ class L2Similarities(nn.Module):
 
         # features x prototypes (N, P, H, W)
         features_x_prototypes = torch.conv2d(input=features, weight=prototypes)
+        if self.protopnet_compatibility:
+            # Swap order of operations to reproduce ProtoPNet legacy code
+            # Introduces slight changes on the output of the layer due to floating point operations
+            return features_l2_squared - 2 * features_x_prototypes + prototypes_l2_squared
         return features_l2_squared + prototypes_l2_squared - 2 * features_x_prototypes
 
     def forward(self, features: Tensor, prototypes: Tensor) -> Tensor:

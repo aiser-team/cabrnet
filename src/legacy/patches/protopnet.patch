@@ -42,7 +42,7 @@ index ca05b19..e6a2972 100644
  target_folders = [os.path.join(target_dir, folder) for folder in next(os.walk(dir))[1]]
  
 diff --git a/model.py b/model.py
-index b8870ab..c4c7b0b 100644
+index b8870ab..dc24b37 100644
 --- a/model.py
 +++ b/model.py
 @@ -3,12 +3,12 @@ import torch.nn as nn
@@ -62,6 +62,42 @@ index b8870ab..c4c7b0b 100644
  
  base_architecture_to_features = {'resnet18': resnet18_features,
                                   'resnet34': resnet34_features,
+@@ -33,7 +33,7 @@ class PPNet(nn.Module):
+     def __init__(self, features, img_size, prototype_shape,
+                  proto_layer_rf_info, num_classes, init_weights=True,
+                  prototype_activation_function='log',
+-                 add_on_layers_type='bottleneck'):
++                 add_on_layers_type='bottleneck', seed=None):
+ 
+         super(PPNet, self).__init__()
+         self.img_size = img_size
+@@ -75,6 +75,10 @@ class PPNet(nn.Module):
+         else:
+             raise Exception('other base base_architecture NOT implemented')
+ 
++        if seed is not None:
++            # For RNG synchronisation with CaBRNet
++            torch.manual_seed(seed)
++
+         if add_on_layers_type == 'bottleneck':
+             add_on_layers = []
+             current_in_channels = first_add_on_layer_in_channels
+@@ -288,7 +292,7 @@ class PPNet(nn.Module):
+ def construct_PPNet(base_architecture, pretrained=True, img_size=224,
+                     prototype_shape=(2000, 512, 1, 1), num_classes=200,
+                     prototype_activation_function='log',
+-                    add_on_layers_type='bottleneck'):
++                    add_on_layers_type='bottleneck', seed=None):
+     features = base_architecture_to_features[base_architecture](pretrained=pretrained)
+     layer_filter_sizes, layer_strides, layer_paddings = features.conv_info()
+     proto_layer_rf_info = compute_proto_layer_rf_info_v2(img_size=img_size,
+@@ -303,5 +307,5 @@ def construct_PPNet(base_architecture, pretrained=True, img_size=224,
+                  num_classes=num_classes,
+                  init_weights=True,
+                  prototype_activation_function=prototype_activation_function,
+-                 add_on_layers_type=add_on_layers_type)
++                 add_on_layers_type=add_on_layers_type, seed=seed)
+ 
 diff --git a/prune.py b/prune.py
 index b57430f..5d60aca 100644
 --- a/prune.py

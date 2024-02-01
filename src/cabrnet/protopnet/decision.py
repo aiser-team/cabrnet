@@ -30,14 +30,16 @@ class ProtoPNetClassifier(nn.Module):
         num_features: int,
         num_proto_per_class: int,
         proto_init_mode: str = "SHIFTED_NORMAL",
+        compatibility_mode: bool = False,
     ) -> None:
         """Create a ProtoPNet classifier.
 
         Args:
             num_classes: Number of classes
             num_features: Number of features (size of each prototype)
-            num_prototypes_per_class: Number of prototypes per class
+            num_proto_per_class: Number of prototypes per class
             proto_init_mode: Init mode for prototypes
+            compatibility_mode: Compatibility mode with legacy ProtoPNet
         """
         super().__init__()
 
@@ -58,7 +60,9 @@ class ProtoPNetClassifier(nn.Module):
             )
         )
         self.similarity_layer = ProtoPNetSimilarityScore(
-            num_prototypes=self.num_prototypes, num_features=self.num_features
+            num_prototypes=self.num_prototypes,
+            num_features=self.num_features,
+            protopnet_compatibility=compatibility_mode,
         )
 
         self.last_layer = nn.Linear(in_features=self.num_prototypes, out_features=self.num_classes, bias=False)
