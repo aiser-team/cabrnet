@@ -8,15 +8,6 @@ from torch import Tensor
 
 
 class ProtoPNetSimilarityScore(L2Similarities):
-    def __init__(self, num_prototypes: int, num_features: int) -> None:
-        """
-        Create module for computing similarities based on L2 distance
-        Args:
-            num_prototypes: Number of prototypes
-            num_features: Size of each prototype
-        """
-        super().__init__(num_prototypes=num_prototypes, num_features=num_features)
-
     def forward(self, features: Tensor, prototypes: Tensor) -> Tensor:
         """
         Compute similarity based on L2 distance using ||x - y||² = ||x||² + ||y||² - 2 x.y
