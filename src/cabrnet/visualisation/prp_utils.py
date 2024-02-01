@@ -80,7 +80,7 @@ class DecisionLRPWrapper(nn.Module):
         self.prototypes = copy.deepcopy(classifier.prototypes)
         self.similarity_layer = L2SimilaritiesLRPWrapper(
             # Do not use classifier.num_prototypes as it might have changed after pruning
-            num_prototypes=classifier.prototypes.size(0),
+            num_prototypes=classifier.max_num_prototypes,
             num_features=classifier.num_features,
             stability_factor=stability_factor,
         )

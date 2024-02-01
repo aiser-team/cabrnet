@@ -2,6 +2,7 @@ from argparse import ArgumentParser
 
 import torch
 import torch.nn as nn
+from cabrnet.generic.decision import CaBRNetAbstractClassifier
 from cabrnet.utils.prototypes import init_prototypes
 from cabrnet.utils.similarities import L2Similarities
 from torch import Tensor
@@ -23,7 +24,7 @@ class ProtoPNetSimilarityScore(L2Similarities):
         return torch.log((distances + 1) / (distances + 1e-4))
 
 
-class ProtoPNetClassifier(nn.Module):
+class ProtoPNetClassifier(CaBRNetAbstractClassifier, nn.Module):
     def __init__(
         self,
         num_classes: int,
@@ -41,11 +42,12 @@ class ProtoPNetClassifier(nn.Module):
             proto_init_mode: Init mode for prototypes
             compatibility_mode: Compatibility mode with legacy ProtoPNet
         """
-        super().__init__()
+        nn.Module.__init__(self)
+        CaBRNetAbstractClassifier.__init__(
+            self, num_classes=num_classes, num_features=num_features, proto_init_mode=proto_init_mode
+        )
 
         # Sanity check on all parameters
-        assert num_classes > 1, f"Invalid number of classes: {num_classes}"
-        assert num_features > 0, f"Invalid number of features: {num_features}"
         assert num_proto_per_class > 0, f"Invalid number of prototypes per class: {num_proto_per_class}"
 
         self.num_classes = num_classes
@@ -53,7 +55,6 @@ class ProtoPNetClassifier(nn.Module):
         self.num_proto_per_class = num_proto_per_class
 
         # Init prototypes
-        self.prototypes_init_mode = proto_init_mode
         self.prototypes = nn.Parameter(
             init_prototypes(
                 num_prototypes=self.num_prototypes, num_features=self.num_features, init_mode=proto_init_mode
@@ -69,13 +70,20 @@ class ProtoPNetClassifier(nn.Module):
         self.set_last_layer_incorrect_connection(-0.5)
 
     @property
+    def max_num_prototypes(self) -> int:
+        """
+        Returns: Maximum number of prototypes (might differ from current number of prototypes due to pruning)
+        """
+        return self.num_proto_per_class * self.num_classes
+
+    @property
     def num_prototypes(self) -> int:
-        """Retrieve the number of prototypes.
+        """Retrieve the current number of prototypes. Note: this value may change after pruning
 
         Returns:
             The total number of prototypes.
         """
-        return self.num_proto_per_class * self.num_classes
+        return self.max_num_prototypes
 
     # TODO: see if it can be improved
     def set_last_layer_incorrect_connection(self, incorrect_strength: float) -> None:
@@ -120,31 +128,12 @@ class ProtoPNetClassifier(nn.Module):
         """
         if parser is None:
             parser = ArgumentParser(description="builds a ProtoPNetClassifier object.")
-            # TODO: This information is normally given by the task configuration file
-            parser.add_argument(
-                "--num-classes",
-                type=int,
-                default=200,
-                metavar="num",
-                help="number of categories in the classification task.",
-            )
-            parser.add_argument(
-                "--num-features", type=int, default=256, metavar="num", help="number of features for each prototype."
-            )
-            parser.add_argument(
-                "--num-proto-per-class",
-                type=int,
-                default=10,
-                metavar="num",
-                help="number of prototype for each category.",
-            )
-            parser.add_argument(
-                "--prototype-init-mode",
-                type=str,
-                default="zeros",
-                choices=["zeros", "normal"],
-                metavar="mode",
-                help="initialisation mode for the leaves distributions.",
-            )
-
+        parser = CaBRNetAbstractClassifier.create_parser(parser)
+        parser.add_argument(
+            "--num-proto-per-class",
+            type=int,
+            default=10,
+            metavar="num",
+            help="number of prototype for each category.",
+        )
         return parser
