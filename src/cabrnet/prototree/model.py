@@ -60,36 +60,36 @@ class ProtoTree(CaBRNet):
         """
         legacy_keys = legacy_state.keys()
         final_state = copy.deepcopy(legacy_state)
-        plib_state = self.state_dict()
-        plib_keys = self.state_dict().keys()
-        plib_key = "dummy"
+        cbrn_state = self.state_dict()
+        cbrn_keys = list(self.state_dict().keys())
+        cbrn_key = "dummy"
 
         for legacy_key in legacy_keys:
             if legacy_key.startswith("_net"):
                 # Feature extractor
-                plib_key = legacy_key.replace("_net", "extractor.convnet")
-                if plib_key not in plib_keys:
+                cbrn_key = legacy_key.replace("_net", "extractor.convnet")
+                if cbrn_key not in cbrn_keys:
                     raise ValueError(f"No parameter matching {legacy_key}. Check that model architectures are similar.")
             elif legacy_key.startswith("_add_on"):
                 # Add-on layers, find matching parameter based on size
                 ref_size = legacy_state[legacy_key].size()
                 found_match = False
-                for plib_key in plib_keys:
-                    if "add_on" in plib_key:
-                        if plib_state[plib_key].size() == ref_size:
-                            logger.info(f"Matching parameters {plib_key} to {legacy_key} based on identical size.")
+                for cbrn_key in cbrn_keys:
+                    if "add_on" in cbrn_key:
+                        if cbrn_state[cbrn_key].size() == ref_size:
+                            logger.info(f"Matching parameters {cbrn_key} to {legacy_key} based on identical size.")
                             found_match = True
                             break
                 if not found_match:
                     raise ValueError(f"No parameter matching {legacy_key}. Check that model architectures are similar.")
             elif legacy_key == "prototype_layer.prototype_vectors":
-                plib_key = "classifier.prototypes"
+                cbrn_key = "classifier.prototypes"
             else:
                 if not legacy_key.startswith("_root"):
                     raise ValueError(f"Unexpected parameter {legacy_key}")
                 # Iterate on letters in the key (first, remove '.')
                 symbols = legacy_key[6:].replace(".", "")
-                possible_keys = [key for key in plib_keys if key.startswith("classifier.tree.")]
+                possible_keys = [key for key in cbrn_keys if key.startswith("classifier.tree.")]
                 for index, symbol in enumerate(symbols):
                     if symbol == "l":
                         # Keep only keys for which the nsim keyword is present
@@ -101,17 +101,18 @@ class ProtoTree(CaBRNet):
                         if len(possible_keys) != 1:
                             raise ValueError(f"Could not match leaf distribution. Candidates: {possible_keys}")
                         break
-                plib_key = possible_keys[0]
+                cbrn_key = possible_keys[0]
                 # Expand dimension of leaf distribution
                 final_state[legacy_key] = torch.unsqueeze(final_state[legacy_key], 0)
 
             # Update state
-            if plib_state[plib_key].size() != final_state[legacy_key].size():
+            if cbrn_state[cbrn_key].size() != final_state[legacy_key].size():
                 raise ValueError(
-                    f"Mismatching parameter size for {legacy_key} and {plib_key}. "
-                    f"Expected {plib_state[plib_key].size()}, got {final_state[legacy_key].size()}"
+                    f"Mismatching parameter size for {legacy_key} and {cbrn_key}. "
+                    f"Expected {cbrn_state[cbrn_key].size()}, got {final_state[legacy_key].size()}"
                 )
-            final_state[plib_key] = final_state.pop(legacy_key)
+            final_state[cbrn_key] = final_state.pop(legacy_key)
+            cbrn_keys.remove(cbrn_key)
         self.load_state_dict(final_state, strict=False)
 
     def analyse_leafs(self, pruning_threshold: float = 0.01) -> None:
