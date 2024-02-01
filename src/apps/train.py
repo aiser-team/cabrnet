@@ -155,11 +155,7 @@ def execute(args: Namespace) -> None:
             )
 
     # Load best model
-    model = load_checkpoint(directory_path=os.path.join(root_dir, "best"))["model"]
-
-    # Call epilogue
-    if trainer.get("epilogue") is not None:
-        model.epilogue(**trainer.get("epilogue"))  # type: ignore
+    load_checkpoint(directory_path=os.path.join(root_dir, "best"), model=model)
 
     # Perform projection
     projection_info = model.project(data_loader=dataloaders["projection_set"], device=device, verbose=verbose)
@@ -176,6 +172,23 @@ def execute(args: Namespace) -> None:
         verbose=verbose,
     )
 
+    # Call epilogue
+    if trainer.get("epilogue") is not None:
+        model.epilogue(**trainer.get("epilogue"))  # type: ignore
+
     # Evaluate model
     eval_info = model.evaluate(dataloader=dataloaders["test_set"], device=device, verbose=verbose)
     logger.info(f"Average loss: {eval_info['avg_loss']:.2f}. Average accuracy: {eval_info['avg_eval_accuracy']:.2f}.")
+    save_checkpoint(
+        directory_path=os.path.join(root_dir, f"final"),
+        model=model,
+        model_config=model_config,
+        optimizer=optimizer,
+        scheduler=scheduler,
+        training_config=training_config,
+        dataset_config=dataset_config,
+        epoch="final",
+        seed=seed,
+        device=device,
+        stats=eval_info,
+    )

@@ -304,7 +304,7 @@ def cabrnet_process(
         device=device,
         stats=None,
     )
-    load_checkpoint(os.path.join(root_directory, "model"))
+    load_checkpoint(os.path.join(root_directory, "model"), model=model)
 
     return system_state
 
