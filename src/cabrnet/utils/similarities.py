@@ -42,7 +42,8 @@ class L2Similarities(nn.Module):
         if self.protopnet_compatibility:
             # Swap order of operations to reproduce ProtoPNet legacy code
             # Introduces slight changes on the output of the layer due to floating point operations
-            return features_l2_squared - 2 * features_x_prototypes + prototypes_l2_squared
+            intermediate = -2 * features_x_prototypes + prototypes_l2_squared
+            return features_l2_squared + intermediate
         return features_l2_squared + prototypes_l2_squared - 2 * features_x_prototypes
 
     def forward(self, features: Tensor, prototypes: Tensor) -> Tensor:
