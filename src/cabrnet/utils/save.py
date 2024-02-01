@@ -19,7 +19,7 @@ def save_checkpoint(
     scheduler: torch.optim.lr_scheduler.LRScheduler | None,
     training_config: str | None,
     dataset_config: str,
-    epoch: int,
+    epoch: int | str,
     seed: int | None,
     device: str,
     stats: dict[str, Any] | None = None,
@@ -74,8 +74,8 @@ def save_checkpoint(
 def load_checkpoint(
     directory_path: str,
     model: ProtoClassifier,
-    optimizer: torch.optim.Optimizer,
-    scheduler: torch.optim.lr_scheduler.LRScheduler | None,
+    optimizer: torch.optim.Optimizer | None = None,
+    scheduler: torch.optim.lr_scheduler.LRScheduler | None = None,
 ) -> Mapping[str, Any]:
     """Restore training process using checkpoint directory.
 
@@ -92,7 +92,8 @@ def load_checkpoint(
         raise ValueError(f"Unknown checkpoint directory {directory_path}")
 
     model.load_state_dict(torch.load(os.path.join(directory_path, "model_state.pth"), map_location="cpu"))
-    optimizer.load_state_dict(torch.load(os.path.join(directory_path, "optimizer_state.pth"), map_location="cpu"))
+    if optimizer is not None:
+        optimizer.load_state_dict(torch.load(os.path.join(directory_path, "optimizer_state.pth"), map_location="cpu"))
     if scheduler is not None:
         scheduler.load_state_dict(torch.load(os.path.join(directory_path, "scheduler_state.pth"), map_location="cpu"))
 
