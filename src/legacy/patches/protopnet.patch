@@ -126,7 +126,7 @@ index cb8c1c8..669223e 100644
 -def train(model, dataloader, optimizer, class_specific=False, coefs=None, log=print):
 +def train(model, dataloader, optimizer, class_specific=False, coefs=None, max_batches=None, log=print):
      assert(optimizer is not None)
-     
+
      log('\ttrain')
      model.train()
      return _train_or_test(model=model, dataloader=dataloader, optimizer=optimizer,
