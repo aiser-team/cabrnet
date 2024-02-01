@@ -1,9 +1,11 @@
+import copy
 from typing import Any, Callable
 
 import torch
 import torch.nn as nn
 from cabrnet.generic.model import ProtoClassifier
 from cabrnet.visualisation.visualizer import SimilarityVisualizer
+from loguru import logger
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader
 from tqdm import tqdm
@@ -33,8 +35,48 @@ class ProtoPNet(ProtoClassifier):
         Raises:
             ValueError when keys or tensor sizes mismatch.
         """
-        print(legacy_state)
-        raise NotImplementedError  # TODO: implement this
+        legacy_keys = legacy_state.keys()
+        final_state = copy.deepcopy(legacy_state)
+        cbrn_state = self.state_dict()
+        cbrn_keys = list(self.state_dict().keys())
+        cbrn_key = "dummy"
+
+        for legacy_key in legacy_keys:
+            if legacy_key.startswith("features"):
+                # Feature extractor
+                cbrn_key = legacy_key.replace("features", "extractor.convnet", 1)
+                if cbrn_key not in cbrn_keys:
+                    raise ValueError(f"No parameter matching {legacy_key}. Check that model architectures are similar.")
+            elif legacy_key.startswith("add_on_layers"):
+                # Add-on layers, find matching parameter based on size
+                ref_size = legacy_state[legacy_key].size()
+                found_match = False
+                for cbrn_key in cbrn_keys:
+                    if "add_on" in cbrn_key:
+                        if cbrn_state[cbrn_key].size() == ref_size:
+                            logger.info(f"Matching parameters {cbrn_key} to {legacy_key} based on identical size.")
+                            found_match = True
+                            break
+                if not found_match:
+                    raise ValueError(f"No parameter matching {legacy_key}. Check that model architectures are similar.")
+            elif legacy_key == "last_layer.weight":
+                cbrn_key = "classifier.last_layer.weight"
+            elif legacy_key == "prototype_vectors":
+                cbrn_key = "classifier.prototypes"
+            elif legacy_key == "ones":
+                cbrn_key = "classifier.similarity_layer._summation_kernel"
+            else:
+                final_state[legacy_key] = torch.unsqueeze(final_state[legacy_key], 0)
+
+            # Update state
+            if cbrn_state[cbrn_key].size() != final_state[legacy_key].size():
+                raise ValueError(
+                    f"Mismatching parameter size for {legacy_key} and {cbrn_key}. "
+                    f"Expected {cbrn_state[cbrn_key].size()}, got {final_state[legacy_key].size()}"
+                )
+            final_state[cbrn_key] = final_state.pop(legacy_key)
+            cbrn_keys.remove(cbrn_key)
+        self.load_state_dict(final_state, strict=False)
 
     def loss(self, model_output: Any, label: torch.Tensor) -> tuple[torch.Tensor, float]:
         """Loss function.
