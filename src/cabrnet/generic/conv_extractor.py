@@ -7,7 +7,7 @@ import torch
 import torch.nn as nn
 import torchvision.models as torch_models
 from loguru import logger
-from torchvision.models.feature_extraction import create_feature_extractor
+from torchvision.models.feature_extraction import create_feature_extractor, get_graph_node_names
 
 warnings.filterwarnings("ignore")
 
@@ -75,7 +75,13 @@ class ConvExtractor(nn.Module):
         self.arch_name = arch.lower()
         self.weights = weights
         self.layer = layer
-        self.convnet = create_feature_extractor(model=model, return_nodes={layer: "convnet"})
+        try:
+            self.convnet = create_feature_extractor(model=model, return_nodes={layer: "convnet"})
+        except ValueError as e:
+            logger.error(f"Could not create feature extractor. Possible layer names: {get_graph_node_names(model)}")
+            logger.error(f"See model architecture below")
+            logger.info(model)
+            raise e
         # Dummy inference to recover number of output channels from the feature extractor
         self.convnet.eval()
         in_channels = self.convnet(torch.zeros((1, 3, 224, 224)))["convnet"].size(1)
