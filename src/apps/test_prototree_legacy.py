@@ -229,6 +229,7 @@ def cabrnet_process(
     scheduler = get_scheduler(trainer, optimizer)
     system_state["optimizer_states"].append(copy.deepcopy(optimizer.state_dict()))
     system_state["scheduler_states"].append(copy.deepcopy(scheduler.state_dict()))
+    pruning_threshold = trainer["epilogue"]["pruning_threshold"]
 
     # Training
     num_epochs = trainer["num_epochs"]
@@ -272,10 +273,6 @@ def cabrnet_process(
         torch.randn((10, 3, 224, 224)), strategy=cabrnet.prototree.decision.SamplingStrategy.GREEDY
     )
 
-    # Prune weak leaves
-    model.prune(pruning_threshold=0.01)
-    system_state["pruned"] = copy.deepcopy(model)
-
     # Project prototypes
     projection_info = model.project(data_loader=dataloaders["projection_set"], device=device, verbose=verbose)
     system_state["projected"] = copy.deepcopy(model.to("cpu"))
@@ -290,6 +287,10 @@ def cabrnet_process(
         device=device,
         verbose=verbose,
     )
+
+    # Prune weak leaves
+    model.prune(pruning_threshold=pruning_threshold)
+    system_state["pruned"] = copy.deepcopy(model)
 
     save_checkpoint(
         directory_path=os.path.join(root_directory, "model"),
@@ -451,6 +452,7 @@ def legacy_process(
     num_epochs = train_config["num_epochs"]
     freeze_epochs = train_config["freeze"]["warmup"]["epoch_range"][1]
     args.update({"freeze_epochs": freeze_epochs + 1})
+    pruning_threshold = train_config["epilogue"]["pruning_threshold"]
 
     for epoch in range(num_epochs):
         legacy.prototree.util.net.freeze(
@@ -500,10 +502,6 @@ def legacy_process(
     system_state["sample_max"] = tree(torch.randn((10, 3, 224, 224)), sampling_strategy="sample_max")
     system_state["greedy"] = tree(torch.randn((10, 3, 224, 224)), sampling_strategy="greedy")
 
-    # Prune weak leaves
-    legacy.prototree.prototree.prune.prune(tree=tree, pruning_threshold_leaves=0.01, log=dummy_logger)
-    system_state["pruned"] = copy.deepcopy(tree)
-
     # Project prototypes
     tree.to(device)
     projection_info, _ = legacy.prototree.prototree.project.project_with_class_constraints(
@@ -511,6 +509,10 @@ def legacy_process(
     )
     system_state["projected"] = copy.deepcopy(tree.to("cpu"))
     system_state["projection_info"] = projection_info
+
+    # Prune weak leaves
+    legacy.prototree.prototree.prune.prune(tree=tree, pruning_threshold_leaves=pruning_threshold, log=dummy_logger)
+    system_state["pruned"] = copy.deepcopy(tree)
 
     folder_name = "pruned_and_projected"
     legacy.prototree.util.save.save_tree_description(
