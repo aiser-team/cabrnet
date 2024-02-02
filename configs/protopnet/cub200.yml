@@ -2,35 +2,12 @@ train_set:
   module: torchvision.datasets
   name: ImageFolder
   params:
-    root: data/CUB_200_2011/dataset/train_corners
+    root: data/CUB_200_2011/dataset/train_crop_augmented
     transform:
       resize:
         type: Resize
         params:
           size: [224, 224]
-      compose:
-        type: RandomOrder
-        transforms:
-          rnd_perspective:
-            type: RandomPerspective
-            params:
-              distortion_scale: 0.2
-              p: 0.5
-          color_jitter:
-            type: ColorJitter
-            params:
-              brightness: [0.6, 1.4]
-              contrast: [0.6, 1.4]
-              saturation: [0.6, 1.4]
-              hue: [-0.02, 0.02]
-          hflip:
-            type: RandomHorizontalFlip
-          affine:
-            type: RandomAffine
-            params:
-              degrees: 10
-              shear: [-2, 2]
-              translate: [0.05, 0.05]
       to_tensor:
         type: ToTensor
       normalize:
@@ -58,14 +35,14 @@ projection_set:
         params:
           mean: [0.485, 0.456, 0.406]
           std: [0.229, 0.224, 0.225]
-  batch_size: 4
+  batch_size: 75
   shuffle: False
 
 test_set:
-  module: torchvision.datasets
-  name: ImageFolder
-  params:
-    root: data/CUB_200_2011/dataset/test_full
+  module: torchvision.datasets # Module name
+  name: ImageFolder # Class name
+  params: # How to initialize the dataset
+    root: data/CUB_200_2011/dataset/test_crop
     transform:
       resize:
         type: Resize
@@ -78,5 +55,5 @@ test_set:
         params:
           mean: [0.485, 0.456, 0.406]
           std: [0.229, 0.224, 0.225]
-  batch_size: 16
+  batch_size: 100
   shuffle: False
