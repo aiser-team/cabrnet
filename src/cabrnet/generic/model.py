@@ -126,6 +126,9 @@ class ProtoClassifier(nn.Module):
                 add_on_init_mode = config_dict["extractor"]["add_on"].pop("init_mode")
 
         # Build feature extractor
+        if state_dict_path is not None:
+            # Disable parameter loading when building the extractor, since all weights will eventually be overwritten
+            config_dict["extractor"]["backbone"]["weights"] = None
         extractor = ConvExtractor.build_from_dict(config_dict["extractor"], seed=seed)
 
         # Build classifier
