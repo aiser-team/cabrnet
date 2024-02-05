@@ -5,16 +5,12 @@ import cabrnet.prototree.decision
 from cabrnet.generic.model import ProtoClassifier
 from cabrnet.utils.parser import (
     load_config,
-    get_param_groups,
-    get_optimizer,
-    get_scheduler,
-    freeze,
     create_training_parser,
 )
 from cabrnet.utils.data import create_dataset_parser, get_dataloaders
 from cabrnet.utils.save import save_checkpoint, load_checkpoint
 from cabrnet.utils.monitoring import memory_logger
-from cabrnet.utils.hacks import optimizer_to
+from cabrnet.utils.optimizers import OptimizerManager, move_optimizer_to
 from cabrnet.visualisation.visualizer import SimilarityVisualizer
 import legacy.prototree.prototree.prototree as prototree_legacy
 import legacy.prototree.prototree.train
@@ -210,7 +206,6 @@ def cabrnet_process(
         "model": None,
         "dataloader_test": None,
         "model_states": [],
-        "scheduler_states": [],
         "optimizer_states": [],
     }
 
@@ -224,21 +219,17 @@ def cabrnet_process(
     system_state["dataloader_test"] = xs.cpu().clone(), ys.cpu().clone()
     # Initialize optimizer and LR scheduler
     trainer = load_config(training_config)
-    param_groups = get_param_groups(trainer, model)
-    optimizer = get_optimizer(trainer, param_groups)
-    scheduler = get_scheduler(trainer, optimizer)
-    system_state["optimizer_states"].append(copy.deepcopy(optimizer.state_dict()))
-    system_state["scheduler_states"].append(copy.deepcopy(scheduler.state_dict()))
-    pruning_threshold = trainer["epilogue"]["pruning_threshold"]
+    optimizer_mngr = OptimizerManager.build_from_config(training_config, model)
+    system_state["optimizer_states"].append(copy.deepcopy(optimizer_mngr.state_dict()))
 
     # Training
     num_epochs = trainer["num_epochs"]
     for epoch in range(num_epochs):
-        freeze(epoch=epoch, param_groups=param_groups, trainer=trainer)
+        optimizer_mngr.freeze(epoch=epoch)
 
         model.train_epoch(
             train_loader=dataloaders["train_set"],
-            optimizer=optimizer,
+            optimizer_mngr=optimizer_mngr,
             device=device,
             progress_bar_position=0,
             epoch_idx=epoch,
@@ -246,15 +237,14 @@ def cabrnet_process(
             verbose=verbose,
         )
         # Update scheduler and leaf labels before saving checkpoints
-        scheduler.step()
+        optimizer_mngr.scheduler_step(epoch=epoch)
         # Move model and optimizer to CPU before saving, then move back to GPU
         model.to("cpu")
-        optimizer_to(optimizer, "cpu")
+        optimizer_mngr.to("cpu")
         system_state["model_states"].append(copy.deepcopy(model.state_dict()))
-        system_state["optimizer_states"].append(copy.deepcopy(optimizer.state_dict()))
-        system_state["scheduler_states"].append(copy.deepcopy(scheduler.state_dict()))
+        system_state["optimizer_states"].append(copy.deepcopy(optimizer_mngr.state_dict()))
         model.to(device)
-        optimizer_to(optimizer, device)
+        optimizer_mngr.to(device)
     if legacy_state_dict is None:
         return system_state
 
@@ -273,6 +263,10 @@ def cabrnet_process(
         torch.randn((10, 3, 224, 224)), strategy=cabrnet.prototree.decision.SamplingStrategy.GREEDY
     )
 
+    # Prune weak leaves
+    model.prune(pruning_threshold=0.01)
+    system_state["pruned"] = copy.deepcopy(model)
+
     # Project prototypes
     projection_info = model.project(data_loader=dataloaders["projection_set"], device=device, verbose=verbose)
     system_state["projected"] = copy.deepcopy(model.to("cpu"))
@@ -288,16 +282,11 @@ def cabrnet_process(
         verbose=verbose,
     )
 
-    # Prune weak leaves
-    model.prune(pruning_threshold=pruning_threshold)
-    system_state["pruned"] = copy.deepcopy(model)
-
     save_checkpoint(
         directory_path=os.path.join(root_directory, "model"),
         model=model,
         model_config=model_config,
-        optimizer=optimizer,
-        scheduler=scheduler,
+        optimizer_mngr=optimizer_mngr,
         training_config=training_config,
         dataset_config=dataset_config,
         epoch=0,
@@ -420,18 +409,18 @@ def legacy_process(
     system_state["dataloader_test"] = xs.cpu().clone(), ys.cpu().clone()
 
     # Populate remaining options
-    train_config = load_config(training_config)["optimizer"]
+    train_config = load_config(training_config)["optimizers"]["main_optimizer"]
     visualization_config = load_config(visualization_config)["prototype"]["view"]
     args.update(
         {
-            "optimizer": train_config["name"],
+            "optimizer": train_config["type"],
             "net": arch,
             "dataset": dataset_name,
             "lr": train_config["params"]["lr"],
             # "lr_pi": TODO: Add support for training mode with backprop on leaves (ie disable derivative free algorithm)
-            "lr_net": train_config["config"]["backbone_to_freeze"]["lr"],
-            "lr_block": train_config["config"]["backbone_to_train"]["lr"],
-            "weight_decay": train_config["config"]["backbone_to_train"]["weight_decay_rate"],
+            "lr_net": train_config["groups"]["backbone_to_freeze"]["lr"],
+            "lr_block": train_config["groups"]["backbone_to_train"]["lr"],
+            "weight_decay": train_config["groups"]["backbone_to_train"]["weight_decay_rate"],
             "momentum": train_config["params"]["momentum"],
             "disable_derivative_free_leaf_optim": False,
             "log_dir": root_directory,
@@ -450,9 +439,8 @@ def legacy_process(
     # Training
     train_config = load_config(training_config)
     num_epochs = train_config["num_epochs"]
-    freeze_epochs = train_config["freeze"]["warmup"]["epoch_range"][1]
+    freeze_epochs = train_config["periods"]["warmup"]["epoch_range"][1]
     args.update({"freeze_epochs": freeze_epochs + 1})
-    pruning_threshold = train_config["epilogue"]["pruning_threshold"]
 
     for epoch in range(num_epochs):
         legacy.prototree.util.net.freeze(
@@ -483,12 +471,12 @@ def legacy_process(
 
         # Move model and optimizer to CPU before saving, then move back to GPU
         tree.to("cpu")
-        optimizer_to(optimizer, "cpu")
+        move_optimizer_to(optimizer, "cpu")
         system_state["model_states"].append(copy.deepcopy(tree.state_dict()))
         system_state["optimizer_states"].append(copy.deepcopy(optimizer.state_dict()))
         system_state["scheduler_states"].append(copy.deepcopy(scheduler.state_dict()))
         tree.to(device)
-        optimizer_to(optimizer, device)
+        move_optimizer_to(optimizer, device)
 
     if legacy_state_dict is None:
         return system_state
@@ -502,6 +490,10 @@ def legacy_process(
     system_state["sample_max"] = tree(torch.randn((10, 3, 224, 224)), sampling_strategy="sample_max")
     system_state["greedy"] = tree(torch.randn((10, 3, 224, 224)), sampling_strategy="greedy")
 
+    # Prune weak leaves
+    legacy.prototree.prototree.prune.prune(tree=tree, pruning_threshold_leaves=0.01, log=dummy_logger)
+    system_state["pruned"] = copy.deepcopy(tree)
+
     # Project prototypes
     tree.to(device)
     projection_info, _ = legacy.prototree.prototree.project.project_with_class_constraints(
@@ -509,10 +501,6 @@ def legacy_process(
     )
     system_state["projected"] = copy.deepcopy(tree.to("cpu"))
     system_state["projection_info"] = projection_info
-
-    # Prune weak leaves
-    legacy.prototree.prototree.prune.prune(tree=tree, pruning_threshold_leaves=pruning_threshold, log=dummy_logger)
-    system_state["pruned"] = copy.deepcopy(tree)
 
     folder_name = "pruned_and_projected"
     legacy.prototree.util.save.save_tree_description(
@@ -585,12 +573,14 @@ def execute(args: Namespace) -> None:
             test_model=model_init,
         )
     for epoch, (ref, test) in enumerate(zip(system_ref["optimizer_states"], system_test["optimizer_states"])):
+        test = test["optimizers"]["main_optimizer"]
         compare_generic(
             description=f"Optimizers matching at epoch {epoch-1}",
             ref=ref,
             test=test,
         )
-    for epoch, (ref, test) in enumerate(zip(system_ref["scheduler_states"], system_test["scheduler_states"])):
+    for epoch, (ref, test) in enumerate(zip(system_ref["scheduler_states"], system_test["optimizer_states"])):
+        test = test["schedulers"]["main_optimizer"]
         compare_generic(
             description=f"Schedulers matching at epoch {epoch-1}",
             ref=ref,

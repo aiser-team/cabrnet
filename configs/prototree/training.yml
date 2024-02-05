@@ -1,53 +1,54 @@
 param_groups:
   backbone_to_freeze:
-    start: null
-    stop: extractor.convnet.layer4.1.bn3.bias # None/null means first named parameter, second name is inclusive
-  backbone_to_train:
-    # Select range of named parameters from first to last (included)
-    start: extractor.convnet.layer4.2.conv1.weight
-    stop: extractor.convnet.layer4.2.bn3.bias
+    stop: extractor.convnet.layer4.1 # None/null means first named parameter, second name is inclusive
+  backbone_to_train: extractor.convnet.layer4.2
   add_on_layers: extractor.add_on # All named parameters starting with this prefix
   prototypes: classifier.prototypes
   #leaves_distributions: classifier.tree
 
-optimizer:
-  name: SGD
-  config:
-    backbone_to_freeze:
-      lr: 0.00001 # FIXME: Values like 1e-5 are not supported
-      weight_decay_rate: 0.0
-      momentum: 0.9
-    backbone_to_train:
-      lr: 0.001
-      weight_decay_rate: 0.0
-      momentum: 0.9
-    add_on_layers:
-      lr: 0.001
-      weight_decay_rate: 0.0
-      momentum: 0.9
-    prototypes:
-      lr: 0.001
-      weight_decay_rate: 0
-      momentum: 0
-#    leaves_distributions: # If we are not in derivative free mode for tree leaves
-#      lr: 0.001
-#      momentum: 0.9
-  params:
-    lr: 0.001
-    momentum: 0.9
-  scheduler:
-    type: MultiStepLR # or ReduceLROnPlateau
+optimizers:
+  main_optimizer:
+    type: SGD
+    groups:
+      backbone_to_freeze:
+        lr: 0.00001 # FIXME: Values like 1e-5 are not supported
+        weight_decay_rate: 0.0
+        momentum: 0.9
+      backbone_to_train:
+        lr: 0.001
+        weight_decay_rate: 0.0
+        momentum: 0.9
+      add_on_layers:
+        lr: 0.001
+        weight_decay_rate: 0.0
+        momentum: 0.9
+      prototypes:
+        lr: 0.001
+        weight_decay_rate: 0
+        momentum: 0
+  #    leaves_distributions: # If we are not in derivative free mode for tree leaves
+  #      lr: 0.001
+  #      momentum: 0.9
     params:
-      milestones: [60, 70, 80, 90, 100]
-      gamma: 0.5
+      lr: 0.001
+      momentum: 0.9
+    scheduler:
+      type: MultiStepLR # or ReduceLROnPlateau
+      params:
+        milestones: [60, 70, 80, 90, 100]
+        gamma: 0.5
 
 num_epochs: 5
 
 # By default, everything that is not frozen is trained
-freeze:
+periods:
   warmup:
-    epoch_range: [0, 2] # First and last epoch (included)
-    targets: [backbone_to_freeze]
+      epoch_range: [ 0, 2 ] # First and last epoch (included)
+      freeze: [ backbone_to_freeze ]
+      optimizers:
+        - main_optimizer
+
+
 
 # After training
 epilogue:

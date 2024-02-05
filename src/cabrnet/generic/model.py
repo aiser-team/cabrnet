@@ -10,9 +10,9 @@ import torch.nn as nn
 from loguru import logger
 from cabrnet.generic.conv_extractor import ConvExtractor, layer_init_functions
 from cabrnet.utils.parser import load_config
+from cabrnet.utils.optimizers import OptimizerManager
 from cabrnet.visualisation.visualizer import SimilarityVisualizer
 from torch import Tensor
-from torch.optim import Optimizer
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
@@ -193,7 +193,7 @@ class ProtoClassifier(nn.Module):
     def train_epoch(
         self,
         train_loader: DataLoader,
-        optimizer: Optimizer,
+        optimizer_mngr: OptimizerManager,
         device: str = "cuda:0",
         progress_bar_position: int = 0,
         epoch_idx: int = 0,
@@ -204,7 +204,7 @@ class ProtoClassifier(nn.Module):
         Train the model for one epoch.
         Args:
             train_loader: Dataloader containing training data
-            optimizer: Learning optimizer
+            optimizer_mngr: Optimizer manager
             device: Target device
             progress_bar_position: Position of the progress bar.
             epoch_idx: Epoch index
@@ -233,7 +233,7 @@ class ProtoClassifier(nn.Module):
 
         for batch_idx, (xs, ys) in train_iter:
             # Reset gradients and map the data on the target device
-            optimizer.zero_grad()
+            optimizer_mngr.zero_grad()
             xs, ys = xs.to(device), ys.to(device)
 
             # Perform inference and compute loss
@@ -242,7 +242,7 @@ class ProtoClassifier(nn.Module):
 
             # Compute the gradient and update parameters
             batch_loss.backward()
-            optimizer.step()
+            optimizer_mngr.optimizer_step(epoch=epoch_idx)
 
             # Update progress bar
             postfix_str = (
@@ -259,7 +259,7 @@ class ProtoClassifier(nn.Module):
                 break
 
         # Clean gradients after last batch
-        optimizer.zero_grad()
+        optimizer_mngr.zero_grad()
 
         train_info = {"avg_loss": total_loss / batch_num, "avg_train_accuracy": total_acc / batch_num}
         return train_info
