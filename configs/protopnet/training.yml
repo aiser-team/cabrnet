@@ -1,47 +1,55 @@
 param_groups:
-  backbone_to_freeze:
-    start: null
-    stop: extractor.convnet.layer4.1.bn3.bias
-  backbone_to_train:
-    start: extractor.convnet.layer4.2.conv1.weight
-    stop: extractor.convnet.layer4.2.bn3.bias
-  add_on_layers: extractor.add_on
-  prototypes: classifier.prototypes
+  backbone: extractor.convnet
+  addons_and_prototypes: [extractor.add_on, classifier.prototypes]
+  last_layer: classifier.last_layer
 
-optimizer:
-  name: SGD
-  config:
-    backbone_to_freeze:
-      lr: 0.00001
-      weight_decay_rate: 0.0
-      momentum: 0.9
-    backbone_to_train:
-      lr: 0.001
-      weight_decay_rate: 0.0
-      momentum: 0.9
-    add_on_layers:
-      lr: 0.001
-      weight_decay_rate: 0.0
-      momentum: 0.9
-    prototypes:
-      lr: 0.001
-      weight_decay_rate: 0
-      momentum: 0
-  params:
-    lr: 0.001
-    momentum: 0.9
-  scheduler:
-    type: MultiStepLR
-    params:
-      milestones: [60, 70, 80, 90, 100]
-      gamma: 0.5
+optimizers:
+  # Optimizer used during the first epochs
+  warmup_optimizer:
+    type: Adam
+    groups:
+      addons_and_prototypes:
+        lr: 0.003
+        weight_decay_rate: 0.001
+
+  # Main optimizer
+  joint_optimizer:
+    type: Adam
+    groups:
+      backbone:
+        lr: 0.0001
+        weight_decay_rate: 0.001
+      addons_and_prototypes:
+        lr: 0.003
+        weight_decay_rate: 0.001
+    scheduler:
+      type: StepLR
+      params:
+        step_size: 5
+        gamma: 0.1
+
+  # Optimizer used during the first epochs
+  last_layer_optimizer:
+    type: Adam
+    groups:
+      last_layer:
+        lr: 0.0001
 
 num_epochs: 5
 
-freeze:
+periods:
   warmup:
-    epoch_range: [0, 2]
-    targets: [backbone_to_freeze]
+    epoch_range: [ 0, 2 ] # First and last epoch (included)
+    freeze: [ backbone, last_layer ]
+    optimizers: warmup_optimizer
+  main_training:
+    epoch_range: [ 3, 4 ]
+    freeze: last_layer
+    optimizers: joint_optimizer
+  fine_tuning:
+    epoch_range: [ 5, 5 ]
+    freeze: [ backbone, addons_and_prototypes ]
+    optimizers: last_layer_optimizer
 
 # After training
 # epilogue:
