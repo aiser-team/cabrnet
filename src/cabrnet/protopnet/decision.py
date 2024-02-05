@@ -9,7 +9,7 @@ from torch import Tensor
 
 
 class ProtoPNetSimilarityScore(L2Similarities):
-    def forward(self, features: Tensor, prototypes: Tensor) -> Tensor:
+    def forward(self, features: Tensor, prototypes: Tensor) -> tuple[Tensor, Tensor]:  # type: ignore
         """
         Compute similarity based on L2 distance using ||x - y||² = ||x||² + ||y||² - 2 x.y
         Args:
@@ -18,10 +18,11 @@ class ProtoPNetSimilarityScore(L2Similarities):
 
         Returns:
             Tensor of similarities. Shape (N, P, H, W)
+            Tensor of distances. Shape (N, P, H, W)
         """
         # TODO: we could pass the 1e-4 as self.epsilon to the class
         distances = torch.relu(self.L2_square_distance(features=features, prototypes=prototypes))
-        return torch.log((distances + 1) / (distances + 1e-4))
+        return torch.log((distances + 1) / (distances + 1e-4)), distances
 
 
 class ProtoPNetClassifier(CaBRNetAbstractClassifier, nn.Module):
@@ -100,7 +101,7 @@ class ProtoPNetClassifier(CaBRNetAbstractClassifier, nn.Module):
         incorrect_locations = 1 - correct_locations
         self.last_layer.weight.data.copy_(correct_locations + incorrect_strength * incorrect_locations)
 
-    def forward(self, features: Tensor) -> Tensor:
+    def forward(self, features: Tensor) -> tuple[Tensor, Tensor]:
         """Perform classification using decision tree.
 
         Args:
@@ -108,13 +109,14 @@ class ProtoPNetClassifier(CaBRNetAbstractClassifier, nn.Module):
 
         Returns:
             Vector of logits. Shape (N, C)
+            Tensor of min distances. Shape (N, P)
         """
-        # TODO: double check this
-        similarities = self.similarity_layer(features, self.prototypes)  # Shape (N, P, H, W)
+        similarities, distances = self.similarity_layer(features, self.prototypes)  # Shape (N, P, H, W)
         similarities = torch.max(similarities.view(similarities.shape[:2] + (-1,)), dim=2)[0]  # Shape (N, P)
         prediction = self.last_layer(similarities)
+        min_distances = torch.min(distances.view(distances.shape[:2] + (-1,)), dim=2)[0]  # Shape (N, P)
 
-        return prediction
+        return prediction, min_distances
 
     @staticmethod
     def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
