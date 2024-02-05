@@ -6,14 +6,10 @@ from argparse import ArgumentParser, Namespace
 from loguru import logger
 from tqdm import tqdm
 from cabrnet.generic.model import ProtoClassifier
+from cabrnet.utils.optimizers import OptimizerManager
 from cabrnet.utils.data import create_dataset_parser, get_dataloaders
-from cabrnet.utils.hacks import optimizer_to
 from cabrnet.utils.parser import (
-    get_optimizer,
-    get_scheduler,
-    get_param_groups,
     load_config,
-    freeze,
     create_training_parser,
 )
 from cabrnet.utils.save import save_checkpoint, load_checkpoint
@@ -52,7 +48,6 @@ def execute(args: Namespace) -> None:
     device = args.device
 
     if args.resume_from is not None:
-        logger.info(f"Loading checkpoint from {args.resume_from}")
         training_config = os.path.join(args.resume_from, "training.yml")
         model_config = os.path.join(args.resume_from, "model.yml")
         dataset_config = os.path.join(args.resume_from, "dataset.yml")
@@ -72,21 +67,20 @@ def execute(args: Namespace) -> None:
     # Training configuration
     trainer = load_config(training_config)
     root_dir = args.training_dir
-    param_groups = get_param_groups(trainer, model)
-    optimizer = get_optimizer(trainer, param_groups)
-    scheduler = get_scheduler(trainer, optimizer)
+    # Build optimizer manager
+    optimizer_mngr = OptimizerManager.build_from_config(config_file=training_config, model=model)
     # Dataloaders
     dataloaders = get_dataloaders(config_file=dataset_config)
 
     if args.resume_from is not None:
         # Restore state
-        state = load_checkpoint(args.resume_from, model=model, optimizer=optimizer, scheduler=scheduler)
+        state = load_checkpoint(args.resume_from, model=model, optimizer_mngr=optimizer_mngr)
         start_epoch = state["epoch"] + 1
         seed = state["seed"]
         train_info = state["stats"]
         best_metric = train_info["avg_train_accuracy"] if args.save_best == "acc" else train_info["avg_loss"]
         # Remap optimizer to device if necessary
-        optimizer_to(optimizer, device)
+        optimizer_mngr.to(device)
     else:
         # Start from beginning
         start_epoch = 0
@@ -103,18 +97,18 @@ def execute(args: Namespace) -> None:
         disable=not verbose,
     ):
         # Freeze parameters if necessary depending on current epoch and parameter group
-        freeze(epoch=epoch, param_groups=param_groups, trainer=trainer)
+        optimizer_mngr.freeze(epoch=epoch)
         train_info = model.train_epoch(
             train_loader=dataloaders["train_set"],
-            optimizer=optimizer,
+            optimizer_mngr=optimizer_mngr,
             device=device,
             progress_bar_position=1,
             epoch_idx=epoch,
             verbose=verbose,
+            max_batches=5,
         )
         # Apply scheduler
-        if scheduler is not None:
-            scheduler.step()
+        optimizer_mngr.scheduler_step(epoch=epoch)
 
         save_best_checkpoint = False
         if args.save_best == "acc" and best_metric < train_info["avg_train_accuracy"]:
@@ -130,8 +124,7 @@ def execute(args: Namespace) -> None:
                 directory_path=os.path.join(root_dir, "best"),
                 model=model,
                 model_config=model_config,
-                optimizer=optimizer,
-                scheduler=scheduler,
+                optimizer_mngr=optimizer_mngr,
                 training_config=training_config,
                 dataset_config=dataset_config,
                 epoch=epoch,
@@ -144,8 +137,7 @@ def execute(args: Namespace) -> None:
                 directory_path=os.path.join(root_dir, f"epoch_{epoch}"),
                 model=model,
                 model_config=model_config,
-                optimizer=optimizer,
-                scheduler=scheduler,
+                optimizer_mngr=optimizer_mngr,
                 training_config=training_config,
                 dataset_config=dataset_config,
                 epoch=epoch,
@@ -183,8 +175,7 @@ def execute(args: Namespace) -> None:
         directory_path=os.path.join(root_dir, f"final"),
         model=model,
         model_config=model_config,
-        optimizer=optimizer,
-        scheduler=scheduler,
+        optimizer_mngr=None,
         training_config=training_config,
         dataset_config=dataset_config,
         epoch="final",
