@@ -1,6 +1,7 @@
 param_groups:
   backbone: extractor.convnet
-  addons_and_prototypes: [extractor.add_on, classifier.prototypes]
+  addons: extractor.add_on
+  prototypes: classifier.prototypes
   last_layer: classifier.last_layer
 
 optimizers:
@@ -8,9 +9,11 @@ optimizers:
   warmup_optimizer:
     type: Adam
     groups:
-      addons_and_prototypes:
+      addons:
         lr: 0.003
-        weight_decay_rate: 0.001
+        weight_decay: 0.001
+      prototypes:
+        lr: 0.003
 
   # Main optimizer
   joint_optimizer:
@@ -18,10 +21,12 @@ optimizers:
     groups:
       backbone:
         lr: 0.0001
-        weight_decay_rate: 0.001
-      addons_and_prototypes:
+        weight_decay: 0.001
+      addons:
         lr: 0.003
-        weight_decay_rate: 0.001
+        weight_decay: 0.001
+      prototypes:
+        lr: 0.003
     scheduler:
       type: StepLR
       params:
@@ -48,7 +53,7 @@ periods:
     optimizers: joint_optimizer
   fine_tuning:
     epoch_range: [ 5, 5 ]
-    freeze: [ backbone, addons_and_prototypes ]
+    freeze: [ backbone, addons, prototypes ]
     optimizers: last_layer_optimizer
 
 # After training
