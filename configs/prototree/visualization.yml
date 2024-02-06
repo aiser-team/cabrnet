@@ -12,11 +12,11 @@ prototype:
 
 test_patch:
   retrace:
-    type: cubic_upsampling
+    type: prp
     params:
       normalize: True
       single_location: True
   view:
     type: bbox_to_percentile
     params:
-      percentile: 0.98
+      percentile: 0.4
