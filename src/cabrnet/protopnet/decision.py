@@ -32,6 +32,7 @@ class ProtoPNetClassifier(CaBRNetAbstractClassifier, nn.Module):
         num_features: int,
         num_proto_per_class: int,
         proto_init_mode: str = "SHIFTED_NORMAL",
+        incorrect_class_penalty: float = -0.5,
         compatibility_mode: bool = False,
     ) -> None:
         """Create a ProtoPNet classifier.
@@ -67,8 +68,15 @@ class ProtoPNetClassifier(CaBRNetAbstractClassifier, nn.Module):
             protopnet_compatibility=compatibility_mode,
         )
 
+        # Initialize last layer
+        self.proto_class_map = torch.zeros(self.num_prototypes, self.num_classes)
+        for j in range(self.num_prototypes):
+            self.proto_class_map[j, j // self.num_proto_per_class] = 1
+        self.incorrect_class_penalty = incorrect_class_penalty
         self.last_layer = nn.Linear(in_features=self.num_prototypes, out_features=self.num_classes, bias=False)
-        self.set_last_layer_incorrect_connection(-0.5)
+        correct_locations = torch.t(self.proto_class_map)
+        incorrect_locations = 1 - correct_locations
+        self.last_layer.weight.data.copy_(correct_locations + self.incorrect_class_penalty * incorrect_locations)
 
     @property
     def max_num_prototypes(self) -> int:
@@ -85,21 +93,6 @@ class ProtoPNetClassifier(CaBRNetAbstractClassifier, nn.Module):
             The total number of prototypes.
         """
         return self.max_num_prototypes
-
-    # TODO: see if it can be improved
-    def set_last_layer_incorrect_connection(self, incorrect_strength: float) -> None:
-        """Initialize the weights of the last fully connected layer.
-
-        Args:
-            incorrect_strength: Strength with which an incorrect entry is penalized.
-        """
-        prototype_class_identity = torch.zeros(self.num_prototypes, self.num_classes)
-        for j in range(self.num_prototypes):
-            prototype_class_identity[j, j // self.num_proto_per_class] = 1
-
-        correct_locations = torch.t(prototype_class_identity)
-        incorrect_locations = 1 - correct_locations
-        self.last_layer.weight.data.copy_(correct_locations + incorrect_strength * incorrect_locations)
 
     def forward(self, features: Tensor) -> tuple[Tensor, Tensor]:
         """Perform classification using decision tree.
