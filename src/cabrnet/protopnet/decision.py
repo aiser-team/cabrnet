@@ -1,4 +1,6 @@
-from argparse import ArgumentParser
+from __future__ import annotations
+
+from argparse import ArgumentParser, Namespace
 
 import torch
 import torch.nn as nn
@@ -133,3 +135,22 @@ class ProtoPNetClassifier(CaBRNetAbstractClassifier, nn.Module):
             help="number of prototype for each category.",
         )
         return parser
+
+    @staticmethod
+    def build_from_parser(args: Namespace) -> ProtoPNetClassifier:
+        """Builds a classifier from the command line
+
+        Args:
+            args: Parsed command line
+
+        Returns:
+            ProtoPNet classifier
+        """
+        return ProtoPNetClassifier(
+            num_classes=args.num_classes,
+            num_features=args.num_features,
+            num_proto_per_class=args.num_proto_per_class,
+            proto_init_mode=args.prototype_init_mode,
+            incorrect_class_penalty=args.incorrect_class_penalty,
+            compatibility_mode=args.compatibility_mode,
+        )
