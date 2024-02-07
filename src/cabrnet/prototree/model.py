@@ -240,7 +240,7 @@ class ProtoTree(CaBRNet):
                 f"Batch [{batch_idx + 1}/{len(train_loader)}], "
                 f"Batch loss: {batch_loss.item():.3f}, Acc: {batch_accuracy:.3f}"
             )
-            train_iter.set_postfix_str(postfix_str)  # type: ignore
+            train_iter.set_postfix_str(postfix_str)
 
             # Update global metrics
             total_loss += batch_loss.item()
@@ -252,7 +252,10 @@ class ProtoTree(CaBRNet):
         # Clean gradients after last batch
         optimizer_mngr.zero_grad()
 
-        train_info = {"avg_loss": total_loss / batch_num, "avg_train_accuracy": total_acc / batch_num}
+        if max_batches is not None:
+            train_info = {"avg_loss": total_loss / max_batches, "avg_train_accuracy": total_acc / max_batches}
+        else:
+            train_info = {"avg_loss": total_loss / batch_num, "avg_train_accuracy": total_acc / batch_num}
         return train_info
 
     def epilogue(self, pruning_threshold: float = 0.0) -> None:
