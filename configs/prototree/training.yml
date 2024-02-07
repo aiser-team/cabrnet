@@ -38,12 +38,12 @@ optimizers:
         milestones: [60, 70, 80, 90, 100]
         gamma: 0.5
 
-num_epochs: 5
+num_epochs: 100
 
 # By default, everything that is not frozen is trained
 periods:
   warmup:
-      epoch_range: [ 0, 2 ] # First and last epoch (included)
+      epoch_range: [ 0, 29 ] # First and last epoch (included)
       freeze: [ backbone_to_freeze ]
       optimizers:
         - main_optimizer
