@@ -8,6 +8,7 @@ from typing import Any, Mapping
 import numpy as np
 import torch
 from loguru import logger
+from cabrnet.utils.optimizers import OptimizerManager
 from cabrnet.generic.model import ProtoClassifier
 
 
@@ -15,8 +16,7 @@ def save_checkpoint(
     directory_path: str,
     model: ProtoClassifier,
     model_config: str,
-    optimizer: torch.optim.Optimizer | None,
-    scheduler: torch.optim.lr_scheduler.LRScheduler | None,
+    optimizer_mngr: OptimizerManager | None,
     training_config: str | None,
     dataset_config: str,
     epoch: int | str,
@@ -30,8 +30,7 @@ def save_checkpoint(
         directory_path: Target location
         model: ProtoClassifier
         model_config: Path to the model configuration file
-        optimizer: Optimizer
-        scheduler: Scheduler
+        optimizer_mngr: Optimizer manager
         training_config: Path to the training configuration file
         dataset_config: Path to the dataset configuration file
         epoch: Current epoch
@@ -52,10 +51,8 @@ def save_checkpoint(
     model.eval()  # NOTE: do we want this?
 
     torch.save(model.state_dict(), os.path.join(directory_path, "model_state.pth"))
-    if optimizer is not None:
-        torch.save(optimizer.state_dict(), os.path.join(directory_path, "optimizer_state.pth"))
-    if scheduler is not None:  # NOTE: do we save something if there is no scheduler?
-        torch.save(scheduler.state_dict(), os.path.join(directory_path, "scheduler_state.pth"))
+    if optimizer_mngr is not None:
+        torch.save(optimizer_mngr.state_dict(), os.path.join(directory_path, "optimizer_state.pth"))
     safe_copy(src=model_config, dst=os.path.join(directory_path, "model.yml"))
     if training_config is not None:
         safe_copy(src=training_config, dst=os.path.join(directory_path, "training.yml"))
@@ -82,16 +79,14 @@ def save_checkpoint(
 def load_checkpoint(
     directory_path: str,
     model: ProtoClassifier,
-    optimizer: torch.optim.Optimizer | None = None,
-    scheduler: torch.optim.lr_scheduler.LRScheduler | None = None,
+    optimizer_mngr: OptimizerManager | None = None,
 ) -> Mapping[str, Any]:
     """Restore training process using checkpoint directory.
 
     Args:
         directory_path: Target location
         model: ProtoClassifier
-        optimizer: Optimizer
-        scheduler: Scheduler
+        optimizer_mngr: Optimizer manager
 
     Returns:
         dictionary containing auxiliary state information (epoch, seed, device, stats)
@@ -100,10 +95,10 @@ def load_checkpoint(
         raise ValueError(f"Unknown checkpoint directory {directory_path}")
 
     model.load_state_dict(torch.load(os.path.join(directory_path, "model_state.pth"), map_location="cpu"))
-    if optimizer is not None:
-        optimizer.load_state_dict(torch.load(os.path.join(directory_path, "optimizer_state.pth"), map_location="cpu"))
-    if scheduler is not None:
-        scheduler.load_state_dict(torch.load(os.path.join(directory_path, "scheduler_state.pth"), map_location="cpu"))
+    if optimizer_mngr is not None:
+        optimizer_mngr.load_state_dict(
+            torch.load(os.path.join(directory_path, "optimizer_state.pth"), map_location="cpu")
+        )
 
     # Restore RNG state
     with open(os.path.join(directory_path, "state.pickle"), "rb") as file:
