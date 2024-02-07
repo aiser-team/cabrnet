@@ -190,6 +190,51 @@ class OptimizerManager:
                     if optim_name not in self.optimizers.keys():
                         raise ValueError(f"Unknown optimizers name for training period {epoch_name}: {optim_name}")
 
+            # Create periods for all non-covered epochs
+            create_period = False
+            full_train_period_idx = 0
+            for epoch in range(num_epochs):
+                # Extend search range to num_epochs + 1 to ensure that last period is created
+                active_periods = self.get_active_periods(epoch)
+                if not active_periods and not create_period:
+                    create_period = True
+                    self.periods[f"full_train_period_{full_train_period_idx}"] = {
+                        "epoch_range": [epoch, -1],  # No freeze
+                        "optimizers": list(self.optimizers.keys()),  # Enable all optimizers
+                    }
+                elif create_period and active_periods:
+                    # Current full train period ended last epoch
+                    self.periods[f"full_train_period_{full_train_period_idx}"]["epoch_range"][1] = epoch - 1
+                    logger.info(
+                        f"Creating full training period for epoch range "
+                        f"{self.periods[f'full_train_period_{full_train_period_idx}']['epoch_range']}"
+                    )
+                    full_train_period_idx += 1
+                    create_period = False
+            # Complete final period (if any)
+            if create_period:
+                self.periods[f"full_train_period_{full_train_period_idx}"]["epoch_range"][1] = num_epochs - 1
+                logger.info(
+                    f"Creating full training period for epoch range "
+                    f"{self.periods[f'full_train_period_{full_train_period_idx}']['epoch_range']}"
+                )
+
+    def get_active_periods(self, epoch: int) -> list[str]:
+        """Get all active periods associated with a given epoch index
+
+        Args:
+            epoch: current index
+
+        Returns:
+            list of period names
+        """
+        p_names = []
+        for p_name in self.periods:
+            min_epoch, max_epoch = self.periods[p_name]["epoch_range"]
+            if min_epoch <= epoch <= max_epoch:
+                p_names.append(p_name)
+        return p_names
+
     def freeze(self, epoch: int) -> None:
         """Apply parameter freeze depending on current epoch
 
@@ -197,10 +242,9 @@ class OptimizerManager:
             epoch: current epoch
         """
         groups_to_freeze = []
-        for period_name in self.periods:
+        for period_name in self.get_active_periods(epoch):
             period_config = self.periods[period_name]
-            min_epoch, max_epoch = period_config["epoch_range"]
-            if epoch in range(min_epoch, max_epoch + 1) and period_config.get("freeze") is not None:
+            if period_config.get("freeze") is not None:
                 groups_to_freeze += period_config["freeze"]
                 logger.info(f"Period {period_name} applies for epoch {epoch}: freezing groups {groups_to_freeze}")
 
@@ -226,18 +270,9 @@ class OptimizerManager:
         Args:
             epoch: current epoch
         """
-        active_period = False  # Is one specific training period active?
-        for period_name in self.periods:
+        for period_name in self.get_active_periods(epoch):
             period_config = self.periods[period_name]
-            min_epoch, max_epoch = period_config["epoch_range"]
-            if epoch in range(min_epoch, max_epoch + 1):
-                active_period = True
-                for optim_name in period_config["optimizers"]:
-                    self.optimizers[optim_name].step()
-
-        # No active period found. By default, update all optimizers
-        if not active_period:
-            for optim_name in self.optimizers:
+            for optim_name in period_config["optimizers"]:
                 self.optimizers[optim_name].step()
 
     def scheduler_step(self, epoch: int):
@@ -246,21 +281,12 @@ class OptimizerManager:
         Args:
             epoch: current epoch
         """
-        active_period = False  # Is one specific training period active?
-        for period_name in self.periods:
+        for period_name in self.get_active_periods(epoch):
             period_config = self.periods[period_name]
-            min_epoch, max_epoch = period_config["epoch_range"]
-            if epoch in range(min_epoch, max_epoch + 1):
-                active_period = True
-                for optim_name in period_config["optimizers"]:
-                    # Not all optimizers are associated with a scheduler
-                    if self.schedulers.get(optim_name) is not None:
-                        self.schedulers[optim_name].step()
-
-        # No active period found. By default, update all schedulerts
-        if not active_period:
-            for optim_name in self.schedulers:
-                self.schedulers[optim_name].step()
+            for optim_name in period_config["optimizers"]:
+                # Not all optimizers are associated with a scheduler
+                if self.schedulers.get(optim_name) is not None:
+                    self.schedulers[optim_name].step()
 
     def to(self, device: str):
         for optim_name in self.optimizers:
