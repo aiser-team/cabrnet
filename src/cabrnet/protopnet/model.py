@@ -78,20 +78,77 @@ class ProtoPNet(ProtoClassifier):
             cbrn_keys.remove(cbrn_key)
         self.load_state_dict(final_state, strict=False)
 
-    def loss(self, model_output: Any, label: torch.Tensor) -> tuple[torch.Tensor, float]:
+    def loss(self, model_output: Any, label: torch.Tensor) -> tuple[torch.Tensor, float, dict[str, float]]:  # type: ignore
         """Loss function.
 
         Args:
-            model_output: Model output, in this case a tuple containing the prediction and the leaf probabilities
+            model_output: Model output, in this case a tuple containing the prediction and the minimum distances.
             label: Batch labels
 
         Returns:
             loss tensor and batch accuracy
         """
-        ys_pred = model_output
-        batch_loss = torch.nn.functional.nll_loss(torch.log(ys_pred), label)
-        batch_accuracy = torch.sum(torch.eq(torch.argmax(ys_pred, dim=1), label)).item() / len(label)
-        return batch_loss, batch_accuracy
+        output, min_distances = model_output
+
+        cross_entropy = torch.nn.functional.cross_entropy(output, label)
+
+        # TODO: store this in a config file and retrieve it from there
+        coefs = {"crs_ent": 1, "clst": 0.8, "sep": -0.08, "l1": 1e-4}
+        max_dist = 128
+
+        if self._compatibility_mode:
+            prototypes_of_correct_class = torch.t(self.classifier.proto_class_map[:, label])
+            inverted_distances, _ = torch.max((max_dist - min_distances) * prototypes_of_correct_class, dim=1)
+            cluster_cost = torch.mean(max_dist - inverted_distances)
+
+            prototypes_of_wrong_class = 1 - prototypes_of_correct_class
+            inverted_distances_to_nontarget_prototypes, _ = torch.max(
+                (max_dist - min_distances) * prototypes_of_wrong_class, dim=1
+            )
+            separation_cost = torch.mean(max_dist - inverted_distances_to_nontarget_prototypes)
+
+            l1_mask = 1 - torch.t(self.classifier.proto_class_map)
+            l1 = (self.classifier.last_layer.weight * l1_mask).norm(p=1)
+
+            min_distance, _ = torch.min(min_distances, dim=1)
+            cluster_cost = torch.mean(min_distance)
+            l1_mask = 1 - torch.t(self.classifier.proto_class_map)
+            l1 = (self.classifier.last_layer.weight * l1_mask).norm(p=1)
+
+            loss = (
+                coefs["crs_ent"] * cross_entropy
+                + coefs["clst"] * cluster_cost
+                + coefs["sep"] * separation_cost
+                + coefs["l1"] * l1
+            )
+            loss = loss.item()
+
+        else:
+            prototypes_of_correct_class = torch.t(torch.index_select(self.classifier.proto_class_map, 1, label))
+            cluster_cost = torch.mean(torch.min(prototypes_of_correct_class * min_distances, dim=1)[0])
+
+            prototypes_of_wrong_class = 1 - prototypes_of_correct_class
+            separation_cost = -torch.mean(torch.min(prototypes_of_wrong_class * min_distances, dim=1)[0])
+
+            l1_mask = 1 - torch.t(self.module.prototype_class_identity)
+            l1 = (self.module.last_layer.weight * l1_mask).norm(p=1)
+
+            loss = (
+                coefs["crs_ent"] * cross_entropy.item()
+                + coefs["clst"] * cluster_cost.item()
+                + coefs["sep"] * separation_cost.item()
+                + coefs["l1"] * l1.item()
+            )
+
+        batch_accuracy = torch.sum(torch.eq(torch.argmax(output, dim=1), label)).item() / len(label)
+        stats = {
+            "cross_entropy": cross_entropy.item(),
+            "cluster_cost": cluster_cost.item(),
+            "separation_cost": separation_cost.item(),
+            "l1": l1.item(),
+        }
+
+        return loss, batch_accuracy, stats
 
     def train_epoch(
         self,
@@ -143,7 +200,7 @@ class ProtoPNet(ProtoClassifier):
             # ys_pred, info = self.forward(xs)
             # batch_loss, batch_accuracy = self.loss((ys_pred, info), ys)
             ys_pred = self.forward(xs)
-            batch_loss, batch_accuracy = self.loss((ys_pred), ys)
+            batch_loss, batch_accuracy, _ = self.loss((ys_pred), ys)
 
             # Compute the gradient and update parameters
             batch_loss.backward()
