@@ -4,13 +4,13 @@ import torch
 import torch.nn as nn
 import torch.nn.functional
 from torch.utils.data import DataLoader
-from torch.optim import Optimizer
 from PIL import Image
 from typing import Any, Mapping, Callable
 from tqdm import tqdm
 from cabrnet.generic.model import ProtoClassifier
+from cabrnet.utils.optimizers import OptimizerManager
 from cabrnet.utils.tree import TreeNode, MappingMode
-from cabrnet.prototree.decision import SamplingStrategy
+from cabrnet.prototree.decision import SamplingStrategy, ProtoTreeClassifier
 from cabrnet.visualisation.visualizer import SimilarityVisualizer
 from cabrnet.visualisation.explainer import ExplanationGraph
 import copy
@@ -30,10 +30,13 @@ class ProtoTree(ProtoClassifier):
         # Constant tensor for internal computations
         self.register_buffer("_eye", torch.eye(self.classifier.num_classes))
 
-    def get_extra_state(self) -> Mapping[str, Any]:
+    def get_extra_state(self) -> Mapping[str, Any] | None:
         """Decision tree architecture to be saved in state_dict.
         This is automatically called by state_dict()"""
-        return self.classifier.tree.export_arch()
+        if isinstance(self.classifier, ProtoTreeClassifier):
+            return self.classifier.tree.export_arch()
+        # When using PRP visualization with Captum, classifier is no longer a ProtoTreeClassifier
+        return None
 
     def set_extra_state(self, state: Mapping[str, Any]) -> None:
         """Rebuild decision tree from architecture information
@@ -42,7 +45,9 @@ class ProtoTree(ProtoClassifier):
         Args:
             state: information returned by get_extra_state()
         """
-        self.classifier.tree = TreeNode.build_from_arch(state)
+        if isinstance(self.classifier, ProtoTreeClassifier):
+            # When using PRP visualization with Captum, classifier is no longer a ProtoTreeClassifier
+            self.classifier.tree = TreeNode.build_from_arch(state)
 
     def load_legacy_state_dict(self, legacy_state: dict) -> None:
         """Load state dictionary from legacy format
@@ -154,7 +159,7 @@ class ProtoTree(ProtoClassifier):
     def train_epoch(
         self,
         train_loader: DataLoader,
-        optimizer: Optimizer,
+        optimizer_mngr: OptimizerManager,
         device: str = "cuda:0",
         progress_bar_position: int = 0,
         epoch_idx: int = 0,
@@ -165,7 +170,7 @@ class ProtoTree(ProtoClassifier):
         Train the model for one epoch.
         Args:
             train_loader: Dataloader containing training data
-            optimizer: Learning optimizer
+            optimizer_mngr: Optimizer manager
             device: Target device
             progress_bar_position: Position of the progress bar.
             epoch_idx: Epoch index
@@ -200,7 +205,7 @@ class ProtoTree(ProtoClassifier):
 
         for batch_idx, (xs, ys) in train_iter:
             # Reset gradients and map the data on the target device
-            optimizer.zero_grad()
+            optimizer_mngr.zero_grad()
             xs, ys = xs.to(device), ys.to(device)
 
             # Perform inference and compute loss
@@ -209,7 +214,7 @@ class ProtoTree(ProtoClassifier):
 
             # Compute the gradient and update parameters
             batch_loss.backward()
-            optimizer.step()
+            optimizer_mngr.optimizer_step(epoch=epoch_idx)
 
             # Update leaves with derivative-free algorithm
             # Convert integer label into on-hot encoding
@@ -243,7 +248,7 @@ class ProtoTree(ProtoClassifier):
                 break
 
         # Clean gradients after last batch
-        optimizer.zero_grad()
+        optimizer_mngr.zero_grad()
 
         train_info = {"avg_loss": total_loss / batch_num, "avg_train_accuracy": total_acc / batch_num}
         return train_info
@@ -478,7 +483,7 @@ class ProtoTree(ProtoClassifier):
             if node.proto_idxs is None:
                 # Leaf
                 class_idx = torch.argmax(node.distribution)
-                graph.node(name=f"node_{node.node_id}", label=f"Class {class_idx}", height="0.5")
+                graph.node(name=f"node_{node.node_id}", label=f"Class {class_idx}", fontsize="25", height="0.5")
             else:
                 proto_idx = node.proto_idxs[0]
                 img_path = os.path.relpath(
@@ -492,7 +497,7 @@ class ProtoTree(ProtoClassifier):
                         tail_name=f"node_{node.node_id}",
                         head_name=f"node_{child.node_id}",
                         label=similarity,
-                        fontsize="10",
+                        fontsize="25",
                     )
             return graph
 

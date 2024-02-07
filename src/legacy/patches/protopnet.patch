@@ -1,0 +1,40 @@
+diff --git a/img_aug.py b/img_aug.py
+index ca05b19..e6a2972 100644
+--- a/img_aug.py
++++ b/img_aug.py
+@@ -7,11 +7,10 @@ def makedir(path):
+     if not os.path.exists(path):
+         os.makedirs(path)
+ 
+-datasets_root_dir = './datasets/cub200_cropped/'
+-dir = datasets_root_dir + 'train_cropped/'
+-target_dir = datasets_root_dir + 'train_cropped_augmented/'
+ 
+-makedir(target_dir)
++dir = "data/CUB_200_2011/dataset/train_crop/"
++target_dir = "../../train_crop_augmented/"
++os.makedirs("data/CUB_200_2011/dataset/train_crop_augmented", exist_ok=True)
+ folders = [os.path.join(dir, folder) for folder in next(os.walk(dir))[1]]
+ target_folders = [os.path.join(target_dir, folder) for folder in next(os.walk(dir))[1]]
+ 
+diff --git a/model.py b/model.py
+index b8870ab..c4c7b0b 100644
+--- a/model.py
++++ b/model.py
+@@ -3,12 +3,12 @@ import torch.nn as nn
+ import torch.utils.model_zoo as model_zoo
+ import torch.nn.functional as F
+ 
+-from resnet_features import resnet18_features, resnet34_features, resnet50_features, resnet101_features, resnet152_features
+-from densenet_features import densenet121_features, densenet161_features, densenet169_features, densenet201_features
+-from vgg_features import vgg11_features, vgg11_bn_features, vgg13_features, vgg13_bn_features, vgg16_features, vgg16_bn_features,\
++from .resnet_features import resnet18_features, resnet34_features, resnet50_features, resnet101_features, resnet152_features
++from .densenet_features import densenet121_features, densenet161_features, densenet169_features, densenet201_features
++from .vgg_features import vgg11_features, vgg11_bn_features, vgg13_features, vgg13_bn_features, vgg16_features, vgg16_bn_features,\
+                          vgg19_features, vgg19_bn_features
+ 
+-from receptive_field import compute_proto_layer_rf_info_v2
++from .receptive_field import compute_proto_layer_rf_info_v2
+ 
+ base_architecture_to_features = {'resnet18': resnet18_features,
+                                  'resnet34': resnet34_features,

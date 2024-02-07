@@ -10,11 +10,15 @@ from cabrnet.utils.parser import load_config
 from torch.utils.data import DataLoader, Dataset
 
 
-def create_dataset_parser(parser: argparse.ArgumentParser | None = None) -> argparse.ArgumentParser:
+def create_dataset_parser(
+    parser: argparse.ArgumentParser | None = None, mandatory_config: bool = True
+) -> argparse.ArgumentParser:
     """Create the argument parser for CaBRNet datasets.
 
     Args:
         parser: Existing parser (if any)
+        mandatory_config: Make dataset configuration mandatory
+
     Returns:
         The parser itself.
     """
@@ -23,7 +27,7 @@ def create_dataset_parser(parser: argparse.ArgumentParser | None = None) -> argp
     parser.add_argument(
         "--dataset",
         "-d",
-        default="configs/prototree/cub200.yml",
+        required=mandatory_config,
         metavar="/path/to/file.yml",
         help="path to the dataset config",
     )
