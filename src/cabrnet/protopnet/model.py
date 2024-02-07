@@ -122,8 +122,8 @@ class ProtoPNet(ProtoClassifier):
             prototypes_of_wrong_class = 1 - prototypes_of_correct_class
             separation_cost = -torch.mean(torch.min(prototypes_of_wrong_class * min_distances, dim=1)[0])
 
-            l1_mask = 1 - torch.t(self.classifier.proto_class_map).to(device)
-            l1 = (self.classifier.last_layer.weight * l1_mask).norm(p=1).to(device)
+            l1_mask = 1 - torch.t(self.classifier.proto_class_map)
+            l1 = (self.classifier.last_layer.weight * l1_mask).norm(p=1)
 
         loss = (
             coefs["crs_ent"] * cross_entropy
