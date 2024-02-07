@@ -1,0 +1,48 @@
+param_groups:
+  backbone_to_freeze:
+    stop: extractor.convnet.layer4.1
+  backbone_to_train: extractor.convnet.layer4.2
+  add_on_layers: extractor.add_on
+  prototypes: classifier.prototypes
+
+optimizers:
+  main_optimizer:
+    type: SGD
+    groups:
+      backbone_to_freeze:
+        lr: 0.00001
+        weight_decay_rate: 0.0
+        momentum: 0.9
+      backbone_to_train:
+        lr: 0.001
+        weight_decay_rate: 0.0
+        momentum: 0.9
+      add_on_layers:
+        lr: 0.001
+        weight_decay_rate: 0.0
+        momentum: 0.9
+      prototypes:
+        lr: 0.001
+        weight_decay_rate: 0
+        momentum: 0
+
+    params:
+      lr: 0.001
+      momentum: 0.9
+    scheduler:
+      type: MultiStepLR
+      params:
+        milestones: [60, 70, 80, 90, 100]
+        gamma: 0.5
+
+num_epochs: 5
+
+periods:
+  warmup:
+      epoch_range: [ 0, 2 ]
+      freeze: [ backbone_to_freeze ]
+      optimizers:
+        - main_optimizer
+
+epilogue:
+  pruning_threshold: 0.01
