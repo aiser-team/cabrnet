@@ -105,7 +105,6 @@ def execute(args: Namespace) -> None:
             progress_bar_position=1,
             epoch_idx=epoch,
             verbose=verbose,
-            max_batches=5,
         )
         # Apply scheduler
         optimizer_mngr.scheduler_step(epoch=epoch)
