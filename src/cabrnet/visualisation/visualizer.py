@@ -6,7 +6,8 @@ from PIL import Image
 import argparse
 from cabrnet.utils.parser import load_config
 from cabrnet.visualisation.upsampling import cubic_upsampling
-from cabrnet.visualisation.gradients import smoothgrad, randgrad
+from cabrnet.visualisation.gradients import smoothgrad, randgrad, prp
+from cabrnet.visualisation.prp_utils import get_cabrnet_lrp_composite_model
 import cabrnet.visualisation.view as viewing_module
 from typing import Callable
 
@@ -15,7 +16,7 @@ supported_retrace_functions = {
     "cubic_upsampling": cubic_upsampling,
     "smoothgrad": smoothgrad,
     "randgrad": randgrad,
-    "prp": None,
+    "prp": prp,
 }
 
 
@@ -26,6 +27,7 @@ class SimilarityVisualizer(nn.Module):
         view_fn: Callable,
         retrace_params: dict | None = None,
         view_params: dict | None = None,
+        config_file: str | None = None,
         *args,
         **kwargs,
     ):
@@ -36,12 +38,14 @@ class SimilarityVisualizer(nn.Module):
             view_fn: viewing function
             retrace_params: optional parameters to retrace function
             view_params: optional parameters to viewing function
+            config_file: optional path to the file used to configure the visualizer
         """
         super().__init__(*args, **kwargs)
         self.retrace = retrace_fn
         self.retrace_params = retrace_params if retrace_params is not None else {}
         self.view = view_fn
         self.view_params = view_params if view_params is not None else {}
+        self.config_file = config_file
 
     def forward(
         self,
@@ -76,6 +80,12 @@ class SimilarityVisualizer(nn.Module):
         )
         return self.view(img=img, sim_map=sim_map, **self.view_params)
 
+    def prepare_model(self, model: nn.Module) -> nn.Module:
+        # Perform model preparation (depends on retrace function)
+        if self.retrace == prp:
+            return get_cabrnet_lrp_composite_model(model)
+        return model
+
     @staticmethod
     def create_parser(
         parser: argparse.ArgumentParser | None = None,
@@ -91,7 +101,7 @@ class SimilarityVisualizer(nn.Module):
             parser = argparse.ArgumentParser(description="Build a ProtoVisualizer")
         parser.add_argument(
             "--visualization",
-            default="configs/prototree/visualization.yml",
+            required=True,
             metavar="/path/to/file.yml",
             help="Path to the visualization configuration file",
         )
@@ -140,4 +150,5 @@ class SimilarityVisualizer(nn.Module):
             view_fn=view_fn,
             retrace_params=retrace_params,
             view_params=view_params,
+            config_file=config_file,
         )

@@ -5,17 +5,35 @@ prototype-based architectures, or easily add a new one.
 
 ## Build and install
 
-Create a conda/mamba environment using the provided environment file. With
-`micromamba`:
+With `pip`:
+
+```bash
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+With `conda`/`mamba`:
+
+```bash
+conda env create -f environment.yml
+conda activate cabrnet
+```
+
+or
+
+```bash
+mamba env create -f environment.yml
+mamba activate cabrnet
+```
+
+With `micromamba`:
 
 ```bash
 micromamba create -f environment.yml
-```
-This may take a while. Then activate the environment.
-
-```bash
 micromamba activate cabrnet
 ```
+
 Once the dependencies are downloaded, to build using `pyproject.toml` with package build installed, you
 can use `python3 -m build`
 
@@ -24,7 +42,6 @@ can use `python3 -m build`
 ```bash
 cabrnet --device cpu --seed 42 --verbose --logger-level DEBUG train --model-config configs/prototree/mnist/model.yml --dataset configs/prototree/mnist/data.yml --training configs/prototree/mnist/training.yml --training-dir logs/
 ```
-
 
 ## Adding new applications
 
