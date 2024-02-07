@@ -69,9 +69,10 @@ class ProtoPNetClassifier(CaBRNetAbstractClassifier, nn.Module):
         )
 
         # Initialize last layer
-        self.proto_class_map = torch.zeros(self.num_prototypes, self.num_classes)
+        proto_class_map = torch.zeros(self.num_prototypes, self.num_classes)
         for j in range(self.num_prototypes):
-            self.proto_class_map[j, j // self.num_proto_per_class] = 1
+            proto_class_map[j, j // self.num_proto_per_class] = 1
+        self.register_buffer("proto_class_map", proto_class_map, persistent=True)
         self.incorrect_class_penalty = incorrect_class_penalty
         self.last_layer = nn.Linear(in_features=self.num_prototypes, out_features=self.num_classes, bias=False)
         correct_locations = torch.t(self.proto_class_map)
