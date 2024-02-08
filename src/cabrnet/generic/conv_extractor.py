@@ -7,7 +7,7 @@ import torch
 import torch.nn as nn
 import torchvision.models as torch_models
 from loguru import logger
-from torchvision.models.feature_extraction import create_feature_extractor
+from torchvision.models.feature_extraction import create_feature_extractor, get_graph_node_names
 
 warnings.filterwarnings("ignore")
 
@@ -66,7 +66,7 @@ class ConvExtractor(nn.Module):
             loaded_weights = getattr(torch_models.get_model_weights(arch), weights)
             model = torch_models.get_model(arch, weights=loaded_weights)
         else:
-            raise ValueError(f"Weights {weights} are wrong for model of type {arch}")
+            raise ValueError(f"Cannot load weights {weights} for model of type {arch}. Possible typo or missing file.")
 
         if seed is not None:
             # Reset random generator (compatibility tests only)
@@ -75,7 +75,13 @@ class ConvExtractor(nn.Module):
         self.arch_name = arch.lower()
         self.weights = weights
         self.layer = layer
-        self.convnet = create_feature_extractor(model=model, return_nodes={layer: "convnet"})
+        try:
+            self.convnet = create_feature_extractor(model=model, return_nodes={layer: "convnet"})
+        except ValueError as e:
+            logger.error(f"Could not create feature extractor. Possible layer names: {get_graph_node_names(model)}")
+            logger.error(f"See model architecture below")
+            logger.info(model)
+            raise e
         # Dummy inference to recover number of output channels from the feature extractor
         self.convnet.eval()
         in_channels = self.convnet(torch.zeros((1, 3, 224, 224)))["convnet"].size(1)
@@ -90,7 +96,10 @@ class ConvExtractor(nn.Module):
         Returns:
             The tensor resulting from the inference of the model.
         """
-        x = self.convnet(x)["convnet"]
+        x = self.convnet(x)
+        if isinstance(x, dict):
+            # Output of a create_feature_extractor
+            x = x["convnet"]
         x = self.add_on(x)
         return x
 

@@ -178,7 +178,7 @@ index 995680b..3160286 100644
 +
      train_info['loss'] = total_loss/float(i+1)
      train_info['train_accuracy'] = total_acc/float(i+1)
-     return train_info 
+     return train_info
 @@ -113,6 +118,7 @@ def train_epoch_kontschieder(tree: ProtoTree,
                  epoch: int,
                  disable_derivative_free_leaf_optim: bool,
@@ -199,7 +199,7 @@ index 995680b..3160286 100644
 +
      train_info['loss'] = total_loss/float(i+1)
      train_info['train_accuracy'] = total_acc/float(i+1)
-     return train_info 
+     return train_info
 diff --git a/util/data.py b/util/data.py
 index 21deaaf..27b8949 100644
 --- a/util/data.py
@@ -230,7 +230,7 @@ index ac79d37..901d2ff 100644
 -def get_network(num_in_channels: int, args: argparse.Namespace):
 +def get_network(num_in_channels: int, args: argparse.Namespace, seed: int | None = None):
      # Define a conv net for estimating the probabilities at each decision node
-     features = base_architecture_to_features[args.net](pretrained=not args.disable_pretrained)            
+     features = base_architecture_to_features[args.net](pretrained=not args.disable_pretrained)
      features_name = str(features).upper()
 @@ -42,7 +43,11 @@ def get_network(num_in_channels: int, args: argparse.Namespace):
              [i for i in features.modules() if isinstance(i, nn.BatchNorm2d)][-1].num_features

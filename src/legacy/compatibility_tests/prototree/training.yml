@@ -1,17 +1,16 @@
 param_groups:
   backbone_to_freeze:
-    stop: extractor.convnet.layer4.1 # None/null means first named parameter, second name is inclusive
+    stop: extractor.convnet.layer4.1
   backbone_to_train: extractor.convnet.layer4.2
-  add_on_layers: extractor.add_on # All named parameters starting with this prefix
+  add_on_layers: extractor.add_on
   prototypes: classifier.prototypes
-  #leaves_distributions: classifier.tree
 
 optimizers:
   main_optimizer:
     type: SGD
     groups:
       backbone_to_freeze:
-        lr: 0.00001 # FIXME: Values like 1e-5 are not supported
+        lr: 0.00001
         weight_decay_rate: 0.0
         momentum: 0.9
       backbone_to_train:
@@ -26,30 +25,24 @@ optimizers:
         lr: 0.001
         weight_decay_rate: 0
         momentum: 0
-  #    leaves_distributions: # If we are not in derivative free mode for tree leaves
-  #      lr: 0.001
-  #      momentum: 0.9
+
     params:
       lr: 0.001
       momentum: 0.9
     scheduler:
-      type: MultiStepLR # or ReduceLROnPlateau
+      type: MultiStepLR
       params:
         milestones: [60, 70, 80, 90, 100]
         gamma: 0.5
 
-num_epochs: 100
+num_epochs: 5
 
-# By default, everything that is not frozen is trained
 periods:
   warmup:
-      epoch_range: [ 0, 29 ] # First and last epoch (included)
+      epoch_range: [ 0, 2 ]
       freeze: [ backbone_to_freeze ]
       optimizers:
         - main_optimizer
 
-
-
-# After training
 epilogue:
   pruning_threshold: 0.01
