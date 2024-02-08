@@ -2,6 +2,7 @@
 
 import importlib
 import os
+import pathlib
 import sys
 import random
 from argparse import ArgumentParser
@@ -10,7 +11,10 @@ from loguru import logger
 import numpy as np
 import torch
 
-VERSION = "0.1-alpha"
+
+def get_version() -> str:
+    with open(os.path.join(pathlib.Path(__file__).parent.resolve(), "..", "VERSION"), "r") as fin:
+        return fin.readline()
 
 
 def main():
@@ -36,7 +40,7 @@ def main():
         subparser = subparsers.add_parser(app_name, help=description)
         subparser.set_defaults(func=module.execute)
         module.create_parser(subparser)
-    parser.add_argument("--version", "-V", action="version", version=VERSION)
+    parser.add_argument("--version", "-V", action="version", version=get_version())
     parser.add_argument("--device", type=str, default="cuda:0", help="Target hardware device")
     parser.add_argument("--seed", "-s", type=int, default=42, help="Seed for reproducible experiments")
     # what level of information is stored in the log file
