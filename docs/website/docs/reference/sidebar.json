@@ -1,0 +1,49 @@
+{
+  "items": [
+    {
+      "items": [
+        "reference/cabrnet/generic/conv_extractor",
+        "reference/cabrnet/generic/model"
+      ],
+      "label": "cabrnet.generic",
+      "type": "category"
+    },
+    {
+      "items": [
+        "reference/cabrnet/prototree/decision",
+        "reference/cabrnet/prototree/model"
+      ],
+      "label": "cabrnet.prototree",
+      "type": "category"
+    },
+    {
+      "items": [
+        "reference/cabrnet/utils/custom_preprocess",
+        "reference/cabrnet/utils/data",
+        "reference/cabrnet/utils/optimizers",
+        "reference/cabrnet/utils/parser",
+        "reference/cabrnet/utils/prototypes",
+        "reference/cabrnet/utils/save",
+        "reference/cabrnet/utils/similarities",
+        "reference/cabrnet/utils/tree"
+      ],
+      "label": "cabrnet.utils",
+      "type": "category"
+    },
+    {
+      "items": [
+        "reference/cabrnet/visualisation/explainer",
+        "reference/cabrnet/visualisation/gradients",
+        "reference/cabrnet/visualisation/postprocess",
+        "reference/cabrnet/visualisation/prp_utils",
+        "reference/cabrnet/visualisation/upsampling",
+        "reference/cabrnet/visualisation/view",
+        "reference/cabrnet/visualisation/visualizer"
+      ],
+      "label": "cabrnet.visualisation",
+      "type": "category"
+    }
+  ],
+  "label": "cabrnet",
+  "type": "category"
+}
