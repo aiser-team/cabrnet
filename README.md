@@ -1,4 +1,5 @@
 <img src="./docs/banner.svg">
+
 CaBRNet is an open source library aiming to offer an API to use state-of-the-art
 prototype-based architectures, or easily add a new one.
 
