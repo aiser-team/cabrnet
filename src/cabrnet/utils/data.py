@@ -83,7 +83,7 @@ def get_datasets(config_file: str) -> dict[str, dict[str, Dataset | int | bool]]
     datasets: dict[str, dict[str, Dataset | int | bool]] = {}
 
     # Configuration should include at least train and projection sets
-    mandatory_sets = ["train_set", "projection_set"]
+    mandatory_sets = ["train_set", "projection_set", "test_set"]
     for dataset_name in mandatory_sets:
         if dataset_name not in config:
             logger.error(f"Missing configuration for {dataset_name}.")
