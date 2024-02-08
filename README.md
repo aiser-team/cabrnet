@@ -1,5 +1,4 @@
-# CaBRNet: Case-Based Reasoning Networks
-
+<img src="./docs/banner.svg">
 CaBRNet is an open source library aiming to offer an API to use state-of-the-art
 prototype-based architectures, or easily add a new one.
 
@@ -10,7 +9,7 @@ With `pip`:
 ```bash
 python3 -m venv venv
 source venv/bin/activate
-pip install -r requirements.txt
+python3 -m pip install -r requirements.txt -e .
 ```
 
 With `conda`/`mamba`:
@@ -18,6 +17,7 @@ With `conda`/`mamba`:
 ```bash
 conda env create -f environment.yml
 conda activate cabrnet
+python3 -m pip install -e .
 ```
 
 or
@@ -25,6 +25,7 @@ or
 ```bash
 mamba env create -f environment.yml
 mamba activate cabrnet
+python3 -m pip install -e .
 ```
 
 With `micromamba`:
@@ -32,6 +33,7 @@ With `micromamba`:
 ```bash
 micromamba create -f environment.yml
 micromamba activate cabrnet
+python3 -m pip install -e .
 ```
 
 Once the dependencies are downloaded, to build using `pyproject.toml` with package build installed, you
@@ -42,6 +44,13 @@ can use `python3 -m build`
 ```bash
 cabrnet --device cpu --seed 42 --verbose --logger-level DEBUG train --model-config configs/prototree/mnist/model.yml --dataset configs/prototree/mnist/data.yml --training configs/prototree/mnist/training.yml --training-dir logs/
 ```
+
+## Configuration files
+CaBRNet uses YML files to specify:
+- the model architecture (see TODO)
+- which [datasets](src/cabrnet/utils/data.md) should be used during training.
+- the [training](src/cabrnet/utils/optimizers.md) parameters.
+- how to visualize (TODO) the prototypes and generate explanations. 
 
 ## Adding new applications
 
