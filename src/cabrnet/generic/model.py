@@ -2,19 +2,17 @@ from __future__ import annotations
 
 import argparse
 import importlib
+import shutil
 import os.path
-from loguru import logger
-from tqdm import tqdm
 from typing import Any, Callable
-from PIL import Image
 import torch
 import torch.nn as nn
 from loguru import logger
 from cabrnet.generic.conv_extractor import ConvExtractor, layer_init_functions
 from cabrnet.utils.parser import load_config
+from cabrnet.utils.optimizers import OptimizerManager
 from cabrnet.visualisation.visualizer import SimilarityVisualizer
 from torch import Tensor
-from torch.optim import Optimizer
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
@@ -69,10 +67,12 @@ class ProtoClassifier(nn.Module):
     @staticmethod
     def create_parser(
         parser: argparse.ArgumentParser | None = None,
+        mandatory_config: bool = True,
     ) -> argparse.ArgumentParser:
         """Create the argument parser for a ProtoClassifier.
         Args:
             parser: Existing parser (if any)
+            mandatory_config: Make model configuration mandatory
 
         Returns:
             The parser itself.
@@ -81,7 +81,7 @@ class ProtoClassifier(nn.Module):
             parser = argparse.ArgumentParser(description="Build a ProtoClassifier")
         parser.add_argument(
             "--model-config",
-            default="configs/prototree/model.yml",
+            required=mandatory_config,
             metavar="/path/to/file.yml",
             help="Path to the model configuration file",
         )
@@ -193,7 +193,7 @@ class ProtoClassifier(nn.Module):
     def train_epoch(
         self,
         train_loader: DataLoader,
-        optimizer: Optimizer,
+        optimizer_mngr: OptimizerManager,
         device: str = "cuda:0",
         progress_bar_position: int = 0,
         epoch_idx: int = 0,
@@ -204,7 +204,7 @@ class ProtoClassifier(nn.Module):
         Train the model for one epoch.
         Args:
             train_loader: Dataloader containing training data
-            optimizer: Learning optimizer
+            optimizer_mngr: Optimizer manager
             device: Target device
             progress_bar_position: Position of the progress bar.
             epoch_idx: Epoch index
@@ -233,7 +233,7 @@ class ProtoClassifier(nn.Module):
 
         for batch_idx, (xs, ys) in train_iter:
             # Reset gradients and map the data on the target device
-            optimizer.zero_grad()
+            optimizer_mngr.zero_grad()
             xs, ys = xs.to(device), ys.to(device)
 
             # Perform inference and compute loss
@@ -242,7 +242,7 @@ class ProtoClassifier(nn.Module):
 
             # Compute the gradient and update parameters
             batch_loss.backward()
-            optimizer.step()
+            optimizer_mngr.optimizer_step(epoch=epoch_idx)
 
             # Update progress bar
             postfix_str = (
@@ -259,7 +259,7 @@ class ProtoClassifier(nn.Module):
                 break
 
         # Clean gradients after last batch
-        optimizer.zero_grad()
+        optimizer_mngr.zero_grad()
 
         train_info = {"avg_loss": total_loss / batch_num, "avg_train_accuracy": total_acc / batch_num}
         return train_info
@@ -381,6 +381,10 @@ class ProtoClassifier(nn.Module):
         logger.info("Extracting prototype visualization")
         # Create destination directory if necessary
         os.makedirs(dir_path, exist_ok=True)
+        # Copy visualizer configuration file
+        if os.path.isfile(visualizer.config_file):
+            shutil.copyfile(src=visualizer.config_file, dst=os.path.join(dir_path, "visualization.yml"))
+
         # Show progress on progress bar if needed
         data_iter = tqdm(
             projection_info,
@@ -389,6 +393,7 @@ class ProtoClassifier(nn.Module):
             position=progress_bar_position,
             disable=not verbose,
         )
+        visualizer_model = visualizer.prepare_model(self)
         for proto_idx in data_iter:
             if projection_info[proto_idx]["img_idx"] == -1:
                 # Skip pruned prototype
@@ -399,7 +404,12 @@ class ProtoClassifier(nn.Module):
             img_tensor = dataloader.dataset[projection_info[proto_idx]["img_idx"]][0]
             h, w = projection_info[proto_idx]["h"], projection_info[proto_idx]["w"]
             prototype_part = visualizer.forward(
-                model=self, img=img, img_tensor=img_tensor, proto_idx=proto_idx, device=device, location=(h, w)
+                model=visualizer_model,
+                img=img,
+                img_tensor=img_tensor,
+                proto_idx=proto_idx,
+                device=device,
+                location=(h, w),
             )
             img_path = os.path.join(dir_path, f"prototype_{proto_idx}.png")
             prototype_part.save(fp=img_path)
