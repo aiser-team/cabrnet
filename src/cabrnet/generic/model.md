@@ -114,7 +114,6 @@ class ArchNameClassifier(nn.Module):
         num_classes: int,
         num_features: int,
         proto_init_mode: str = "SHIFTED_NORMAL",
-        ...
     ) -> None:
         """
         Create a ArchName classifier
@@ -124,7 +123,7 @@ class ArchNameClassifier(nn.Module):
             proto_init_mode: Init mode for prototypes
             ...
         """
-        super(ArchName, self).__init__()
+        super(ArchNameClassifier, self).__init__()
 
         # Sanity check on all parameters
         assert num_classes > 1, f"Invalid number of classes: {num_classes}"
@@ -141,25 +140,25 @@ class ArchNameClassifier(nn.Module):
         )
         # Example of a L2 based similarity layer
         self.similarity_layer = L2Similarities(
-            num_prototypes=self.num_prototypes, num_features=self.num_features, log_probabilities=log_probabilities
+            num_prototypes=self.num_prototypes, num_features=self.num_features
         )
 
     @property
-    def max_num_prototypes(self) -> int:
+    def max_num_prototypes(self) -> ...:
         """
         Returns: Maximum number of prototypes (might differ from current number of prototypes due to pruning)
         """
         ...
 
     @property
-    def num_prototypes(self) -> int:
+    def num_prototypes(self) -> ...:
         """
         Returns: Current number of prototypes
         """
         ...
 
 
-    def forward(self, features: torch.Tensor) -> torch.Tensor:
+    def forward(self, features: torch.Tensor) -> ...:
         """
         Perform classification using decision tree
         Args:
@@ -180,22 +179,13 @@ placed inside a dedicated file in `src/cabrnet/<ARCH_NAME>/model.py` (e.g. [src/
 The top-module class should inherit from the generic class [ProtoClassifier](../generic/model.py), and implements
 some mandatory functions as illustrated below.
 ```python
-import os
-import torch
-import torch.nn as nn
 import torch.nn.functional
 from torch.utils.data import DataLoader
-from PIL import Image
-from typing import Any, Mapping, Callable
+from typing import Any, Callable
 from tqdm import tqdm
 from cabrnet.generic.model import ProtoClassifier
 from cabrnet.utils.optimizers import OptimizerManager
-from cabrnet.utils.tree import TreeNode, MappingMode
-from cabrnet.prototree.decision import SamplingStrategy, ProtoTreeClassifier
 from cabrnet.visualisation.visualizer import SimilarityVisualizer
-from cabrnet.visualisation.explainer import ExplanationGraph
-import copy
-from loguru import logger
 
 
 class ArchName(ProtoClassifier):
@@ -331,7 +321,7 @@ class ArchName(ProtoClassifier):
         output_dir_path: str,
         device: str,
         exist_ok: bool = False,
-        strategy: SamplingStrategy = SamplingStrategy.GREEDY,
+        **kwargs,
     ) -> None:
         """Explain the decision for a particular image
 
@@ -343,10 +333,9 @@ class ArchName(ProtoClassifier):
             output_dir_path: path to output directory containing the explanation
             device: target hardware device
             exist_ok: silently overwrite existing explanation if any
-            strategy: tree sampling strategy
         """
-        # Generate a local explanation for the given image
-
+        ...
+    
     def explain_global(
         self,
         prototype_dir_path: str,
