@@ -165,7 +165,7 @@ def execute(args: Namespace) -> None:
         # Freeze parameters if necessary depending on current epoch and parameter group
         optimizer_mngr.freeze(epoch=epoch)
         train_info = model.train_epoch(
-            train_loader=dataloaders["train_set"],
+            dataloaders=dataloaders,
             optimizer_mngr=optimizer_mngr,
             device=device,
             progress_bar_position=1,

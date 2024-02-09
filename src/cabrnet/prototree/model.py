@@ -159,7 +159,7 @@ class ProtoTree(CaBRNet):
 
     def train_epoch(
         self,
-        train_loader: DataLoader,
+        dataloaders: dict[str, DataLoader],
         optimizer_mngr: OptimizerManager,
         device: str = "cuda:0",
         progress_bar_position: int = 0,
@@ -170,7 +170,7 @@ class ProtoTree(CaBRNet):
         """
         Train the model for one epoch.
         Args:
-            train_loader: Dataloader containing training data
+            dataloaders: Dictionary of dataloaders
             optimizer_mngr: Optimizer manager
             device: Target device
             progress_bar_position: Position of the progress bar.
@@ -193,6 +193,9 @@ class ProtoTree(CaBRNet):
             old_dist_params: dict[int, torch.Tensor] = {}
             for leaf in self.classifier.tree.leaves:
                 old_dist_params[leaf.node_id] = leaf._relative_distribution.detach().clone()
+
+        # Use training dataloader
+        train_loader = dataloaders["train_set"]
 
         # Show progress on progress bar if needed
         train_iter = tqdm(

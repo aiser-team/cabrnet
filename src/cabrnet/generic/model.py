@@ -192,7 +192,7 @@ class CaBRNet(nn.Module):
 
     def train_epoch(
         self,
-        train_loader: DataLoader,
+        dataloaders: dict[str, DataLoader],
         optimizer_mngr: OptimizerManager,
         device: str = "cuda:0",
         progress_bar_position: int = 0,
@@ -203,7 +203,7 @@ class CaBRNet(nn.Module):
         """
         Train the model for one epoch.
         Args:
-            train_loader: Dataloader containing training data
+            dataloaders: Dictionary of dataloaders
             optimizer_mngr: Optimizer manager
             device: Target device
             progress_bar_position: Position of the progress bar.
