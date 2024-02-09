@@ -94,11 +94,12 @@ class ConvExtractor(nn.Module):
         if isinstance(x, dict):
             # Output of a create_feature_extractor
             x = x["convnet"]  # type: ignore
-        x = self.add_on(x)
+        if self.add_on is not None:
+            x = self.add_on(x)
         return x
 
     @staticmethod
-    def create_add_on(config: dict[str, dict], in_channels: int) -> Tuple[nn.Sequential, int]:
+    def create_add_on(config: dict[str, dict], in_channels: int) -> Tuple[nn.Sequential | None, int]:
         """Build add-on layers based on configuration.
 
         Args:
@@ -111,6 +112,10 @@ class ConvExtractor(nn.Module):
         Raises:
             ValueError when configuration is invalid
         """
+        if config is None:
+            # No add-on layers
+            return None, in_channels
+
         layers: OrderedDict[str, nn.Module] = OrderedDict()
         init_mode = None
         for idx, (key, val) in enumerate(config.items()):
@@ -159,14 +164,14 @@ class ConvExtractor(nn.Module):
         Raises:
             ValueError when configuration is invalid
         """
-        for mandatory_key in ["backbone", "add_on"]:
+        for mandatory_key in ["backbone"]:
             if mandatory_key not in config:
                 raise ValueError(f"Missing mandatory key {mandatory_key} in extractor configuration")
         for mandatory_key in ["arch", "weights", "layer"]:
             if mandatory_key not in config["backbone"]:
                 raise ValueError(f"Missing mandatory key {mandatory_key} in backbone configuration")
         backbone = config["backbone"]
-        add_on = config["add_on"]
+        add_on = config.get("add_on")
         return ConvExtractor(
             arch=backbone["arch"], weights=backbone["weights"], layer=backbone["layer"], add_on=add_on, seed=seed
         )
