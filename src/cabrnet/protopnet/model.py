@@ -3,6 +3,7 @@ from typing import Any, Callable
 
 import torch
 import torch.nn as nn
+import numpy as np
 from cabrnet.generic.model import ProtoClassifier
 from cabrnet.utils.optimizers import OptimizerManager
 from cabrnet.visualisation.visualizer import SimilarityVisualizer
@@ -225,11 +226,103 @@ class ProtoPNet(ProtoClassifier):
     def prune(self, pruning_threshold) -> None:
         pass
 
-    # TODO: implementation
     def project(
-        self, data_loader: DataLoader, device: str = "cuda:0", verbose: bool = False, progress_bar_position: int = 0
+        self,
+        data_loader: DataLoader,
+        device: str = "cuda:0",
+        verbose: bool = False,
+        progress_bar_position: int = 0,
     ) -> dict[int, dict]:
-        return {0: {}}
+        """
+        Perform prototype projection after training
+        Args:
+            data_loader: dataloader containing projection data
+            device: target device
+            verbose: display progress bar
+            progress_bar_position: position of the progress bar.
+        Returns:
+            dictionary containing projection information for each prototype
+
+        """
+        logger.info("Performing prototype projection")
+        self.eval()
+        self.to(device)
+
+        if data_loader.batch_size != 1:
+            logger.warning(
+                "Projection results may vary depending on batch size, see issue "
+                "https://discuss.pytorch.org/t/cudnn-causing-inconsistent-test-results-depending-on-batch-size/189277"
+            )
+
+        # For each class, keep track of the related prototypes
+        np_proto_class_map = self.classifier.proto_class_map.detach().cpu().numpy()
+        class_mapping = {c: list(np.nonzero(np_proto_class_map[:, c])[0]) for c in range(self.classifier.num_classes)}
+        # Sanity check to ensure that each class is associated with at least one prototype
+        for class_idx in range(self.classifier.num_classes):
+            if class_idx not in class_mapping:
+                logger.error(f"Inaccessible class {class_idx}!")
+
+        # Show progress on progress bar if needed
+        data_iter = tqdm(
+            enumerate(data_loader),
+            total=len(data_loader),
+            leave=False,
+            position=progress_bar_position,
+            disable=not verbose,
+        )
+
+        # Original number of prototypes (before pruning) and prototype length
+        max_num_prototypes, proto_dim = self.classifier.max_num_prototypes, self.classifier.num_features
+
+        # For each prototype, keep track of:
+        #   - the index of the closest projection image
+        #   - the coordinates of the vector inside the latent representation of that image
+        #   - the corresponding distance
+        #   - the corresponding vector
+        projection_info = {
+            proto_idx: {
+                "img_idx": -1,
+                "h": -1,
+                "w": -1,
+                "dist": float("inf"),
+            }
+            for proto_idx in range(max_num_prototypes)
+        }
+        projection_vectors = torch.zeros_like(self.classifier.prototypes)
+
+        with torch.no_grad():
+            for batch_idx, (xs, ys) in data_iter:
+                # Map to device and perform inference
+                xs = xs.to(device)
+                feats = self.extractor(xs)  # Shape N x D x H x W
+                H, W = feats.shape[2], feats.shape[3]
+                distances = self.classifier.similarity_layer.L2_square_distance(
+                    feats, self.classifier.prototypes
+                )  # Shape (N, P, H, W)
+                min_dist, min_dist_idxs = torch.min(distances.view(distances.shape[:2] + (-1,)), dim=2)
+
+                for img_idx, (x, y) in enumerate(zip(xs, ys)):
+                    if y.item() not in class_mapping:
+                        # Class is not associated with any prototype (this is bad...)
+                        continue
+                    for proto_idx in class_mapping[y.item()]:
+                        # For each entry, only check prototypes that lead to the corresponding class
+                        if min_dist[img_idx, proto_idx] < projection_info[proto_idx]["dist"]:
+                            h, w = (
+                                min_dist_idxs[img_idx, proto_idx].item() // W,
+                                min_dist_idxs[img_idx, proto_idx].item() % W,
+                            )
+                            projection_info[proto_idx] = {  # type: ignore
+                                "img_idx": batch_idx * data_loader.batch_size + img_idx,  # type: ignore
+                                "h": h,
+                                "w": w,
+                                "dist": min_dist[img_idx, proto_idx].item(),
+                            }
+                            projection_vectors[proto_idx] = feats[img_idx, :, h, w].view(proto_dim, 1, 1).cpu()
+
+            # Update prototype vectors
+            self.classifier.prototypes.copy_(projection_vectors)
+        return projection_info
 
     # TODO: implementation
     def explain(

@@ -19,6 +19,7 @@ from cabrnet.utils.optimizers import OptimizerManager
 import legacy.protopnet.settings as legacy_settings
 import legacy.protopnet.preprocess as legacy_preprocess
 from legacy.protopnet.model import construct_PPNet
+import legacy.protopnet.push as legacy_push
 
 
 def setup_rng(seed: int):
@@ -234,6 +235,36 @@ class TestProtoPNetCompatibility(unittest.TestCase):
         legacy_model = legacy_get_model(seed=self.seed)
         legacy_model.load_state_dict(torch.load(self.legacy_state_dict, map_location="cpu"))
 
+        self.assertModelEqual(legacy_model, cabrnet_model)
+
+    def test_push_prototypes(self):
+        # CaBRNet
+        setup_rng(self.seed)
+        cabrnet_model = ProtoClassifier.build_from_config(self.model_config, seed=self.seed, compatibility_mode=True)
+        dataloaders = get_dataloaders(config_file=self.dataset_config)
+        cabrnet_info = cabrnet_model.project(
+            data_loader=dataloaders["projection_set"], device=self.device, verbose=True
+        )
+
+        # Legacy
+        setup_rng(self.seed)
+        legacy_model = legacy_get_model(seed=self.seed)
+        _, _, push_loader = legacy_get_dataloaders(self.dataset_config)
+        legacy_model_multi = nn.DataParallel(legacy_model)
+        legacy_push.push_prototypes(
+            dataloader=push_loader,
+            prototype_network_parallel=legacy_model_multi,
+            class_specific=True,
+            preprocess_input_function=legacy_preprocess.preprocess_input_function,
+            prototype_layer_stride=1,
+            root_dir_for_saving_prototypes=None,
+            epoch_number=None,
+            prototype_img_filename_prefix=None,
+            prototype_self_act_filename_prefix=None,
+            proto_bound_boxes_filename_prefix=None,
+            save_prototype_class_identity=True,
+            log=DummyLogger(),
+        )
         self.assertModelEqual(legacy_model, cabrnet_model)
 
 
