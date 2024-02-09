@@ -48,7 +48,7 @@ cabrnet --device cpu --seed 42 --verbose --logger-level DEBUG train --model-conf
 
 ## Configuration files
 CaBRNet uses YML files to specify:
-- the model architecture (see TODO)
+- the [model architecture](src/cabrnet/generic/model.md).
 - which [datasets](src/cabrnet/utils/data.md) should be used during training.
 - the [training](src/cabrnet/utils/optimizers.md) parameters.
 - how to visualize (TODO) the prototypes and generate explanations. 
