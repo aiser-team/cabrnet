@@ -65,20 +65,19 @@ def legacy_get_dataloaders(dataset_config: str) -> tuple[DataLoader, DataLoader,
         ]
     )
     train_dataset = datasets.ImageFolder(train_dir, legacy_transforms)
-    train_batch_size = 16  # Reduce train batch size
-    train_loader = DataLoader(train_dataset, batch_size=train_batch_size, shuffle=True, num_workers=4, pin_memory=False)
+    # Reduce all batch sizes
+    batch_size = 16
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=False)
     train_push_dataset = datasets.ImageFolder(train_push_dir, legacy_transforms_no_normalization)
     train_push_loader = DataLoader(
         train_push_dataset,
-        batch_size=legacy_settings.train_push_batch_size,
+        batch_size=batch_size,
         shuffle=False,
         num_workers=4,
         pin_memory=False,
     )
     test_dataset = datasets.ImageFolder(test_dir, legacy_transforms)
-    test_loader = DataLoader(
-        test_dataset, batch_size=legacy_settings.test_batch_size, shuffle=False, num_workers=4, pin_memory=False
-    )
+    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=4, pin_memory=False)
     return train_loader, test_loader, train_push_loader
 
 
