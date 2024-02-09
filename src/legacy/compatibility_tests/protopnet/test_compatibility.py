@@ -128,6 +128,7 @@ class TestProtoPNetCompatibility(unittest.TestCase):
         self.dataset_config: str = "src/legacy/compatibility_tests/protopnet/cub200.yml"
         self.training_config: str = "src/legacy/compatibility_tests/protopnet/training.yml"
         self.legacy_state_dict: str | None = "legacy_states/protopnet/protopnet_cub200_vgg19.pth"
+        self.device: str = "cuda:0"
         self.seed: int = 42
 
     def assertTensorEqual(self, expected: torch.Tensor, actual: torch.Tensor):
@@ -139,7 +140,9 @@ class TestProtoPNetCompatibility(unittest.TestCase):
     def assertModelEqual(self, expected: nn.Module, actual: nn.Module):
         expected.eval()
         actual.eval()
-        x = torch.rand(10, 3, 224, 224)
+        expected.to(self.device)
+        actual.to(self.device)
+        x = torch.rand(16, 3, 224, 224).to(self.device)
         with torch.no_grad():
             y_e = expected(x)
             y_a = actual(x)
