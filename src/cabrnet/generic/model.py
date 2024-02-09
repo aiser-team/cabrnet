@@ -64,6 +64,10 @@ class CaBRNet(nn.Module):
         # Specific to legacy architectures
         raise NotImplementedError
 
+    def register_training_params(self, training_config: dict[str, Any]) -> None:
+        """Save additional information from the training configuration directly into the model"""
+        pass
+
     @staticmethod
     def create_parser(
         parser: argparse.ArgumentParser | None = None,
