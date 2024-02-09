@@ -110,11 +110,6 @@ class ProtoPNet(ProtoClassifier):
             l1_mask = 1 - torch.t(self.classifier.proto_class_map)
             l1 = (self.classifier.last_layer.weight * l1_mask).norm(p=1)
 
-            min_distance, _ = torch.min(min_distances, dim=1)
-            cluster_cost = torch.mean(min_distance)
-            l1_mask = 1 - torch.t(self.classifier.proto_class_map)
-            l1 = (self.classifier.last_layer.weight * l1_mask).norm(p=1)
-
         else:
             prototypes_of_correct_class = torch.t(torch.index_select(self.classifier.proto_class_map, 1, label))
             cluster_cost = torch.mean(torch.min(prototypes_of_correct_class * min_distances, dim=1)[0])
@@ -214,7 +209,10 @@ class ProtoPNet(ProtoClassifier):
         optimizer_mngr.zero_grad()
 
         if max_batches is not None:
-            train_info = {"avg_loss": total_loss / max_batches, "avg_train_accuracy": total_acc / max_batches}
+            train_info = {
+                "avg_loss": total_loss / (max_batches + 1),
+                "avg_train_accuracy": total_acc / (max_batches + 1),
+            }
         else:
             train_info = {"avg_loss": total_loss / batch_num, "avg_train_accuracy": total_acc / batch_num}
         return train_info
