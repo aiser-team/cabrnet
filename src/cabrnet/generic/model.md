@@ -12,8 +12,8 @@ the feature extractor produce a HxW map of D-dimensional vectors, called the **f
 - a [classifier](#classifier-configuration) that:
   - implements a set of prototypes that are either specific to a given class, or shared among multiples classes. 
   - computes similarity scores between each vector of the feature map and each prototype, using a similarity layer 
-  (e.g. based on the L2 distance between vectors in $\mathbb{R}^D$).
-  - computes the classification logits based on these distances (e.g. using a decision Tree in ProtoTree).
+  (*e.g.* based on the L2 distance between vectors in $\mathbb{R}^D$).
+  - computes the classification logits based on these distances (*e.g.* using a decision Tree in ProtoTree).
 
 <img src="../../../docs/website/docs/img/architecture.svg">
 
@@ -55,7 +55,7 @@ Notes on the configuration of the backbone:
   - randomly (`null` keyword).
   - by providing the path to an existing state dictionary.
   - by providing the name of a valid set of pre-trained parameters, as given by 
-[torchvision.models.get_model_weights(arch)](https://pytorch.org/vision/main/generated/torchvision.models.get_model_weights.html) (e.g. `IMAGENET1K_V1` for ImageNet pre-trained weights).
+[torchvision.models.get_model_weights(arch)](https://pytorch.org/vision/main/generated/torchvision.models.get_model_weights.html) (*e.g.* `IMAGENET1K_V1` for ImageNet pre-trained weights).
 - `layer`: Since the backbone model is usually a classifier, CaBRNet uses the 
 [create_feature_extractor](https://pytorch.org/vision/main/generated/torchvision.models.feature_extraction.create_feature_extractor.html) 
 function to automatically remove its deepest layers and to keep only the convolutional layers.
@@ -73,7 +73,7 @@ for convolutional layers and a static starting configuration for BatchNorm layer
 
 ## Classifier configuration
 The classifier performs the classification based on similarities between the output of the feature extractor and a set
-of **prototypes**. Prototype management is specific to each type of model architecture (e.g. decision tree in ProtoTree, 
+of **prototypes**. Prototype management is specific to each type of model architecture (*e.g.* decision tree in ProtoTree, 
 linear layer in ProtoPNet).
 ```yaml
 classifier: 
@@ -98,7 +98,7 @@ top_arch:
 # Implementing a new prototype-based architecture
 ### Defining a new classifier architecture
 The module in charge of classification should be placed inside a dedicated file in
-`src/cabrnet/<ARCH_NAME>/decision.py` (e.g. [src/cabrnet/prototree/decision.py](../prototree/decision.py)).
+`src/cabrnet/<ARCH_NAME>/decision.py` (*e.g.* [src/cabrnet/prototree/decision.py](../prototree/decision.py)).
 
 The following code provides a minimal example on how to define a new classifier.
 ```python
@@ -175,7 +175,7 @@ class ArchNameClassifier(nn.Module):
 
 ### Defining a new top-module
 The module in charge of combining the feature extractor and the classifier should be
-placed inside a dedicated file in `src/cabrnet/<ARCH_NAME>/model.py` (e.g. [src/cabrnet/prototree/model.py](../prototree/model.py)).
+placed inside a dedicated file in `src/cabrnet/<ARCH_NAME>/model.py` (*e.g.* [src/cabrnet/prototree/model.py](../prototree/model.py)).
 The top-module class should inherit from the generic class [ProtoClassifier](../generic/model.py), and implements
 some mandatory functions as illustrated below.
 ```python

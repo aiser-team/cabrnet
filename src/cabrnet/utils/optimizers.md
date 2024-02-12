@@ -54,7 +54,7 @@ optimizers:
     ...
 ```
 Hence, a single optimizer can be used for different parameter groups, 
-with different configurations (e.g. learning rate) for each parameter group.
+with different configurations (*e.g.* learning rate) for each parameter group.
 
 Additionally, each optimizer can be associated with an **optional** learning rate scheduler.
 
