@@ -166,7 +166,11 @@ class OptimizerManager:
         if self.config.get("periods") is None:
             # Single training period
             self.periods = {
-                "main_period": {"range": [0, num_epochs - 1], "freeze": None, "optimizers": self.optimizers.keys()}
+                "main_period": {
+                    "epoch_range": [0, num_epochs - 1],
+                    "freeze": None,
+                    "optimizers": self.optimizers.keys(),
+                }
             }
         else:
             for epoch_name in self.config.get("periods"):
