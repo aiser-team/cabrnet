@@ -92,7 +92,7 @@ def execute(args: Namespace) -> None:
         best_metric = 0.0 if args.save_best == "acc" else float("inf")
         seed = args.seed
 
-    if args.sanity_check_only is None:
+    if not args.sanity_check_only:
         max_batches = None  # Process all data batches
         epoch_select = None
     else:
