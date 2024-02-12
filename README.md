@@ -44,21 +44,120 @@ micromamba activate cabrnet
 python3 -m pip install -e .
 ```
 
-Once the dependencies are downloaded, to build using `pyproject.toml` with package build installed, you
-can use `python3 -m build`
-
-## Testing a ProtoTree training on MNIST
-
+## Building the package
+Once the dependencies are downloaded, the CaBRNet package can be built from `pyproject.toml` as follows: 
 ```bash
-cabrnet --device cpu --seed 42 --verbose --logger-level DEBUG train --model-config configs/prototree/mnist/model.yml --dataset configs/prototree/mnist/data.yml --training configs/prototree/mnist/training.yml --training-dir logs/
+python3 -m build
+```
+NOTE: this operation requires the  `build` python package.
+
+# CaBRNet front-end application
+All CaBRNet applications are accessible through a single front-end script. To list all available application, simply enter:
+```bash
+cabrnet --help
+```
+```
+usage: cabrnet [-h] [--version] [--device DEVICE] [--seed SEED] [--logger-level LOGGER_LEVEL] [--verbose] {download_examples,evaluate,train,explain,explain_global} ...
+
+CaBRNet front-end
+
+positional arguments:
+  {download_examples,evaluate,train,explain,explain_global}
+                        sub-command help
+    download_examples   download example models
+    evaluate            evaluate a CaBRNet classifier
+    train               train a CaBRNet classifier
+    explain             explain the decision of a CaBRNet classifier
+    explain_global      explain the global behaviour of a CaBRNet classifier
+
+options:
+  -h, --help            show this help message and exit
+  --version, -V         show program's version number and exit
+  --device DEVICE       Target hardware device
+  --seed SEED, -s SEED  Seed for reproducible experiments
+  --logger-level LOGGER_LEVEL
+                        Logger level and verbosity
+  --verbose             Verbose output
+```
+To obtain the documentation for a specific application, simple enter `cabrnet <app_name> --help`, *e.g.*:
+```bash
+cabrnet train --help
+```
+```
+usage: cabrnet train [-h] [--model-config /path/to/file.yml] [--model-state-dict /path/to/model/state.pth] [--dataset /path/to/file.yml] (--training /path/to/file.yml | --resume-from /path/to/checkpoint/directory) --training-dir path/to/training/directory [--save-best metric]
+                     [--checkpoint-frequency num_epochs] --visualization /path/to/file.yml [--sanity-check-only]
+
+options:
+  -h, --help            show this help message and exit
+  --model-config /path/to/file.yml
+                        Path to the model configuration file
+  --model-state-dict /path/to/model/state.pth
+                        Path to the model state dictionary
+  --dataset /path/to/file.yml, -d /path/to/file.yml
+                        path to the dataset config
+  --training /path/to/file.yml, -t /path/to/file.yml
+                        Path to the training configuration file
+  --resume-from /path/to/checkpoint/directory
+                        Path to existing checkpoint directory
+  --training-dir path/to/training/directory
+                        Path to output directory
+  --save-best metric    Save best model based on accuracy or loss
+  --checkpoint-frequency num_epochs
+                        Checkpoint frequency (in epochs)
+  --visualization /path/to/file.yml
+                        Path to the visualization configuration file
+  --sanity-check-only   Check the training pipeline without performing the entire process.
 ```
 
 ## Configuration files
-CaBRNet uses YML files to specify:
+As indicated in the example above, CaBRNet uses YML files to specify:
 - the [model architecture](src/cabrnet/generic/model.md).
 - which [datasets](src/cabrnet/utils/data.md) should be used during training.
 - the [training](src/cabrnet/utils/optimizers.md) parameters.
-- how to visualize (TODO) the prototypes and generate explanations. 
+- how to visualize (TODO) the prototypes and generate explanations.
+
+
+## Example: ProtoTree / MNIST
+### Training
+```bash
+cabrnet --device cpu --seed 42 --verbose --logger-level INFO train \
+  --model-config configs/prototree/mnist/model.yml \
+  --dataset configs/prototree/mnist/data.yml \
+  --training configs/prototree/mnist/training.yml \
+  --training-dir runs/mnist_prototree \
+  --visualization configs/prototree/mnist/visualization.yml
+```
+This command trains a ProtoTree during one epoch, and stores the resulting checkpoint in 
+`runs/mnist_prototree/final`.
+
+### Global explanation
+```bash
+cabrnet --verbose explain_global \
+  --model-config runs/mnist_prototree/final/model.yml \
+  --model-state-dict runs/mnist_prototree/final/model_state.pth \
+  --output-dir runs/mnist_prototree/global_explanation \ 
+  --prototype-dir runs/mnist_prototree/prototypes/ 
+```
+This command generates a global explanation for the ProtoTree model and stores the result in 
+`runs/mnist_prototree/global_explanation`.
+
+<img src="./docs/website/docs/img/mnist_global_explanation.png">
+
+### Local explanation
+```bash
+cabrnet --verbose explain \
+  --model-config runs/mnist_prototree/final/model.yml  \
+  --model-state-dict runs/mnist_prototree/final/model_state.pth \
+  --dataset configs/prototree/mnist/data.yml \
+  --visualization configs/prototree/mnist/visualization.yml \
+  --prototype-dir runs/mnist_prototree/prototypes/ \
+  --output-dir runs/mnist_prototree/local_explanations/  \
+  --image examples/images/mnist_sample.png
+```
+This command generates a local explanation for the image stored in `examples/images/mnist_sample.png` and stores the result in 
+`runs/mnist_prototree/local_explanation`.
+
+<img src="./docs/website/docs/img/mnist_local_explanation.png">
 
 ## Adding new applications
 
