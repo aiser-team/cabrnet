@@ -96,4 +96,41 @@ def execute(args: Namespace) -> None:
 ```
 
 ## Reproducibility
-TODO
+### Random number initialization and deterministic operations
+For reproducibility purposes, CaBRNet explicitly uses a random `seed` to initialize the various random number 
+generators that may be used during the training process, as shown [here](src/main.py).
+```python
+import numpy as np
+import torch
+import random
+
+torch.use_deterministic_algorithms(mode=True)
+torch.manual_seed(seed)
+np.random.seed(seed)
+random.seed(seed)
+```
+Additionally, CaBRNet use a pytorch feature called [torch.use_deterministic_algorithm](https://pytorch.org/docs/stable/generated/torch.use_deterministic_algorithms.html),
+which ensures reproducible results for a given hardware/software configuration. IMPORTANT NOTE: for compatibility reasons,
+it might be necessary to manually set the `CUBLAS_WORKSPACE_CONFIG` environment variable before launching the CaBRNet 
+main tool.
+```bash
+export CUBLAS_WORKSPACE_CONFIG=:16:8
+```
+### Resuming a training process
+CaBRNet allows the training process to generate *checkpoints* (using the `--checkpoint-frequency` option), so that 
+the entire training process can be resumed from any epoch, under the same conditions and - therefore - with the same outcome.
+More precisely, each training checkpoint contains:
+- a copy of the YML file describing the model architecture, as specified [here](src/cabrnet/generic/model.md).
+- a copy of the YML file describing the dataset, as specified [here](src/cabrnet/utils/data.md). 
+- a copy of the YML file describing the training configuration, as specified [here](src/cabrnet/utils/optimizers.md). 
+- the current model state dictionary.
+- the current state of all optimizers and learning rate schedulers.
+- a file `state.pickle` containing auxiliary information such as:
+  - the index of the current epoch.
+  - the hardware device used.
+  - the current best metrics (*e.g.* accuracy or cross-entropy loss).
+  - the random seed used originally.
+  - the internal state of each random number generator (torch, numpy and python). 
+
+In other words, from a given checkpoint, random number generators are not reset using the original random seed but 
+rather restored to their appropriate state with respect to the current epoch.
