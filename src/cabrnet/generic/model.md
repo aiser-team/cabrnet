@@ -5,15 +5,15 @@ For more examples, see the [ProtoPNet](../../../configs/protopnet/model.yml) and
 
 As shown below, each CaBRNet model is composed of:
 - a [feature extractor](#extractor-configuration) that processes the input image and produces a set of features, 
-usually in the form of a 4-dimensional tensor (N, D, H, W) where:
-  - N is the size of the batch of images.
+usually in the form of a 3-dimensional tensor (D, H, W) where:
   - D is the number of (convolutional) channels.
-  - H x W represent the size of the image representation after downsampling. In other words, for each image inside the batch,
+  - H x W represent the size of the image representation after downsampling. In other words, for each image,
 the feature extractor produce a HxW map of D-dimensional vectors, called the **feature map**.
 - a [classifier](#classifier-configuration) that:
   - implements a set of prototypes that are either specific to a given class, or shared among multiples classes. 
-  - computes the distances between each vector of the feature map and each prototype.
-  - computes the classification logits based on these distances.
+  - computes similarity scores between each vector of the feature map and each prototype, using a similarity layer 
+  (e.g. based on the L2 distance between vectors in $\mathbb{R}^D$).
+  - computes the classification logits based on these distances (e.g. using a decision Tree in ProtoTree).
 
 <img src="../../../docs/website/docs/img/architecture.svg">
 
@@ -88,7 +88,7 @@ Note that the parameter `num_features` is optional, as it can be recovered from 
 the feature extractor.
 
 ## Top-level configuration
-The top-level model, that combines the feature extractor and the classifier is configured as follows:
+The top-level model, that combines the feature extractor and the classifier, is configured as follows:
 ```yaml
 top_arch:
   module: <MODULE>
