@@ -103,7 +103,7 @@ model = ProtoClassifier.build_from_config(config_file="<path/to/model/configurat
 training_config = load_config(config_file="<path/to/training/configuration/file.yml>")
 optimizer_mngr=OptimizerManager(config_dict=training_config,module=model)
 ```
-For more information on how to build a CaBRNet model from a configuration file, see TODO.
+For more information on how to build a CaBRNet model from a configuration file, see [here](../generic/model.md).
 An Optimizer Manager provides four main functions that are used during training:
 - `zero_grad()`: Reset all optimizer(s) gradients (before each batch of data)
 - `freeze(epoch: int)`: Freeze all relevant model parameters, according to the current `epoch`.
