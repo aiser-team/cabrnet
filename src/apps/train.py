@@ -30,6 +30,11 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     parser = create_dataset_parser(parser, mandatory_config=False)
     parser = create_training_parser(parser)
     parser = SimilarityVisualizer.create_parser(parser)
+    parser.add_argument(
+        "--sanity-check-only",
+        action="store_true",
+        help="Check the training pipeline without performing the entire process.",
+    )
     return parser
 
 
@@ -87,6 +92,15 @@ def execute(args: Namespace) -> None:
         best_metric = 0.0 if args.save_best == "acc" else float("inf")
         seed = args.seed
 
+    if args.sanity_check_only is None:
+        max_batches = None  # Process all data batches
+        epoch_select = None
+    else:
+        logger.warning(f"{'='*20} SANITY CHECK MODE: THE TRAINING WILL NOT BE FULLY PERFORMED {'='*20}")
+        max_batches = 5  # Process only a few batches
+        # Only perform one epoch per training period
+        epoch_select = [optimizer_mngr.periods[p_name]["epoch_range"][0] for p_name in optimizer_mngr.periods]
+
     num_epochs = trainer["num_epochs"]
     for epoch in tqdm(
         range(start_epoch, num_epochs),
@@ -96,6 +110,10 @@ def execute(args: Namespace) -> None:
         desc="Training epochs",
         disable=not verbose,
     ):
+        if epoch_select is not None and epoch not in epoch_select:
+            # Quietly skip epoch (sanity check mode)
+            continue
+
         # Freeze parameters if necessary depending on current epoch and parameter group
         optimizer_mngr.freeze(epoch=epoch)
         train_info = model.train_epoch(
@@ -104,6 +122,7 @@ def execute(args: Namespace) -> None:
             device=device,
             progress_bar_position=1,
             epoch_idx=epoch,
+            max_batches=max_batches,
             verbose=verbose,
         )
         # Apply scheduler
