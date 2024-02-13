@@ -4,6 +4,7 @@ from typing import Any
 from loguru import logger
 import numpy as np
 import random
+from tqdm import tqdm
 
 import torch
 import torch.nn as nn
@@ -20,6 +21,7 @@ import legacy.protopnet.settings as legacy_settings
 import legacy.protopnet.preprocess as legacy_preprocess
 from legacy.protopnet.model import construct_PPNet
 import legacy.protopnet.push as legacy_push
+import legacy.protopnet.train_and_test as legacy_tnt
 
 
 def setup_rng(seed: int):
@@ -216,6 +218,80 @@ class TestProtoPNetCompatibility(unittest.TestCase):
         warm_optimizer, joint_optimizer, last_layer_optimizer, joint_lr_scheduler = legacy_get_optimizers(legacy_model)
 
         # Compare
+        self.assertGenericEqual(warm_optimizer.state_dict(), optimizer_mngr.optimizers["warmup_optimizer"].state_dict())
+        self.assertGenericEqual(joint_optimizer.state_dict(), optimizer_mngr.optimizers["joint_optimizer"].state_dict())
+        self.assertGenericEqual(
+            last_layer_optimizer.state_dict(), optimizer_mngr.optimizers["last_layer_optimizer"].state_dict()
+        )
+        self.assertGenericEqual(
+            joint_lr_scheduler.state_dict(), optimizer_mngr.schedulers["joint_optimizer"].state_dict()
+        )
+
+    def test_train(self):
+        max_batches = 5
+        # CaBRNet
+        setup_rng(self.seed)
+        cabrnet_model = ProtoClassifier.build_from_config(self.model_config, seed=self.seed, compatibility_mode=True)
+        optimizer_mngr = OptimizerManager.build_from_config(self.training_config, cabrnet_model)
+        dataloaders = get_dataloaders(config_file=self.dataset_config)
+        num_epochs = load_config(self.training_config)["num_epochs"]
+        for epoch in tqdm(range(num_epochs)):
+            optimizer_mngr.freeze(epoch=epoch)
+            _ = cabrnet_model.train_epoch(
+                epoch_idx=epoch,
+                dataloaders=dataloaders,
+                optimizer_mngr=optimizer_mngr,
+                device=self.device,
+                max_batches=max_batches,
+            )
+            optimizer_mngr.scheduler_step(epoch=epoch)
+
+        # Legacy
+        setup_rng(self.seed)
+        legacy_model = legacy_get_model(self.seed)
+        warm_optimizer, joint_optimizer, last_layer_optimizer, joint_lr_scheduler = legacy_get_optimizers(legacy_model)
+        train_loader, test_loader, _ = legacy_get_dataloaders(self.dataset_config)
+        legacy_model_multi = nn.DataParallel(legacy_model)
+        for epoch in tqdm(range(num_epochs)):
+            if epoch < legacy_settings.num_warm_epochs:
+                legacy_tnt.warm_only(model=legacy_model_multi, log=DummyLogger())
+                _ = legacy_tnt.train(
+                    model=legacy_model_multi,
+                    dataloader=train_loader,
+                    optimizer=warm_optimizer,
+                    class_specific=True,
+                    coefs=legacy_settings.coefs,
+                    max_batches=max_batches,
+                    log=DummyLogger(),
+                )
+            elif epoch < 8:
+                legacy_tnt.joint(model=legacy_model_multi, log=DummyLogger())
+                _ = legacy_tnt.train(
+                    model=legacy_model_multi,
+                    dataloader=train_loader,
+                    optimizer=joint_optimizer,
+                    class_specific=True,
+                    coefs=legacy_settings.coefs,
+                    log=DummyLogger(),
+                    max_batches=max_batches,
+                )
+                joint_lr_scheduler.step()
+            else:
+                _ = legacy_tnt.train(
+                    model=legacy_model_multi,
+                    dataloader=train_loader,
+                    optimizer=last_layer_optimizer,
+                    class_specific=True,
+                    coefs=legacy_settings.coefs,
+                    log=DummyLogger(),
+                    max_batches=max_batches,
+                )
+
+        # Compare
+        self.assertGenericEqual(
+            warm_optimizer.state_dict()["param_groups"],
+            optimizer_mngr.optimizers["warmup_optimizer"].state_dict()["param_groups"],
+        )
         self.assertGenericEqual(warm_optimizer.state_dict(), optimizer_mngr.optimizers["warmup_optimizer"].state_dict())
         self.assertGenericEqual(joint_optimizer.state_dict(), optimizer_mngr.optimizers["joint_optimizer"].state_dict())
         self.assertGenericEqual(

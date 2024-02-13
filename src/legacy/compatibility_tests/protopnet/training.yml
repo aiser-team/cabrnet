@@ -40,18 +40,18 @@ optimizers:
       last_layer:
         lr: 0.0001
 
-num_epochs: 6
+num_epochs: 10
 
 periods:
   warmup:
-    epoch_range: [ 0, 2 ]
-    freeze: [ backbone, last_layer ]
+    epoch_range: [ 0, 4 ]
+    freeze: [ backbone ]
     optimizers: warmup_optimizer
   main_training:
-    epoch_range: [ 3, 4 ]
+    epoch_range: [ 5, 7 ]
     freeze: last_layer
     optimizers: joint_optimizer
   fine_tuning:
-    epoch_range: [ 5, 5 ]
+    epoch_range: [ 8, 9 ]
     freeze: [ backbone, addons, prototypes ]
     optimizers: last_layer_optimizer
