@@ -132,11 +132,12 @@ class TestProtoPNetCompatibility(unittest.TestCase):
         self.device: str = "cuda:0"
         self.seed: int = 42
 
-    def assertTensorEqual(self, expected: torch.Tensor, actual: torch.Tensor):
+    def assertTensorEqual(self, expected: torch.Tensor, actual: torch.Tensor, msg: str | None = None):
         if actual.size() != expected.size():
-            self.fail(f"Mismatching tensor sizes: {actual.size()} v. {expected.size()}")
+            self.fail(f"{msg} Mismatching tensor sizes: {actual.size()} v. {expected.size()}.")
         elif not torch.all(torch.eq(expected, actual)):
-            self.fail(f"Mismatching tensors (all close? {torch.allclose(expected,actual)})")
+            # print(expected, actual)
+            self.fail(f"{msg} Mismatching tensors (all close? {torch.allclose(expected,actual)}).")
 
     def assertModelEqual(self, expected: nn.Module, actual: nn.Module):
         expected.eval()
@@ -159,19 +160,19 @@ class TestProtoPNetCompatibility(unittest.TestCase):
                 if key not in actual:
                     self.fail(f"{msg} Key {key} not found in state dict")
                 else:
-                    self.assertGenericEqual(expected[key], actual[key], f"Checking key {key}")
+                    self.assertGenericEqual(expected[key], actual[key], f"{msg} Checking key {key}.")
         elif isinstance(expected, list) or isinstance(expected, tuple):
             if len(expected) != len(actual):
                 self.fail(f"Mismatching list lengths: {len(expected)} v. {len(actual)}.")
             for index, (ex, ac) in enumerate(zip(expected, actual)):
-                self.assertGenericEqual(ex, ac, f"Checking list (index {index})")
+                self.assertGenericEqual(ex, ac, f"{msg} Checking list (index {index}).")
         elif isinstance(expected, torch.Tensor):
-            self.assertTensorEqual(expected, actual)
+            self.assertTensorEqual(expected, actual, msg)
         elif isinstance(expected, np.ndarray):
             if not (expected == actual).all():
                 self.fail(f"Mismatching np arrays (all close? {np.allclose(expected, actual)})")
         else:
-            self.assertEqual(expected, actual)
+            self.assertEqual(expected, actual, f"{msg} Checking generic type.")
 
     def test_model_init(self):
         # CaBRNet
