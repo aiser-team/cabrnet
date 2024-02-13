@@ -79,7 +79,7 @@ class ProtoPNet(ProtoClassifier):
             cbrn_keys.remove(cbrn_key)
         self.load_state_dict(final_state, strict=False)
 
-    def loss(self, model_output: Any, label: torch.Tensor) -> tuple[torch.Tensor, float, dict[str, float]]:  # type: ignore
+    def loss(self, model_output: Any, label: torch.Tensor) -> tuple[torch.Tensor, dict[str, float]]:  # type: ignore
         """Loss function.
 
         Args:
@@ -87,7 +87,7 @@ class ProtoPNet(ProtoClassifier):
             label: Batch labels
 
         Returns:
-            loss tensor and batch accuracy
+            loss tensor and batch statistics
         """
         output, min_distances = model_output
 
@@ -130,13 +130,14 @@ class ProtoPNet(ProtoClassifier):
 
         batch_accuracy = torch.sum(torch.eq(torch.argmax(output, dim=1), label)).item() / len(label)
         stats = {
+            "accuracy": batch_accuracy,
             "cross_entropy": cross_entropy.item(),
             "cluster_cost": cluster_cost.item(),
             "separation_cost": separation_cost.item(),
             "l1": l1.item(),
         }
 
-        return loss, batch_accuracy, stats
+        return loss, stats
 
     def train_epoch(
         self,
@@ -189,13 +190,14 @@ class ProtoPNet(ProtoClassifier):
 
             # Perform inference and compute loss
             ys_pred, distances = self.forward(xs)
-            batch_loss, batch_accuracy, _ = self.loss((ys_pred, distances), ys)
+            batch_loss, batch_stats = self.loss((ys_pred, distances), ys)
 
             # Compute the gradient and update parameters
             batch_loss.backward()
             optimizer_mngr.optimizer_step(epoch=epoch_idx)
 
             # Update progress bar
+            batch_accuracy = batch_stats["accuracy"]
             postfix_str = (
                 f"Batch [{batch_idx + 1}/{len(train_loader)}], "
                 f"Batch loss: {batch_loss.item():.3f}, Acc: {batch_accuracy:.3f}"

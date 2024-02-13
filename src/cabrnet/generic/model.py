@@ -190,7 +190,7 @@ class CaBRNet(nn.Module):
             label: Batch label
 
         Returns:
-            loss tensor and batch accuracy
+            loss tensor and batch statistics
         """
         raise NotImplementedError
 
