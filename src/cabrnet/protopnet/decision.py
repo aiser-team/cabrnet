@@ -57,6 +57,7 @@ class ProtoPNetClassifier(CaBRNetAbstractClassifier, nn.Module):
         self.num_classes = num_classes
         self.num_features = num_features
         self.num_proto_per_class = num_proto_per_class
+        self._compatibility_mode = compatibility_mode
 
         # Init prototypes
         self.prototypes = nn.Parameter(
@@ -108,9 +109,16 @@ class ProtoPNetClassifier(CaBRNetAbstractClassifier, nn.Module):
             Tensor of min distances. Shape (N, P)
         """
         similarities, distances = self.similarity_layer(features, self.prototypes)  # Shape (N, P, H, W)
-        similarities = torch.max(similarities.view(similarities.shape[:2] + (-1,)), dim=2)[0]  # Shape (N, P)
+        if self._compatibility_mode:
+            min_distances = -torch.nn.functional.max_pool2d(
+                -distances, kernel_size=(distances.size()[2], distances.size()[3])
+            )
+            min_distances = min_distances.view(-1, self.num_prototypes)
+            similarities = torch.log((min_distances + 1) / (min_distances + 1e-4))
+        else:
+            min_distances = torch.min(distances.view(distances.shape[:2] + (-1,)), dim=2)[0]  # Shape (N, P)
+            similarities = torch.max(similarities.view(similarities.shape[:2] + (-1,)), dim=2)[0]  # Shape (N, P)
         prediction = self.last_layer(similarities)
-        min_distances = torch.min(distances.view(distances.shape[:2] + (-1,)), dim=2)[0]  # Shape (N, P)
 
         return prediction, min_distances
 
