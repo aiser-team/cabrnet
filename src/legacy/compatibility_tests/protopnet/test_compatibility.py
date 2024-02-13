@@ -344,6 +344,30 @@ class TestProtoPNetCompatibility(unittest.TestCase):
         )
         self.assertModelEqual(legacy_model, cabrnet_model)
 
+    def test_compatibility_mode(self):
+        # Model with compatibility mode
+        compatible_model = ProtoClassifier.build_from_config(self.model_config, seed=self.seed, compatibility_mode=True)
+        compatible_model.load_legacy_state_dict(torch.load(self.legacy_state_dict, map_location="cpu"))
+
+        cabrnet_model = ProtoClassifier.build_from_config(self.model_config, seed=self.seed, compatibility_mode=False)
+        cabrnet_model.load_legacy_state_dict(torch.load(self.legacy_state_dict, map_location="cpu"))
+
+        # Get batch of images
+        dataloaders = get_dataloaders(config_file=self.dataset_config)
+        xs, ys = next(iter(dataloaders["train_set"]))
+
+        # Compare outputs and loss values
+        expected_logits, expected_min_distances = compatible_model(xs)
+        expected_loss, expected_loss_stats = compatible_model.loss((expected_logits, expected_min_distances), ys)
+        actual_logits, actual_min_distances = cabrnet_model(xs)
+        actual_loss, actual_loss_stats = cabrnet_model.loss((actual_logits, actual_min_distances), ys)
+        self.assertGenericEqual(expected_logits, actual_logits, "Checking logits")
+        self.assertGenericEqual(expected_min_distances, actual_min_distances, "Checking min distances")
+        # Allow some leeway for the delta between loss values
+        error_percentage = abs((expected_loss.item() - actual_loss.item()) / expected_loss.item())
+        if error_percentage > 0.001:
+            self.fail(f"Loss error percentage too great: {error_percentage}")
+
 
 def main():
     torch.use_deterministic_algorithms(mode=True)
