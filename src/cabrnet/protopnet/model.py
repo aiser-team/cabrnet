@@ -24,8 +24,12 @@ class ProtoPNet(ProtoClassifier):
         """
         super(ProtoPNet, self).__init__(extractor, classifier, **kwargs)
 
-        # Constant tensor for internal computations
-        self.register_buffer("_eye", torch.eye(self.classifier.num_classes))
+        # Default training configuration
+        self.loss_coefficients = {
+            "clustering": 0.8,
+            "separability": -0.08,
+            "regularization": 0.0001,
+        }
 
     def load_legacy_state_dict(self, legacy_state: dict) -> None:
         """Load state dictionary from legacy format.
@@ -79,6 +83,20 @@ class ProtoPNet(ProtoClassifier):
             cbrn_keys.remove(cbrn_key)
         self.load_state_dict(final_state, strict=False)
 
+    def register_training_params(self, training_config: dict[str, Any]) -> None:
+        """Save additional information from the training configuration directly into the model
+
+        Args:
+            training_config: dictionary containing training configuration
+        """
+        if training_config.get("auxiliary_info") is None:
+            logger.warning("Empty auxiliary training configuration. Using default values")
+            return
+        aux_training_params = training_config["auxiliary_info"]
+
+        if aux_training_params.get("loss_coefficients") is not None:
+            self.loss_coefficients = aux_training_params["loss_coefficients"]
+
     def loss(self, model_output: Any, label: torch.Tensor) -> tuple[torch.Tensor, dict[str, float]]:  # type: ignore
         """Loss function.
 
@@ -91,10 +109,8 @@ class ProtoPNet(ProtoClassifier):
         """
         output, min_distances = model_output
 
+        # Cross-entropy loss
         cross_entropy = torch.nn.functional.cross_entropy(output, label)
-
-        # TODO: store this in a config file and retrieve it from there
-        coefs = {"crs_ent": 1, "clst": 0.8, "sep": -0.08, "l1": 1e-4}
 
         # Arbitrary high value to select min distances from masked vector
         max_dist = 128
@@ -130,10 +146,10 @@ class ProtoPNet(ProtoClassifier):
             l1 = (self.classifier.last_layer.weight * l1_mask).norm(p=1)
 
         loss = (
-            coefs["crs_ent"] * cross_entropy
-            + coefs["clst"] * cluster_cost
-            + coefs["sep"] * separation_cost
-            + coefs["l1"] * l1
+            cross_entropy
+            + self.loss_coefficients["clustering"] * cluster_cost
+            + self.loss_coefficients["separability"] * separation_cost
+            + self.loss_coefficients["regularization"] * l1
         )
 
         batch_accuracy = torch.sum(torch.eq(torch.argmax(output, dim=1), label)).item() / len(label)

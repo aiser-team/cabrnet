@@ -55,3 +55,9 @@ periods:
     epoch_range: [ 8, 9 ]
     freeze: [ backbone, addons, prototypes ]
     optimizers: last_layer_optimizer
+
+auxiliary_info:
+  loss_coefficients:
+    clustering: 0.8
+    separability: -0.08
+    regularization: 0.0001

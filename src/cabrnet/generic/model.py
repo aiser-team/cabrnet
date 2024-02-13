@@ -65,7 +65,11 @@ class CaBRNet(nn.Module):
         raise NotImplementedError
 
     def register_training_params(self, training_config: dict[str, Any]) -> None:
-        """Save additional information from the training configuration directly into the model"""
+        """Save additional information from the training configuration directly into the model
+
+        Args:
+            training_config: dictionary containing training configuration
+        """
         pass
 
     @staticmethod
