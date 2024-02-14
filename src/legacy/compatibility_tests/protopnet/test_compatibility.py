@@ -288,10 +288,6 @@ class TestProtoPNetCompatibility(unittest.TestCase):
                 )
 
         # Compare
-        self.assertGenericEqual(
-            warm_optimizer.state_dict()["param_groups"],
-            optimizer_mngr.optimizers["warmup_optimizer"].state_dict()["param_groups"],
-        )
         self.assertGenericEqual(warm_optimizer.state_dict(), optimizer_mngr.optimizers["warmup_optimizer"].state_dict())
         self.assertGenericEqual(joint_optimizer.state_dict(), optimizer_mngr.optimizers["joint_optimizer"].state_dict())
         self.assertGenericEqual(
@@ -300,6 +296,7 @@ class TestProtoPNetCompatibility(unittest.TestCase):
         self.assertGenericEqual(
             joint_lr_scheduler.state_dict(), optimizer_mngr.schedulers["joint_optimizer"].state_dict()
         )
+        self.assertModelEqual(legacy_model, cabrnet_model)
 
     def test_load_legacy_state_dict(self):
         # CaBRNet
