@@ -52,7 +52,15 @@ def execute(args: Namespace) -> None:
     verbose = args.verbose
     device = args.device
 
+    if args.training is None and args.resume_from is None:
+        raise AttributeError("Missing training configuration file. Use option --training or --resume-from.")
+
     if args.resume_from is not None:
+        if args.training is not None:
+            logger.warning(
+                f"Ignoring training configuration file {args.training}. "
+                f"Will use checkpoint file {os.path.join(args.resume_from, 'training.yml')}"
+            )
         training_config = os.path.join(args.resume_from, "training.yml")
         model_config = os.path.join(args.resume_from, "model.yml")
         dataset_config = os.path.join(args.resume_from, "dataset.yml")
