@@ -48,16 +48,16 @@ periods:
     freeze: [ backbone ]
     optimizers: warmup_optimizer
   main_training:
-    epoch_range: [ 5, 7 ]
+    epoch_range: [ 5, 9 ]
     freeze: last_layer
     optimizers: joint_optimizer
-  fine_tuning:
-    epoch_range: [ 8, 9 ]
-    freeze: [ backbone, addons, prototypes ]
-    optimizers: last_layer_optimizer
 
 auxiliary_info:
   loss_coefficients:
     clustering: 0.8
     separability: -0.08
     regularization: 0.0001
+  projection_config:
+    start_epoch: 5 # First epoch for prototype projection
+    frequency: 3 # Projection frequency (in number of epochs)
+    num_ft_epochs: 4 # Number of fine-tuning epochs on the last layer

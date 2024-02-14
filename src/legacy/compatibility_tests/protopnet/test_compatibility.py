@@ -133,6 +133,7 @@ class TestProtoPNetCompatibility(unittest.TestCase):
         self.legacy_state_dict: str | None = "legacy_states/protopnet/protopnet_cub200_vgg19.pth"
         self.device: str = "cuda:0"
         self.seed: int = 42
+        self.verbose: bool = True
 
     def assertTensorEqual(self, expected: torch.Tensor, actual: torch.Tensor, msg: str | None = None):
         if actual.size() != expected.size():
@@ -238,17 +239,21 @@ class TestProtoPNetCompatibility(unittest.TestCase):
         cabrnet_model = ProtoClassifier.build_from_config(
             self.model_config_file, seed=self.seed, compatibility_mode=True
         )
+        training_config = load_config(self.training_config_file)
+        cabrnet_model.register_training_params(training_config)
         optimizer_mngr = OptimizerManager.build_from_config(self.training_config_file, cabrnet_model)
         dataloaders = get_dataloaders(config_file=self.dataset_config_file)
-        num_epochs = load_config(self.training_config_file)["num_epochs"]
-        for epoch in tqdm(range(num_epochs)):
+        num_epochs = training_config["num_epochs"]
+        for epoch in tqdm(range(num_epochs), desc="Training CaBRNet model", disable=not self.verbose):
             optimizer_mngr.freeze(epoch=epoch)
             _ = cabrnet_model.train_epoch(
                 epoch_idx=epoch,
                 dataloaders=dataloaders,
                 optimizer_mngr=optimizer_mngr,
                 device=self.device,
+                progress_bar_position=1,
                 max_batches=max_batches,
+                verbose=self.verbose,
             )
             optimizer_mngr.scheduler_step(epoch=epoch)
 
@@ -256,9 +261,12 @@ class TestProtoPNetCompatibility(unittest.TestCase):
         setup_rng(self.seed)
         legacy_model = legacy_get_model(self.seed)
         warm_optimizer, joint_optimizer, last_layer_optimizer, joint_lr_scheduler = legacy_get_optimizers(legacy_model)
-        train_loader, test_loader, _ = legacy_get_dataloaders(self.dataset_config_file)
+        train_loader, test_loader, train_push_loader = legacy_get_dataloaders(self.dataset_config_file)
         legacy_model_multi = nn.DataParallel(legacy_model)
-        for epoch in tqdm(range(num_epochs)):
+        push_start = cabrnet_model.projection_config["start_epoch"]
+        push_frequency = cabrnet_model.projection_config["frequency"]
+        push_epochs = [epoch for epoch in range(push_start, num_epochs) if (epoch - push_start) % push_frequency == 0]
+        for epoch in tqdm(range(num_epochs), desc="Training legacy model", disable=not self.verbose):
             if epoch < legacy_settings.num_warm_epochs:
                 legacy_tnt.warm_only(model=legacy_model_multi, log=DummyLogger())
                 _ = legacy_tnt.train(
@@ -270,7 +278,7 @@ class TestProtoPNetCompatibility(unittest.TestCase):
                     max_batches=max_batches,
                     log=DummyLogger(),
                 )
-            elif epoch < 8:
+            else:
                 legacy_tnt.joint(model=legacy_model_multi, log=DummyLogger())
                 _ = legacy_tnt.train(
                     model=legacy_model_multi,
@@ -282,16 +290,32 @@ class TestProtoPNetCompatibility(unittest.TestCase):
                     max_batches=max_batches,
                 )
                 joint_lr_scheduler.step()
-            else:
-                _ = legacy_tnt.train(
-                    model=legacy_model_multi,
-                    dataloader=train_loader,
-                    optimizer=last_layer_optimizer,
-                    class_specific=True,
-                    coefs=legacy_settings.coefs,
-                    log=DummyLogger(),
-                    max_batches=max_batches,
-                )
+                if epoch in push_epochs:
+                    legacy_push.push_prototypes(
+                        train_push_loader,
+                        prototype_network_parallel=legacy_model_multi,
+                        class_specific=True,
+                        preprocess_input_function=legacy_preprocess.preprocess_input_function,
+                        prototype_layer_stride=1,
+                        root_dir_for_saving_prototypes=None,
+                        epoch_number=None,
+                        prototype_img_filename_prefix=None,
+                        prototype_self_act_filename_prefix=None,
+                        proto_bound_boxes_filename_prefix=None,
+                        save_prototype_class_identity=True,
+                        log=DummyLogger(),
+                    )
+                    legacy_tnt.last_only(model=legacy_model_multi, log=DummyLogger())
+                    for i in range(cabrnet_model.projection_config["num_ft_epochs"]):
+                        _ = legacy_tnt.train(
+                            model=legacy_model_multi,
+                            dataloader=train_loader,
+                            optimizer=last_layer_optimizer,
+                            class_specific=True,
+                            coefs=legacy_settings.coefs,
+                            log=DummyLogger(),
+                            max_batches=max_batches,
+                        )
 
         # Compare
         self.assertGenericEqual(warm_optimizer.state_dict(), optimizer_mngr.optimizers["warmup_optimizer"].state_dict())
@@ -327,7 +351,7 @@ class TestProtoPNetCompatibility(unittest.TestCase):
         )
         dataloaders = get_dataloaders(config_file=self.dataset_config_file)
         cabrnet_info = cabrnet_model.project(
-            data_loader=dataloaders["projection_set"], device=self.device, verbose=True
+            data_loader=dataloaders["projection_set"], device=self.device, verbose=self.verbose
         )
 
         # Legacy

@@ -30,6 +30,11 @@ class ProtoPNet(ProtoClassifier):
             "separability": -0.08,
             "regularization": 0.0001,
         }
+        self.projection_config = {
+            "start_epoch": 10,
+            "frequency": 10,
+            "num_ft_epochs": 20,
+        }
 
     def load_legacy_state_dict(self, legacy_state: dict) -> None:
         """Load state dictionary from legacy format.
@@ -96,6 +101,8 @@ class ProtoPNet(ProtoClassifier):
 
         if aux_training_params.get("loss_coefficients") is not None:
             self.loss_coefficients = aux_training_params["loss_coefficients"]
+        if aux_training_params.get("projection_config") is not None:
+            self.projection_config = aux_training_params["projection_config"]
 
     def loss(self, model_output: Any, label: torch.Tensor) -> tuple[torch.Tensor, dict[str, float]]:  # type: ignore
         """Loss function.
@@ -163,17 +170,17 @@ class ProtoPNet(ProtoClassifier):
 
         return loss, stats
 
-    def train_epoch(
+    def _train_epoch(
         self,
         dataloaders: dict[str, DataLoader],
-        optimizer_mngr: OptimizerManager,
+        optimizer_mngr: OptimizerManager | torch.optim.Optimizer,
         device: str = "cuda:0",
         progress_bar_position: int = 0,
         epoch_idx: int = 0,
         verbose: bool = False,
         max_batches: int | None = None,
     ) -> dict[str, float]:
-        """Train the model for one epoch.
+        """Internal function: train the model for exactly one epoch.
 
         Args:
             dataloaders: Dictionary of dataloaders
@@ -219,7 +226,10 @@ class ProtoPNet(ProtoClassifier):
 
             # Compute the gradient and update parameters
             batch_loss.backward()
-            optimizer_mngr.optimizer_step(epoch=epoch_idx)
+            if isinstance(optimizer_mngr, OptimizerManager):
+                optimizer_mngr.optimizer_step(epoch=epoch_idx)
+            else:  # Simple optimizer
+                optimizer_mngr.step()
 
             # Update progress bar
             batch_accuracy = batch_stats["accuracy"]
@@ -246,6 +256,75 @@ class ProtoPNet(ProtoClassifier):
             }
         else:
             train_info = {"avg_loss": total_loss / batch_num, "avg_train_accuracy": total_acc / batch_num}
+        return train_info
+
+    def train_epoch(
+        self,
+        dataloaders: dict[str, DataLoader],
+        optimizer_mngr: OptimizerManager,
+        device: str = "cuda:0",
+        progress_bar_position: int = 0,
+        epoch_idx: int = 0,
+        verbose: bool = False,
+        max_batches: int | None = None,
+    ) -> dict[str, float]:
+        """Train a ProtoPNet model for one epoch, performing prototype projection and fine-tuning if necessary.
+
+        Args:
+            dataloaders: Dictionary of dataloaders
+            optimizer_mngr: Optimizer manager
+            device: Target device
+            progress_bar_position: Position of the progress bar.
+            epoch_idx: Epoch index
+            max_batches: Max number of batches (early stop for small compatibility tests)
+            verbose: Display progress bar
+
+        Returns:
+            dictionary containing learning statistics
+        """
+        # Train for exactly one epoch using the OptimizerManager
+        train_info = self._train_epoch(
+            dataloaders=dataloaders,
+            optimizer_mngr=optimizer_mngr,
+            device=device,
+            progress_bar_position=progress_bar_position,
+            epoch_idx=epoch_idx,
+            verbose=verbose,
+            max_batches=max_batches,
+        )
+        # Perform prototype projection if necessary
+        if (
+            epoch_idx >= self.projection_config["start_epoch"]
+            and (epoch_idx - self.projection_config["start_epoch"]) % self.projection_config["frequency"] == 0
+        ):
+            self.project(
+                data_loader=dataloaders["projection_set"],
+                device=device,
+                verbose=verbose,
+                progress_bar_position=progress_bar_position,
+            )
+            # Freeze all parameters except last layer
+            for group in optimizer_mngr.param_groups:
+                optimizer_mngr.freeze_group(name=group, freeze=(group != "last_layer"))
+
+            fine_tuning_progress = tqdm(
+                range(self.projection_config["num_ft_epochs"]),
+                desc="Fine-tuning last layer",
+                leave=False,
+                position=progress_bar_position,
+                disable=not verbose,
+            )
+            for _ in fine_tuning_progress:
+                train_info = self._train_epoch(
+                    dataloaders=dataloaders,
+                    optimizer_mngr=optimizer_mngr.optimizers["last_layer_optimizer"],
+                    device=device,
+                    progress_bar_position=progress_bar_position + 1,
+                    epoch_idx=epoch_idx,
+                    verbose=verbose,
+                    max_batches=max_batches,
+                )
+
         return train_info
 
     # TODO: implementation
