@@ -127,9 +127,9 @@ class TestProtoPNetCompatibility(unittest.TestCase):
         super(TestProtoPNetCompatibility, self).__init__(methodName=methodName)
 
         # Test configuration
-        self.model_config: str = "src/legacy/compatibility_tests/protopnet/model.yml"
-        self.dataset_config: str = "src/legacy/compatibility_tests/protopnet/cub200.yml"
-        self.training_config: str = "src/legacy/compatibility_tests/protopnet/training.yml"
+        self.model_config_file: str = "src/legacy/compatibility_tests/protopnet/model.yml"
+        self.dataset_config_file: str = "src/legacy/compatibility_tests/protopnet/cub200.yml"
+        self.training_config_file: str = "src/legacy/compatibility_tests/protopnet/training.yml"
         self.legacy_state_dict: str | None = "legacy_states/protopnet/protopnet_cub200_vgg19.pth"
         self.device: str = "cuda:0"
         self.seed: int = 42
@@ -179,7 +179,9 @@ class TestProtoPNetCompatibility(unittest.TestCase):
     def test_model_init(self):
         # CaBRNet
         setup_rng(self.seed)
-        cabrnet_model = ProtoClassifier.build_from_config(self.model_config, seed=self.seed, compatibility_mode=True)
+        cabrnet_model = ProtoClassifier.build_from_config(
+            self.model_config_file, seed=self.seed, compatibility_mode=True
+        )
 
         # Legacy
         setup_rng(self.seed)
@@ -190,13 +192,13 @@ class TestProtoPNetCompatibility(unittest.TestCase):
     def test_dataloaders(self):
         # CaBRNet
         setup_rng(self.seed)
-        dataloaders = get_dataloaders(config_file=self.dataset_config)
+        dataloaders = get_dataloaders(config_file=self.dataset_config_file)
         xc_train, yc_train = next(iter(dataloaders["train_set"]))
         xc_test, yc_test = next(iter(dataloaders["test_set"]))
 
         # Legacy
         setup_rng(self.seed)
-        train_loader, test_loader, _ = legacy_get_dataloaders(self.dataset_config)
+        train_loader, test_loader, _ = legacy_get_dataloaders(self.dataset_config_file)
         xl_train, yl_train = next(iter(train_loader))
         xl_test, yl_test = next(iter(test_loader))
 
@@ -209,8 +211,10 @@ class TestProtoPNetCompatibility(unittest.TestCase):
     def test_optimizers_init(self):
         # CaBRNet
         setup_rng(self.seed)
-        cabrnet_model = ProtoClassifier.build_from_config(self.model_config, seed=self.seed, compatibility_mode=True)
-        optimizer_mngr = OptimizerManager.build_from_config(self.training_config, cabrnet_model)
+        cabrnet_model = ProtoClassifier.build_from_config(
+            self.model_config_file, seed=self.seed, compatibility_mode=True
+        )
+        optimizer_mngr = OptimizerManager.build_from_config(self.training_config_file, cabrnet_model)
 
         # Legacy
         setup_rng(self.seed)
@@ -231,10 +235,12 @@ class TestProtoPNetCompatibility(unittest.TestCase):
         max_batches = 5
         # CaBRNet
         setup_rng(self.seed)
-        cabrnet_model = ProtoClassifier.build_from_config(self.model_config, seed=self.seed, compatibility_mode=True)
-        optimizer_mngr = OptimizerManager.build_from_config(self.training_config, cabrnet_model)
-        dataloaders = get_dataloaders(config_file=self.dataset_config)
-        num_epochs = load_config(self.training_config)["num_epochs"]
+        cabrnet_model = ProtoClassifier.build_from_config(
+            self.model_config_file, seed=self.seed, compatibility_mode=True
+        )
+        optimizer_mngr = OptimizerManager.build_from_config(self.training_config_file, cabrnet_model)
+        dataloaders = get_dataloaders(config_file=self.dataset_config_file)
+        num_epochs = load_config(self.training_config_file)["num_epochs"]
         for epoch in tqdm(range(num_epochs)):
             optimizer_mngr.freeze(epoch=epoch)
             _ = cabrnet_model.train_epoch(
@@ -250,7 +256,7 @@ class TestProtoPNetCompatibility(unittest.TestCase):
         setup_rng(self.seed)
         legacy_model = legacy_get_model(self.seed)
         warm_optimizer, joint_optimizer, last_layer_optimizer, joint_lr_scheduler = legacy_get_optimizers(legacy_model)
-        train_loader, test_loader, _ = legacy_get_dataloaders(self.dataset_config)
+        train_loader, test_loader, _ = legacy_get_dataloaders(self.dataset_config_file)
         legacy_model_multi = nn.DataParallel(legacy_model)
         for epoch in tqdm(range(num_epochs)):
             if epoch < legacy_settings.num_warm_epochs:
@@ -301,7 +307,9 @@ class TestProtoPNetCompatibility(unittest.TestCase):
     def test_load_legacy_state_dict(self):
         # CaBRNet
         setup_rng(self.seed)
-        cabrnet_model = ProtoClassifier.build_from_config(self.model_config, seed=self.seed, compatibility_mode=True)
+        cabrnet_model = ProtoClassifier.build_from_config(
+            self.model_config_file, seed=self.seed, compatibility_mode=True
+        )
         cabrnet_model.load_legacy_state_dict(torch.load(self.legacy_state_dict, map_location="cpu"))
 
         # Legacy
@@ -314,8 +322,10 @@ class TestProtoPNetCompatibility(unittest.TestCase):
     def test_push_prototypes(self):
         # CaBRNet
         setup_rng(self.seed)
-        cabrnet_model = ProtoClassifier.build_from_config(self.model_config, seed=self.seed, compatibility_mode=True)
-        dataloaders = get_dataloaders(config_file=self.dataset_config)
+        cabrnet_model = ProtoClassifier.build_from_config(
+            self.model_config_file, seed=self.seed, compatibility_mode=True
+        )
+        dataloaders = get_dataloaders(config_file=self.dataset_config_file)
         cabrnet_info = cabrnet_model.project(
             data_loader=dataloaders["projection_set"], device=self.device, verbose=True
         )
@@ -323,7 +333,7 @@ class TestProtoPNetCompatibility(unittest.TestCase):
         # Legacy
         setup_rng(self.seed)
         legacy_model = legacy_get_model(seed=self.seed)
-        _, _, push_loader = legacy_get_dataloaders(self.dataset_config)
+        _, _, push_loader = legacy_get_dataloaders(self.dataset_config_file)
         legacy_model_multi = nn.DataParallel(legacy_model)
         legacy_push.push_prototypes(
             dataloader=push_loader,
@@ -343,14 +353,18 @@ class TestProtoPNetCompatibility(unittest.TestCase):
 
     def test_compatibility_mode(self):
         # Model with compatibility mode
-        compatible_model = ProtoClassifier.build_from_config(self.model_config, seed=self.seed, compatibility_mode=True)
+        compatible_model = ProtoClassifier.build_from_config(
+            self.model_config_file, seed=self.seed, compatibility_mode=True
+        )
         compatible_model.load_legacy_state_dict(torch.load(self.legacy_state_dict, map_location="cpu"))
 
-        cabrnet_model = ProtoClassifier.build_from_config(self.model_config, seed=self.seed, compatibility_mode=False)
+        cabrnet_model = ProtoClassifier.build_from_config(
+            self.model_config_file, seed=self.seed, compatibility_mode=False
+        )
         cabrnet_model.load_legacy_state_dict(torch.load(self.legacy_state_dict, map_location="cpu"))
 
         # Get batch of images
-        dataloaders = get_dataloaders(config_file=self.dataset_config)
+        dataloaders = get_dataloaders(config_file=self.dataset_config_file)
         xs, ys = next(iter(dataloaders["train_set"]))
 
         # Compare outputs and loss values
