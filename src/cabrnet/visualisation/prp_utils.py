@@ -63,7 +63,7 @@ class L2SimilaritiesLRPWrapper(L2Similarities):
 
 
 class DecisionLRPWrapper(nn.Module):
-    """Replacement for the decision layer of a ProtoClassifier
+    """Replacement for the decision layer of a CaBRNet model
 
     Args:
         classifier (nn.Module): source decision layer
@@ -669,7 +669,7 @@ def get_cabrnet_lrp_composite_model(
     zbeta_lower_bound: float = min([-0.485 / 0.229, -0.456 / 0.224, -0.406 / 0.225]),
     zbeta_upper_bound: float = max([(1 - 0.485) / 0.229, (1 - 0.456) / 0.224, (1 - 0.406) / 0.225]),
 ) -> nn.Module:
-    """Prepare a CaBRNet ProtoClassifier model for composite LRP
+    """Prepare a CaBRNet model for composite LRP
 
     Args:
         model: target model
@@ -683,8 +683,8 @@ def get_cabrnet_lrp_composite_model(
         copy of the model, ready for running Captum LRP
     """
     if not hasattr(model, "extractor"):
-        # Check attribute presence rather than using isinstance(model, ProtoClassifier) to avoid circular dependencies
-        logger.warning("Target model is not a ProtoClassifier, using generic function instead.")
+        # Check attribute presence rather than using isinstance(model, CaBRNet) to avoid circular dependencies
+        logger.warning("Target is not a CaBRNet model, using generic function instead.")
         # Try to convert the model using the more generic function
         return get_extractor_lrp_composite_model(
             model=model,

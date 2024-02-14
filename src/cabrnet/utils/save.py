@@ -1,4 +1,4 @@
-"""Implement the saving and loading capabilities for a generic ProtoClassifier."""
+"""Implement the saving and loading capabilities for a CaBRNet model."""
 
 import os
 import pickle
@@ -9,12 +9,12 @@ import numpy as np
 import torch
 from loguru import logger
 from cabrnet.utils.optimizers import OptimizerManager
-from cabrnet.generic.model import ProtoClassifier
+from cabrnet.generic.model import CaBRNet
 
 
 def save_checkpoint(
     directory_path: str,
-    model: ProtoClassifier,
+    model: CaBRNet,
     model_config: str,
     optimizer_mngr: OptimizerManager | None,
     training_config: str | None,
@@ -28,7 +28,7 @@ def save_checkpoint(
 
     Args:
         directory_path: Target location
-        model: ProtoClassifier
+        model: CaBRNet model
         model_config: Path to the model configuration file
         optimizer_mngr: Optimizer manager
         training_config: Path to the training configuration file
@@ -78,14 +78,14 @@ def save_checkpoint(
 
 def load_checkpoint(
     directory_path: str,
-    model: ProtoClassifier,
+    model: CaBRNet,
     optimizer_mngr: OptimizerManager | None = None,
 ) -> Mapping[str, Any]:
     """Restore training process using checkpoint directory.
 
     Args:
         directory_path: Target location
-        model: ProtoClassifier
+        model: CaBRNet mode
         optimizer_mngr: Optimizer manager
 
     Returns:

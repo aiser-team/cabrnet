@@ -17,9 +17,9 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 
-class ProtoClassifier(nn.Module):
+class CaBRNet(nn.Module):
     def __init__(self, extractor: nn.Module, classifier: nn.Module, compatibility_mode: bool = False):
-        """Build a generic prototype-based classifier
+        """Build a CaBRNet prototype-based classifier
 
         Args:
             extractor: Feature extractor
@@ -29,7 +29,7 @@ class ProtoClassifier(nn.Module):
                 forward-pass even if the backbone parameters should not be modified.
 
         """
-        super(ProtoClassifier, self).__init__()
+        super(CaBRNet, self).__init__()
         self.extractor = extractor
         self.classifier = classifier
         self._compatibility_mode = compatibility_mode
@@ -69,7 +69,7 @@ class ProtoClassifier(nn.Module):
         parser: argparse.ArgumentParser | None = None,
         mandatory_config: bool = True,
     ) -> argparse.ArgumentParser:
-        """Create the argument parser for a ProtoClassifier.
+        """Create the argument parser for a CaBRNet model.
         Args:
             parser: Existing parser (if any)
             mandatory_config: Make model configuration mandatory
@@ -78,7 +78,7 @@ class ProtoClassifier(nn.Module):
             The parser itself.
         """
         if parser is None:
-            parser = argparse.ArgumentParser(description="Build a ProtoClassifier")
+            parser = argparse.ArgumentParser(description="Build a CaBRNet model")
         parser.add_argument(
             "--model-config",
             required=mandatory_config,
@@ -99,9 +99,9 @@ class ProtoClassifier(nn.Module):
         seed: int | None = None,
         compatibility_mode: bool = False,
         state_dict_path: str | None = None,
-    ) -> ProtoClassifier:
+    ) -> CaBRNet:
         """
-        Builds a ProtoClassifier from a YAML configuration file
+        Builds a CaBRNet model from a YAML configuration file
         Args:
             config_file: path to configuration file
             seed: random seed (used only to resynchronise random number generators in compatibility tests)
@@ -109,7 +109,7 @@ class ProtoClassifier(nn.Module):
             state_dict_path: path to model state dictionary
 
         Returns:
-            ProtoClassifier
+            CaBRNet model
         """
         config_dict = load_config(config_file)
 
@@ -166,7 +166,7 @@ class ProtoClassifier(nn.Module):
                 extractor=extractor, classifier=classifier, compatibility_mode=compatibility_mode
             )
         else:
-            model = ProtoClassifier(extractor=extractor, classifier=classifier, compatibility_mode=compatibility_mode)
+            model = CaBRNet(extractor=extractor, classifier=classifier, compatibility_mode=compatibility_mode)
 
         # Apply postponed add-on layer initialisation (compatibility mode only)
         if add_on_init_mode is not None:

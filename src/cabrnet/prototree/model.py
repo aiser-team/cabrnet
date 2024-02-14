@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 from PIL import Image
 from typing import Any, Mapping, Callable
 from tqdm import tqdm
-from cabrnet.generic.model import ProtoClassifier
+from cabrnet.generic.model import CaBRNet
 from cabrnet.utils.optimizers import OptimizerManager
 from cabrnet.utils.tree import TreeNode, MappingMode
 from cabrnet.prototree.decision import SamplingStrategy, ProtoTreeClassifier
@@ -17,7 +17,7 @@ import copy
 from loguru import logger
 
 
-class ProtoTree(ProtoClassifier):
+class ProtoTree(CaBRNet):
     def __init__(self, extractor: nn.Module, classifier: nn.Module, **kwargs):
         """Build a ProtoTree
 

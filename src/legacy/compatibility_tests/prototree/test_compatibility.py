@@ -8,7 +8,7 @@ from argparse import Namespace
 import torch
 import torch.nn as nn
 
-from cabrnet.generic.model import ProtoClassifier
+from cabrnet.generic.model import CaBRNet
 from cabrnet.utils.parser import load_config
 from cabrnet.utils.data import get_dataloaders
 from cabrnet.utils.optimizers import OptimizerManager
@@ -208,7 +208,7 @@ class TestProtoPNetCompatibility(unittest.TestCase):
     def test_model_init(self):
         # CaBRNet
         setup_rng(self.seed)
-        cabrnet_model = ProtoClassifier.build_from_config(self.model_config, seed=self.seed, compatibility_mode=True)
+        cabrnet_model = CaBRNet.build_from_config(self.model_config, seed=self.seed, compatibility_mode=True)
 
         # Legacy
         setup_rng(self.seed)
@@ -241,7 +241,7 @@ class TestProtoPNetCompatibility(unittest.TestCase):
     def test_optimizers_init(self):
         # CaBRNet
         setup_rng(self.seed)
-        cabrnet_model = ProtoClassifier.build_from_config(self.model_config, seed=self.seed, compatibility_mode=True)
+        cabrnet_model = CaBRNet.build_from_config(self.model_config, seed=self.seed, compatibility_mode=True)
         optimizer_mngr = OptimizerManager.build_from_config(self.training_config, cabrnet_model)
 
         # Legacy
@@ -260,7 +260,7 @@ class TestProtoPNetCompatibility(unittest.TestCase):
     def test_load_legacy_state_dict(self):
         # CaBRNet
         setup_rng(self.seed)
-        cabrnet_model = ProtoClassifier.build_from_config(self.model_config, seed=self.seed, compatibility_mode=True)
+        cabrnet_model = CaBRNet.build_from_config(self.model_config, seed=self.seed, compatibility_mode=True)
         cabrnet_model.load_legacy_state_dict(torch.load(self.legacy_state_dict, map_location="cpu"))
 
         # Legacy
@@ -273,7 +273,7 @@ class TestProtoPNetCompatibility(unittest.TestCase):
     def test_training(self):
         # CaBRNet
         setup_rng(self.seed)
-        cabrnet_model = ProtoClassifier.build_from_config(self.model_config, seed=self.seed, compatibility_mode=True)
+        cabrnet_model = CaBRNet.build_from_config(self.model_config, seed=self.seed, compatibility_mode=True)
         dataloaders = get_dataloaders(config_file=self.dataset_config)
         optimizer_mngr = OptimizerManager.build_from_config(self.training_config, cabrnet_model)
         trainer = load_config(self.training_config)
@@ -328,7 +328,7 @@ class TestProtoPNetCompatibility(unittest.TestCase):
     def test_sampling(self):
         # CaBRNet
         setup_rng(self.seed)
-        cabrnet_model = ProtoClassifier.build_from_config(self.model_config, seed=self.seed, compatibility_mode=True)
+        cabrnet_model = CaBRNet.build_from_config(self.model_config, seed=self.seed, compatibility_mode=True)
         cabrnet_model.load_legacy_state_dict(torch.load(self.legacy_state_dict, map_location="cpu"))
         cabrnet_model.eval()
         yc_distributed = cabrnet_model(torch.randn((10, 3, 224, 224)), strategy=SamplingStrategy.DISTRIBUTED)[0]
@@ -352,7 +352,7 @@ class TestProtoPNetCompatibility(unittest.TestCase):
     def test_pruning(self):
         # CaBRNet
         setup_rng(self.seed)
-        cabrnet_model = ProtoClassifier.build_from_config(self.model_config, seed=self.seed, compatibility_mode=True)
+        cabrnet_model = CaBRNet.build_from_config(self.model_config, seed=self.seed, compatibility_mode=True)
         cabrnet_model.load_legacy_state_dict(torch.load(self.legacy_state_dict, map_location="cpu"))
         cabrnet_model.prune(pruning_threshold=0.01)
 
@@ -367,7 +367,7 @@ class TestProtoPNetCompatibility(unittest.TestCase):
     def test_projection(self):
         # CaBRNet
         setup_rng(self.seed)
-        cabrnet_model = ProtoClassifier.build_from_config(self.model_config, seed=self.seed, compatibility_mode=True)
+        cabrnet_model = CaBRNet.build_from_config(self.model_config, seed=self.seed, compatibility_mode=True)
         dataloaders = get_dataloaders(config_file=self.dataset_config)
         cabrnet_model.load_legacy_state_dict(torch.load(self.legacy_state_dict, map_location="cpu"))
         cabrnet_model.prune(pruning_threshold=0.01)
