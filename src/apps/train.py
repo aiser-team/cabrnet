@@ -5,7 +5,7 @@ import sys
 from argparse import ArgumentParser, Namespace
 from loguru import logger
 from tqdm import tqdm
-from cabrnet.generic.model import ProtoClassifier
+from cabrnet.generic.model import CaBRNet
 from cabrnet.utils.optimizers import OptimizerManager
 from cabrnet.utils.data import create_dataset_parser, get_dataloaders
 from cabrnet.utils.parser import (
@@ -26,7 +26,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     """
     if parser is None:
         parser = ArgumentParser(description)
-    parser = ProtoClassifier.create_parser(parser, mandatory_config=False)
+    parser = CaBRNet.create_parser(parser, mandatory_config=False)
     parser = create_dataset_parser(parser, mandatory_config=False)
     parser = create_training_parser(parser)
     parser = SimilarityVisualizer.create_parser(parser)
@@ -79,7 +79,7 @@ def execute(args: Namespace) -> None:
         model_config = args.model_config
         dataset_config = args.dataset
 
-    model: ProtoClassifier = ProtoClassifier.build_from_config(
+    model: CaBRNet = CaBRNet.build_from_config(
         config_file=model_config, seed=args.seed, state_dict_path=args.model_state_dict
     )
 
