@@ -307,7 +307,12 @@ class CaBRNet(nn.Module):
 
         # Show progress on progress bar if needed
         data_iter = tqdm(
-            dataloader, total=len(dataloader), leave=False, position=progress_bar_position, disable=not verbose
+            dataloader,
+            desc="Model evaluation",
+            total=len(dataloader),
+            leave=False,
+            position=progress_bar_position,
+            disable=not verbose,
         )
         batch_num = len(dataloader)
 
@@ -398,6 +403,7 @@ class CaBRNet(nn.Module):
         # Show progress on progress bar if needed
         data_iter = tqdm(
             projection_info,
+            desc=f"Prototype extraction",
             total=len(projection_info),
             leave=False,
             position=progress_bar_position,

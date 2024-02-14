@@ -200,6 +200,7 @@ class ProtoTree(CaBRNet):
         # Show progress on progress bar if needed
         train_iter = tqdm(
             enumerate(train_loader),
+            desc=f"Training epoch {epoch_idx}",
             total=len(train_loader),
             leave=False,
             position=progress_bar_position,
@@ -331,6 +332,7 @@ class ProtoTree(CaBRNet):
         # Show progress on progress bar if needed
         data_iter = tqdm(
             enumerate(data_loader),
+            desc="Prototype projection",
             total=len(data_loader),
             leave=False,
             position=progress_bar_position,
