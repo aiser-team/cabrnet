@@ -35,6 +35,12 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         action="store_true",
         help="Check the training pipeline without performing the entire process.",
     )
+    parser.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="Allow output directory to be overwritten with new results. This option should be enabled when "
+        "resuming training from a given checkpoint.",
+    )
     return parser
 
 
@@ -80,6 +86,14 @@ def execute(args: Namespace) -> None:
     # Training configuration
     trainer = load_config(training_config)
     root_dir = args.training_dir
+
+    # Check that output directory is available
+    if not args.overwrite and os.path.exists(os.path.join(root_dir, "best")):
+        raise AttributeError(
+            f"Output directory {os.path.join(root_dir, 'best')} is not empty. "
+            f"To overwrite existing results, use --overwrite option."
+        )
+
     # Build optimizer manager
     optimizer_mngr = OptimizerManager.build_from_config(config_file=training_config, model=model)
     # Dataloaders
