@@ -273,7 +273,7 @@ class CaBRNet(nn.Module):
         train_info = {"avg_loss": total_loss / batch_num, "avg_train_accuracy": total_acc / batch_num}
         return train_info
 
-    def epilogue(self, **kwargs) -> None:
+    def epilogue(self, dataloaders: dict[str, DataLoader], device: str, verbose: bool, **kwargs) -> None:
         """Function called after training, using information from the epilogue
         field in the training configuration
         """

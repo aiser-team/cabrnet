@@ -245,7 +245,7 @@ def execute(args: Namespace) -> None:
             device=device,
             stats=eval_info,
         )
-        model.epilogue(**trainer.get("epilogue"))  # type: ignore
+        model.epilogue(dataloaders=dataloaders, device=device, verbose=verbose, **trainer.get("epilogue"))  # type: ignore
 
     # Evaluate model
     eval_info = model.evaluate(dataloader=dataloaders["test_set"], device=device, verbose=verbose)

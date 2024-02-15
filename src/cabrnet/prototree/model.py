@@ -262,7 +262,14 @@ class ProtoTree(CaBRNet):
             train_info = {"avg_loss": total_loss / batch_num, "avg_train_accuracy": total_acc / batch_num}
         return train_info
 
-    def epilogue(self, pruning_threshold: float = 0.0) -> None:
+    def epilogue(
+        self,
+        dataloaders: dict[str, DataLoader],
+        device: str = "cuda:0",
+        verbose: bool = False,
+        pruning_threshold: float = 0.0,
+        **kwargs: Any,
+    ) -> None:
         """Function called after training, using information from the epilogue
         field in the training configuration
 
