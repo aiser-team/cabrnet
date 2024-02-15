@@ -317,7 +317,7 @@ class ProtoPNet(ProtoClassifier):
             for _ in fine_tuning_progress:
                 train_info = self._train_epoch(
                     dataloaders=dataloaders,
-                    optimizer_mngr=optimizer_mngr.optimizers["last_layer_optimizer"],
+                    optimizer_mngr=optimizer_mngr.optimizers["last_layer_optimizer"],  # type: ignore
                     device=device,
                     progress_bar_position=progress_bar_position + 1,
                     epoch_idx=epoch_idx,
@@ -405,7 +405,7 @@ class ProtoPNet(ProtoClassifier):
                 # Map to device and perform inference
                 xs = xs.to(device)
                 feats = self.extractor(xs)  # Shape N x D x H x W
-                H, W = feats.shape[2], feats.shape[3]
+                _, W = feats.shape[2], feats.shape[3]
                 distances = self.classifier.similarity_layer.L2_square_distance(
                     feats, self.classifier.prototypes
                 )  # Shape (N, P, H, W)

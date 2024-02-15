@@ -38,7 +38,7 @@ class ProtoTree(CaBRNet):
         # When using PRP visualization with Captum, classifier is no longer a ProtoTreeClassifier
         return None
 
-    def set_extra_state(self, state: Mapping[str, Any]) -> None:
+    def set_extra_state(self, state: Mapping[str, Any]) -> None:  # type: ignore
         """Rebuild decision tree from architecture information
         This is automatically called by load_state_dict()
 
@@ -370,7 +370,7 @@ class ProtoTree(CaBRNet):
                 # Map to device and perform inference
                 xs = xs.to(device)
                 feats = self.extractor(xs)  # Shape N x D x H x W
-                H, W = feats.shape[2], feats.shape[3]
+                _, W = feats.shape[2], feats.shape[3]
                 similarities = self.classifier.similarity_layer(feats, self.classifier.prototypes)  # Shape (N, P, H, W)
                 max_sim, max_sim_idxs = torch.max(similarities.view(similarities.shape[:2] + (-1,)), dim=2)
 
@@ -410,6 +410,7 @@ class ProtoTree(CaBRNet):
         device: str,
         exist_ok: bool = False,
         strategy: SamplingStrategy = SamplingStrategy.GREEDY,
+        **kwargs,
     ) -> None:
         """Explain the decision for a particular image
 

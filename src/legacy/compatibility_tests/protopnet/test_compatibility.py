@@ -86,7 +86,7 @@ def legacy_get_dataloaders(dataset_config: str) -> tuple[DataLoader, DataLoader,
 
 def legacy_get_optimizers(
     legacy_model: nn.Module,
-) -> tuple[torch.optim.Optimizer, torch.optim.Optimizer, torch.optim.Optimizer, torch.optim.lr_scheduler]:
+) -> tuple[torch.optim.Optimizer, torch.optim.Optimizer, torch.optim.Optimizer, torch.optim.lr_scheduler.StepLR]:
     joint_optimizer_specs = [
         {
             "params": legacy_model.features.parameters(),
@@ -223,13 +223,13 @@ class TestProtoPNetCompatibility(unittest.TestCase):
         warm_optimizer, joint_optimizer, last_layer_optimizer, joint_lr_scheduler = legacy_get_optimizers(legacy_model)
 
         # Compare
-        self.assertGenericEqual(warm_optimizer.state_dict(), optimizer_mngr.optimizers["warmup_optimizer"].state_dict())
-        self.assertGenericEqual(joint_optimizer.state_dict(), optimizer_mngr.optimizers["joint_optimizer"].state_dict())
+        self.assertGenericEqual(warm_optimizer.state_dict(), optimizer_mngr.optimizers["warmup_optimizer"].state_dict())  # type: ignore
+        self.assertGenericEqual(joint_optimizer.state_dict(), optimizer_mngr.optimizers["joint_optimizer"].state_dict())  # type: ignore
         self.assertGenericEqual(
-            last_layer_optimizer.state_dict(), optimizer_mngr.optimizers["last_layer_optimizer"].state_dict()
+            last_layer_optimizer.state_dict(), optimizer_mngr.optimizers["last_layer_optimizer"].state_dict()  # type: ignore
         )
         self.assertGenericEqual(
-            joint_lr_scheduler.state_dict(), optimizer_mngr.schedulers["joint_optimizer"].state_dict()
+            joint_lr_scheduler.state_dict(), optimizer_mngr.schedulers["joint_optimizer"].state_dict()  # type: ignore
         )
 
     def test_train(self):
@@ -318,13 +318,13 @@ class TestProtoPNetCompatibility(unittest.TestCase):
                         )
 
         # Compare
-        self.assertGenericEqual(warm_optimizer.state_dict(), optimizer_mngr.optimizers["warmup_optimizer"].state_dict())
-        self.assertGenericEqual(joint_optimizer.state_dict(), optimizer_mngr.optimizers["joint_optimizer"].state_dict())
+        self.assertGenericEqual(warm_optimizer.state_dict(), optimizer_mngr.optimizers["warmup_optimizer"].state_dict())  # type: ignore
+        self.assertGenericEqual(joint_optimizer.state_dict(), optimizer_mngr.optimizers["joint_optimizer"].state_dict())  # type: ignore
         self.assertGenericEqual(
-            last_layer_optimizer.state_dict(), optimizer_mngr.optimizers["last_layer_optimizer"].state_dict()
+            last_layer_optimizer.state_dict(), optimizer_mngr.optimizers["last_layer_optimizer"].state_dict()  # type: ignore
         )
         self.assertGenericEqual(
-            joint_lr_scheduler.state_dict(), optimizer_mngr.schedulers["joint_optimizer"].state_dict()
+            joint_lr_scheduler.state_dict(), optimizer_mngr.schedulers["joint_optimizer"].state_dict()  # type: ignore
         )
         self.assertModelEqual(legacy_model, cabrnet_model)
 
@@ -334,12 +334,12 @@ class TestProtoPNetCompatibility(unittest.TestCase):
         cabrnet_model = ProtoClassifier.build_from_config(
             self.model_config_file, seed=self.seed, compatibility_mode=True
         )
-        cabrnet_model.load_legacy_state_dict(torch.load(self.legacy_state_dict, map_location="cpu"))
+        cabrnet_model.load_legacy_state_dict(torch.load(self.legacy_state_dict, map_location="cpu"))  # type: ignore
 
         # Legacy
         setup_rng(self.seed)
         legacy_model = legacy_get_model(seed=self.seed)
-        legacy_model.load_state_dict(torch.load(self.legacy_state_dict, map_location="cpu"))
+        legacy_model.load_state_dict(torch.load(self.legacy_state_dict, map_location="cpu"))  # type: ignore
 
         self.assertModelEqual(legacy_model, cabrnet_model)
 
@@ -350,9 +350,7 @@ class TestProtoPNetCompatibility(unittest.TestCase):
             self.model_config_file, seed=self.seed, compatibility_mode=True
         )
         dataloaders = get_dataloaders(config_file=self.dataset_config_file)
-        cabrnet_info = cabrnet_model.project(
-            data_loader=dataloaders["projection_set"], device=self.device, verbose=self.verbose
-        )
+        cabrnet_model.project(data_loader=dataloaders["projection_set"], device=self.device, verbose=self.verbose)
 
         # Legacy
         setup_rng(self.seed)
@@ -380,12 +378,12 @@ class TestProtoPNetCompatibility(unittest.TestCase):
         compatible_model = ProtoClassifier.build_from_config(
             self.model_config_file, seed=self.seed, compatibility_mode=True
         )
-        compatible_model.load_legacy_state_dict(torch.load(self.legacy_state_dict, map_location="cpu"))
+        compatible_model.load_legacy_state_dict(torch.load(self.legacy_state_dict, map_location="cpu"))  # type: ignore
 
         cabrnet_model = ProtoClassifier.build_from_config(
             self.model_config_file, seed=self.seed, compatibility_mode=False
         )
-        cabrnet_model.load_legacy_state_dict(torch.load(self.legacy_state_dict, map_location="cpu"))
+        cabrnet_model.load_legacy_state_dict(torch.load(self.legacy_state_dict, map_location="cpu"))  # type: ignore
 
         # Get batch of images
         dataloaders = get_dataloaders(config_file=self.dataset_config_file)
@@ -393,9 +391,9 @@ class TestProtoPNetCompatibility(unittest.TestCase):
 
         # Compare outputs and loss values
         expected_logits, expected_min_distances = compatible_model(xs)
-        expected_loss, expected_loss_stats = compatible_model.loss((expected_logits, expected_min_distances), ys)
+        expected_loss, _ = compatible_model.loss((expected_logits, expected_min_distances), ys)
         actual_logits, actual_min_distances = cabrnet_model(xs)
-        actual_loss, actual_loss_stats = cabrnet_model.loss((actual_logits, actual_min_distances), ys)
+        actual_loss, _ = cabrnet_model.loss((actual_logits, actual_min_distances), ys)
         self.assertGenericEqual(expected_logits, actual_logits, "Checking logits")
         self.assertGenericEqual(expected_min_distances, actual_min_distances, "Checking min distances")
         # Allow some leeway for the delta between loss values

@@ -338,7 +338,7 @@ class CaBRNet(nn.Module):
 
             # Update global metrics
             total_loss += batch_loss.item()
-            total_acc += batch_accuracy
+            total_acc += batch_accuracy  # type: ignore
 
             # Update progress bar
             postfix_str = f"Batch loss: {batch_loss.item():.3f}, Acc: {batch_accuracy:.3f}"
@@ -415,7 +415,7 @@ class CaBRNet(nn.Module):
         # Show progress on progress bar if needed
         data_iter = tqdm(
             projection_info,
-            desc=f"Prototype extraction",
+            desc="Prototype extraction",
             total=len(projection_info),
             leave=False,
             position=progress_bar_position,

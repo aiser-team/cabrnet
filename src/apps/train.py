@@ -251,7 +251,7 @@ def execute(args: Namespace) -> None:
     eval_info = model.evaluate(dataloader=dataloaders["test_set"], device=device, verbose=verbose)
     logger.info(f"Average loss: {eval_info['avg_loss']:.2f}. Average accuracy: {eval_info['avg_eval_accuracy']:.2f}.")
     save_checkpoint(
-        directory_path=os.path.join(root_dir, f"final"),
+        directory_path=os.path.join(root_dir, "final"),
         model=model,
         model_config=model_config,
         optimizer_mngr=None,
