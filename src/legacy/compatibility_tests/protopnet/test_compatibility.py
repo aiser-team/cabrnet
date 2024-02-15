@@ -22,6 +22,7 @@ import legacy.protopnet.preprocess as legacy_preprocess
 from legacy.protopnet.model import construct_PPNet
 import legacy.protopnet.push as legacy_push
 import legacy.protopnet.train_and_test as legacy_tnt
+import legacy.protopnet.prune as legacy_prune
 
 
 def setup_rng(seed: int):
@@ -400,6 +401,38 @@ class TestProtoPNetCompatibility(unittest.TestCase):
         error_percentage = abs((expected_loss.item() - actual_loss.item()) / expected_loss.item())
         if error_percentage > 0.001:
             self.fail(f"Loss error percentage too great: {error_percentage}")
+
+    def test_prune_prototypes(self):
+        # CaBRNet
+        setup_rng(self.seed)
+        cabrnet_model = ProtoClassifier.build_from_config(
+            self.model_config_file, seed=self.seed, compatibility_mode=True
+        )
+        cabrnet_model.load_legacy_state_dict(torch.load(self.legacy_state_dict, map_location=self.device))  # type: ignore
+        dataloaders = get_dataloaders(config_file=self.dataset_config_file)
+        training_config = load_config(self.training_config_file)
+        cabrnet_model.epilogue(dataloaders=dataloaders, device=self.device, verbose=True, **training_config["epilogue"])
+
+        # Legacy
+        setup_rng(self.seed)
+        legacy_model = legacy_get_model(seed=self.seed)
+        legacy_model.load_state_dict(torch.load(self.legacy_state_dict, map_location=self.device))  # type: ignore
+        legacy_model_multi = nn.DataParallel(legacy_model)
+        _, _, push_loader = legacy_get_dataloaders(self.dataset_config_file)
+        legacy_prune.prune_prototypes(
+            dataloader=push_loader,
+            prototype_network_parallel=legacy_model_multi,
+            k=6,
+            prune_threshold=3,
+            preprocess_input_function=legacy_preprocess.preprocess_input_function,
+            original_model_dir="/tmp/",
+            epoch_number=None,
+            log=DummyLogger(),
+            copy_prototype_imgs=False,
+        )
+
+        # Comparison
+        self.assertModelEqual(legacy_model, cabrnet_model)
 
 
 def main():

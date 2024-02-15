@@ -327,13 +327,126 @@ class ProtoPNet(ProtoClassifier):
 
         return train_info
 
-    # TODO: implementation
-    def epilogue(self, **kwargs) -> None:
-        pass
+    def epilogue(
+        self,
+        dataloaders: dict[str, DataLoader],
+        device: str = "cuda:0",
+        verbose: bool = False,
+        pruning_threshold: int = 3,
+        num_nearest_patches: int = 6,
+        **kwargs,
+    ) -> None:
+        """Function called after training, using information from the epilogue field in the training configuration.
 
-    # TODO: implementation
-    def prune(self, pruning_threshold) -> None:
-        pass
+        Args:
+            data_loader: dataloader containing projection data
+            pruning_threshold: Pruning threshold
+            num_nearest_patches: Number of patches near the prototype to look at
+            device: target device
+            verbose: display progress bar
+            progress_bar_position: position of the progress bar.
+        """
+        self.prune(
+            data_loader=dataloaders["projection_set"],
+            pruning_threshold=pruning_threshold,
+            num_nearest_patches=num_nearest_patches,
+            device=device,
+            verbose=verbose,
+            progress_bar_position=0,
+        )
+
+    def prune(
+        self,
+        data_loader: DataLoader,
+        pruning_threshold: int = 3,
+        num_nearest_patches: int = 6,
+        device: str = "cuda:0",
+        verbose: bool = False,
+        progress_bar_position: int = 0,
+    ) -> None:
+        """Prune prototypes based on threshold.
+
+        Args:
+            data_loader: dataloader containing projection data
+            pruning_threshold: Pruning threshold
+            num_nearest_patches: Number of patches near the prototype to look at
+            device: target device
+            verbose: display progress bar
+            progress_bar_position: position of the progress bar.
+        """
+        logger.info("Performing prototypes pruning")
+        self.eval()
+        self.to(device)
+
+        # map each prototype to its class
+        class_mapping = torch.argmax(self.classifier.proto_class_map, dim=1).detach().cpu()
+
+        data_iter = tqdm(
+            data_loader,
+            total=len(data_loader),
+            leave=False,
+            position=progress_bar_position,
+            disable=not verbose,
+            desc="Prototypes pruning",
+        )
+
+        prune_info = {proto_idx: [] for proto_idx in range(self.classifier.num_prototypes)}
+
+        with torch.no_grad():
+            for xs, ys in data_iter:
+                xs = xs.to(device)
+                distances = self.l2_distances(xs)
+                min_dist, _ = torch.min(distances.view(distances.shape[:2] + (-1,)), dim=2)
+
+                for img_idx, (_, y) in enumerate(zip(xs, ys)):
+                    for proto_idx in range(self.classifier.num_prototypes):
+                        if len(prune_info[proto_idx]) < num_nearest_patches:
+                            prune_info[proto_idx].append(
+                                {"dist": min_dist[img_idx, proto_idx].item(), "class": y.item()}
+                            )
+                            # sort the dictionary by distance every time a new value is added
+                            prune_info[proto_idx] = sorted(prune_info[proto_idx], key=lambda d: d["dist"])
+                        else:
+                            if min_dist[img_idx, proto_idx].item() < prune_info[proto_idx][-1]["dist"]:
+                                prune_info[proto_idx][-1] = {
+                                    "dist": min_dist[img_idx, proto_idx].item(),
+                                    "class": y.item(),
+                                }
+                            # sort the dictionary by distance every time a new value is added
+                            prune_info[proto_idx] = sorted(prune_info[proto_idx], key=lambda d: d["dist"])
+
+        index_prototypes_to_keep = []
+        for proto_idx, proto_info in prune_info.items():
+            # we count the number of patches of the CORRECT class
+            counter = sum([1 for patch in proto_info if patch["class"] == class_mapping[proto_idx]])
+            if counter >= pruning_threshold:
+                index_prototypes_to_keep.append(proto_idx)
+        index_prototypes_to_keep = torch.tensor(index_prototypes_to_keep).to(device)
+
+        # overwrite prototypes with selected subset
+        self.classifier.prototypes = nn.Parameter(
+            torch.index_select(input=self.classifier.prototypes, dim=0, index=index_prototypes_to_keep),
+            requires_grad=True,
+        )
+
+        # update last layer
+        pruned_last_layer = nn.Linear(
+            in_features=self.classifier.num_prototypes, out_features=self.classifier.num_classes, bias=False
+        )
+        pruned_last_layer.weight.data.copy_(
+            torch.index_select(input=self.classifier.last_layer.weight.data, dim=1, index=index_prototypes_to_keep)
+        )
+        self.classifier.last_layer = pruned_last_layer
+
+        # update shape of similarity layer for computation purposes
+        self.classifier.similarity_layer.register_buffer(
+            "_summation_kernel", torch.ones((self.classifier.num_prototypes, self.classifier.num_features, 1, 1))
+        )
+
+        # update mapping between prototypes and classes
+        self.classifier.proto_class_map = torch.index_select(
+            input=self.classifier.proto_class_map, dim=0, index=index_prototypes_to_keep
+        )
 
     def project(
         self,

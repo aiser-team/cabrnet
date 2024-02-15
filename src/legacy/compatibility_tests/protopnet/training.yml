@@ -61,3 +61,8 @@ auxiliary_info:
     start_epoch: 5 # First epoch for prototype projection
     frequency: 3 # Projection frequency (in number of epochs)
     num_ft_epochs: 4 # Number of fine-tuning epochs on the last layer
+
+# After training
+epilogue:
+  pruning_threshold: 3
+  num_nearest_patches: 6
