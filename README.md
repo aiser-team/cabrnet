@@ -1,6 +1,6 @@
 <img src="./docs/banner.svg">
 
-CaBRNet is an open source library aiming to offer an API to use state-of-the-art
+CaBRNet is an open source library that offers an API to use state-of-the-art
 prototype-based architectures, or easily add a new one.
 
 Currently, CaBRNet supports the following architectures:
@@ -51,8 +51,8 @@ python3 -m build
 ```
 NOTE: this operation requires the  `build` python package.
 
-# CaBRNet front-end application
-All CaBRNet applications are accessible through a single front-end script. To list all available application, simply enter:
+# CaBRNet front-end applications
+All CaBRNet applications are accessible through a single front-end script. To list all available applications, simply enter:
 ```bash
 cabrnet --help
 ```
