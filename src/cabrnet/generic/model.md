@@ -13,7 +13,7 @@ the feature extractor produce a HxW map of D-dimensional vectors, called the **f
   - implements a set of prototypes that are either specific to a given class, or shared among multiples classes. 
   - computes similarity scores between each vector of the feature map and each prototype, using a similarity layer 
   (*e.g.* based on the L2 distance between vectors in $\mathbb{R}^D$).
-  - computes the classification logits based on these distances (*e.g.* using a decision Tree in ProtoTree).
+  - computes the classification logits based on these distances (*e.g.* using a Decision Tree in ProtoTree).
 
 <img src="../../../docs/website/docs/img/architecture.svg">
 
@@ -29,7 +29,7 @@ The feature extractor is configured through a dedicated section of the configura
 using the `extractor` keyword. A feature extractor is based on a pre-existing CNN classifier architecture 
 -- identified by the `backbone` keyword -- where the last layers (in charge of the classification itself) have been removed. 
 
-Additionally, in order to perform a reduction of the number of dimensions, it is possible to add a set of additional 
+Additionally, in order to reduce the number of dimensions, it is possible to add a set of additional 
 layers using the `add_on` keyword:
 ```yaml
 extractor:
@@ -51,7 +51,7 @@ classifier:
 Notes on the configuration of the backbone:
 - `arch`: Currently, CaBRNet only supports backbone architectures that belong to the list given by 
 [torchvision.models.list_models()](https://pytorch.org/vision/main/generated/torchvision.models.list_models.html).
-- `weights`: The backbone parameters can be either initialised:
+- `weights`: The backbone parameters can be either initialized:
   - randomly (`null` keyword).
   - by providing the path to an existing state dictionary.
   - by providing the name of a valid set of pre-trained parameters, as given by 
