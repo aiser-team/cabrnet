@@ -22,7 +22,6 @@ class ProtoPNetSimilarityScore(L2Similarities):
             Tensor of similarities. Shape (N, P, H, W)
             Tensor of distances. Shape (N, P, H, W)
         """
-        # TODO: we could pass the 1e-4 as self.epsilon to the class
         distances = torch.relu(self.L2_square_distance(features=features, prototypes=prototypes))
         return torch.log((distances + 1) / (distances + 1e-4)), distances
 
@@ -62,7 +61,7 @@ class ProtoPNetClassifier(CaBRNetAbstractClassifier, nn.Module):
         # Init prototypes
         self.prototypes = nn.Parameter(
             init_prototypes(
-                num_prototypes=self.num_prototypes, num_features=self.num_features, init_mode=proto_init_mode
+                num_prototypes=self.max_num_prototypes, num_features=self.num_features, init_mode=proto_init_mode
             )
         )
         self.similarity_layer = ProtoPNetSimilarityScore(
@@ -76,11 +75,10 @@ class ProtoPNetClassifier(CaBRNetAbstractClassifier, nn.Module):
         for j in range(self.num_prototypes):
             proto_class_map[j, j // self.num_proto_per_class] = 1
         self.register_buffer("proto_class_map", proto_class_map, persistent=True)
-        self.incorrect_class_penalty = incorrect_class_penalty
         self.last_layer = nn.Linear(in_features=self.num_prototypes, out_features=self.num_classes, bias=False)
         correct_locations = torch.t(self.proto_class_map)
         incorrect_locations = 1 - correct_locations
-        self.last_layer.weight.data.copy_(correct_locations + self.incorrect_class_penalty * incorrect_locations)
+        self.last_layer.weight.data.copy_(correct_locations + incorrect_class_penalty * incorrect_locations)
 
     @property
     def max_num_prototypes(self) -> int:
@@ -96,7 +94,7 @@ class ProtoPNetClassifier(CaBRNetAbstractClassifier, nn.Module):
         Returns:
             The total number of prototypes.
         """
-        return self.max_num_prototypes
+        return self.prototypes.size(0)
 
     def forward(self, features: Tensor) -> tuple[Tensor, Tensor]:
         """Perform classification using decision tree.
