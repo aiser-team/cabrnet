@@ -59,12 +59,12 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     parser.add_argument(
         "--sanity-check-only",
         action="store_true",
-        help="Check the training pipeline without performing the entire process.",
+        help="check the training pipeline without performing the entire process.",
     )
     parser.add_argument(
         "--overwrite",
         action="store_true",
-        help="Allow output directory to be overwritten with new results. This option should be enabled when "
+        help="allow output directory to be overwritten with new results. This option should be enabled when "
         "resuming training from a given checkpoint.",
     )
     return parser

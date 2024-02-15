@@ -20,14 +20,14 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         type=str,
         required=True,
         metavar="path/to/output/directory",
-        help="Path to output directory",
+        help="path to output directory",
     )
     parser.add_argument(
         "--prototype-dir",
         type=str,
         required=True,
         metavar="path/to/prototype/directory",
-        help="Path to directory containing prototype visualizations",
+        help="path to directory containing prototype visualizations",
     )
     return parser
 

@@ -83,13 +83,13 @@ class CaBRNet(nn.Module):
             "--model-config",
             required=mandatory_config,
             metavar="/path/to/file.yml",
-            help="Path to the model configuration file",
+            help="path to the model configuration file",
         )
         parser.add_argument(
             "--model-state-dict",
             required=False,
             metavar="/path/to/model/state.pth",
-            help="Path to the model state dictionary",
+            help="path to the model state dictionary",
         )
         return parser
 

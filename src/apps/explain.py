@@ -29,26 +29,26 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         type=str,
         required=True,
         metavar="path/to/image",
-        help="Path to image to be explained",
+        help="path to image to be explained",
     )
     parser.add_argument(
         "--output-dir",
         type=str,
         required=True,
         metavar="path/to/output/directory",
-        help="Path to output directory",
+        help="path to output directory",
     )
     parser.add_argument(
         "--prototype-dir",
         type=str,
         required=True,
         metavar="path/to/prototype/directory",
-        help="Path to directory containing prototype visualizations",
+        help="path to directory containing prototype visualizations",
     )
     parser.add_argument(
         "--overwrite",
         action="store_true",
-        help="Overwrite existing explanation (if any)",
+        help="overwrite existing explanation (if any)",
     )
     return parser
 

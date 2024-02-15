@@ -27,7 +27,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         type=str,
         required=False,
         metavar="path/to/state/dict",
-        help="Path to state dictionary of a legacy model",
+        help="path to state dictionary of a legacy model",
     )
     return parser
 
