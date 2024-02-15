@@ -6,12 +6,9 @@ from argparse import ArgumentParser, Namespace
 from loguru import logger
 from tqdm import tqdm
 from cabrnet.generic.model import CaBRNet
-from cabrnet.utils.optimizers import OptimizerManager
+from cabrnet.utils.optimizers import create_training_parser, OptimizerManager
 from cabrnet.utils.data import create_dataset_parser, get_dataloaders
-from cabrnet.utils.parser import (
-    load_config,
-    create_training_parser,
-)
+from cabrnet.utils.parser import load_config
 from cabrnet.utils.save import save_checkpoint, load_checkpoint
 from cabrnet.visualisation.visualizer import SimilarityVisualizer
 
@@ -28,8 +25,37 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         parser = ArgumentParser(description)
     parser = CaBRNet.create_parser(parser, mandatory_config=False)
     parser = create_dataset_parser(parser, mandatory_config=False)
-    parser = create_training_parser(parser)
+    parser = create_training_parser(parser, mandatory_config=False)
     parser = SimilarityVisualizer.create_parser(parser)
+    parser.add_argument(
+        "--output-dir",
+        type=str,
+        required=True,
+        metavar="path/to/output/directory",
+        help="path to output directory",
+    )
+    parser.add_argument(
+        "--resume-from",
+        type=str,
+        metavar="/path/to/checkpoint/directory",
+        help="path to existing checkpoint directory",
+    )
+    parser.add_argument(
+        "--save-best",
+        type=str,
+        required=False,
+        choices=["acc", "loss"],
+        default="acc",
+        metavar="metric",
+        help="save best model based on accuracy or loss",
+    )
+    parser.add_argument(
+        "--checkpoint-frequency",
+        type=int,
+        required=False,
+        metavar="num_epochs",
+        help="checkpoint frequency (in epochs)",
+    )
     parser.add_argument(
         "--sanity-check-only",
         action="store_true",
