@@ -55,6 +55,18 @@ class CaBRNet(nn.Module):
         x = self.extractor(x, **kwargs)
         return self.classifier.similarity_layer(x, self.classifier.prototypes)
 
+    def l2_distances(self, x: Tensor, **kwargs) -> Tensor:
+        """
+        Return similarity scores
+        Args:
+            x: input tensor
+
+        Returns:
+            tensor of similarity scores
+        """
+        x = self.extractor(x, **kwargs)
+        return self.classifier.similarity_layer.L2_square_distance(x, self.classifier.prototypes)
+
     def load_legacy_state_dict(self, legacy_state: dict) -> None:
         """Load state dictionary from legacy format
 
