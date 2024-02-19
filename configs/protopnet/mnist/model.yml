@@ -1,0 +1,27 @@
+custom_arch:
+  module: cabrnet.protopnet.model
+  name: ProtoPNet
+
+extractor:
+  backbone:
+    arch: resnet18
+    layer: layer4
+    weights: IMAGENET1K_V1
+  add_on:
+    init_mode: XAVIER
+    conv1:
+      type: Conv2d
+      params:
+        out_channels: 128
+        kernel_size: 1
+        bias: False
+    sigmoid1:
+      type: Sigmoid
+
+classifier:
+  module: cabrnet.protopnet.decision
+  name: ProtoPNetClassifier
+  params:
+    num_classes: 10
+    num_proto_per_class: 10
+    proto_init_mode: SHIFTED_NORMAL
