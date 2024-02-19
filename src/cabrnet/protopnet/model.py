@@ -427,38 +427,52 @@ class ProtoPNet(ProtoClassifier):
                             # sort the dictionary by distance every time a new value is added
                             prune_info[proto_idx] = sorted(prune_info[proto_idx], key=lambda d: d["dist"])
 
-        index_prototypes_to_keep = []
-        for proto_idx, proto_info in prune_info.items():
-            # we count the number of patches of the CORRECT class
-            counter = sum([1 for patch in proto_info if patch["class"] == class_mapping[proto_idx]])
-            if counter >= pruning_threshold:
-                index_prototypes_to_keep.append(proto_idx)
-        index_prototypes_to_keep = torch.tensor(index_prototypes_to_keep).to(device)
+        if self._compatibility_mode:
+            index_prototypes_to_keep = []
+            for proto_idx, proto_info in prune_info.items():
+                # we count the number of patches of the CORRECT class
+                counter = sum([1 for patch in proto_info if patch["class"] == class_mapping[proto_idx]])
+                if counter >= pruning_threshold:
+                    index_prototypes_to_keep.append(proto_idx)
+            index_prototypes_to_keep = torch.tensor(index_prototypes_to_keep).to(device)
 
-        # overwrite prototypes with selected subset
-        self.classifier.prototypes = nn.Parameter(
-            torch.index_select(input=self.classifier.prototypes, dim=0, index=index_prototypes_to_keep),
-            requires_grad=True,
-        )
+            # overwrite prototypes with selected subset
+            self.classifier.prototypes = nn.Parameter(
+                torch.index_select(input=self.classifier.prototypes, dim=0, index=index_prototypes_to_keep),
+                requires_grad=True,
+            )
 
-        # update last layer
-        pruned_last_layer = nn.Linear(
-            in_features=self.classifier.num_prototypes, out_features=self.classifier.num_classes, bias=False
-        )
-        pruned_last_layer.weight.data.copy_(
-            torch.index_select(input=self.classifier.last_layer.weight.data, dim=1, index=index_prototypes_to_keep)
-        )
-        self.classifier.last_layer = pruned_last_layer
+            # update last layer
+            pruned_last_layer = nn.Linear(
+                in_features=self.classifier.num_prototypes, out_features=self.classifier.num_classes, bias=False
+            )
+            pruned_last_layer.weight.data.copy_(
+                torch.index_select(input=self.classifier.last_layer.weight.data, dim=1, index=index_prototypes_to_keep)
+            )
+            self.classifier.last_layer = pruned_last_layer
 
-        # update shape of similarity layer for computation purposes
-        self.classifier.similarity_layer.register_buffer(
-            "_summation_kernel", torch.ones((self.classifier.num_prototypes, self.classifier.num_features, 1, 1))
-        )
+            # update shape of similarity layer for computation purposes
+            self.classifier.similarity_layer.register_buffer(
+                "_summation_kernel", torch.ones((self.classifier.num_prototypes, self.classifier.num_features, 1, 1))
+            )
 
-        # update mapping between prototypes and classes
-        self.classifier.proto_class_map = torch.index_select(
-            input=self.classifier.proto_class_map, dim=0, index=index_prototypes_to_keep
-        )
+            # update mapping between prototypes and classes
+            self.classifier.proto_class_map = torch.index_select(
+                input=self.classifier.proto_class_map, dim=0, index=index_prototypes_to_keep
+            )
+        else:
+            index_prototypes_to_prune = []
+            for proto_idx, proto_info in prune_info.items():
+                # we count the number of patches of the CORRECT class
+                counter = sum([1 for patch in proto_info if patch["class"] == class_mapping[proto_idx]])
+                if counter < pruning_threshold:
+                    index_prototypes_to_prune.append(proto_idx)
+
+            last_layer_weights = self.classifier.last_layer.weight.data
+            for p_index in index_prototypes_to_prune:
+                last_layer_weights[:, p_index] = 0
+
+            self.classifier.last_layer.weight.data.copy_(last_layer_weights)
 
     def project(
         self,
