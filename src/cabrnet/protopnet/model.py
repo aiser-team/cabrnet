@@ -104,6 +104,18 @@ class ProtoPNet(ProtoClassifier):
         if aux_training_params.get("projection_config") is not None:
             self.projection_config = aux_training_params["projection_config"]
 
+    def similarities(self, x: torch.Tensor, **kwargs) -> torch.Tensor:
+        """
+        Return similarity scores
+        Args:
+            x: input tensor
+
+        Returns:
+            tensor of similarity scores
+        """
+        x = self.extractor(x, **kwargs)
+        return self.classifier.similarity_layer(x, self.classifier.prototypes)[0]
+
     def loss(self, model_output: Any, label: torch.Tensor) -> tuple[torch.Tensor, dict[str, float]]:  # type: ignore
         """Loss function.
 
