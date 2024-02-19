@@ -188,9 +188,10 @@ class OptimizerManager:
                 epoch_range = self.periods[epoch_name]["epoch_range"]
                 if not isinstance(epoch_range, list) or len(epoch_range) != 2:
                     raise ValueError(f"Invalid epoch range format for training period {epoch_name}: {epoch_range}")
-                for group_name in self.periods[epoch_name].get("freeze"):
-                    if group_name not in self.param_groups.keys():
-                        raise ValueError(f"Unknown parameter group for training period {epoch_name}: {group_name}")
+                if self.periods[epoch_name].get("freeze") is not None:
+                    for group_name in self.periods[epoch_name]["freeze"]:
+                        if group_name not in self.param_groups.keys():
+                            raise ValueError(f"Unknown parameter group for training period {epoch_name}: {group_name}")
                 for optim_name in self.periods[epoch_name]["optimizers"]:
                     if optim_name not in self.optimizers.keys():
                         raise ValueError(f"Unknown optimizers name for training period {epoch_name}: {optim_name}")
