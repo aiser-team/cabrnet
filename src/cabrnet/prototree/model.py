@@ -137,7 +137,7 @@ class ProtoTree(CaBRNet):
             f"({len(remaining_leaves)/self.classifier.tree.num_leaves*100:.1f}%)"
         )
 
-    def loss(self, model_output: Any, label: torch.Tensor) -> tuple[torch.Tensor, float]:
+    def loss(self, model_output: Any, label: torch.Tensor) -> tuple[torch.Tensor, dict[str, float]]:
         """
         Loss function
         Args:
@@ -154,7 +154,7 @@ class ProtoTree(CaBRNet):
         else:
             batch_loss = torch.nn.functional.nll_loss(torch.log(ys_pred), label)
         batch_accuracy = torch.sum(torch.eq(torch.argmax(ys_pred, dim=1), label)).item() / len(label)
-        return batch_loss, batch_accuracy
+        return batch_loss, {"accuracy": batch_accuracy}
 
     def train_epoch(
         self,

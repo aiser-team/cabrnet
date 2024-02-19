@@ -178,7 +178,7 @@ class CaBRNet(nn.Module):
 
         return model
 
-    def loss(self, model_output: Any, label: torch.Tensor) -> tuple[torch.Tensor, float]:
+    def loss(self, model_output: Any, label: torch.Tensor) -> tuple[torch.Tensor, dict[str, float]]:
         """
         Computes the loss and the accuracy over a batch of model outputs
         Args:
@@ -238,13 +238,14 @@ class CaBRNet(nn.Module):
 
             # Perform inference and compute loss
             ys_pred, info = self.forward(xs)
-            batch_loss, batch_accuracy = self.loss((ys_pred, info), ys)
+            batch_loss, batch_stats = self.loss((ys_pred, info), ys)
 
             # Compute the gradient and update parameters
             batch_loss.backward()
             optimizer_mngr.optimizer_step(epoch=epoch_idx)
 
             # Update progress bar
+            batch_accuracy = batch_stats["accuracy"]
             postfix_str = (
                 f"Batch [{batch_idx + 1}/{len(train_loader)}], "
                 f"Batch loss: {batch_loss.item():.3f}, Acc: {batch_accuracy:.3f}"
