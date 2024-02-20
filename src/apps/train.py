@@ -111,7 +111,7 @@ def execute(args: Namespace) -> None:
 
     # Training configuration
     trainer = load_config(training_config)
-    root_dir = args.training_dir
+    root_dir = args.output_dir
 
     # Check that output directory is available
     if not args.overwrite and os.path.exists(os.path.join(root_dir, "best")):
