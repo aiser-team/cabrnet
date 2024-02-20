@@ -308,7 +308,8 @@ class CaBRNet(nn.Module):
 
             # Perform inference and compute loss
             ys_pred = self.forward(xs)
-            batch_loss, batch_accuracy = self.loss(ys_pred, ys)
+            batch_loss, batch_stats = self.loss(ys_pred, ys)
+            batch_accuracy = batch_stats["accuracy"]
 
             # Update global metrics
             total_loss += batch_loss.item()
