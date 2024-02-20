@@ -232,6 +232,19 @@ def execute(args: Namespace) -> None:
 
     # Call epilogue
     if trainer.get("epilogue") is not None:
+        eval_info = model.evaluate(dataloader=dataloaders["test_set"], device=device, verbose=verbose)
+        save_checkpoint(
+            directory_path=os.path.join(root_dir, f"projected"),
+            model=model,
+            model_config=model_config,
+            optimizer_mngr=None,
+            training_config=training_config,
+            dataset_config=dataset_config,
+            epoch="projected",
+            seed=seed,
+            device=device,
+            stats=eval_info,
+        )
         model.epilogue(**trainer.get("epilogue"))  # type: ignore
 
     # Evaluate model
