@@ -116,7 +116,7 @@ class ProtoPNet(ProtoClassifier):
         x = self.extractor(x, **kwargs)
         return self.classifier.similarity_layer(x, self.classifier.prototypes)[0]
 
-    def loss(self, model_output: Any, label: torch.Tensor) -> tuple[torch.Tensor, dict[str, float]]:  # type: ignore
+    def loss(self, model_output: Any, label: torch.Tensor) -> tuple[torch.Tensor, dict[str, float]]:
         """Loss function.
 
         Args:
@@ -561,7 +561,7 @@ class ProtoPNet(ProtoClassifier):
                                 min_dist_idxs[img_idx, proto_idx].item() // W,
                                 min_dist_idxs[img_idx, proto_idx].item() % W,
                             )
-                            projection_info[proto_idx] = {  # type: ignore
+                            projection_info[proto_idx] = {
                                 "img_idx": batch_idx * data_loader.batch_size + img_idx,  # type: ignore
                                 "h": h,
                                 "w": w,

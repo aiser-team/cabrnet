@@ -342,7 +342,7 @@ class CaBRNet(nn.Module):
 
             # Update progress bar
             postfix_str = f"Batch loss: {batch_loss.item():.3f}, Acc: {batch_accuracy:.3f}"
-            data_iter.set_postfix_str(postfix_str)  # type: ignore
+            data_iter.set_postfix_str(postfix_str)
 
         return {"avg_loss": total_loss / batch_num, "avg_eval_accuracy": total_acc / batch_num}
 

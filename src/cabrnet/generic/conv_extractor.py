@@ -73,7 +73,7 @@ class ConvExtractor(nn.Module):
             self.convnet = create_feature_extractor(model=model, return_nodes={layer: "convnet"})
         except ValueError as e:
             logger.error(f"Could not create feature extractor. Possible layer names: {get_graph_node_names(model)}")
-            logger.error(f"See model architecture below")
+            logger.error("See model architecture below")
             logger.info(model)
             raise e
         # Dummy inference to recover number of output channels from the feature extractor
@@ -173,5 +173,5 @@ class ConvExtractor(nn.Module):
         backbone = config["backbone"]
         add_on = config.get("add_on")
         return ConvExtractor(
-            arch=backbone["arch"], weights=backbone["weights"], layer=backbone["layer"], add_on=add_on, seed=seed
+            arch=backbone["arch"], weights=backbone["weights"], layer=backbone["layer"], add_on=add_on, seed=seed  # type: ignore
         )

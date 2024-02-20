@@ -278,7 +278,7 @@ class ZBetaConv2d(ZBetaLayer, nn.Conv2d):  # ZBetaLayer takes precedence to supe
             out_channels=module.out_channels,
             kernel_size=module.kernel_size,  # type: ignore
             stride=module.stride,  # type: ignore
-            padding=module.padding,
+            padding=module.padding,  # type: ignore
             dilation=module.dilation,  # type: ignore
             groups=module.groups,
             bias=module.bias is not None,
@@ -446,7 +446,7 @@ class Alpha1Beta0Conv2d(Alpha1Beta0Layer, nn.Conv2d):
             out_channels=module.out_channels,
             kernel_size=module.kernel_size,  # type: ignore
             stride=module.stride,  # type: ignore
-            padding=module.padding,
+            padding=module.padding,  # type: ignore
             dilation=module.dilation,  # type: ignore
             groups=module.groups,
             bias=module.bias is not None,
