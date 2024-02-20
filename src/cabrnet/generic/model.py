@@ -17,9 +17,9 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 
-class ProtoClassifier(nn.Module):
+class CaBRNet(nn.Module):
     def __init__(self, extractor: nn.Module, classifier: nn.Module, compatibility_mode: bool = False):
-        """Build a generic prototype-based classifier
+        """Build a CaBRNet prototype-based classifier
 
         Args:
             extractor: Feature extractor
@@ -29,7 +29,7 @@ class ProtoClassifier(nn.Module):
                 forward-pass even if the backbone parameters should not be modified.
 
         """
-        super(ProtoClassifier, self).__init__()
+        super(CaBRNet, self).__init__()
         self.extractor = extractor
         self.classifier = classifier
         self._compatibility_mode = compatibility_mode
@@ -69,7 +69,7 @@ class ProtoClassifier(nn.Module):
         parser: argparse.ArgumentParser | None = None,
         mandatory_config: bool = True,
     ) -> argparse.ArgumentParser:
-        """Create the argument parser for a ProtoClassifier.
+        """Create the argument parser for a CaBRNet model.
         Args:
             parser: Existing parser (if any)
             mandatory_config: Make model configuration mandatory
@@ -78,18 +78,18 @@ class ProtoClassifier(nn.Module):
             The parser itself.
         """
         if parser is None:
-            parser = argparse.ArgumentParser(description="Build a ProtoClassifier")
+            parser = argparse.ArgumentParser(description="Build a CaBRNet model")
         parser.add_argument(
             "--model-config",
             required=mandatory_config,
             metavar="/path/to/file.yml",
-            help="Path to the model configuration file",
+            help="path to the model configuration file",
         )
         parser.add_argument(
             "--model-state-dict",
             required=False,
             metavar="/path/to/model/state.pth",
-            help="Path to the model state dictionary",
+            help="path to the model state dictionary",
         )
         return parser
 
@@ -99,9 +99,9 @@ class ProtoClassifier(nn.Module):
         seed: int | None = None,
         compatibility_mode: bool = False,
         state_dict_path: str | None = None,
-    ) -> ProtoClassifier:
+    ) -> CaBRNet:
         """
-        Builds a ProtoClassifier from a YAML configuration file
+        Builds a CaBRNet model from a YAML configuration file
         Args:
             config_file: path to configuration file
             seed: random seed (used only to resynchronise random number generators in compatibility tests)
@@ -109,7 +109,7 @@ class ProtoClassifier(nn.Module):
             state_dict_path: path to model state dictionary
 
         Returns:
-            ProtoClassifier
+            CaBRNet model
         """
         config_dict = load_config(config_file)
 
@@ -166,7 +166,7 @@ class ProtoClassifier(nn.Module):
                 extractor=extractor, classifier=classifier, compatibility_mode=compatibility_mode
             )
         else:
-            model = ProtoClassifier(extractor=extractor, classifier=classifier, compatibility_mode=compatibility_mode)
+            model = CaBRNet(extractor=extractor, classifier=classifier, compatibility_mode=compatibility_mode)
 
         # Apply postponed add-on layer initialisation (compatibility mode only)
         if add_on_init_mode is not None:
@@ -178,7 +178,7 @@ class ProtoClassifier(nn.Module):
 
         return model
 
-    def loss(self, model_output: Any, label: torch.Tensor) -> tuple[torch.Tensor, float]:
+    def loss(self, model_output: Any, label: torch.Tensor) -> tuple[torch.Tensor, dict[str, float]]:
         """
         Computes the loss and the accuracy over a batch of model outputs
         Args:
@@ -238,13 +238,14 @@ class ProtoClassifier(nn.Module):
 
             # Perform inference and compute loss
             ys_pred, info = self.forward(xs)
-            batch_loss, batch_accuracy = self.loss((ys_pred, info), ys)
+            batch_loss, batch_stats = self.loss((ys_pred, info), ys)
 
             # Compute the gradient and update parameters
             batch_loss.backward()
             optimizer_mngr.optimizer_step(epoch=epoch_idx)
 
             # Update progress bar
+            batch_accuracy = batch_stats["accuracy"]
             postfix_str = (
                 f"Batch [{batch_idx + 1}/{len(train_loader)}], "
                 f"Batch loss: {batch_loss.item():.3f}, Acc: {batch_accuracy:.3f}"
@@ -307,7 +308,8 @@ class ProtoClassifier(nn.Module):
 
             # Perform inference and compute loss
             ys_pred = self.forward(xs)
-            batch_loss, batch_accuracy = self.loss(ys_pred, ys)
+            batch_loss, batch_stats = self.loss(ys_pred, ys)
+            batch_accuracy = batch_stats["accuracy"]
 
             # Update global metrics
             total_loss += batch_loss.item()

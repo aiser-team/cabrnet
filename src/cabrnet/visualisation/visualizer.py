@@ -103,7 +103,7 @@ class SimilarityVisualizer(nn.Module):
             "--visualization",
             required=True,
             metavar="/path/to/file.yml",
-            help="Path to the visualization configuration file",
+            help="path to the visualization configuration file",
         )
         return parser
 

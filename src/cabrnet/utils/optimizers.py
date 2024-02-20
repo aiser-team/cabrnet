@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 from loguru import logger
 from typing import Any
+import argparse
 from cabrnet.utils.parser import load_config
 
 
@@ -166,7 +167,11 @@ class OptimizerManager:
         if self.config.get("periods") is None:
             # Single training period
             self.periods = {
-                "main_period": {"range": [0, num_epochs - 1], "freeze": None, "optimizers": self.optimizers.keys()}
+                "main_period": {
+                    "epoch_range": [0, num_epochs - 1],
+                    "freeze": None,
+                    "optimizers": self.optimizers.keys(),
+                }
             }
         else:
             for epoch_name in self.config.get("periods"):
@@ -306,3 +311,29 @@ class OptimizerManager:
             self.optimizers[optim_name].load_state_dict(state_dict["optimizers"][optim_name])
         for optim_name in self.schedulers:
             self.schedulers[optim_name].load_state_dict(state_dict["schedulers"][optim_name])
+
+
+def create_training_parser(
+    parser: argparse.ArgumentParser | None = None, mandatory_config: bool = True
+) -> argparse.ArgumentParser:
+    """Create the argument parser for CaBRNet training configuration.
+
+    Args:
+        parser: Existing parser (if any)
+        mandatory_config: Make dataset configuration mandatory
+
+    Returns:
+        The parser itself.
+    """
+    if parser is None:
+        parser = argparse.ArgumentParser(description="Load training configuration.")
+
+    parser.add_argument(
+        "--training",
+        "-t",
+        type=str,
+        required=mandatory_config,
+        metavar="/path/to/file.yml",
+        help="path to the training configuration file",
+    )
+    return parser

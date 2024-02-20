@@ -5,13 +5,10 @@ import sys
 from argparse import ArgumentParser, Namespace
 from loguru import logger
 from tqdm import tqdm
-from cabrnet.generic.model import ProtoClassifier
-from cabrnet.utils.optimizers import OptimizerManager
+from cabrnet.generic.model import CaBRNet
+from cabrnet.utils.optimizers import create_training_parser, OptimizerManager
 from cabrnet.utils.data import create_dataset_parser, get_dataloaders
-from cabrnet.utils.parser import (
-    load_config,
-    create_training_parser,
-)
+from cabrnet.utils.parser import load_config
 from cabrnet.utils.save import save_checkpoint, load_checkpoint
 from cabrnet.visualisation.visualizer import SimilarityVisualizer
 
@@ -26,14 +23,49 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     """
     if parser is None:
         parser = ArgumentParser(description)
-    parser = ProtoClassifier.create_parser(parser, mandatory_config=False)
+    parser = CaBRNet.create_parser(parser, mandatory_config=False)
     parser = create_dataset_parser(parser, mandatory_config=False)
-    parser = create_training_parser(parser)
+    parser = create_training_parser(parser, mandatory_config=False)
     parser = SimilarityVisualizer.create_parser(parser)
+    parser.add_argument(
+        "--output-dir",
+        type=str,
+        required=True,
+        metavar="path/to/output/directory",
+        help="path to output directory",
+    )
+    parser.add_argument(
+        "--resume-from",
+        type=str,
+        metavar="/path/to/checkpoint/directory",
+        help="path to existing checkpoint directory",
+    )
+    parser.add_argument(
+        "--save-best",
+        type=str,
+        required=False,
+        choices=["acc", "loss"],
+        default="acc",
+        metavar="metric",
+        help="save best model based on accuracy or loss",
+    )
+    parser.add_argument(
+        "--checkpoint-frequency",
+        type=int,
+        required=False,
+        metavar="num_epochs",
+        help="checkpoint frequency (in epochs)",
+    )
     parser.add_argument(
         "--sanity-check-only",
         action="store_true",
-        help="Check the training pipeline without performing the entire process.",
+        help="check the training pipeline without performing the entire process.",
+    )
+    parser.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="allow output directory to be overwritten with new results. This option should be enabled when "
+        "resuming training from a given checkpoint.",
     )
     return parser
 
@@ -52,7 +84,15 @@ def execute(args: Namespace) -> None:
     verbose = args.verbose
     device = args.device
 
+    if args.training is None and args.resume_from is None:
+        raise AttributeError("Missing training configuration file. Use option --training or --resume-from.")
+
     if args.resume_from is not None:
+        if args.training is not None:
+            logger.warning(
+                f"Ignoring training configuration file {args.training}. "
+                f"Will use checkpoint file {os.path.join(args.resume_from, 'training.yml')}"
+            )
         training_config = os.path.join(args.resume_from, "training.yml")
         model_config = os.path.join(args.resume_from, "model.yml")
         dataset_config = os.path.join(args.resume_from, "dataset.yml")
@@ -65,13 +105,21 @@ def execute(args: Namespace) -> None:
         model_config = args.model_config
         dataset_config = args.dataset
 
-    model: ProtoClassifier = ProtoClassifier.build_from_config(
+    model: CaBRNet = CaBRNet.build_from_config(
         config_file=model_config, seed=args.seed, state_dict_path=args.model_state_dict
     )
 
     # Training configuration
     trainer = load_config(training_config)
-    root_dir = args.training_dir
+    root_dir = args.output_dir
+
+    # Check that output directory is available
+    if not args.overwrite and os.path.exists(os.path.join(root_dir, "best")):
+        raise AttributeError(
+            f"Output directory {os.path.join(root_dir, 'best')} is not empty. "
+            f"To overwrite existing results, use --overwrite option."
+        )
+
     # Build optimizer manager
     optimizer_mngr = OptimizerManager.build_from_config(config_file=training_config, model=model)
     # Dataloaders
@@ -92,7 +140,7 @@ def execute(args: Namespace) -> None:
         best_metric = 0.0 if args.save_best == "acc" else float("inf")
         seed = args.seed
 
-    if args.sanity_check_only is None:
+    if not args.sanity_check_only:
         max_batches = None  # Process all data batches
         epoch_select = None
     else:
@@ -184,6 +232,19 @@ def execute(args: Namespace) -> None:
 
     # Call epilogue
     if trainer.get("epilogue") is not None:
+        eval_info = model.evaluate(dataloader=dataloaders["test_set"], device=device, verbose=verbose)
+        save_checkpoint(
+            directory_path=os.path.join(root_dir, f"projected"),
+            model=model,
+            model_config=model_config,
+            optimizer_mngr=None,
+            training_config=training_config,
+            dataset_config=dataset_config,
+            epoch="projected",
+            seed=seed,
+            device=device,
+            stats=eval_info,
+        )
         model.epilogue(**trainer.get("epilogue"))  # type: ignore
 
     # Evaluate model

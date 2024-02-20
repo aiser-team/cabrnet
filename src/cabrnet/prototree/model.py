@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 from PIL import Image
 from typing import Any, Mapping, Callable
 from tqdm import tqdm
-from cabrnet.generic.model import ProtoClassifier
+from cabrnet.generic.model import CaBRNet
 from cabrnet.utils.optimizers import OptimizerManager
 from cabrnet.utils.tree import TreeNode, MappingMode
 from cabrnet.prototree.decision import SamplingStrategy, ProtoTreeClassifier
@@ -17,7 +17,7 @@ import copy
 from loguru import logger
 
 
-class ProtoTree(ProtoClassifier):
+class ProtoTree(CaBRNet):
     def __init__(self, extractor: nn.Module, classifier: nn.Module, **kwargs):
         """Build a ProtoTree
 
@@ -137,7 +137,7 @@ class ProtoTree(ProtoClassifier):
             f"({len(remaining_leaves)/self.classifier.tree.num_leaves*100:.1f}%)"
         )
 
-    def loss(self, model_output: Any, label: torch.Tensor) -> tuple[torch.Tensor, float]:
+    def loss(self, model_output: Any, label: torch.Tensor) -> tuple[torch.Tensor, dict[str, float]]:
         """
         Loss function
         Args:
@@ -154,7 +154,7 @@ class ProtoTree(ProtoClassifier):
         else:
             batch_loss = torch.nn.functional.nll_loss(torch.log(ys_pred), label)
         batch_accuracy = torch.sum(torch.eq(torch.argmax(ys_pred, dim=1), label)).item() / len(label)
-        return batch_loss, batch_accuracy
+        return batch_loss, {"accuracy": batch_accuracy}
 
     def train_epoch(
         self,
@@ -210,7 +210,7 @@ class ProtoTree(ProtoClassifier):
 
             # Perform inference and compute loss
             ys_pred, info = self.forward(xs)
-            batch_loss, batch_accuracy = self.loss((ys_pred, info), ys)
+            batch_loss, batch_stats = self.loss((ys_pred, info), ys)
 
             # Compute the gradient and update parameters
             batch_loss.backward()
@@ -234,6 +234,7 @@ class ProtoTree(ProtoClassifier):
                     leaf._relative_distribution += update
 
             # Update progress bar
+            batch_accuracy = batch_stats["accuracy"]
             postfix_str = (
                 f"Batch [{batch_idx + 1}/{len(train_loader)}], "
                 f"Batch loss: {batch_loss.item():.3f}, Acc: {batch_accuracy:.3f}"
