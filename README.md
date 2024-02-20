@@ -92,7 +92,7 @@ CaBRNet uses [loguru](https://loguru.readthedocs.io/en/stable/) for logging mess
 - `--verbose` enables progression bars during training. CaBRNet uses [tqdm](https://tqdm.github.io/) for progress bars.
 
 ## Training 
-`cabrnet train` provides all options to train a prototype-based model.
+`cabrnet train` is used to train a prototype-based model.
 - `--model-config /path/to/file.yml` indicates how to [build and initialize the model](src/cabrnet/generic/model.md).
 - `--dataset|-d /path/to/file.yml` indicates how to [load and prepare the data for training](src/cabrnet/utils/data.md).
 - `--training|-t /path/to/file.yml` indicates the [training parameters of the model](src/cabrnet/utils/optimizers.md).
@@ -121,6 +121,25 @@ CaBRNet assumes that the high-level training process is common to all prototype-
 - The model is trained for several epochs, modifying the values of the prototypes and the weights of the backbone.
 - The prototypes are *projected* to their closest vectors from a projection dataset (usually the training set).
 - An optional *epilogue* takes place, usually to prune weak prototypes.
+
+## Importing a legacy model
+To avoid restarting previous computations performed using the codes provided by the original authors,
+CaBRNet offers a tool to import an existing dictionary into the new format, using the `cabrnet import` command.
+Currently, this tool only supports ProtoPNet and ProtoTree.
+
+Here is a short description of the options. As in `cabrnet train`:
+- `--model-config /path/to/file.yml` indicates how to [build the model](src/cabrnet/generic/model.md). In addition,
+`--model-state-dict /path/to/model/state.pth` indicates the location of the legacy state dictionary that should be used 
+to initialize the model.
+- `--output-dir path/to/output/directory` indicates where to store the imported model.
+Note that after the loading the CaBRNet model with the parameters of the legacy model (feature extractor, prototypes, etc),
+CaBRNet **finalizes the import process by projecting and extracting the prototypes** and performing the optional epilogue if necessary.
+Therefore, the `cabrnet import` tool also requires the following information:
+- `--dataset|-d /path/to/file.yml` indicates how to [load and prepare the data for prototype projection](src/cabrnet/utils/data.md).
+- `--training|-t /path/to/file.yml` indicates the [parameters of the epilogue](src/cabrnet/utils/optimizers.md) (if any).
+- `--visualization /path/to/file.yml` indicates how to visualize the prototypes and patches of test image (TODO).
+
+
 
 ## Configuration files
 As indicated in the example above, CaBRNet uses YML files to specify:
