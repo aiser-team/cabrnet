@@ -1,7 +1,7 @@
 <img src="./docs/banner.svg">
 
 CaBRNet is an open source library that offers an API to use state-of-the-art
-prototype-based architectures, or easily add a new one.
+prototype-based architectures (also called case-based reasoning models), or easily add a new one.
 
 Currently, CaBRNet supports the following architectures:
 - **ProtoPNet**, as described in *Chaofan Chen, Oscar Li, Chaofan Tao, Alina Jade Barnett,
@@ -51,63 +51,76 @@ python3 -m build
 ```
 NOTE: this operation requires the  `build` python package.
 
-# CaBRNet front-end applications
+# CaBRNet applications
 All CaBRNet applications are accessible through a single front-end script. To list all available applications, simply enter:
 ```bash
 cabrnet --help
 ```
 ```
-usage: cabrnet [-h] [--version] [--device DEVICE] [--seed SEED] [--logger-level LOGGER_LEVEL] [--verbose] {download_examples,evaluate,train,explain,explain_global} ...
+usage: cabrnet [-h] {download_examples,evaluate,train,import,explain,explain_global} ...
 
 CaBRNet front-end
 
 positional arguments:
-  {download_examples,evaluate,train,explain,explain_global}
+  {download_examples,evaluate,train,import,explain,explain_global}
                         sub-command help
     download_examples   download example models
     evaluate            evaluate a CaBRNet classifier
     train               train a CaBRNet classifier
+    import              convert an existing legacy model into a CaBRNet version
     explain             explain the decision of a CaBRNet classifier
     explain_global      explain the global behaviour of a CaBRNet classifier
 
 options:
   -h, --help            show this help message and exit
-  --version, -V         show program's version number and exit
-  --device DEVICE       Target hardware device
-  --seed SEED, -s SEED  Seed for reproducible experiments
-  --logger-level LOGGER_LEVEL
-                        Logger level and verbosity
-  --verbose             Verbose output
 ```
 To obtain the documentation for a specific application, simple enter `cabrnet <app_name> --help`, *e.g.*:
 ```bash
 cabrnet train --help
 ```
-```
-usage: cabrnet train [-h] [--model-config /path/to/file.yml] [--model-state-dict /path/to/model/state.pth] [--dataset /path/to/file.yml] (--training /path/to/file.yml | --resume-from /path/to/checkpoint/directory) --training-dir path/to/training/directory [--save-best metric]
-                     [--checkpoint-frequency num_epochs] --visualization /path/to/file.yml [--sanity-check-only]
+Although CaBRNet already supports most applications required to build, train, evaluate and explain prototype-based models. 
+it is also easy to [add new applications](src/apps/applications.md).
 
-options:
-  -h, --help            show this help message and exit
-  --model-config /path/to/file.yml
-                        Path to the model configuration file
-  --model-state-dict /path/to/model/state.pth
-                        Path to the model state dictionary
-  --dataset /path/to/file.yml, -d /path/to/file.yml
-                        path to the dataset config
-  --training /path/to/file.yml, -t /path/to/file.yml
-                        Path to the training configuration file
-  --resume-from /path/to/checkpoint/directory
-                        Path to existing checkpoint directory
-  --training-dir path/to/training/directory
-                        Path to output directory
-  --save-best metric    Save best model based on accuracy or loss
-  --checkpoint-frequency num_epochs
-                        Checkpoint frequency (in epochs)
-  --visualization /path/to/file.yml
-                        Path to the visualization configuration file
-  --sanity-check-only   Check the training pipeline without performing the entire process.
-```
+## Common options
+Some options are present in all applications:
+- `--version|-V` allows to check the version of the CaBRNet library
+- `--device DEVICE` allows to specify a target hardware device (by default, it is set to `cuda:0`)
+- `--seed|-s SEED` allows to specify the random seed to improve the [reproductibilty](#reproducibility) of all 
+experiments (by default, it is set to 42, as it should be ;))
+- `--logger-level LOGGER_LEVEL` indicates the level of debug message displayed on the standard output. 
+CaBRNet uses [loguru](https://loguru.readthedocs.io/en/stable/) for logging messages; 
+- `--verbose` enables progression bars during training. CaBRNet uses [tqdm](https://tqdm.github.io/) for progress bars.
+
+## Training 
+`cabrnet train` provides all options to train a prototype-based model.
+- `--model-config /path/to/file.yml` indicates how to [build and initialize the model](src/cabrnet/generic/model.md).
+- `--dataset|-d /path/to/file.yml` indicates how to [load and prepare the data for training](src/cabrnet/utils/data.md).
+- `--training|-t /path/to/file.yml` indicates the [training parameters of the model](src/cabrnet/utils/optimizers.md).
+- `--visualization /path/to/file.yml` indicates how to visualize the prototypes and patches of test image (TODO).
+- `--save-best acc|loss` indicates how to determine the "best" model, based either on accuracy (`acc`) or `loss`.
+- `--output-dir path/to/output/directory` indicates where to store the model checkpoints during training.
+
+### Sanity check
+For a quick sanity check of a particular architecture or overall training configuration, it is possible to use the 
+`--sanity-check-only` option that only processes 5 batches per training epoch. 
+
+### Resuming computations
+CaBRNet provides options to save training checkpoints and resuming the training process from a given checkpoint.
+- `--checkpoint-frequency num_epochs` indicates the frequency of checkpoints (in number of epochs). 
+If not provided, **only the best model is kept during training** (in the `best/` subdirectory)
+- `--resume-from /path/to/checkpoint/directory` indicates where the training process should resume. 
+If not provided, the training process starts from the first epoch.
+- To avoid inadvertently erasing a previous training run, CaBRNet will abort the training process if the output 
+directory already exists. To override this check, use the `--overwrite` option.
+
+### Training process
+
+CaBRNet assumes that the high-level training process is common to all prototype-based architectures:
+- The model is initialized, usually from a pre-trained convolutional neural network that is used as a feature extractor 
+(backbone), and with random prototypes.
+- The model is trained for several epochs, modifying the values of the prototypes and the weights of the backbone.
+- The prototypes are *projected* to their closest vectors from a projection dataset (usually the training set).
+- An optional *epilogue* takes place, usually to prune weak prototypes.
 
 ## Configuration files
 As indicated in the example above, CaBRNet uses YML files to specify:
@@ -117,8 +130,8 @@ As indicated in the example above, CaBRNet uses YML files to specify:
 - how to visualize (TODO) the prototypes and generate explanations.
 
 
-## Example: ProtoTree / MNIST
-### Training
+# Example: ProtoTree / MNIST
+## Training
 ```bash
 cabrnet --device cpu --seed 42 --verbose --logger-level INFO train \
   --model-config configs/prototree/mnist/model.yml \
@@ -130,7 +143,7 @@ cabrnet --device cpu --seed 42 --verbose --logger-level INFO train \
 This command trains a ProtoTree during one epoch, and stores the resulting checkpoint in 
 `runs/mnist_prototree/final`.
 
-### Global explanation
+## Global explanation
 ```bash
 cabrnet --verbose explain_global \
   --model-config runs/mnist_prototree/final/model.yml \
@@ -143,7 +156,7 @@ This command generates a global explanation for the ProtoTree model and stores t
 
 <img src="./docs/website/docs/img/mnist_global_explanation.png">
 
-### Local explanation
+## Local explanation
 ```bash
 cabrnet --verbose explain \
   --model-config runs/mnist_prototree/final/model.yml  \
@@ -159,41 +172,6 @@ This command generates a local explanation for the image stored in `examples/ima
 
 <img src="./docs/website/docs/img/mnist_local_explanation.png">
 
-## Adding new applications
-
-To add a new application to the CaBRNet main tool, simply add a new file
-`<my_application_name.py>` into the directory `<src/apps>`. This file should
-contain:
-
-1. A string `description` containing the purpose of the application.
-2. A method `create_parser` adding the application arguments to an existing
-   parser (or creating one if necessary)
-3. A method `execute` taking the parsed arguments and executing the application
-   code.
-
-```python
-<src/apps/my_awesome_app.py>
-
-description = "my new awesome CaBRNet application"
-
-
-def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
-    if parser is None:
-        parser = ArgumentParser(description)
-    parser.add_argument(
-        "--message",
-        type=str,
-        required=True,
-        metavar="<message>",
-        help="Message to be printed",
-    )
-    return parser
-
-
-def execute(args: Namespace) -> None:
-    print(args.message)
-```
-
 ## Reproducibility
 ### Random number initialization and deterministic operations
 For reproducibility purposes, CaBRNet explicitly uses a random `seed` to initialize the various random number 
@@ -203,6 +181,7 @@ import numpy as np
 import torch
 import random
 
+seed = 42
 torch.use_deterministic_algorithms(mode=True)
 torch.manual_seed(seed)
 np.random.seed(seed)
