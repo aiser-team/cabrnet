@@ -2,13 +2,12 @@ from __future__ import annotations
 import torch.nn as nn
 from torch import Tensor
 from loguru import logger
-from PIL import Image
 import argparse
 from cabrnet.utils.parser import load_config
 from cabrnet.visualisation.upsampling import cubic_upsampling
 from cabrnet.visualisation.gradients import smoothgrad, randgrad, prp
 from cabrnet.visualisation.prp_utils import get_cabrnet_lrp_composite_model
-import cabrnet.visualisation.view as viewing_module
+from cabrnet.visualisation.view import *
 from typing import Callable
 
 
@@ -132,8 +131,8 @@ class SimilarityVisualizer(nn.Module):
         attribution_params = config_dict["attribution"]["params"] if "params" in config_dict["attribution"] else None
 
         # Viewing function
-        if hasattr(viewing_module, config_dict["view"]["type"]):
-            view_fn = getattr(viewing_module, config_dict["view"]["type"])
+        if config_dict["view"]["type"] in supported_viewing_functions:
+            view_fn = supported_viewing_functions[config_dict["view"]["type"]]
         else:
             raise NotImplementedError(f"Unknown viewing function {config_dict['view']['type']}")
         view_params = config_dict["view"]["params"] if "params" in config_dict["view"] else None
