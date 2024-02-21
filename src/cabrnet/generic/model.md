@@ -176,21 +176,21 @@ class ArchNameClassifier(nn.Module):
 ### Defining a new top-module
 The module in charge of combining the feature extractor and the classifier should be
 placed inside a dedicated file in `src/cabrnet/<ARCH_NAME>/model.py` (*e.g.* [src/cabrnet/prototree/model.py](../prototree/model.py)).
-The top-module class should inherit from the generic class [ProtoClassifier](../generic/model.py), and implements
+The top-module class should inherit from the generic class [CaBRNet](../generic/model.py), and implements
 some mandatory functions as illustrated below.
 ```python
 import torch.nn.functional
 from torch.utils.data import DataLoader
 from typing import Any, Callable
 from tqdm import tqdm
-from cabrnet.generic.model import ProtoClassifier
+from cabrnet.generic.model import CaBRNet
 from cabrnet.utils.optimizers import OptimizerManager
 from cabrnet.visualisation.visualizer import SimilarityVisualizer
 
 
-class ArchName(ProtoClassifier):
+class ArchName(CaBRNet):
       
-    def loss(self, model_output: Any, label: torch.Tensor) -> torch.Tensor:
+    def loss(self, model_output: Any, label: torch.Tensor) -> tuple[torch.Tensor, dict[str, float]]:
         """
         Loss function
         Args:
@@ -198,9 +198,12 @@ class ArchName(ProtoClassifier):
             label: Batch labels
 
         Returns:
-            loss tensor
+            loss tensor and batch statistics
         """
-        ...
+        loss = ...
+        batch_stats = {"accuracy": ...} 
+        # Please note that returning batch accuracy is mandatory 
+        return loss, batch_stats
 
     def train_epoch( # Mandatory signature
         self,
@@ -253,13 +256,14 @@ class ArchName(ProtoClassifier):
 
             # Perform inference and compute loss
             ys_pred, info = self.forward(xs)
-            batch_loss, batch_accuracy = self.loss((ys_pred, info), ys)
+            batch_loss, batch_stats = self.loss((ys_pred, info), ys)
 
             # Compute the gradient and update parameters
             batch_loss.backward()
             optimizer_mngr.optimizer_step(epoch=epoch_idx)
 
             # Update global metrics
+            batch_accuracy = batch_stats["accuracy"]
             total_loss += batch_loss.item()
             total_acc += batch_accuracy
             

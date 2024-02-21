@@ -61,7 +61,7 @@ transform | target_transform:
 ```
 CaBRNet supports all functions provided by [torchvision.transforms](https://pytorch.org/vision/stable/transforms.html),
 and also authorizes the use of custom modules through the `module` keyword. 
-Blocks of operation can be nested through the `Compose`, `RandomOrder` or `RandomChoice` keywords. 
+Blocks of operations can be nested through the `Compose`, `RandomOrder` or `RandomChoice` keywords. 
 
 Note that, by default, transform operations are applied in the order given in the configuration file, 
 unless they are regrouped into a `RandomOrder` or `RandomChoice` block.
