@@ -41,7 +41,7 @@ This option sets all other similarity scores to zero prior to up-sampling
 This method implements the SmoothGrad explanation method, as described [here](https://arxiv.org/abs/1706.03825).
 By default, this method computes a sum of the gradients of each location inside the similarity map $S(I,P)$ w.r.t. to $I$,
 weighted by the corresponding similarity scores, i.e.
-$$A = \sum\limits_{h,w} S{h,w}(I,P)\times SG(S{h,w}(I,P))$$
+$$A = \sum\limits_{h,w} S_{h,w}(I,P)\times SG(S_{h,w}(I,P))$$
 where $SG(S_{h,w}(I,P))=\sum\limits_{i=1}^n\dfrac{\delta S_{h,w}(I+\mathcal{N}(0,\sigma),P)}{\delta I}$.
 
 This method supports the following options:
