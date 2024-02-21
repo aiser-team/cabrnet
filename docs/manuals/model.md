@@ -1,24 +1,27 @@
 # Model configuration
 The specification of a CaBRNet model architecture is stored in a YML file, according to the following specification.
-For more examples, see the [ProtoPNet](../../../configs/protopnet/model.yml) and 
-[ProtoTree](../../../configs/prototree/model.yml) configuration files.
+For more examples, see the [ProtoPNet](../../configs/protopnet/model.yml) and 
+[ProtoTree](../../configs/prototree/model.yml) configuration files.
 
 As shown below, each CaBRNet model is composed of:
+
 - a [feature extractor](#extractor-configuration) that processes the input image and produces a set of features, 
 usually in the form of a 3-dimensional tensor (D, H, W) where:
-  - D is the number of (convolutional) channels.
-  - H x W represent the size of the image representation after downsampling. In other words, for each image,
+    - D is the number of (convolutional) channels.
+    - H x W represent the size of the image representation after downsampling. In other words, for each image,
 the feature extractor produce a HxW map of D-dimensional vectors, called the **feature map**.
 - a [classifier](#classifier-configuration) that:
-  - implements a set of prototypes that are either specific to a given class, or shared among multiples classes. 
-  - computes similarity scores between each vector of the feature map and each prototype, using a similarity layer 
-  (*e.g.* based on the L2 distance between vectors in $\mathbb{R}^D$).
-  - computes the classification logits based on these distances (*e.g.* using a Decision Tree in ProtoTree).
+    - implements a set of prototypes that are either specific to a given class, or shared among multiples classes. 
+    - computes similarity scores between each vector of the feature map and each prototype, using a similarity layer 
+    (*e.g.* based on the L2 distance between vectors in $\mathbb{R}^D$).
+    - computes the classification logits based on these distances (*e.g.* using a Decision Tree in ProtoTree).
 
-<img src="../../../docs/imgs/architecture.svg">
+![architecture](../imgs/architecture.svg)
 
-As illustrated for [ProtoTree](../prototree) or [ProtoPNet](../protopnet), the code for each
+
+As illustrated for [ProtoTree](../../src/cabrnet/prototree) or [ProtoPNet](../../src/cabrnet/protopnet), the code for each
 type of architecture is regrouped into a dedicated directory and contains:
+
 - a file `decision.py` describing the module in charge of performing the prototype-based classification
 - a file `model.py` describing the top-level architecture (combination of the feature extractor and the classifier).
 
@@ -26,8 +29,7 @@ Instructions on how to define a new architecture can be found [here](#implementi
 
 ## Extractor configuration
 The feature extractor is configured through a dedicated section of the configuration file, 
-using the `extractor` keyword. A feature extractor is based on a pre-existing CNN classifier architecture 
--- identified by the `backbone` keyword -- where the last layers (in charge of the classification itself) have been removed. 
+using the `extractor` keyword. A feature extractor is based on a pre-existing CNN classifier architecture - identified by the `backbone` keyword - where the last layers (in charge of the classification itself) have been removed. 
 
 Additionally, in order to reduce the number of dimensions, it is possible to add a set of additional 
 layers using the `add_on` keyword:
@@ -49,12 +51,13 @@ extractor:
 classifier:
 ```
 Notes on the configuration of the backbone:
+
 - `arch`: Currently, CaBRNet only supports backbone architectures that belong to the list given by 
 [torchvision.models.list_models()](https://pytorch.org/vision/main/generated/torchvision.models.list_models.html).
 - `weights`: The backbone parameters can be either initialized:
-  - randomly (`null` keyword).
-  - by providing the path to an existing state dictionary.
-  - by providing the name of a valid set of pre-trained parameters, as given by 
+    - randomly (`null` keyword).
+    - by providing the path to an existing state dictionary.
+    - by providing the name of a valid set of pre-trained parameters, as given by 
 [torchvision.models.get_model_weights(arch)](https://pytorch.org/vision/main/generated/torchvision.models.get_model_weights.html) (*e.g.* `IMAGENET1K_V1` for ImageNet pre-trained weights).
 - `layer`: Since the backbone model is usually a classifier, CaBRNet uses the 
 [create_feature_extractor](https://pytorch.org/vision/main/generated/torchvision.models.feature_extraction.create_feature_extractor.html) 
@@ -62,11 +65,13 @@ function to automatically remove its deepest layers and to keep only the convolu
 
 Add-on layers can be added after the backbone in order to reduce the dimensionality of the learned prototypes, 
 using the `add_on` keyword. In this case, each layer is identified by a layer name and configured using:
+
 - `type`: Supported layer types can be found in [torch.nn](https://pytorch.org/docs/stable/nn.html).
 - `params`: An optional field that contains the information necessary to build the layer.
 
 CaBRNet also supports the (optional) use of special function for the initialization of the add-on layers, 
 through the `init_mode` keyword:
+
 - `XAVIER`: used in ProtoTree and based on [nn.init.xavier_normal_](https://pytorch.org/cppdocs/api/function_namespacetorch_1_1nn_1_1init_1a86191a828a085e1c720dbce185d6c307.html)
 - `PROTOPNET`: a combination of [nn.init.kaiming_normal_](https://pytorch.org/cppdocs/api/function_namespacetorch_1_1nn_1_1init_1ac8a913c051976a3f41f20df7d6126e57.html) 
 for convolutional layers and a static starting configuration for BatchNorm layers. 
@@ -96,9 +101,9 @@ top_arch:
 ```
 
 # Implementing a new prototype-based architecture
-### Defining a new classifier architecture
+## Defining a new classifier architecture
 The module in charge of classification should be placed inside a dedicated file in
-`src/cabrnet/<ARCH_NAME>/decision.py` (*e.g.* [src/cabrnet/prototree/decision.py](../prototree/decision.py)).
+`src/cabrnet/<ARCH_NAME>/decision.py` (*e.g.* [src/cabrnet/prototree/decision.py](../../src/cabrnet/prototree/decision.py)).
 
 The following code provides a minimal example on how to define a new classifier.
 ```python
@@ -173,10 +178,10 @@ class ArchNameClassifier(nn.Module):
         ...
 ```
 
-### Defining a new top-module
+## Defining a new top-module
 The module in charge of combining the feature extractor and the classifier should be
-placed inside a dedicated file in `src/cabrnet/<ARCH_NAME>/model.py` (*e.g.* [src/cabrnet/prototree/model.py](../prototree/model.py)).
-The top-module class should inherit from the generic class [CaBRNet](../generic/model.py), and implements
+placed inside a dedicated file in `src/cabrnet/<ARCH_NAME>/model.py` (*e.g.* [src/cabrnet/prototree/model.py](../../src/cabrnet/prototree/model.py)).
+The top-module class should inherit from the generic class [CaBRNet](../../src/cabrnet/generic/model.py), and implements
 some mandatory functions as illustrated below.
 ```python
 import torch.nn.functional

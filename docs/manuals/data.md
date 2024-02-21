@@ -1,7 +1,7 @@
 # Data configuration
 The data configuration associated with a particular experiment is stored in a YML file, according to the following specification.
-For more examples, see the [CUB200](../../../configs/prototree/cub200.yml) and 
-[Stanford Cars](../../../configs/prototree/stanford_cars.yml) configuration files.
+For more examples, see the [CUB200](../../configs/prototree/cub200.yml) and 
+[Stanford Cars](../../configs/prototree/stanford_cars.yml) configuration files.
 
 ## Configuring datasets 
 Each configuration file contains the location of one or several datasets, along with the list of 
@@ -22,6 +22,7 @@ preprocessing operations that should be applied to these datasets.
 ```
 The `params` keyword contains all relevant parameters for building the object of the indicated class name.
 For example, parameters for the `StanfordCars` class in the `torchvision.datasets.stanford_cars` module include:
+
 - `root`: Path to the root directory containing the dataset
 - `split`: Either `train` or `test`
 - `transform`: Image preprocessing function
@@ -68,15 +69,16 @@ unless they are regrouped into a `RandomOrder` or `RandomChoice` block.
 
 ## Creating datasets and dataloaders
 CaBRNet provides two main functions for creating datasets and dataloaders from a configuration file:
-- [get_datasets](data.py) parses the configuration file and returns a dictionary of entries, indexed by the name of the 
+
+- [get_datasets](../../src/cabrnet/utils/data.py) parses the configuration file and returns a dictionary of entries, indexed by the name of the 
 dataset. Each entry is a dictionary containing the following information:
-  - `dataset`: A dataset object of the class given in the configuration file, with data preprocessing as specified in 
+    - `dataset`: A dataset object of the class given in the configuration file, with data preprocessing as specified in 
 the `transform` and `target_transform` keywords.
-  - `raw_dataset`: A dataset object of the class given in the configuration file, **without** data preprocessing. 
+    - `raw_dataset`: A dataset object of the class given in the configuration file, **without** data preprocessing. 
 This allows the user to access raw images rather than their preprocessed counterparts.
-  - `batch_size`: Size of each batch. Used when building a dataloader from the dataset.
-  - `shuffle` (True or False): Whether data should be shuffled. Used when building a dataloader from the dataset.
-- [get_dataloaders](data.py) parses the configuration file and returns a dictionary of dataloaders. 
+    - `batch_size`: Size of each batch. Used when building a dataloader from the dataset.
+    - `shuffle` (True or False): Whether data should be shuffled. Used when building a dataloader from the dataset.
+- [get_dataloaders](../../src/cabrnet/utils/data.py) parses the configuration file and returns a dictionary of dataloaders. 
 More precisely, each dataset specified in the configuration file produces two dataloaders:
-  - <DATASET_NAME>: Dataloader returning preprocessed data
-  - <DATASET_NAME>_raw: Dataloader returning raw data (see above)
+    - `<DATASET_NAME>`: Dataloader returning preprocessed data
+    - `<DATASET_NAME>_raw`: Dataloader returning raw data (see above)
