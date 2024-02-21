@@ -2,6 +2,7 @@
 The method used to visualize prototypes and test patches is a contributing factor to the 
 self-explaining nature of prototype-based architectures.
 In particular, incorrect visualization methods can hide model biases, or suggest model bias when there is none, as shown in:
+
 - *Srishti Gautam, Marina M.-C. Höhne, Stine Hansen, Robert Jenssen, Michael Kampffmeyer,*
 [This looks More Like that: Enhancing Self-Explaining Models by Prototypical Relevance Propagation](https://www.sciencedirect.com/science/article/pii/S0031320322006513).
 Pattern Recognition, Volume 136, 2023.
