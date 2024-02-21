@@ -68,7 +68,7 @@ positional arguments:
     evaluate            evaluate a CaBRNet classifier
     train               train a CaBRNet classifier
     import              convert an existing legacy model into a CaBRNet version
-    explain             explain the decision of a CaBRNet classifier
+    explain_local       explain the decision of a CaBRNet classifier
     explain_global      explain the global behaviour of a CaBRNet classifier
 
 options:
