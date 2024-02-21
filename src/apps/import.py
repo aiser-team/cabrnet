@@ -57,7 +57,7 @@ def execute(args: Namespace) -> None:
     projection_info = model.project(data_loader=dataloaders["projection_set"], device=device, verbose=verbose)
 
     # Extract prototypes
-    visualizer = SimilarityVisualizer.build_from_config(config_file=args.visualization, target="prototype")
+    visualizer = SimilarityVisualizer.build_from_config(config_file=args.visualization)
     model.extract_prototypes(
         dataloader_raw=dataloaders["projection_set_raw"],
         dataloader=dataloaders["projection_set"],

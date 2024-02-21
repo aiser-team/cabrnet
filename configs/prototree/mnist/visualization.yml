@@ -1,21 +1,9 @@
-prototype:
-  retrace:
-    type: cubic_upsampling
-    params:
-      single_location: True
-      normalize: True
-  view:
-    type: bbox_to_percentile
-    params:
-      percentile: 0.98
-
-test_patch:
-  retrace:
-    type: cubic_upsampling
-    params:
-      normalize: True
-      single_location: True
-  view:
-    type: bbox_to_percentile
-    params:
+attribution:
+  type: cubic_upsampling
+  params:
+    single_location: True
+    normalize: True
+view:
+  type: bbox_to_percentile
+  params:
       percentile: 0.98
