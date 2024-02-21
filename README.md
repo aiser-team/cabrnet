@@ -1,4 +1,4 @@
-<img src="./docs/banner.svg">
+<img src="./docs/logos/banner.svg">
 
 CaBRNet is an open source library that offers an API to use state-of-the-art
 prototype-based architectures (also called case-based reasoning models), or easily add a new one.
@@ -198,7 +198,7 @@ cabrnet explain_global --verbose \
 This command generates a global explanation for the ProtoTree model and stores the result in 
 `runs/mnist_prototree/global_explanation`.
 
-<img src="./docs/website/docs/img/mnist_global_explanation.png">
+<img src="./docs/imgs/mnist_global_explanation.png">
 
 ## Local explanation
 ```bash
@@ -214,7 +214,7 @@ cabrnet explain_local --verbose \
 This command generates a local explanation for the image stored in `examples/images/mnist_sample.png` and stores the result in 
 `runs/mnist_prototree/local_explanation`.
 
-<img src="./docs/website/docs/img/mnist_local_explanation.png">
+<img src="./docs/imgs/mnist_local_explanation.png">
 
 ## Reproducibility
 ### Random number initialization and deterministic operations

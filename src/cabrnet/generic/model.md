@@ -15,7 +15,7 @@ the feature extractor produce a HxW map of D-dimensional vectors, called the **f
   (*e.g.* based on the L2 distance between vectors in $\mathbb{R}^D$).
   - computes the classification logits based on these distances (*e.g.* using a Decision Tree in ProtoTree).
 
-<img src="../../../docs/website/docs/img/architecture.svg">
+<img src="../../../docs/imgs/architecture.svg">
 
 As illustrated for [ProtoTree](../prototree) or [ProtoPNet](../protopnet), the code for each
 type of architecture is regrouped into a dedicated directory and contains:

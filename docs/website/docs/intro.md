@@ -19,7 +19,7 @@ Installation instructions
 ## Basic architecture of Protolib
 
 
-import Architecture from './img/architecture.svg';
+import Architecture from '../../imgs/architecture.svg';
 
 <Architecture />;
-./static/img/architecture.svg
+../../imgs/architecture.svg
