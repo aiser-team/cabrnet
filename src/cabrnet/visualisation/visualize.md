@@ -5,7 +5,7 @@ In particular, incorrect visualization methods can hide model biases, or suggest
 - *Srishti Gautam, Marina M.-C. Höhne, Stine Hansen, Robert Jenssen, Michael Kampffmeyer,*
 [This looks More Like that: Enhancing Self-Explaining Models by Prototypical Relevance Propagation](https://www.sciencedirect.com/science/article/pii/S0031320322006513).
 Pattern Recognition, Volume 136, 2023.
-- *Romain Xu-Darme, Georges Quénot, Zakaria Chihani, Marie-Christine Rousset*
+- *Romain Xu-Darme, Georges Quénot, Zakaria Chihani, Marie-Christine Rousset*,
 [Sanity checks for patch visualisation in prototype-based image classification](https://openaccess.thecvf.com/content/CVPR2023W/XAI4CV/papers/Xu-Darme_Sanity_Checks_for_Patch_Visualisation_in_Prototype-Based_Image_Classification_CVPRW_2023_paper.pdf).
 2023 IEEE/CVF Conference on Computer Vision and Pattern Recognition Workshops (CVPRW).
 
@@ -30,15 +30,16 @@ view:
 ## Attribution methods
 CaBRNet currently supports the following attribution methods.
 ### Cubic up-sampling
-This is the method used in the original papers of both ProtoPNet and ProtoTree. The attribution map is obtained by 
+This is the method used in the original papers of both [ProtoPNet](https://proceedings.neurips.cc/paper_files/paper/2019/file/adf7ee2dcf142b0e11888e72b43fcb75-Paper.pdf) 
+and [ProtoTree](https://openaccess.thecvf.com/content/CVPR2021/papers/Nauta_Neural_Prototype_Trees_for_Interpretable_Fine-Grained_Image_Recognition_CVPR_2021_paper.pdf). The attribution map is obtained by 
 up-sampling the similarity map between $I$ and $P$ to the size of $I$, using cubic interpolation.
 This method supports the following options:
 - `single_location`: only up-sample the location of highest similarity inside the similarity map. 
-This option sets all other similarity scores to zero prior to up-sampling
-- `normalize`: apply min-max normalization after up-sampling
+This option sets all other similarity scores to zero prior to up-sampling.
+- `normalize`: apply min-max normalization after up-sampling.
 
 ### SmoothGrad
-This method implements the SmoothGrad explanation method, as described [here](https://arxiv.org/abs/1706.03825).
+This method implements the [SmoothGrad](https://arxiv.org/abs/1706.03825) explanation algorithm.
 By default, this method computes a sum of the gradients of each location inside the similarity map $S(I,P)$ w.r.t. to $I$,
 weighted by the corresponding similarity scores, i.e.
 $$A = \sum\limits_{h,w} S_{h,w}(I,P)\times SG(S_{h,w}(I,P))$$
@@ -74,12 +75,12 @@ between image $I$ and prototype $P$.
 ### Bounding-box to percentile
 This method draws a bounding-box around the most contributing pixels, according to a given
 threshold, given as a percentile of attribution. More precisely, **this method assumes that
-the activation map has been normalized between 0 and 1 (using min-max normalization), then
+the activation map has been normalized between 0 and 1** (using min-max normalization), then
 draws a bounding box encompassing all pixels with an attribution value higher than `1-percentile`,
 e.g. for `percentile=0.8`, the bounding-box encompasses all pixels with attribution values greater than 0.2.
 
 This methods supports the following options:
-- `percentile`: sets the selection threshold for pixels, based on their attribution values
+- `percentile`: sets the selection threshold for pixels, based on their attribution values.
 - `thickness`: thickness of the bounding-box, in pixels.
 
 <img src="../../../docs/imgs/view_bbox.png" width="200">
