@@ -108,8 +108,19 @@ For a quick sanity check of a particular architecture or overall training config
 CaBRNet provides options to save training checkpoints and resuming the training process from a given checkpoint.
 - `--checkpoint-frequency num_epochs` indicates the frequency of checkpoints (in number of epochs). 
 If not provided, **only the best model is kept during training** (in the `best/` subdirectory)
-- `--resume-from /path/to/checkpoint/directory` indicates where the training process should resume. 
-If not provided, the training process starts from the first epoch.
+- `--resume-from /path/to/checkpoint/directory` indicates the directory from which the training process should resume. 
+If not provided, the training process starts from the first epoch. More precisely, each training checkpoint directory contains:
+  - a copy of the YML file describing the model architecture, as specified [here](src/cabrnet/generic/model.md).
+  - a copy of the YML file describing the dataset, as specified [here](src/cabrnet/utils/data.md). 
+  - a copy of the YML file describing the training configuration, as specified [here](src/cabrnet/utils/optimizers.md). 
+  - the current model state dictionary.
+  - the current state of all optimizers and learning rate schedulers.
+  - a file `state.pickle` containing auxiliary information such as:
+    - the index of the current epoch.
+    - the hardware device used.
+    - the current best metrics (*e.g.* accuracy or cross-entropy loss).
+    - the random seed used originally.
+    - the internal state of each random number generator (torch, numpy and python).
 - To avoid inadvertently erasing a previous training run, CaBRNet will abort the training process if the output 
 directory already exists. To override this check, use the `--overwrite` option.
 
@@ -239,20 +250,7 @@ main tool.
 export CUBLAS_WORKSPACE_CONFIG=:16:8
 ```
 ### Resuming a training process
-CaBRNet allows the training process to generate *checkpoints* (using the `--checkpoint-frequency` option), so that 
+As indicated [here](#resuming-computations), CaBRNet allows the training process to generate *checkpoints* (using the `--checkpoint-frequency` option), so that 
 the entire training process can be resumed from any epoch, under the same conditions and - therefore - with the same outcome.
-More precisely, each training checkpoint contains:
-- a copy of the YML file describing the model architecture, as specified [here](src/cabrnet/generic/model.md).
-- a copy of the YML file describing the dataset, as specified [here](src/cabrnet/utils/data.md). 
-- a copy of the YML file describing the training configuration, as specified [here](src/cabrnet/utils/optimizers.md). 
-- the current model state dictionary.
-- the current state of all optimizers and learning rate schedulers.
-- a file `state.pickle` containing auxiliary information such as:
-  - the index of the current epoch.
-  - the hardware device used.
-  - the current best metrics (*e.g.* accuracy or cross-entropy loss).
-  - the random seed used originally.
-  - the internal state of each random number generator (torch, numpy and python). 
-
 In other words, from a given checkpoint, random number generators are not reset using the original random seed but 
 rather restored to their appropriate state with respect to the current epoch.
