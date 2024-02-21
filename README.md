@@ -83,13 +83,13 @@ it is also easy to [add new applications](src/apps/applications.md).
 
 ## Common options
 Some options are present in all applications:
-- `--version|-V` allows to check the version of the CaBRNet library
-- `--device DEVICE` allows to specify a target hardware device (by default, it is set to `cuda:0`)
+- `--version|-V` allows to check the version of the CaBRNet library.
+- `--device DEVICE` allows to specify a target hardware device (by default, it is set to `cuda:0`).
 - `--seed|-s SEED` allows to specify the random seed to improve the [reproductibilty](#reproducibility) of all 
-experiments (by default, it is set to 42, as it should be ;))
+experiments (by default, it is set to 42, as it should be ;)).
 - `--logger-level LOGGER_LEVEL` indicates the level of debug message displayed on the standard output. 
-CaBRNet uses [loguru](https://loguru.readthedocs.io/en/stable/) for logging messages; 
-- `--verbose` enables progression bars during training. CaBRNet uses [tqdm](https://tqdm.github.io/) for progress bars.
+CaBRNet uses [loguru](https://loguru.readthedocs.io/en/stable/) for logging messages.
+- `--verbose` enables [tqdm](https://tqdm.github.io/) progression bars during long operations.
 
 ## Training 
 `cabrnet train` is used to train a prototype-based model.
@@ -120,6 +120,7 @@ CaBRNet assumes that the high-level training process is common to all prototype-
 (backbone), and with random prototypes.
 - The model is trained for several epochs, modifying the values of the prototypes and the weights of the backbone.
 - The prototypes are *projected* to their closest vectors from a projection dataset (usually the training set).
+- The visualization of each prototype is generated and stored in the `prototypes/` subdirectory.
 - An optional *epilogue* takes place, usually to prune weak prototypes.
 
 ## Importing a legacy model
@@ -137,17 +138,41 @@ CaBRNet **finalizes the import process by projecting and extracting the prototyp
 Therefore, the `cabrnet import` tool also requires the following information:
 - `--dataset|-d /path/to/file.yml` indicates how to [load and prepare the data for prototype projection](src/cabrnet/utils/data.md).
 - `--training|-t /path/to/file.yml` indicates the [parameters of the epilogue](src/cabrnet/utils/optimizers.md) (if any).
-- `--visualization /path/to/file.yml` indicates how to visualize the prototypes and patches of test image (TODO).
+- `--visualization /path/to/file.yml` indicates how to visualize the prototypes (TODO).
 
 
+## Evaluating a CaBRNet model
+After training, it is possible to evaluate the loss and accuracy of a model using the `cabrnet evaluate` tool. 
+To evaluate a model, the tool uses the following options:
+- `--model-config /path/to/file.yml` indicates how to [build the model](src/cabrnet/generic/model.md). In addition,
+`--model-state-dict /path/to/model/state.pth` or `--legacy-state-dict /path/to/model/state.pth` indicate 
+the location of a CaBRNet or legacy state dictionary that should be used to initialize the model.
+- `--dataset|-d /path/to/file.yml` indicates how to [load and prepare the test data for the evaluation](src/cabrnet/utils/data.md).
 
-## Configuration files
-As indicated in the example above, CaBRNet uses YML files to specify:
-- the [model architecture](src/cabrnet/generic/model.md).
-- which [datasets](src/cabrnet/utils/data.md) should be used during training.
-- the [training](src/cabrnet/utils/optimizers.md) parameters.
-- how to visualize (TODO) the prototypes and generate explanations.
-
+## Generating explanations
+Prototype-based architectures provide both global and local explanations:
+- global explanations provide an overview of the decision-making process of the entire model.
+- local explanations provide information regarding a particular decision (for a particular image). 
+### Global explanations
+A global explanation is generated using the `explain_global` method of a CaBRNet model (see the 
+[ProtoTree example](src/cabrnet/prototree/model.py)). To generate such an explanation, the tool uses the following options:
+- `--model-config /path/to/file.yml` and `--model-state-dict /path/to/model/state.pth` indicate how to 
+[build and initialize the model](src/cabrnet/generic/model.md).
+- `--prototype-dir path/to/prototype/directory` indicates where the prototype visualizations extracted during 
+[training](#training-) are stored (usually in `<training_directory>/prototypes/`).
+- `--output-dir path/to/output/directory` indicates where to store the global explanation.
+### Local explanations
+A local explanation is generated using the `explain` method of the CaBRNet model (see the 
+[ProtoTree example](src/cabrnet/prototree/model.py)). To generate such an explanation, the tool uses the following options:
+- `--model-config /path/to/file.yml` and `--model-state-dict /path/to/model/state.pth` indicate how to 
+[build and initialize the model](src/cabrnet/generic/model.md).
+- `--image path/to/image` indicates which image should be classified by the model. 
+- `--dataset|-d /path/to/file.yml` indicates how to [prepare the image](src/cabrnet/utils/data.md) before it is processed by the model,
+based on the transformations applied to the *test* dataset.
+- `--visualization /path/to/file.yml` indicates how to visualize the patches of the test image (TODO).
+- `--prototype-dir path/to/prototype/directory` indicates where the prototype visualizations extracted during 
+[training](#training-) are stored (usually in `<training_directory>/prototypes/`).
+- `--output-dir path/to/output/directory` indicates where to store the local explanation.
 
 # Example: ProtoTree / MNIST
 ## Training
