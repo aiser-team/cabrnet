@@ -41,10 +41,9 @@ This option sets all other similarity scores to zero prior to up-sampling
 This method implements the SmoothGrad explanation method, as described [here](https://arxiv.org/abs/1706.03825).
 By default, this method computes a sum of the gradients of each location inside the similarity map $S(I,P)$ w.r.t. to $I$,
 weighted by the corresponding similarity scores, i.e.
-\[
-    A = \sum\limits_{h,w} S{h,w}(I,P)\times SG(S{h,w}(I,P))
-\]
+$$A = \sum\limits_{h,w} S{h,w}(I,P)\times SG(S{h,w}(I,P))$$
 where $SG(S_{h,w}(I,P))=\sum\limits_{i=1}^n\dfrac{\delta S_{h,w}(I+\mathcal{N}(0,\sigma),P)}{\delta I}$.
+
 This method supports the following options:
 - `single_location`: only compute the gradients at the location of highest similarity inside the similarity map. 
 - `noise_ratio`: controls the noise ratio (amount of noise added to each perturbed image).
@@ -82,11 +81,18 @@ e.g. for `percentile=0.8`, the bounding-box encompasses all pixels with attribut
 This methods supports the following options:
 - `percentile`: sets the selection threshold for pixels, based on their attribution values
 - `thickness`: thickness of the bounding-box, in pixels.
- 
+
+<img src="../../../docs/imgs/view_bbox.png" width="200">
+
 
 ### Crop to percentile
 Rather than drawing a bounding-box around the most contributing pixels, this method crops the
 image based on this bounding-box, using the `percentile` option as in the [previous method](#bounding-box-to-percentile). 
 
+<img src="../../../docs/imgs/view_cropped.png" width="200">
+
+
 ### Heatmap
-TODO
+Alternatively, important pixels can be visualized using the `heatmap` method.
+
+<img src="../../../docs/imgs/view_heatmap.png" width="200">
