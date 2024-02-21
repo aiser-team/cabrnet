@@ -108,24 +108,17 @@ class SimilarityVisualizer(nn.Module):
         return parser
 
     @staticmethod
-    def build_from_config(config_file: str, target: str | None = None) -> SimilarityVisualizer:
+    def build_from_config(config_file: str) -> SimilarityVisualizer:
         """
         Builds a ProtoVisualizer from a YAML configuration file
         Args:
             config_file: path to configuration file
-            target: name of target in configuration file
 
         Returns:
             ProtoVisualizer
         """
-        logger.info(
-            f"Loading patch visualizer from {config_file}." + f" Target: {target}." if target is not None else ""
-        )
+        logger.info(f"Loading patch visualizer from {config_file}.")
         config_dict = load_config(config_file)
-        if target is not None:
-            if target not in config_dict:
-                raise ValueError(f"Missing target {target} from configuration file {config_file}")
-            config_dict = config_dict[target]
 
         # Sanity checks on mandatory field
         for mandatory_field in ["retrace", "view"]:
