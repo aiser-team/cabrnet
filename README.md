@@ -96,7 +96,7 @@ CaBRNet uses [loguru](https://loguru.readthedocs.io/en/stable/) for logging mess
 - `--model-config /path/to/file.yml` indicates how to [build and initialize the model](src/cabrnet/generic/model.md).
 - `--dataset|-d /path/to/file.yml` indicates how to [load and prepare the data for training](src/cabrnet/utils/data.md).
 - `--training|-t /path/to/file.yml` indicates the [training parameters of the model](src/cabrnet/utils/optimizers.md).
-- `--visualization /path/to/file.yml` indicates how to visualize the prototypes and patches of test image (TODO).
+- `--visualization /path/to/file.yml` indicates how to [visualize the prototypes and patches of test image](src/cabrnet/visualisation/visualize.md).
 - `--save-best acc|loss` indicates how to determine the "best" model, based either on accuracy (`acc`) or `loss`.
 - `--output-dir path/to/output/directory` indicates where to store the model checkpoints during training.
 
@@ -138,7 +138,7 @@ CaBRNet **finalizes the import process by projecting and extracting the prototyp
 Therefore, the `cabrnet import` tool also requires the following information:
 - `--dataset|-d /path/to/file.yml` indicates how to [load and prepare the data for prototype projection](src/cabrnet/utils/data.md).
 - `--training|-t /path/to/file.yml` indicates the [parameters of the epilogue](src/cabrnet/utils/optimizers.md) (if any).
-- `--visualization /path/to/file.yml` indicates how to visualize the prototypes (TODO).
+- `--visualization /path/to/file.yml` indicates how to [visualize the prototypes](src/cabrnet/visualisation/visualize.md).
 
 
 ## Evaluating a CaBRNet model
@@ -169,19 +169,20 @@ A local explanation is generated using the `explain` method of the CaBRNet model
 - `--image path/to/image` indicates which image should be classified by the model. 
 - `--dataset|-d /path/to/file.yml` indicates how to [prepare the image](src/cabrnet/utils/data.md) before it is processed by the model,
 based on the transformations applied to the *test* dataset.
-- `--visualization /path/to/file.yml` indicates how to visualize the patches of the test image (TODO).
+- `--visualization /path/to/file.yml` indicates how to [visualize the patches of the test image](src/cabrnet/visualisation/visualize.md).
 - `--prototype-dir path/to/prototype/directory` indicates where the prototype visualizations extracted during 
 [training](#training-) are stored (usually in `<training_directory>/prototypes/`).
 - `--output-dir path/to/output/directory` indicates where to store the local explanation.
+- `--overwrite` indicates that any existing explanation in the output directory can be overwritten.
 
 # Example: ProtoTree / MNIST
 ## Training
 ```bash
-cabrnet --device cpu --seed 42 --verbose --logger-level INFO train \
+cabrnet train --device cpu --seed 42 --verbose --logger-level INFO  \
   --model-config configs/prototree/mnist/model.yml \
   --dataset configs/prototree/mnist/data.yml \
   --training configs/prototree/mnist/training.yml \
-  --training-dir runs/mnist_prototree \
+  --output-dir runs/mnist_prototree \
   --visualization configs/prototree/mnist/visualization.yml
 ```
 This command trains a ProtoTree during one epoch, and stores the resulting checkpoint in 
@@ -189,11 +190,10 @@ This command trains a ProtoTree during one epoch, and stores the resulting check
 
 ## Global explanation
 ```bash
-cabrnet --verbose explain_global \
+cabrnet explain_global --verbose \
   --model-config runs/mnist_prototree/final/model.yml \
   --model-state-dict runs/mnist_prototree/final/model_state.pth \
-  --output-dir runs/mnist_prototree/global_explanation \ 
-  --prototype-dir runs/mnist_prototree/prototypes/ 
+  --output-dir runs/mnist_prototree/global_explanation --prototype-dir runs/mnist_prototree/prototypes/
 ```
 This command generates a global explanation for the ProtoTree model and stores the result in 
 `runs/mnist_prototree/global_explanation`.
@@ -202,7 +202,7 @@ This command generates a global explanation for the ProtoTree model and stores t
 
 ## Local explanation
 ```bash
-cabrnet --verbose explain \
+cabrnet explain_local --verbose \
   --model-config runs/mnist_prototree/final/model.yml  \
   --model-state-dict runs/mnist_prototree/final/model_state.pth \
   --dataset configs/prototree/mnist/data.yml \
