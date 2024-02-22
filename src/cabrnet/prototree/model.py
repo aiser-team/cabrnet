@@ -1,4 +1,5 @@
 import os
+import time
 import graphviz
 import torch
 import torch.nn as nn
@@ -187,6 +188,10 @@ class ProtoTree(CaBRNet):
         total_loss = 0.0
         total_acc = 0.0
 
+        # Capture data fetch time relative to total batch time to ensure that there is no bottleneck here
+        total_batch_time = 0.0
+        total_data_time = 0.0
+
         # Record original leaf distributions
         with torch.no_grad():
             old_dist_params: dict[int, torch.Tensor] = {}
@@ -201,9 +206,12 @@ class ProtoTree(CaBRNet):
             position=progress_bar_position,
             disable=not verbose,
         )
-        batch_num = len(train_loader)
+        batch_num, batch_idx = len(train_loader), 0
+        ref_time = time.time()
 
         for batch_idx, (xs, ys) in train_iter:
+            data_time = time.time() - ref_time
+
             # Reset gradients and map the data on the target device
             optimizer_mngr.zero_grad()
             xs, ys = xs.to(device), ys.to(device)
@@ -235,23 +243,34 @@ class ProtoTree(CaBRNet):
 
             # Update progress bar
             batch_accuracy = batch_stats["accuracy"]
+            batch_time = time.time() - ref_time
             postfix_str = (
                 f"Batch [{batch_idx + 1}/{len(train_loader)}], "
-                f"Batch loss: {batch_loss.item():.3f}, Acc: {batch_accuracy:.3f}"
+                f"Batch loss: {batch_loss.item():.3f}, Acc: {batch_accuracy:.3f}, "
+                f"Batch time: {batch_time:.3f}s (data: {data_time:.3f})"
             )
             train_iter.set_postfix_str(postfix_str)  # type: ignore
 
             # Update global metrics
             total_loss += batch_loss.item()
             total_acc += batch_accuracy
+            total_batch_time += batch_time
+            total_data_time += data_time
+            ref_time = time.time()
 
             if max_batches is not None and batch_idx == max_batches:
                 break
 
         # Clean gradients after last batch
         optimizer_mngr.zero_grad()
-
-        train_info = {"avg_loss": total_loss / batch_num, "avg_train_accuracy": total_acc / batch_num}
+        # Update batch_num with effective value
+        batch_num = batch_idx + 1
+        train_info = {
+            "avg_loss": total_loss / batch_num,
+            "avg_train_accuracy": total_acc / batch_num,
+            "avg_batch_time": total_batch_time / batch_num,
+            "avg_data_time": total_data_time / batch_num,
+        }
         return train_info
 
     def epilogue(self, pruning_threshold: float = 0.0) -> None:
