@@ -23,7 +23,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     """
     if parser is None:
         parser = ArgumentParser(description)
-    parser = CaBRNet.create_parser(parser, mandatory_config=False)
+    parser = CaBRNet.create_parser(parser, mandatory_config=False, skip_state_dict=True)
     parser = create_dataset_parser(parser, mandatory_config=False)
     parser = create_training_parser(parser, mandatory_config=False)
     parser = SimilarityVisualizer.create_parser(parser)
@@ -105,9 +105,7 @@ def execute(args: Namespace) -> None:
         model_config = args.model_config
         dataset_config = args.dataset
 
-    model: CaBRNet = CaBRNet.build_from_config(
-        config_file=model_config, seed=args.seed, state_dict_path=args.model_state_dict
-    )
+    model: CaBRNet = CaBRNet.build_from_config(config_file=model_config, seed=args.seed)
 
     # Training configuration
     trainer = load_config(training_config)
@@ -219,7 +217,7 @@ def execute(args: Namespace) -> None:
     projection_info = model.project(data_loader=dataloaders["projection_set"], device=device, verbose=verbose)
 
     # Extract prototypes
-    visualizer = SimilarityVisualizer.build_from_config(config_file=args.visualization, target="prototype")
+    visualizer = SimilarityVisualizer.build_from_config(config_file=args.visualization)
     model.extract_prototypes(
         dataloader_raw=dataloaders["projection_set_raw"],
         dataloader=dataloaders["projection_set"],

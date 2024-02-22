@@ -68,11 +68,13 @@ class CaBRNet(nn.Module):
     def create_parser(
         parser: argparse.ArgumentParser | None = None,
         mandatory_config: bool = True,
+        skip_state_dict: bool = False,
     ) -> argparse.ArgumentParser:
         """Create the argument parser for a CaBRNet model.
         Args:
             parser: Existing parser (if any)
             mandatory_config: Make model configuration mandatory
+            skip_state_dict: Disable option to load external state dict
 
         Returns:
             The parser itself.
@@ -85,12 +87,13 @@ class CaBRNet(nn.Module):
             metavar="/path/to/file.yml",
             help="path to the model configuration file",
         )
-        parser.add_argument(
-            "--model-state-dict",
-            required=False,
-            metavar="/path/to/model/state.pth",
-            help="path to the model state dictionary",
-        )
+        if not skip_state_dict:
+            parser.add_argument(
+                "--model-state-dict",
+                required=False,
+                metavar="/path/to/model/state.pth",
+                help="path to the model state dictionary",
+            )
         return parser
 
     @staticmethod
