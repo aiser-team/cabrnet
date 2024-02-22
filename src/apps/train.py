@@ -111,6 +111,7 @@ def execute(args: Namespace) -> None:
 
     # Training configuration
     trainer = load_config(training_config)
+    model.register_training_params(trainer)  # Register auxiliary training parameters directly into model
     root_dir = args.output_dir
 
     # Check that output directory is available
