@@ -181,9 +181,7 @@ class TestProtoPNetCompatibility(unittest.TestCase):
     def test_model_init(self):
         # CaBRNet
         setup_rng(self.seed)
-        cabrnet_model = CaBRNet.build_from_config(
-            self.model_config_file, seed=self.seed, compatibility_mode=True
-        )
+        cabrnet_model = CaBRNet.build_from_config(self.model_config_file, seed=self.seed, compatibility_mode=True)
 
         # Legacy
         setup_rng(self.seed)
@@ -213,9 +211,7 @@ class TestProtoPNetCompatibility(unittest.TestCase):
     def test_optimizers_init(self):
         # CaBRNet
         setup_rng(self.seed)
-        cabrnet_model = CaBRNet.build_from_config(
-            self.model_config_file, seed=self.seed, compatibility_mode=True
-        )
+        cabrnet_model = CaBRNet.build_from_config(self.model_config_file, seed=self.seed, compatibility_mode=True)
         optimizer_mngr = OptimizerManager.build_from_config(self.training_config_file, cabrnet_model)
 
         # Legacy
@@ -237,9 +233,7 @@ class TestProtoPNetCompatibility(unittest.TestCase):
         max_batches = 5
         # CaBRNet
         setup_rng(self.seed)
-        cabrnet_model = CaBRNet.build_from_config(
-            self.model_config_file, seed=self.seed, compatibility_mode=True
-        )
+        cabrnet_model = CaBRNet.build_from_config(self.model_config_file, seed=self.seed, compatibility_mode=True)
         training_config = load_config(self.training_config_file)
         cabrnet_model.register_training_params(training_config)
         optimizer_mngr = OptimizerManager.build_from_config(self.training_config_file, cabrnet_model)
@@ -332,9 +326,7 @@ class TestProtoPNetCompatibility(unittest.TestCase):
     def test_load_legacy_state_dict(self):
         # CaBRNet
         setup_rng(self.seed)
-        cabrnet_model = CaBRNet.build_from_config(
-            self.model_config_file, seed=self.seed, compatibility_mode=True
-        )
+        cabrnet_model = CaBRNet.build_from_config(self.model_config_file, seed=self.seed, compatibility_mode=True)
         cabrnet_model.load_legacy_state_dict(torch.load(self.legacy_state_dict, map_location="cpu"))  # type: ignore
 
         # Legacy
@@ -347,9 +339,7 @@ class TestProtoPNetCompatibility(unittest.TestCase):
     def test_push_prototypes(self):
         # CaBRNet
         setup_rng(self.seed)
-        cabrnet_model = CaBRNet.build_from_config(
-            self.model_config_file, seed=self.seed, compatibility_mode=True
-        )
+        cabrnet_model = CaBRNet.build_from_config(self.model_config_file, seed=self.seed, compatibility_mode=True)
         dataloaders = get_dataloaders(config_file=self.dataset_config_file)
         cabrnet_model.project(data_loader=dataloaders["projection_set"], device=self.device, verbose=self.verbose)
 
@@ -376,14 +366,10 @@ class TestProtoPNetCompatibility(unittest.TestCase):
 
     def test_compatibility_mode(self):
         # Model with compatibility mode
-        compatible_model = CaBRNet.build_from_config(
-            self.model_config_file, seed=self.seed, compatibility_mode=True
-        )
+        compatible_model = CaBRNet.build_from_config(self.model_config_file, seed=self.seed, compatibility_mode=True)
         compatible_model.load_legacy_state_dict(torch.load(self.legacy_state_dict, map_location="cpu"))  # type: ignore
 
-        cabrnet_model = CaBRNet.build_from_config(
-            self.model_config_file, seed=self.seed, compatibility_mode=False
-        )
+        cabrnet_model = CaBRNet.build_from_config(self.model_config_file, seed=self.seed, compatibility_mode=False)
         cabrnet_model.load_legacy_state_dict(torch.load(self.legacy_state_dict, map_location="cpu"))  # type: ignore
 
         # Get batch of images
@@ -405,9 +391,7 @@ class TestProtoPNetCompatibility(unittest.TestCase):
     def test_prune_prototypes(self):
         # CaBRNet
         setup_rng(self.seed)
-        cabrnet_model = CaBRNet.build_from_config(
-            self.model_config_file, seed=self.seed, compatibility_mode=True
-        )
+        cabrnet_model = CaBRNet.build_from_config(self.model_config_file, seed=self.seed, compatibility_mode=True)
         cabrnet_model.load_legacy_state_dict(torch.load(self.legacy_state_dict, map_location=self.device))  # type: ignore
         dataloaders = get_dataloaders(config_file=self.dataset_config_file)
         training_config = load_config(self.training_config_file)
