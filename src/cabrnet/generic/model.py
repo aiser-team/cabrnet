@@ -158,18 +158,15 @@ class CaBRNet(nn.Module):
         classifier_module = importlib.import_module(classifier_config["module"])
         classifier = getattr(classifier_module, classifier_config["name"])(**classifier_config["params"])
 
-        # Load top architecture module if necessary
-        if "custom_arch" in config_dict:
-            for mandatory_field in ["module", "name"]:
-                if mandatory_field not in classifier_config:
-                    raise ValueError(f"Missing mandatory field {mandatory_field} in custom architecture configuration")
-            arch_config = config_dict["custom_arch"]
-            top_arch_module = importlib.import_module(arch_config["module"])
-            model = getattr(top_arch_module, arch_config["name"])(
-                extractor=extractor, classifier=classifier, compatibility_mode=compatibility_mode
-            )
-        else:
-            model = CaBRNet(extractor=extractor, classifier=classifier, compatibility_mode=compatibility_mode)
+        # Load top architecture module
+        for mandatory_field in ["module", "name"]:
+            if mandatory_field not in config_dict["top_arch"]:
+                raise ValueError(f"Missing mandatory field {mandatory_field} in top architecture configuration")
+        arch_config = config_dict["top_arch"]
+        top_arch_module = importlib.import_module(arch_config["module"])
+        model = getattr(top_arch_module, arch_config["name"])(
+            extractor=extractor, classifier=classifier, compatibility_mode=compatibility_mode
+        )
 
         # Apply postponed add-on layer initialisation (compatibility mode only)
         if add_on_init_mode is not None:
