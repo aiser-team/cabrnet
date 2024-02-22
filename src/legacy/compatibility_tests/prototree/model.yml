@@ -1,4 +1,4 @@
-custom_arch:
+top_arch:
   module: cabrnet.prototree.model
   name: ProtoTree
 
