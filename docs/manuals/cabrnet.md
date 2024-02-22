@@ -169,3 +169,12 @@ As indicated [here](#resuming-computations), CaBRNet allows the training process
 the entire training process can be resumed from any epoch, under the same conditions and - therefore - with the same outcome.
 In other words, from a given checkpoint, random number generators are not reset using the original random seed but 
 rather restored to their appropriate state with respect to the current epoch.
+
+### Caveats on reproducibility
+The reproducibility of experiments depends on various factors (software version, hardware), some of which
+may not be obvious. For instance, although the batch size has a direct effect on batch normalization during training, it is
+**also true during model evaluation**, as discussed [here](https://discuss.pytorch.org/t/cudnn-causing-inconsistent-test-results-depending-on-batch-size/189277).
+In other words, a model in `eval()` mode does not return the same outputs depending on the size of the batch of data 
+(and the target hardware). While this effect is limited when performing traditional linear operations (the tensors are usually `allclose` from pytorch point of view), 
+the use of the **L2 distance between vectors tends to amplify the phenomenon**. In particular, this may have an effect during prototype projection, where an image patch may
+be considered closer or farther than another patch depending on the batch size.
