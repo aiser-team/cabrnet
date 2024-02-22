@@ -70,6 +70,11 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     return parser
 
 
+def metrics_to_str(metrics: dict[str, float]) -> str:
+    """Controls number of digits when showing batch statistics"""
+    return ", ".join([f"{key}: {value:.3f}" for key, value in metrics.items()])
+
+
 def execute(args: Namespace) -> None:
     """Create a CaBRNet classifier, then train it.
 
@@ -183,7 +188,7 @@ def execute(args: Namespace) -> None:
             save_best_checkpoint = True
 
         if save_best_checkpoint:
-            logger.info(f"Better model found at epoch {epoch}. Metrics: {train_info}")
+            logger.info(f"Better model found at epoch {epoch}. Metrics: {metrics_to_str(train_info)}")
             save_checkpoint(
                 directory_path=os.path.join(root_dir, "best"),
                 model=model,
