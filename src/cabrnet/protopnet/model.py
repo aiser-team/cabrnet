@@ -4,7 +4,7 @@ from typing import Any, Callable
 import torch
 import torch.nn as nn
 import numpy as np
-from cabrnet.generic.model import ProtoClassifier
+from cabrnet.generic.model import CaBRNet
 from cabrnet.utils.optimizers import OptimizerManager
 from cabrnet.visualisation.visualizer import SimilarityVisualizer
 from loguru import logger
@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 
-class ProtoPNet(ProtoClassifier):
+class ProtoPNet(CaBRNet):
     """Class representing a ProtoPNet."""
 
     def __init__(self, extractor: nn.Module, classifier: nn.Module, **kwargs):
