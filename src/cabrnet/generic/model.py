@@ -234,56 +234,7 @@ class CaBRNet(nn.Module):
         Returns:
             dictionary containing learning statistics
         """
-        self.train()
-        self.to(device)
-
-        # Training stats
-        total_loss = 0.0
-        total_acc = 0.0
-
-        # Show progress on progress bar if needed
-        train_iter = tqdm(
-            enumerate(train_loader),
-            total=len(train_loader),
-            leave=False,
-            position=progress_bar_position,
-            disable=not verbose,
-        )
-        batch_num = len(train_loader)
-
-        for batch_idx, (xs, ys) in train_iter:
-            # Reset gradients and map the data on the target device
-            optimizer_mngr.zero_grad()
-            xs, ys = xs.to(device), ys.to(device)
-
-            # Perform inference and compute loss
-            ys_pred, info = self.forward(xs)
-            batch_loss, batch_stats = self.loss((ys_pred, info), ys)
-
-            # Compute the gradient and update parameters
-            batch_loss.backward()
-            optimizer_mngr.optimizer_step(epoch=epoch_idx)
-
-            # Update progress bar
-            batch_accuracy = batch_stats["accuracy"]
-            postfix_str = (
-                f"Batch [{batch_idx + 1}/{len(train_loader)}], "
-                f"Batch loss: {batch_loss.item():.3f}, Acc: {batch_accuracy:.3f}"
-            )
-            train_iter.set_postfix_str(postfix_str)  # type: ignore
-
-            # Update global metrics
-            total_loss += batch_loss.item()
-            total_acc += batch_accuracy
-
-            if max_batches is not None and batch_idx == max_batches:
-                break
-
-        # Clean gradients after last batch
-        optimizer_mngr.zero_grad()
-
-        train_info = {"avg_loss": total_loss / batch_num, "avg_train_accuracy": total_acc / batch_num}
-        return train_info
+        raise NotImplementedError
 
     def epilogue(self, dataloaders: dict[str, DataLoader], device: str, verbose: bool, **kwargs) -> None:
         """Function called after training, using information from the epilogue
