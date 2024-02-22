@@ -118,7 +118,8 @@ Prototype-based architectures provide both global and local explanations:
 - local explanations provide information regarding a particular decision (for a particular image). 
 ### Global explanations
 A global explanation is generated using the `explain_global` method of a CaBRNet model (see the 
-[ProtoTree example](../src/cabrnet/prototree/model.py)). To generate such an explanation, the tool uses the following options:
+[ProtoTree example](../API/reference/cabrnet/prototree/model.md#explain_global)). To generate such an explanation, 
+the tool uses the following options:
 
 - `--model-config /path/to/file.yml` and `--model-state-dict /path/to/model/state.pth` indicate how to 
 [build and initialize the model](model.md).
@@ -128,7 +129,7 @@ A global explanation is generated using the `explain_global` method of a CaBRNet
 
 ### Local explanations
 A local explanation is generated using the `explain` method of the CaBRNet model (see the 
-[ProtoTree example](../src/cabrnet/prototree/model.py)). To generate such an explanation, the tool uses the following options:
+[ProtoTree example](../API/reference/cabrnet/prototree/model.md#explain)). To generate such an explanation, the tool uses the following options:
 
 - `--model-config /path/to/file.yml` and `--model-state-dict /path/to/model/state.pth` indicate how to 
 [build and initialize the model](model.md).
@@ -144,7 +145,7 @@ based on the transformations applied to the *test* dataset.
 ## Reproducibility
 ### Random number initialization and deterministic operations
 For reproducibility purposes, CaBRNet explicitly uses a random `seed` to initialize the various random number 
-generators that may be used during the training process, as shown [here](../src/main.py).
+generators that may be used during the training process, as shown [here](https://git.frama-c.com/pub/cabrnet/-/tree/master/src/main.py).
 ```python
 import numpy as np
 import torch

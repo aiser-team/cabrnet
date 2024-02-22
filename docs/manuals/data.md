@@ -1,7 +1,7 @@
 # Data configuration
 The data configuration associated with a particular experiment is stored in a YML file, according to the following specification.
-For more examples, see the [CUB200](../../configs/prototree/cub200.yml) and 
-[Stanford Cars](../../configs/prototree/stanford_cars.yml) configuration files.
+For more examples, see the [CUB200](https://git.frama-c.com/pub/cabrnet/-/tree/master/configs/prototree/cub200.yml) and 
+[Stanford Cars](https://git.frama-c.com/pub/cabrnet/-/tree/master/configs/prototree/stanford_cars.yml) configuration files.
 
 ## Configuring datasets 
 Each configuration file contains the location of one or several datasets, along with the list of 
@@ -70,7 +70,7 @@ unless they are regrouped into a `RandomOrder` or `RandomChoice` block.
 ## Creating datasets and dataloaders
 CaBRNet provides two main functions for creating datasets and dataloaders from a configuration file:
 
-- [get_datasets](../../src/cabrnet/utils/data.py) parses the configuration file and returns a dictionary of entries, indexed by the name of the 
+- [get_datasets](../API/reference/cabrnet/utils/data.md#get_datasets) parses the configuration file and returns a dictionary of entries, indexed by the name of the 
 dataset. Each entry is a dictionary containing the following information:
     - `dataset`: A dataset object of the class given in the configuration file, with data preprocessing as specified in 
 the `transform` and `target_transform` keywords.
@@ -78,7 +78,7 @@ the `transform` and `target_transform` keywords.
 This allows the user to access raw images rather than their preprocessed counterparts.
     - `batch_size`: Size of each batch. Used when building a dataloader from the dataset.
     - `shuffle` (True or False): Whether data should be shuffled. Used when building a dataloader from the dataset.
-- [get_dataloaders](../../src/cabrnet/utils/data.py) parses the configuration file and returns a dictionary of dataloaders. 
+- [get_dataloaders](../API/reference/cabrnet/utils/data.md#get_dataloaders) parses the configuration file and returns a dictionary of dataloaders. 
 More precisely, each dataset specified in the configuration file produces two dataloaders:
     - `<DATASET_NAME>`: Dataloader returning preprocessed data
     - `<DATASET_NAME>_raw`: Dataloader returning raw data (see above)

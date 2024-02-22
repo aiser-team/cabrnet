@@ -1,7 +1,7 @@
 # Model configuration
 The specification of a CaBRNet model architecture is stored in a YML file, according to the following specification.
-For more examples, see the [ProtoPNet](../../configs/protopnet/model.yml) and 
-[ProtoTree](../../configs/prototree/model.yml) configuration files.
+For more examples, see the [ProtoPNet](https://git.frama-c.com/pub/cabrnet/-/tree/master/configs/protopnet/model.yml) and 
+[ProtoTree](https://git.frama-c.com/pub/cabrnet/-/tree/master/configs/prototree/model.yml) configuration files.
 
 As shown below, each CaBRNet model is composed of:
 
@@ -19,7 +19,7 @@ the feature extractor produce a HxW map of D-dimensional vectors, called the **f
 ![architecture](../imgs/architecture.svg)
 
 
-As illustrated for [ProtoTree](../../src/cabrnet/prototree) or [ProtoPNet](../../src/cabrnet/protopnet), the code for each
+As illustrated for [ProtoTree](https://git.frama-c.com/pub/cabrnet/-/tree/master/src/cabrnet/prototree) or [ProtoPNet](https://git.frama-c.com/pub/cabrnet/-/tree/master/src/cabrnet/protopnet), the code for each
 type of architecture is regrouped into a dedicated directory and contains:
 
 - a file `decision.py` describing the module in charge of performing the prototype-based classification
@@ -103,7 +103,7 @@ top_arch:
 # Implementing a new prototype-based architecture
 ## Defining a new classifier architecture
 The module in charge of classification should be placed inside a dedicated file in
-`src/cabrnet/<ARCH_NAME>/decision.py` (*e.g.* [src/cabrnet/prototree/decision.py](../../src/cabrnet/prototree/decision.py)).
+`src/cabrnet/<ARCH_NAME>/decision.py` (*e.g.* [src/cabrnet/prototree/decision.py](../API/reference/cabrnet/prototree/decision.md#prototreeclassifier-objects)).
 
 The following code provides a minimal example on how to define a new classifier.
 ```python
@@ -180,8 +180,8 @@ class ArchNameClassifier(nn.Module):
 
 ## Defining a new top-module
 The module in charge of combining the feature extractor and the classifier should be
-placed inside a dedicated file in `src/cabrnet/<ARCH_NAME>/model.py` (*e.g.* [src/cabrnet/prototree/model.py](../../src/cabrnet/prototree/model.py)).
-The top-module class should inherit from the generic class [CaBRNet](../../src/cabrnet/generic/model.py), and implements
+placed inside a dedicated file in `src/cabrnet/<ARCH_NAME>/model.py` (*e.g.* [src/cabrnet/prototree/model.py](../API/reference/cabrnet/prototree/model.md)).
+The top-module class should inherit from the generic class [CaBRNet](../API/reference/cabrnet/generic/model.md#cabrnet-objects), and implements
 some mandatory functions as illustrated below.
 ```python
 import torch.nn.functional
