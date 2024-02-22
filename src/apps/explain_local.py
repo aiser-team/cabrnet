@@ -66,7 +66,7 @@ def execute(args: Namespace) -> None:
     # Build model and load state dictionary
     model: CaBRNet = CaBRNet.build_from_config(config_file=args.model_config, state_dict_path=args.model_state_dict)
     # Init visualizer
-    visualizer = SimilarityVisualizer.build_from_config(config_file=args.visualization, target="test_patch")
+    visualizer = SimilarityVisualizer.build_from_config(config_file=args.visualization)
     # Recover preprocessing function
     preprocess = get_dataset_transform(config_file=args.dataset, dataset="test_set")
 

@@ -10,3 +10,6 @@ build/
 dist/
 examples/
 src/legacy/prototree
+*.pth
+*.ckpt
+docs/API/reference/

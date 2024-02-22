@@ -327,12 +327,6 @@ class ProtoTree(CaBRNet):
         self.eval()
         self.to(device)
 
-        if data_loader.batch_size != 1:
-            logger.warning(
-                "Projection results may vary depending on batch size, see issue "
-                "https://discuss.pytorch.org/t/cudnn-causing-inconsistent-test-results-depending-on-batch-size/189277"
-            )
-
         # For each class, keep track of the related prototypes
         class_mapping = self.classifier.tree.get_mapping(mode=MappingMode.CLASS_TO_PROTOTYPE)
         # Sanity check to ensure that each class is associated with at least one prototype

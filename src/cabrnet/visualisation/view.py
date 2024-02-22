@@ -1,4 +1,3 @@
-import matplotlib.pyplot as plt
 from cv2 import applyColorMap, COLORMAP_JET
 import numpy as np
 from PIL import Image, ImageDraw
@@ -88,3 +87,10 @@ def heatmap(img: Image.Image, sim_map: np.ndarray, **kwargs) -> Image.Image:
     # Convert BGR format returned by OpenCV into RGB
     sim_heatmap = sim_heatmap[..., ::-1]
     return Image.fromarray(sim_heatmap)
+
+
+supported_viewing_functions = {
+    "crop_to_percentile": crop_to_percentile,
+    "bbox_to_percentile": bbox_to_percentile,
+    "heatmap": heatmap,
+}
