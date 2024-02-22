@@ -10,7 +10,8 @@ preprocessing operations that should be applied to these datasets.
 ```yaml
 <DATASET_NAME>:
   module: <MODULE_NAME> # Name of the module containing the dataset class (e.g. torchvision.datasets) 
-  name: <CLASS_NAME> # Class name of the dataset (e.g. ImageFolder) 
+  name: <CLASS_NAME> # Class name of the dataset (e.g. ImageFolder)
+  num_workers: <NUM> # Number of worker processes for data preprocessing 
   batch_size: <BATCH_SIZE> # Size of each batch
   shuffle: <True | False> # Should data be shuffled (should be True for train_set)
   params: # How to initialize the dataset
