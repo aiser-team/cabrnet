@@ -17,6 +17,14 @@ def get_version() -> str:
         return fin.readline()
 
 
+class ParserWithHelper(ArgumentParser):
+    def error(self, message: str):
+        """Overrides default error message in argparse to print help menu"""
+        self._print_message(f"Error: {message}\n", sys.stderr)
+        self.print_help(sys.stderr)
+        self.exit(2)
+
+
 def main():
     """Load the applications and run CaBRNet with them."""
     # Enumerate applications from apps directory
@@ -24,8 +32,9 @@ def main():
     apps = [os.path.splitext(file)[0] for file in os.listdir(apps_dir) if file.endswith(".py")]
 
     # Create parser
-    parser = ArgumentParser(description="CaBRNet front-end")
+    parser = ParserWithHelper(description="CaBRNet front-end")
     subparsers = parser.add_subparsers(help="sub-command help")
+    subparsers.required = True
     for app_name in apps:
         try:
             module = importlib.import_module(f"apps.{app_name}")
