@@ -1,6 +1,8 @@
 import copy
+import os
 from typing import Any, Callable
 
+import graphviz
 import torch
 import torch.nn as nn
 import numpy as np
@@ -587,6 +589,31 @@ class ProtoPNet(CaBRNet):
     ) -> None:
         pass
 
-    # TODO: implementation
     def explain_global(self, prototype_dir_path: str, output_dir_path: str, **kwargs) -> None:
-        pass
+        """Build global explanation_graph.
+
+        Args:
+            prototype_dir_path: Path where the prototypes are stored on the system.
+            output_dir_path: Path where the result graph will be saved.
+        """
+        proto_class_map = self.classifier.proto_class_map.detach().cpu().numpy()
+        class_mapping = {c: list(np.nonzero(proto_class_map[:, c])[0]) for c in range(self.classifier.num_classes)}
+
+        explanation_graph = graphviz.Graph()
+        explanation_graph.attr(packmode=f"array_{np.rint(np.sqrt(self.classifier.num_classes))}")
+
+        def _build_class_node(graph, class_idx):
+            graph.node(name=f"Class {class_idx}", root="True")
+            for prototype in class_mapping[class_idx]:
+                img_path = os.path.relpath(
+                    os.path.join(prototype_dir_path, f"prototype_{prototype}.png"), output_dir_path
+                )
+                graph.node(name=f"Prototype {prototype}", label="", penwidth="0", image=img_path, imagescale="True")
+                graph.edge(f"Class {class_idx}", f"Prototype {prototype}")
+            return graph
+
+        for class_idx in range(self.classifier.num_classes):
+            _build_class_node(explanation_graph, class_idx)
+
+        logger.debug(explanation_graph.source)
+        explanation_graph.render(filename=os.path.join(output_dir_path, "global_explanation"))
