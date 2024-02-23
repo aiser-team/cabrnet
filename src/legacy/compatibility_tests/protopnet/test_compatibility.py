@@ -1,3 +1,4 @@
+import os.path
 import unittest
 import sys
 from typing import Any
@@ -128,10 +129,11 @@ class TestProtoPNetCompatibility(unittest.TestCase):
         super(TestProtoPNetCompatibility, self).__init__(methodName=methodName)
 
         # Test configuration
-        self.model_config_file: str = "src/legacy/compatibility_tests/protopnet/model.yml"
-        self.dataset_config_file: str = "src/legacy/compatibility_tests/protopnet/cub200.yml"
-        self.training_config_file: str = "src/legacy/compatibility_tests/protopnet/training.yml"
-        self.legacy_state_dict: str | None = "legacy_states/protopnet/protopnet_cub200_vgg19.pth"
+        test_dir = os.path.dirname(os.path.realpath(__file__))
+        self.model_config_file = os.path.join(test_dir, "model.yml")
+        self.dataset_config_file = os.path.join(test_dir, "data.yml")
+        self.training_config_file = os.path.join(test_dir, "training.yml")
+        self.legacy_state_dict = os.path.join(test_dir, "legacy_state.pth")
         self.device: str = "cuda:0"
         self.seed: int = 42
         self.verbose: bool = True
