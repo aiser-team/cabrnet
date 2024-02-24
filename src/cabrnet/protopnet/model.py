@@ -433,6 +433,7 @@ class ProtoPNet(CaBRNet):
                             # sort the dictionary by distance every time a new value is added
                             prune_info[proto_idx] = sorted(prune_info[proto_idx], key=lambda d: d["dist"])
 
+        logger.info(f"Model statistics before pruning: {self.classifier.num_prototypes} prototypes.")
         if self._compatibility_mode:
             index_prototypes_to_keep = []
             for proto_idx, proto_info in prune_info.items():
@@ -466,6 +467,7 @@ class ProtoPNet(CaBRNet):
             self.classifier.proto_class_map = torch.index_select(
                 input=self.classifier.proto_class_map, dim=0, index=index_prototypes_to_keep
             )
+            logger.info(f"Model statistics after pruning: {self.classifier.num_prototypes} prototypes.")
         else:
             index_prototypes_to_prune = []
             for proto_idx, proto_info in prune_info.items():
@@ -479,6 +481,10 @@ class ProtoPNet(CaBRNet):
                 last_layer_weights[:, p_index] = 0
 
             self.classifier.last_layer.weight.data.copy_(last_layer_weights)
+            logger.info(
+                f"Model statistics after pruning: "
+                f"{self.classifier.num_prototypes-len(index_prototypes_to_prune)} prototypes."
+            )
 
     def project(
         self,
