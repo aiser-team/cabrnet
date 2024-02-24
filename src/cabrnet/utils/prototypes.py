@@ -18,6 +18,7 @@ def init_prototypes(
     """
     if init_mode not in prototype_init_modes:
         raise ValueError(f"Unknown prototype initialisation mode {init_mode}.")
+    prototypes = None
     if init_mode == "UNIFORM":
         prototypes = torch.rand((num_prototypes, num_features, 1, 1), requires_grad=True)
     elif init_mode in ["NORMAL", "SHIFTED_NORMAL"]:

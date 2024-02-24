@@ -14,6 +14,7 @@ from cabrnet.utils.tree import TreeNode, MappingMode
 from cabrnet.prototree.decision import SamplingStrategy, ProtoTreeClassifier
 from cabrnet.visualisation.visualizer import SimilarityVisualizer
 from cabrnet.visualisation.explainer import ExplanationGraph
+from cabrnet.utils.save import save_checkpoint
 import copy
 from loguru import logger
 
@@ -254,7 +255,7 @@ class ProtoTree(CaBRNet):
                 f"Batch loss: {batch_loss.item():.3f}, Acc: {batch_accuracy:.3f}, "
                 f"Batch time: {batch_time:.3f}s (data: {data_time:.3f})"
             )
-            train_iter.set_postfix_str(postfix_str)
+            train_iter.set_postfix_str(postfix_str)  # type: ignore
 
             # Update global metrics
             total_loss += batch_loss.item()
@@ -281,6 +282,12 @@ class ProtoTree(CaBRNet):
     def epilogue(
         self,
         dataloaders: dict[str, DataLoader],
+        visualizer: SimilarityVisualizer,
+        output_dir: str,
+        model_config: str,
+        training_config: str,
+        dataset_config: str,
+        seed: int,
         device: str = "cuda:0",
         verbose: bool = False,
         pruning_threshold: float = 0.0,
@@ -290,8 +297,43 @@ class ProtoTree(CaBRNet):
         field in the training configuration
 
         Args:
-            pruning_threshold: Pruning threshold
+            dataloaders: dataloader containing projection data
+            visualizer: patch visualizer
+            output_dir: output directory
+            model_config: path to YML model configuration
+            training_config: path to YML training configuration
+            dataset_config: path to YML dataset configuration
+            seed: initial random seed
+            device: target device
+            verbose: display progress bar
+            pruning_threshold: pruning threshold
         """
+        # Perform projection
+        projection_info = self.project(data_loader=dataloaders["projection_set"], device=device, verbose=verbose)
+        eval_info = self.evaluate(dataloader=dataloaders["test_set"], device=device, verbose=verbose)
+        save_checkpoint(
+            directory_path=os.path.join(output_dir, f"projected"),
+            model=self,
+            model_config=model_config,
+            optimizer_mngr=None,
+            training_config=training_config,
+            dataset_config=dataset_config,
+            epoch="projected",
+            seed=seed,
+            device=device,
+            stats=eval_info,
+        )
+
+        # Extract prototypes
+        self.extract_prototypes(
+            dataloader_raw=dataloaders["projection_set_raw"],
+            dataloader=dataloaders["projection_set"],
+            projection_info=projection_info,
+            visualizer=visualizer,
+            dir_path=os.path.join(output_dir, "prototypes"),
+            device=device,
+            verbose=verbose,
+        )
         if pruning_threshold <= 0.0:
             logger.warning(f"Leaf pruning disabled (threshold is {pruning_threshold})")
         self.prune(pruning_threshold=pruning_threshold)

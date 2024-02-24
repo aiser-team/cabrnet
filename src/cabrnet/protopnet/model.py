@@ -347,6 +347,12 @@ class ProtoPNet(CaBRNet):
     def epilogue(
         self,
         dataloaders: dict[str, DataLoader],
+        visualizer: SimilarityVisualizer,
+        output_dir: str,
+        model_config: str,
+        training_config: str,
+        dataset_config: str,
+        seed: int,
         device: str = "cuda:0",
         verbose: bool = False,
         pruning_threshold: int = 3,
@@ -356,13 +362,47 @@ class ProtoPNet(CaBRNet):
         """Function called after training, using information from the epilogue field in the training configuration.
 
         Args:
-            data_loader: dataloader containing projection data
+            dataloaders: dataloader containing projection data
+            visualizer: patch visualizer
+            output_dir: output directory
+            model_config: path to YML model configuration
+            training_config: path to YML training configuration
+            dataset_config: path to YML dataset configuration
+            seed: initial random seed
             pruning_threshold: Pruning threshold
             num_nearest_patches: Number of patches near the prototype to look at
             device: target device
             verbose: display progress bar
-            progress_bar_position: position of the progress bar.
         """
+        assert not self._compatibility_mode, "Compatibility mode not supported during epilogue"
+        # Perform projection
+        projection_info = self.project(data_loader=dataloaders["projection_set"], device=device, verbose=verbose)
+        eval_info = self.evaluate(dataloader=dataloaders["test_set"], device=device, verbose=verbose)
+        save_checkpoint(
+            directory_path=os.path.join(output_dir, f"projected"),
+            model=self,
+            model_config=model_config,
+            optimizer_mngr=None,
+            training_config=training_config,
+            dataset_config=dataset_config,
+            epoch="projected",
+            seed=seed,
+            device=device,
+            stats=eval_info,
+        )
+
+        # Extract prototypes
+        self.extract_prototypes(
+            dataloader_raw=dataloaders["projection_set_raw"],
+            dataloader=dataloaders["projection_set"],
+            projection_info=projection_info,
+            visualizer=visualizer,
+            dir_path=os.path.join(output_dir, "prototypes"),
+            device=device,
+            verbose=verbose,
+        )
+
+        # Prune weak prototypes
         self.prune(
             data_loader=dataloaders["projection_set"],
             pruning_threshold=pruning_threshold,
@@ -433,13 +473,17 @@ class ProtoPNet(CaBRNet):
                             prune_info[proto_idx] = sorted(prune_info[proto_idx], key=lambda d: d["dist"])
 
         logger.info(f"Model statistics before pruning: {self.classifier.num_prototypes} prototypes.")
+        index_prototypes_to_keep = []
+        index_prototypes_to_prune = []
+        for proto_idx, proto_info in prune_info.items():
+            # we count the number of patches of the CORRECT class
+            counter = sum([1 for patch in proto_info if patch["class"] == class_mapping[proto_idx]])
+            if counter >= pruning_threshold:
+                index_prototypes_to_keep.append(proto_idx)
+            else:
+                index_prototypes_to_prune.append(proto_idx)
+
         if self._compatibility_mode:
-            index_prototypes_to_keep = []
-            for proto_idx, proto_info in prune_info.items():
-                # we count the number of patches of the CORRECT class
-                counter = sum([1 for patch in proto_info if patch["class"] == class_mapping[proto_idx]])
-                if counter >= pruning_threshold:
-                    index_prototypes_to_keep.append(proto_idx)
             index_prototypes_to_keep = torch.tensor(index_prototypes_to_keep).to(device)
 
             # overwrite prototypes with selected subset
@@ -468,13 +512,6 @@ class ProtoPNet(CaBRNet):
             )
             logger.info(f"Model statistics after pruning: {self.classifier.num_prototypes} prototypes.")
         else:
-            index_prototypes_to_prune = []
-            for proto_idx, proto_info in prune_info.items():
-                # we count the number of patches of the CORRECT class
-                counter = sum([1 for patch in proto_info if patch["class"] == class_mapping[proto_idx]])
-                if counter < pruning_threshold:
-                    index_prototypes_to_prune.append(proto_idx)
-
             last_layer_weights = self.classifier.last_layer.weight.data
             for p_index in index_prototypes_to_prune:
                 last_layer_weights[:, p_index] = 0

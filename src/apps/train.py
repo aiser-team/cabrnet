@@ -219,37 +219,20 @@ def execute(args: Namespace) -> None:
     # Load best model
     load_checkpoint(directory_path=os.path.join(root_dir, "best"), model=model)
 
-    # Perform projection
-    projection_info = model.project(data_loader=dataloaders["projection_set"], device=device, verbose=verbose)
-
-    # Extract prototypes
-    visualizer = SimilarityVisualizer.build_from_config(config_file=args.visualization)
-    model.extract_prototypes(
-        dataloader_raw=dataloaders["projection_set_raw"],
-        dataloader=dataloaders["projection_set"],
-        projection_info=projection_info,
+    # Call epilogue
+    visualizer = SimilarityVisualizer.build_from_config(config_file=args.visualization, target="prototype")
+    model.epilogue(
+        dataloaders=dataloaders,
         visualizer=visualizer,
-        dir_path=os.path.join(root_dir, "prototypes"),
+        output_dir=root_dir,
+        model_config=model_config,
+        training_config=training_config,
+        dataset_config=dataset_config,
+        seed=seed,
         device=device,
         verbose=verbose,
-    )
-
-    # Call epilogue
-    if trainer.get("epilogue") is not None:
-        eval_info = model.evaluate(dataloader=dataloaders["test_set"], device=device, verbose=verbose)
-        save_checkpoint(
-            directory_path=os.path.join(root_dir, f"projected"),
-            model=model,
-            model_config=model_config,
-            optimizer_mngr=None,
-            training_config=training_config,
-            dataset_config=dataset_config,
-            epoch="projected",
-            seed=seed,
-            device=device,
-            stats=eval_info,
-        )
-        model.epilogue(dataloaders=dataloaders, device=device, verbose=verbose, **trainer.get("epilogue"))  # type: ignore
+        **trainer.get("epilogue", {}),
+    )  # type: ignore
 
     # Evaluate model
     eval_info = model.evaluate(dataloader=dataloaders["test_set"], device=device, verbose=verbose)

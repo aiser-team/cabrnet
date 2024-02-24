@@ -16,6 +16,7 @@ train_set:
           mean: [0.485, 0.456, 0.406]
           std: [0.229, 0.224, 0.225]
   batch_size: 16
+  num_workers: 4
   shuffle: True
 
 projection_set:
@@ -36,6 +37,7 @@ projection_set:
           mean: [0.485, 0.456, 0.406]
           std: [0.229, 0.224, 0.225]
   batch_size: 16
+  num_workers: 4
   shuffle: False
 
 test_set:
@@ -56,4 +58,5 @@ test_set:
           mean: [0.485, 0.456, 0.406]
           std: [0.229, 0.224, 0.225]
   batch_size: 16
+  num_workers: 4
   shuffle: False

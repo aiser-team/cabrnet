@@ -43,7 +43,7 @@ def execute(args: Namespace) -> None:
     legacy_state_dict = args.model_state_dict
     seed = args.seed
     verbose = args.verbose
-    root_directory = args.output_dir
+    root_dir = args.output_dir
     device = args.device
 
     # Build CaBRNet model, then load legacy state dictionary
@@ -53,31 +53,27 @@ def execute(args: Namespace) -> None:
 
     dataloaders = get_dataloaders(dataset_config)
 
-    # Perform projection
-    projection_info = model.project(data_loader=dataloaders["projection_set"], device=device, verbose=verbose)
-
-    # Extract prototypes
-    visualizer = SimilarityVisualizer.build_from_config(config_file=args.visualization)
-    model.extract_prototypes(
-        dataloader_raw=dataloaders["projection_set_raw"],
-        dataloader=dataloaders["projection_set"],
-        projection_info=projection_info,
-        visualizer=visualizer,
-        dir_path=os.path.join(root_directory, "prototypes"),
-        device=device,
-        verbose=verbose,
-    )
-
     # Call epilogue
     trainer = load_config(training_config)
-    if trainer.get("epilogue") is not None:
-        model.epilogue(**trainer.get("epilogue"))
+    visualizer = SimilarityVisualizer.build_from_config(config_file=args.visualization, target="prototype")
+    model.epilogue(
+        dataloaders=dataloaders,
+        visualizer=visualizer,
+        output_dir=root_dir,
+        model_config=model_config,
+        training_config=training_config,
+        dataset_config=dataset_config,
+        seed=seed,
+        device=device,
+        verbose=verbose,
+        **trainer.get("epilogue", {}),
+    )  # type: ignore
 
     # Evaluate model
     eval_info = model.evaluate(dataloader=dataloaders["test_set"], device=device, verbose=verbose)
     logger.info(f"Average loss: {eval_info['avg_loss']:.2f}. Average accuracy: {eval_info['avg_eval_accuracy']:.2f}.")
     save_checkpoint(
-        directory_path=os.path.join(root_directory, f"imported"),
+        directory_path=os.path.join(root_dir, f"imported"),
         model=model,
         model_config=model_config,
         optimizer_mngr=None,

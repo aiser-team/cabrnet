@@ -397,7 +397,12 @@ class TestProtoPNetCompatibility(unittest.TestCase):
         cabrnet_model.load_legacy_state_dict(torch.load(self.legacy_state_dict, map_location=self.device))  # type: ignore
         dataloaders = get_dataloaders(config_file=self.dataset_config_file)
         training_config = load_config(self.training_config_file)
-        cabrnet_model.epilogue(dataloaders=dataloaders, device=self.device, verbose=True, **training_config["epilogue"])
+        cabrnet_model.prune(
+            data_loader=dataloaders["projection_set"],
+            device=self.device,
+            verbose=True,
+            **training_config.get("epilogue", {}),
+        )
 
         # Legacy
         setup_rng(self.seed)

@@ -47,7 +47,7 @@ def execute(args: Namespace) -> None:
             logger.warning(
                 f"Overwriting model state {args.model_state_dict} with legacy state {args.legacy_state_dict}."
             )
-        model.load_legacy_state_dict(torch.load(args.legacy_state_dict, map_location="cpu"))
+        model.load_legacy_state_dict(torch.load(args.legacy_state_dict, map_location="cpu"))  # type: ignore
     model.eval()
 
     # Dataloaders

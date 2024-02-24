@@ -236,7 +236,19 @@ class CaBRNet(nn.Module):
         """
         raise NotImplementedError
 
-    def epilogue(self, dataloaders: dict[str, DataLoader], device: str, verbose: bool, **kwargs) -> None:
+    def epilogue(
+        self,
+        dataloaders: dict[str, DataLoader],
+        visualizer: SimilarityVisualizer,
+        output_dir: str,
+        model_config: str,
+        training_config: str,
+        dataset_config: str,
+        seed: int,
+        device: str,
+        verbose: bool,
+        **kwargs,
+    ) -> None:
         """Function called after training, using information from the epilogue
         field in the training configuration
         """
@@ -293,7 +305,7 @@ class CaBRNet(nn.Module):
 
             # Update progress bar
             postfix_str = f"Batch loss: {batch_loss.item():.3f}, Acc: {batch_accuracy:.3f}"
-            data_iter.set_postfix_str(postfix_str)
+            data_iter.set_postfix_str(postfix_str)  # type: ignore
 
         return {"avg_loss": total_loss / batch_num, "avg_eval_accuracy": total_acc / batch_num}
 
