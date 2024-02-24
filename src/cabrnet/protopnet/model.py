@@ -12,7 +12,6 @@ from cabrnet.utils.optimizers import OptimizerManager
 from cabrnet.visualisation.visualizer import SimilarityVisualizer
 from cabrnet.visualisation.explainer import ExplanationGraph
 from cabrnet.utils.save import save_checkpoint
-from cabrnet.utils.monitoring import memory_logger
 from loguru import logger
 from torch.utils.data import DataLoader
 from tqdm import tqdm
@@ -663,16 +662,29 @@ class ProtoPNet(CaBRNet):
         class_mapping = {c: list(np.nonzero(proto_class_map[:, c])[0]) for c in range(self.classifier.num_classes)}
 
         explanation_graph = graphviz.Graph()
-        explanation_graph.attr(packmode=f"array_{np.rint(np.sqrt(self.classifier.num_classes))}")
+        explanation_graph.attr(layout="circo")
+        # Default node configuration
+        explanation_graph.attr("node", label="", fixedsize="True", width="2", height="2", fontsize="25")
 
         def _build_class_node(graph, class_idx):
-            graph.node(name=f"Class {class_idx}", root="True")
+            graph.node(
+                name=f"C{class_idx}",
+                shape="circle",
+                label=f"Class {class_idx}",
+                root="True",
+            )
             for prototype in class_mapping[class_idx]:
                 img_path = os.path.relpath(
                     os.path.join(prototype_dir_path, f"prototype_{prototype}.png"), output_dir_path
                 )
-                graph.node(name=f"Prototype {prototype}", label="", penwidth="0", image=img_path, imagescale="True")
-                graph.edge(f"Class {class_idx}", f"Prototype {prototype}")
+                graph.node(
+                    name=f"P{prototype}",
+                    shape="plaintext",
+                    xlabel=f"P{prototype}",
+                    image=img_path,
+                    imagescale="true",
+                )
+                graph.edge(f"C{class_idx}", f"P{prototype}")
             return graph
 
         for class_idx in range(self.classifier.num_classes):
