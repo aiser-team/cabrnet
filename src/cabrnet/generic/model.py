@@ -290,22 +290,22 @@ class CaBRNet(nn.Module):
             disable=not verbose,
         )
         batch_num = len(dataloader)
+        with torch.no_grad():
+            for xs, ys in data_iter:
+                xs, ys = xs.to(device), ys.to(device)
 
-        for xs, ys in data_iter:
-            xs, ys = xs.to(device), ys.to(device)
+                # Perform inference and compute loss
+                ys_pred = self.forward(xs)
+                batch_loss, batch_stats = self.loss(ys_pred, ys)
+                batch_accuracy = batch_stats["accuracy"]
 
-            # Perform inference and compute loss
-            ys_pred = self.forward(xs)
-            batch_loss, batch_stats = self.loss(ys_pred, ys)
-            batch_accuracy = batch_stats["accuracy"]
+                # Update global metrics
+                total_loss += batch_loss.item()
+                total_acc += batch_accuracy  # type: ignore
 
-            # Update global metrics
-            total_loss += batch_loss.item()
-            total_acc += batch_accuracy  # type: ignore
-
-            # Update progress bar
-            postfix_str = f"Batch loss: {batch_loss.item():.3f}, Acc: {batch_accuracy:.3f}"
-            data_iter.set_postfix_str(postfix_str)  # type: ignore
+                # Update progress bar
+                postfix_str = f"Batch loss: {batch_loss.item():.3f}, Acc: {batch_accuracy:.3f}"
+                data_iter.set_postfix_str(postfix_str)  # type: ignore
 
         return {"avg_loss": total_loss / batch_num, "avg_eval_accuracy": total_acc / batch_num}
 
