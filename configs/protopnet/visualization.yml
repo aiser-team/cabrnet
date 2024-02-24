@@ -8,7 +8,7 @@ prototype:
     type: bbox_to_percentile
     params:
       percentile: 0.7
-      thickness: 2
+      thickness: 5
 
 test_patch:
   retrace:
@@ -20,5 +20,5 @@ test_patch:
     type: bbox_to_percentile
     params:
       percentile: 0.7
-      thickness: 2
+      thickness: 5
 
