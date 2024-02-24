@@ -1,6 +1,5 @@
 param_groups:
-  backbone:
-    stop: extractor.convnet.layer4.1
+  backbone: extractor.convnet
   add_on_layers: extractor.add_on
   prototypes: classifier.prototypes
 
@@ -22,3 +21,6 @@ optimizers:
         momentum: 0.9
 
 num_epochs: 1
+
+epilogue:
+  pruning_threshold: 0.01
