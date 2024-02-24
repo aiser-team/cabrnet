@@ -6,19 +6,13 @@ from typing import Tuple
 import torch
 import torch.nn as nn
 import torchvision.models as torch_models
+from cabrnet.utils.init import layer_init_functions
 from loguru import logger
 from torchvision.models.feature_extraction import create_feature_extractor, get_graph_node_names
+from torchvision.models.feature_extraction import create_feature_extractor
+from cabrnet.utils.init import layer_init_functions
 
 warnings.filterwarnings("ignore")
-
-
-# Layer initialisation functions
-def init_weights_xavier(module: nn.Module):
-    if isinstance(module, torch.nn.Conv2d):
-        torch.nn.init.xavier_normal_(module.weight, gain=torch.nn.init.calculate_gain("sigmoid"))
-
-
-layer_init_functions = {"XAVIER": init_weights_xavier}
 
 
 class ConvExtractor(nn.Module):
@@ -79,7 +73,7 @@ class ConvExtractor(nn.Module):
             self.convnet = create_feature_extractor(model=model, return_nodes={layer: "convnet"})
         except ValueError as e:
             logger.error(f"Could not create feature extractor. Possible layer names: {get_graph_node_names(model)}")
-            logger.error(f"See model architecture below")
+            logger.error("See model architecture below")
             logger.info(model)
             raise e
         # Dummy inference to recover number of output channels from the feature extractor
@@ -99,12 +93,13 @@ class ConvExtractor(nn.Module):
         x = self.convnet(x)
         if isinstance(x, dict):
             # Output of a create_feature_extractor
-            x = x["convnet"]
-        x = self.add_on(x)
+            x = x["convnet"]  # type: ignore
+        if self.add_on is not None:
+            x = self.add_on(x)
         return x
 
     @staticmethod
-    def create_add_on(config: dict[str, dict], in_channels: int) -> Tuple[nn.Sequential, int]:
+    def create_add_on(config: dict[str, dict], in_channels: int) -> Tuple[nn.Sequential | None, int]:
         """Build add-on layers based on configuration.
 
         Args:
@@ -117,6 +112,10 @@ class ConvExtractor(nn.Module):
         Raises:
             ValueError when configuration is invalid
         """
+        if config is None:
+            # No add-on layers
+            return None, in_channels
+
         layers: OrderedDict[str, nn.Module] = OrderedDict()
         init_mode = None
         for idx, (key, val) in enumerate(config.items()):
@@ -165,14 +164,14 @@ class ConvExtractor(nn.Module):
         Raises:
             ValueError when configuration is invalid
         """
-        for mandatory_key in ["backbone", "add_on"]:
+        for mandatory_key in ["backbone"]:
             if mandatory_key not in config:
                 raise ValueError(f"Missing mandatory key {mandatory_key} in extractor configuration")
         for mandatory_key in ["arch", "weights", "layer"]:
             if mandatory_key not in config["backbone"]:
                 raise ValueError(f"Missing mandatory key {mandatory_key} in backbone configuration")
         backbone = config["backbone"]
-        add_on = config["add_on"]
+        add_on = config.get("add_on")
         return ConvExtractor(
-            arch=backbone["arch"], weights=backbone["weights"], layer=backbone["layer"], add_on=add_on, seed=seed
+            arch=backbone["arch"], weights=backbone["weights"], layer=backbone["layer"], add_on=add_on, seed=seed  # type: ignore
         )

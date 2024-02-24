@@ -55,6 +55,18 @@ class CaBRNet(nn.Module):
         x = self.extractor(x, **kwargs)
         return self.classifier.similarity_layer(x, self.classifier.prototypes)
 
+    def l2_distances(self, x: Tensor, **kwargs) -> Tensor:
+        """
+        Return similarity scores
+        Args:
+            x: input tensor
+
+        Returns:
+            tensor of similarity scores
+        """
+        x = self.extractor(x, **kwargs)
+        return self.classifier.similarity_layer.L2_square_distance(x, self.classifier.prototypes)
+
     def load_legacy_state_dict(self, legacy_state: dict) -> None:
         """Load state dictionary from legacy format
 
@@ -63,6 +75,14 @@ class CaBRNet(nn.Module):
         """
         # Specific to legacy architectures
         raise NotImplementedError
+
+    def register_training_params(self, training_config: dict[str, Any]) -> None:
+        """Save additional information from the training configuration directly into the model
+
+        Args:
+            training_config: dictionary containing training configuration
+        """
+        pass
 
     @staticmethod
     def create_parser(
@@ -186,13 +206,13 @@ class CaBRNet(nn.Module):
             label: Batch label
 
         Returns:
-            loss tensor and batch accuracy
+            loss tensor and batch statistics
         """
         raise NotImplementedError
 
     def train_epoch(
         self,
-        train_loader: DataLoader,
+        dataloaders: dict[str, DataLoader],
         optimizer_mngr: OptimizerManager,
         device: str = "cuda:0",
         progress_bar_position: int = 0,
@@ -203,7 +223,7 @@ class CaBRNet(nn.Module):
         """
         Train the model for one epoch.
         Args:
-            train_loader: Dataloader containing training data
+            dataloaders: Dictionary of dataloaders
             optimizer_mngr: Optimizer manager
             device: Target device
             progress_bar_position: Position of the progress bar.
@@ -214,58 +234,9 @@ class CaBRNet(nn.Module):
         Returns:
             dictionary containing learning statistics
         """
-        self.train()
-        self.to(device)
+        raise NotImplementedError
 
-        # Training stats
-        total_loss = 0.0
-        total_acc = 0.0
-
-        # Show progress on progress bar if needed
-        train_iter = tqdm(
-            enumerate(train_loader),
-            total=len(train_loader),
-            leave=False,
-            position=progress_bar_position,
-            disable=not verbose,
-        )
-        batch_num = len(train_loader)
-
-        for batch_idx, (xs, ys) in train_iter:
-            # Reset gradients and map the data on the target device
-            optimizer_mngr.zero_grad()
-            xs, ys = xs.to(device), ys.to(device)
-
-            # Perform inference and compute loss
-            ys_pred, info = self.forward(xs)
-            batch_loss, batch_stats = self.loss((ys_pred, info), ys)
-
-            # Compute the gradient and update parameters
-            batch_loss.backward()
-            optimizer_mngr.optimizer_step(epoch=epoch_idx)
-
-            # Update progress bar
-            batch_accuracy = batch_stats["accuracy"]
-            postfix_str = (
-                f"Batch [{batch_idx + 1}/{len(train_loader)}], "
-                f"Batch loss: {batch_loss.item():.3f}, Acc: {batch_accuracy:.3f}"
-            )
-            train_iter.set_postfix_str(postfix_str)  # type: ignore
-
-            # Update global metrics
-            total_loss += batch_loss.item()
-            total_acc += batch_accuracy
-
-            if max_batches is not None and batch_idx == max_batches:
-                break
-
-        # Clean gradients after last batch
-        optimizer_mngr.zero_grad()
-
-        train_info = {"avg_loss": total_loss / batch_num, "avg_train_accuracy": total_acc / batch_num}
-        return train_info
-
-    def epilogue(self, **kwargs) -> None:
+    def epilogue(self, dataloaders: dict[str, DataLoader], device: str, verbose: bool, **kwargs) -> None:
         """Function called after training, using information from the epilogue
         field in the training configuration
         """
@@ -299,7 +270,12 @@ class CaBRNet(nn.Module):
 
         # Show progress on progress bar if needed
         data_iter = tqdm(
-            dataloader, total=len(dataloader), leave=False, position=progress_bar_position, disable=not verbose
+            dataloader,
+            desc="Model evaluation",
+            total=len(dataloader),
+            leave=False,
+            position=progress_bar_position,
+            disable=not verbose,
         )
         batch_num = len(dataloader)
 
@@ -313,11 +289,11 @@ class CaBRNet(nn.Module):
 
             # Update global metrics
             total_loss += batch_loss.item()
-            total_acc += batch_accuracy
+            total_acc += batch_accuracy  # type: ignore
 
             # Update progress bar
             postfix_str = f"Batch loss: {batch_loss.item():.3f}, Acc: {batch_accuracy:.3f}"
-            data_iter.set_postfix_str(postfix_str)  # type: ignore
+            data_iter.set_postfix_str(postfix_str)
 
         return {"avg_loss": total_loss / batch_num, "avg_eval_accuracy": total_acc / batch_num}
 
@@ -384,12 +360,13 @@ class CaBRNet(nn.Module):
         # Create destination directory if necessary
         os.makedirs(dir_path, exist_ok=True)
         # Copy visualizer configuration file
-        if os.path.isfile(visualizer.config_file):
-            shutil.copyfile(src=visualizer.config_file, dst=os.path.join(dir_path, "visualization.yml"))
+        if os.path.isfile(visualizer.config_file):  # type: ignore
+            shutil.copyfile(src=visualizer.config_file, dst=os.path.join(dir_path, "visualization.yml"))  # type: ignore
 
         # Show progress on progress bar if needed
         data_iter = tqdm(
             projection_info,
+            desc="Prototype extraction",
             total=len(projection_info),
             leave=False,
             position=progress_bar_position,

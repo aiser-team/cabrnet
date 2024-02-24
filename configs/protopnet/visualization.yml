@@ -1,14 +1,14 @@
 prototype:
   retrace:
-    type: cubic_upsampling
+    type: prp
     params:
       single_location: True
       normalize: True
   view:
-    #type: crop_to_percentile
     type: bbox_to_percentile
     params:
-      percentile: 0.98
+      percentile: 0.7
+      thickness: 5
 
 test_patch:
   retrace:
@@ -19,4 +19,6 @@ test_patch:
   view:
     type: bbox_to_percentile
     params:
-      percentile: 0.4
+      percentile: 0.7
+      thickness: 5
+

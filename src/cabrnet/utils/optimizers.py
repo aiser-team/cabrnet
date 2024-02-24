@@ -188,9 +188,10 @@ class OptimizerManager:
                 epoch_range = self.periods[epoch_name]["epoch_range"]
                 if not isinstance(epoch_range, list) or len(epoch_range) != 2:
                     raise ValueError(f"Invalid epoch range format for training period {epoch_name}: {epoch_range}")
-                for group_name in self.periods[epoch_name].get("freeze"):
-                    if group_name not in self.param_groups.keys():
-                        raise ValueError(f"Unknown parameter group for training period {epoch_name}: {group_name}")
+                if self.periods[epoch_name].get("freeze") is not None:
+                    for group_name in self.periods[epoch_name]["freeze"]:
+                        if group_name not in self.param_groups.keys():
+                            raise ValueError(f"Unknown parameter group for training period {epoch_name}: {group_name}")
                 for optim_name in self.periods[epoch_name]["optimizers"]:
                     if optim_name not in self.optimizers.keys():
                         raise ValueError(f"Unknown optimizers name for training period {epoch_name}: {optim_name}")
@@ -240,6 +241,11 @@ class OptimizerManager:
                 p_names.append(p_name)
         return p_names
 
+    def freeze_group(self, name: str, freeze: bool) -> None:
+        logger.debug(f"Parameter group {name} is {'frozen' if freeze  else 'trainable'}")
+        for param in self.param_groups[name]:
+            param.requires_grad = not freeze
+
     def freeze(self, epoch: int) -> None:
         """Apply parameter freeze depending on current epoch
 
@@ -253,16 +259,8 @@ class OptimizerManager:
                 groups_to_freeze += period_config["freeze"]
                 logger.info(f"Period {period_name} applies for epoch {epoch}: freezing groups {groups_to_freeze}")
 
-        def _set_requires_grad_on_group(name: str, requires_grad: bool):
-            logger.debug(f"Epoch {epoch}: Parameter group {name} is {'trainable' if requires_grad else 'frozen'}")
-            for param in self.param_groups[name]:
-                param.requires_grad = requires_grad
-
-        for group_to_freeze in groups_to_freeze:
-            _set_requires_grad_on_group(name=group_to_freeze, requires_grad=False)
         for group_name in self.param_groups:
-            if group_name not in groups_to_freeze:
-                _set_requires_grad_on_group(name=group_name, requires_grad=True)
+            self.freeze_group(name=group_name, freeze=(group_name in groups_to_freeze))
 
     def zero_grad(self):
         """Reset all optimizer gradients"""

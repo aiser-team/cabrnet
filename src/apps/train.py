@@ -114,6 +114,7 @@ def execute(args: Namespace) -> None:
 
     # Training configuration
     trainer = load_config(training_config)
+    model.register_training_params(trainer)  # Register auxiliary training parameters directly into model
     root_dir = args.output_dir
 
     # Check that output directory is available
@@ -168,7 +169,7 @@ def execute(args: Namespace) -> None:
         # Freeze parameters if necessary depending on current epoch and parameter group
         optimizer_mngr.freeze(epoch=epoch)
         train_info = model.train_epoch(
-            train_loader=dataloaders["train_set"],
+            dataloaders=dataloaders,
             optimizer_mngr=optimizer_mngr,
             device=device,
             progress_bar_position=1,
@@ -248,13 +249,13 @@ def execute(args: Namespace) -> None:
             device=device,
             stats=eval_info,
         )
-        model.epilogue(**trainer.get("epilogue"))  # type: ignore
+        model.epilogue(dataloaders=dataloaders, device=device, verbose=verbose, **trainer.get("epilogue"))  # type: ignore
 
     # Evaluate model
     eval_info = model.evaluate(dataloader=dataloaders["test_set"], device=device, verbose=verbose)
     logger.info(f"Average loss: {eval_info['avg_loss']:.2f}. Average accuracy: {eval_info['avg_eval_accuracy']:.2f}.")
     save_checkpoint(
-        directory_path=os.path.join(root_dir, f"final"),
+        directory_path=os.path.join(root_dir, "final"),
         model=model,
         model_config=model_config,
         optimizer_mngr=None,

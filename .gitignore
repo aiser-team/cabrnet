@@ -10,6 +10,10 @@ build/
 dist/
 examples/
 src/legacy/prototree
+src/legacy/protopnet
+pretrained_models/
+*.vim
+logs/
 *.pth
 *.ckpt
 docs/API/reference/

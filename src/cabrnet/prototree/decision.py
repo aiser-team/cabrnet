@@ -1,7 +1,10 @@
+from __future__ import annotations
+import argparse
 from argparse import ArgumentParser
 from enum import Enum
 import torch.nn as nn
 import torch
+from cabrnet.generic.decision import CaBRNetAbstractClassifier
 from cabrnet.utils.prototypes import init_prototypes
 from cabrnet.utils.similarities import L2Similarities
 from cabrnet.utils.tree import BinaryNode
@@ -43,7 +46,7 @@ class ProtoTreeSimilarityScore(L2Similarities):
         return torch.exp(-distances)
 
 
-class ProtoTreeClassifier(nn.Module):
+class ProtoTreeClassifier(CaBRNetAbstractClassifier, nn.Module):
     def __init__(
         self,
         num_classes: int,
@@ -63,15 +66,14 @@ class ProtoTreeClassifier(nn.Module):
             proto_init_mode: Init mode for prototypes
             log_probabilities: Use log of probabilities
         """
-        super().__init__()
+        nn.Module.__init__(self)
+        CaBRNetAbstractClassifier.__init__(
+            self, num_classes=num_classes, num_features=num_features, proto_init_mode=proto_init_mode
+        )
 
         # Sanity check on all parameters
-        assert num_classes > 1, f"Invalid number of classes: {num_classes}"
-        assert num_features > 0, f"Invalid number of features: {num_features}"
         assert depth > 0, f"Invalid tree depth: {depth}"
 
-        self.num_classes = num_classes
-        self.num_features = num_features
         self.depth = depth
         self.leaves_init_mode = leaves_init_mode
         self.log_probabilities = log_probabilities
@@ -83,7 +85,6 @@ class ProtoTreeClassifier(nn.Module):
         )
 
         # Init prototypes
-        self.prototypes_init_mode = proto_init_mode
         self.prototypes = nn.Parameter(
             init_prototypes(
                 num_prototypes=self.num_prototypes, num_features=self.num_features, init_mode=proto_init_mode
@@ -97,6 +98,13 @@ class ProtoTreeClassifier(nn.Module):
         else:
             self.register_buffer("_root_prob", torch.ones(1))
         self.register_buffer("_root_greedy_path", torch.Tensor([True]))
+
+    @property
+    def max_num_prototypes(self) -> int:
+        """
+        Returns: Maximum number of prototypes (might differ from current number of prototypes due to pruning)
+        """
+        return self.prototypes.size(0)
 
     @property
     def num_prototypes(self) -> int:
@@ -148,7 +156,7 @@ class ProtoTreeClassifier(nn.Module):
             # leaf_idxs has shape batch_size
             leaf_idxs = torch.argmax(leaf_probabilities, dim=0)
             prediction = torch.index_select(input=leaf_distributions, dim=0, index=leaf_idxs[..., 0])
-            tree_info["decision_leaf"] = [leaf_names[leaf_idx.item()] for leaf_idx in leaf_idxs]
+            tree_info["decision_leaf"] = [leaf_names[leaf_idx.item()] for leaf_idx in leaf_idxs]  # type: ignore
         return prediction, tree_info
 
     @staticmethod
@@ -163,33 +171,38 @@ class ProtoTreeClassifier(nn.Module):
         """
         if parser is None:
             parser = ArgumentParser(description="builds a ProtoTreeClassifier object.")
-            # TODO: This information is normally given by the task configuration file
-            parser.add_argument(
-                "--num-classes",
-                type=int,
-                default=200,
-                metavar="num",
-                help="number of categories in the classification task.",
-            )
-            parser.add_argument(
-                "--num-features", type=int, default=256, metavar="num", help="number of features for each prototype."
-            )
-            parser.add_argument(
-                "--prototype-init-mode",
-                type=str,
-                default="zeros",
-                choices=["zeros", "normal"],
-                metavar="mode",
-                help="initialisation mode for the leaves distributions.",
-            )
-
+        parser = CaBRNetAbstractClassifier.create_parser(parser)
+        parser.add_argument(
+            "--leaves-init-mode",
+            type=str,
+            default="zeros",
+            choices=["zeros", "normal"],
+            metavar="mode",
+            help="initialisation mode for the leaves distributions.",
+        )
         parser.add_argument("--tree-depth", type=int, default=9, metavar="num", help="depth of the decision tree.")
         parser.add_argument(
-            "--leaf-init-mode",
-            type=str,
-            default="shifted_normal",
-            choices=["shifted_normal", "normal"],
-            metavar="mode",
-            help="initialisation mode for the prototypes.",
+            "--use-log-probabilities",
+            action="store_true",
+            help="use log probabilities.",
         )
         return parser
+
+    @staticmethod
+    def build_from_parser(args: argparse.Namespace) -> ProtoTreeClassifier:
+        """Builds a classifier from the command line
+
+        Args:
+            args: Parsed command line
+
+        Returns:
+            Prototree classifier
+        """
+        return ProtoTreeClassifier(
+            num_classes=args.num_classes,
+            depth=args.tree_depth,
+            num_features=args.num_features,
+            leaves_init_mode=args.leaves_init_mode,
+            proto_init_mode=args.prototype_init_mode,
+            log_probabilities=args.use_log_probabilities,
+        )
