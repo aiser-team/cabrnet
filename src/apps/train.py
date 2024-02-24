@@ -82,9 +82,6 @@ def execute(args: Namespace) -> None:
         args: Parsed arguments.
 
     """
-    # Set logger level
-    logger.configure(handlers=[{"sink": sys.stderr, "level": "INFO"}])
-
     # Recover common options
     verbose = args.verbose
     device = args.device
