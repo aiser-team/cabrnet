@@ -1,9 +1,9 @@
-name: cabrnet2
 channels:
   - pytorch
   - nvidia
   - conda-forge
   - defaults
+name: cabrnet
 dependencies:
   - python>=3.10
   - pytorch~=2.1.0
