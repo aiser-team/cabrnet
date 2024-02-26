@@ -1,4 +1,4 @@
-custom_arch:
+top_arch:
   module: cabrnet.protopnet.model
   name: ProtoPNet
 
