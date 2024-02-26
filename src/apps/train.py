@@ -217,7 +217,7 @@ def execute(args: Namespace) -> None:
     load_checkpoint(directory_path=os.path.join(root_dir, "best"), model=model)
 
     # Call epilogue
-    visualizer = SimilarityVisualizer.build_from_config(config_file=args.visualization, target="prototype")
+    visualizer = SimilarityVisualizer.build_from_config(config_file=args.visualization)
     model.epilogue(
         dataloaders=dataloaders,
         visualizer=visualizer,

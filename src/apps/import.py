@@ -55,7 +55,7 @@ def execute(args: Namespace) -> None:
 
     # Call epilogue
     trainer = load_config(training_config)
-    visualizer = SimilarityVisualizer.build_from_config(config_file=args.visualization, target="prototype")
+    visualizer = SimilarityVisualizer.build_from_config(config_file=args.visualization)
     model.epilogue(
         dataloaders=dataloaders,
         visualizer=visualizer,
