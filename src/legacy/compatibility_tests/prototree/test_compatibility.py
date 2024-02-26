@@ -125,9 +125,9 @@ def legacy_get_model(args: Namespace, seed: int) -> nn.Module:
     return tree
 
 
-class TestProtoPNetCompatibility(unittest.TestCase):
+class TestProtoTreeCompatibility(unittest.TestCase):
     def __init__(self, methodName: str = "runTest"):
-        super(TestProtoPNetCompatibility, self).__init__(methodName=methodName)
+        super(TestProtoTreeCompatibility, self).__init__(methodName=methodName)
 
         # Test configuration
         test_dir = os.path.dirname(os.path.realpath(__file__))
