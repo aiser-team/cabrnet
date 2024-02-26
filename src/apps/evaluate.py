@@ -39,8 +39,6 @@ def execute(args: Namespace) -> None:
         args: Parsed arguments.
 
     """
-    # Set logger level
-    logger.configure(handlers=[{"sink": sys.stderr, "level": "INFO"}])
     model = CaBRNet.build_from_config(args.model_config, state_dict_path=args.model_state_dict)
     if args.legacy_state_dict:
         if args.model_state_dict is not None:

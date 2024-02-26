@@ -39,9 +39,6 @@ def execute(args: Namespace) -> None:
         args: Parsed arguments.
 
     """
-    # Set logger level
-    logger.configure(handlers=[{"sink": sys.stderr, "level": "INFO"}])
-
     # Build model and load state dictionary
     model: CaBRNet = CaBRNet.build_from_config(config_file=args.model_config, state_dict_path=args.model_state_dict)
 
