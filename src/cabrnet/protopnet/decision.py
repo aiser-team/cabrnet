@@ -53,8 +53,6 @@ class ProtoPNetClassifier(CaBRNetAbstractClassifier, nn.Module):
         # Sanity check on all parameters
         assert num_proto_per_class > 0, f"Invalid number of prototypes per class: {num_proto_per_class}"
 
-        self.num_classes = num_classes
-        self.num_features = num_features
         self.num_proto_per_class = num_proto_per_class
         self._compatibility_mode = compatibility_mode
 
