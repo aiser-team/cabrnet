@@ -106,13 +106,15 @@ The module in charge of classification should be placed inside a dedicated file 
 `src/cabrnet/<ARCH_NAME>/decision.py` (*e.g.* [src/cabrnet/prototree/decision.py](../API/reference/cabrnet/prototree/decision.md#prototreeclassifier-objects)).
 
 The following code provides a minimal example on how to define a new classifier.
+The classifier must inherit from the `CaBRNetAbstractClassifier` class as follows:
 ```python
 import torch.nn as nn
 import torch
 from cabrnet.utils.prototypes import init_prototypes
 from cabrnet.utils.similarities import L2Similarities
+from cabrnet.generic.decision import CaBRNetAbstractClassifier
 
-class ArchNameClassifier(nn.Module):
+class ArchNameClassifier(CaBRNetAbstractClassifier, nn.Module):
   
     def __init__(
         self,
@@ -128,14 +130,11 @@ class ArchNameClassifier(nn.Module):
             proto_init_mode: Init mode for prototypes
             ...
         """
-        super(ArchNameClassifier, self).__init__()
+        nn.Module.__init__(self)
+        CaBRNetAbstractClassifier.__init__(
+            self, num_classes=num_classes, num_features=num_features, proto_init_mode=proto_init_mode
+        )
 
-        # Sanity check on all parameters
-        assert num_classes > 1, f"Invalid number of classes: {num_classes}"
-        assert num_features > 0, f"Invalid number of features: {num_features}"
-
-        self.num_classes = num_classes
-        self.num_features = num_features
         
         # Init prototypes
         self.prototypes = nn.Parameter(
@@ -320,7 +319,25 @@ class ArchName(CaBRNet):
         # Perform projection
         ...
         return projection_info
-     
+    
+    def epilogue(
+        self,
+        dataloaders: dict[str, DataLoader],
+        visualizer: SimilarityVisualizer,
+        output_dir: str,
+        model_config: str,
+        training_config: str,
+        dataset_config: str,
+        seed: int,
+        device: str,
+        verbose: bool,
+        **kwargs,
+    ) -> None:
+        """OPTIONAL Function called after training, using information from the epilogue
+        field in the training configuration. This usually contains prototype pruning, projection and extraction.
+        """
+        ...
+    
     def explain(
         self,
         img_path: str,
