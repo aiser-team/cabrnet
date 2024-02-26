@@ -110,7 +110,7 @@ class CaBRNet(nn.Module):
         if not skip_state_dict:
             parser.add_argument(
                 "--model-state-dict",
-                required=False,
+                required=True,
                 metavar="/path/to/model/state.pth",
                 help="path to the model state dictionary",
             )
@@ -373,7 +373,8 @@ class CaBRNet(nn.Module):
         os.makedirs(dir_path, exist_ok=True)
         # Copy visualizer configuration file
         if os.path.isfile(visualizer.config_file):  # type: ignore
-            shutil.copyfile(src=visualizer.config_file, dst=os.path.join(dir_path, "visualization.yml"))  # type: ignore
+            if os.path.join(dir_path, "visualization.yml") != visualizer.config_file:
+                shutil.copyfile(src=visualizer.config_file, dst=os.path.join(dir_path, "visualization.yml"))  # type: ignore
 
         # Show progress on progress bar if needed
         data_iter = tqdm(
