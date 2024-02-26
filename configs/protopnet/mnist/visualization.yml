@@ -8,15 +8,3 @@ view:
   params:
     percentile: 0.7
     thickness: 2
-
-test_patch:
-  retrace:
-    type: prp
-    params:
-      normalize: True
-      single_location: True
-  view:
-    type: bbox_to_percentile
-    params:
-      percentile: 0.7
-      thickness: 2

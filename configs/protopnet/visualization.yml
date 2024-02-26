@@ -1,24 +1,9 @@
-prototype:
-  retrace:
-    type: prp
-    params:
-      single_location: True
-      normalize: True
-  view:
-    type: bbox_to_percentile
-    params:
-      percentile: 0.7
-      thickness: 5
-
-test_patch:
-  retrace:
-    type: prp
-    params:
-      normalize: True
-      single_location: True
-  view:
-    type: bbox_to_percentile
-    params:
-      percentile: 0.7
-      thickness: 5
-
+attribution:
+  type: prp
+  params:
+    normalize: True
+    single_location: True
+view:
+  type: bbox_to_percentile
+  params:
+    percentile: 0.7
