@@ -1,4 +1,5 @@
 import os
+import time
 import graphviz
 import torch
 import torch.nn as nn
@@ -7,17 +8,18 @@ from torch.utils.data import DataLoader
 from PIL import Image
 from typing import Any, Mapping, Callable
 from tqdm import tqdm
-from cabrnet.generic.model import ProtoClassifier
+from cabrnet.generic.model import CaBRNet
 from cabrnet.utils.optimizers import OptimizerManager
 from cabrnet.utils.tree import TreeNode, MappingMode
 from cabrnet.prototree.decision import SamplingStrategy, ProtoTreeClassifier
 from cabrnet.visualisation.visualizer import SimilarityVisualizer
 from cabrnet.visualisation.explainer import ExplanationGraph
+from cabrnet.utils.save import save_checkpoint
 import copy
 from loguru import logger
 
 
-class ProtoTree(ProtoClassifier):
+class ProtoTree(CaBRNet):
     def __init__(self, extractor: nn.Module, classifier: nn.Module, **kwargs):
         """Build a ProtoTree
 
@@ -38,7 +40,7 @@ class ProtoTree(ProtoClassifier):
         # When using PRP visualization with Captum, classifier is no longer a ProtoTreeClassifier
         return None
 
-    def set_extra_state(self, state: Mapping[str, Any]) -> None:
+    def set_extra_state(self, state: Mapping[str, Any]) -> None:  # type: ignore
         """Rebuild decision tree from architecture information
         This is automatically called by load_state_dict()
 
@@ -60,36 +62,36 @@ class ProtoTree(ProtoClassifier):
         """
         legacy_keys = legacy_state.keys()
         final_state = copy.deepcopy(legacy_state)
-        plib_state = self.state_dict()
-        plib_keys = self.state_dict().keys()
-        plib_key = "dummy"
+        cbrn_state = self.state_dict()
+        cbrn_keys = list(self.state_dict().keys())
+        cbrn_key = "dummy"
 
         for legacy_key in legacy_keys:
             if legacy_key.startswith("_net"):
                 # Feature extractor
-                plib_key = legacy_key.replace("_net", "extractor.convnet")
-                if plib_key not in plib_keys:
+                cbrn_key = legacy_key.replace("_net", "extractor.convnet")
+                if cbrn_key not in cbrn_keys:
                     raise ValueError(f"No parameter matching {legacy_key}. Check that model architectures are similar.")
             elif legacy_key.startswith("_add_on"):
                 # Add-on layers, find matching parameter based on size
                 ref_size = legacy_state[legacy_key].size()
                 found_match = False
-                for plib_key in plib_keys:
-                    if "add_on" in plib_key:
-                        if plib_state[plib_key].size() == ref_size:
-                            logger.info(f"Matching parameters {plib_key} to {legacy_key} based on identical size.")
+                for cbrn_key in cbrn_keys:
+                    if "add_on" in cbrn_key:
+                        if cbrn_state[cbrn_key].size() == ref_size:
+                            logger.info(f"Matching parameters {cbrn_key} to {legacy_key} based on identical size.")
                             found_match = True
                             break
                 if not found_match:
                     raise ValueError(f"No parameter matching {legacy_key}. Check that model architectures are similar.")
             elif legacy_key == "prototype_layer.prototype_vectors":
-                plib_key = "classifier.prototypes"
+                cbrn_key = "classifier.prototypes"
             else:
                 if not legacy_key.startswith("_root"):
                     raise ValueError(f"Unexpected parameter {legacy_key}")
                 # Iterate on letters in the key (first, remove '.')
                 symbols = legacy_key[6:].replace(".", "")
-                possible_keys = [key for key in plib_keys if key.startswith("classifier.tree.")]
+                possible_keys = [key for key in cbrn_keys if key.startswith("classifier.tree.")]
                 for index, symbol in enumerate(symbols):
                     if symbol == "l":
                         # Keep only keys for which the nsim keyword is present
@@ -101,17 +103,18 @@ class ProtoTree(ProtoClassifier):
                         if len(possible_keys) != 1:
                             raise ValueError(f"Could not match leaf distribution. Candidates: {possible_keys}")
                         break
-                plib_key = possible_keys[0]
+                cbrn_key = possible_keys[0]
                 # Expand dimension of leaf distribution
                 final_state[legacy_key] = torch.unsqueeze(final_state[legacy_key], 0)
 
             # Update state
-            if plib_state[plib_key].size() != final_state[legacy_key].size():
+            if cbrn_state[cbrn_key].size() != final_state[legacy_key].size():
                 raise ValueError(
-                    f"Mismatching parameter size for {legacy_key} and {plib_key}. "
-                    f"Expected {plib_state[plib_key].size()}, got {final_state[legacy_key].size()}"
+                    f"Mismatching parameter size for {legacy_key} and {cbrn_key}. "
+                    f"Expected {cbrn_state[cbrn_key].size()}, got {final_state[legacy_key].size()}"
                 )
-            final_state[plib_key] = final_state.pop(legacy_key)
+            final_state[cbrn_key] = final_state.pop(legacy_key)
+            cbrn_keys.remove(cbrn_key)
         self.load_state_dict(final_state, strict=False)
 
     def analyse_leafs(self, pruning_threshold: float = 0.01) -> None:
@@ -137,7 +140,7 @@ class ProtoTree(ProtoClassifier):
             f"({len(remaining_leaves)/self.classifier.tree.num_leaves*100:.1f}%)"
         )
 
-    def loss(self, model_output: Any, label: torch.Tensor) -> tuple[torch.Tensor, float]:
+    def loss(self, model_output: Any, label: torch.Tensor) -> tuple[torch.Tensor, dict[str, float]]:
         """
         Loss function
         Args:
@@ -154,11 +157,11 @@ class ProtoTree(ProtoClassifier):
         else:
             batch_loss = torch.nn.functional.nll_loss(torch.log(ys_pred), label)
         batch_accuracy = torch.sum(torch.eq(torch.argmax(ys_pred, dim=1), label)).item() / len(label)
-        return batch_loss, batch_accuracy
+        return batch_loss, {"accuracy": batch_accuracy}
 
     def train_epoch(
         self,
-        train_loader: DataLoader,
+        dataloaders: dict[str, DataLoader],
         optimizer_mngr: OptimizerManager,
         device: str = "cuda:0",
         progress_bar_position: int = 0,
@@ -169,7 +172,7 @@ class ProtoTree(ProtoClassifier):
         """
         Train the model for one epoch.
         Args:
-            train_loader: Dataloader containing training data
+            dataloaders: Dictionary of dataloaders
             optimizer_mngr: Optimizer manager
             device: Target device
             progress_bar_position: Position of the progress bar.
@@ -187,30 +190,41 @@ class ProtoTree(ProtoClassifier):
         total_loss = 0.0
         total_acc = 0.0
 
+        # Capture data fetch time relative to total batch time to ensure that there is no bottleneck here
+        total_batch_time = 0.0
+        total_data_time = 0.0
+
         # Record original leaf distributions
         with torch.no_grad():
             old_dist_params: dict[int, torch.Tensor] = {}
             for leaf in self.classifier.tree.leaves:
                 old_dist_params[leaf.node_id] = leaf._relative_distribution.detach().clone()
 
+        # Use training dataloader
+        train_loader = dataloaders["train_set"]
+
         # Show progress on progress bar if needed
         train_iter = tqdm(
             enumerate(train_loader),
+            desc=f"Training epoch {epoch_idx}",
             total=len(train_loader),
             leave=False,
             position=progress_bar_position,
             disable=not verbose,
         )
-        batch_num = len(train_loader)
+        batch_num, batch_idx = len(train_loader), 0
+        ref_time = time.time()
 
         for batch_idx, (xs, ys) in train_iter:
+            data_time = time.time() - ref_time
+
             # Reset gradients and map the data on the target device
             optimizer_mngr.zero_grad()
             xs, ys = xs.to(device), ys.to(device)
 
             # Perform inference and compute loss
             ys_pred, info = self.forward(xs)
-            batch_loss, batch_accuracy = self.loss((ys_pred, info), ys)
+            batch_loss, batch_stats = self.loss((ys_pred, info), ys)
 
             # Compute the gradient and update parameters
             batch_loss.backward()
@@ -234,32 +248,92 @@ class ProtoTree(ProtoClassifier):
                     leaf._relative_distribution += update
 
             # Update progress bar
+            batch_accuracy = batch_stats["accuracy"]
+            batch_time = time.time() - ref_time
             postfix_str = (
                 f"Batch [{batch_idx + 1}/{len(train_loader)}], "
-                f"Batch loss: {batch_loss.item():.3f}, Acc: {batch_accuracy:.3f}"
+                f"Batch loss: {batch_loss.item():.3f}, Acc: {batch_accuracy:.3f}, "
+                f"Batch time: {batch_time:.3f}s (data: {data_time:.3f})"
             )
             train_iter.set_postfix_str(postfix_str)  # type: ignore
 
             # Update global metrics
             total_loss += batch_loss.item()
             total_acc += batch_accuracy
+            total_batch_time += batch_time
+            total_data_time += data_time
+            ref_time = time.time()
 
             if max_batches is not None and batch_idx == max_batches:
                 break
 
         # Clean gradients after last batch
         optimizer_mngr.zero_grad()
-
-        train_info = {"avg_loss": total_loss / batch_num, "avg_train_accuracy": total_acc / batch_num}
+        # Update batch_num with effective value
+        batch_num = batch_idx + 1
+        train_info = {
+            "avg_loss": total_loss / batch_num,
+            "avg_train_accuracy": total_acc / batch_num,
+            "avg_batch_time": total_batch_time / batch_num,
+            "avg_data_time": total_data_time / batch_num,
+        }
         return train_info
 
-    def epilogue(self, pruning_threshold: float = 0.0) -> None:
+    def epilogue(
+        self,
+        dataloaders: dict[str, DataLoader],
+        visualizer: SimilarityVisualizer,
+        output_dir: str,
+        model_config: str,
+        training_config: str,
+        dataset_config: str,
+        seed: int,
+        device: str = "cuda:0",
+        verbose: bool = False,
+        pruning_threshold: float = 0.0,
+        **kwargs: Any,
+    ) -> None:
         """Function called after training, using information from the epilogue
         field in the training configuration
 
         Args:
-            pruning_threshold: Pruning threshold
+            dataloaders: dataloader containing projection data
+            visualizer: patch visualizer
+            output_dir: output directory
+            model_config: path to YML model configuration
+            training_config: path to YML training configuration
+            dataset_config: path to YML dataset configuration
+            seed: initial random seed
+            device: target device
+            verbose: display progress bar
+            pruning_threshold: pruning threshold
         """
+        # Perform projection
+        projection_info = self.project(data_loader=dataloaders["projection_set"], device=device, verbose=verbose)
+        eval_info = self.evaluate(dataloader=dataloaders["test_set"], device=device, verbose=verbose)
+        save_checkpoint(
+            directory_path=os.path.join(output_dir, f"projected"),
+            model=self,
+            model_config=model_config,
+            optimizer_mngr=None,
+            training_config=training_config,
+            dataset_config=dataset_config,
+            epoch="projected",
+            seed=seed,
+            device=device,
+            stats=eval_info,
+        )
+
+        # Extract prototypes
+        self.extract_prototypes(
+            dataloader_raw=dataloaders["projection_set_raw"],
+            dataloader=dataloaders["projection_set"],
+            projection_info=projection_info,
+            visualizer=visualizer,
+            dir_path=os.path.join(output_dir, "prototypes"),
+            device=device,
+            verbose=verbose,
+        )
         if pruning_threshold <= 0.0:
             logger.warning(f"Leaf pruning disabled (threshold is {pruning_threshold})")
         self.prune(pruning_threshold=pruning_threshold)
@@ -307,12 +381,6 @@ class ProtoTree(ProtoClassifier):
         self.eval()
         self.to(device)
 
-        if data_loader.batch_size != 1:
-            logger.warning(
-                "Projection results may vary depending on batch size, see issue "
-                "https://discuss.pytorch.org/t/cudnn-causing-inconsistent-test-results-depending-on-batch-size/189277"
-            )
-
         # For each class, keep track of the related prototypes
         class_mapping = self.classifier.tree.get_mapping(mode=MappingMode.CLASS_TO_PROTOTYPE)
         # Sanity check to ensure that each class is associated with at least one prototype
@@ -323,6 +391,7 @@ class ProtoTree(ProtoClassifier):
         # Show progress on progress bar if needed
         data_iter = tqdm(
             enumerate(data_loader),
+            desc="Prototype projection",
             total=len(data_loader),
             leave=False,
             position=progress_bar_position,
@@ -353,7 +422,7 @@ class ProtoTree(ProtoClassifier):
                 # Map to device and perform inference
                 xs = xs.to(device)
                 feats = self.extractor(xs)  # Shape N x D x H x W
-                H, W = feats.shape[2], feats.shape[3]
+                _, W = feats.shape[2], feats.shape[3]
                 similarities = self.classifier.similarity_layer(feats, self.classifier.prototypes)  # Shape (N, P, H, W)
                 max_sim, max_sim_idxs = torch.max(similarities.view(similarities.shape[:2] + (-1,)), dim=2)
 
@@ -368,8 +437,8 @@ class ProtoTree(ProtoClassifier):
                                 max_sim_idxs[img_idx, proto_idx].item() // W,
                                 max_sim_idxs[img_idx, proto_idx].item() % W,
                             )
-                            projection_info[proto_idx] = {
-                                "img_idx": batch_idx * data_loader.batch_size + img_idx,
+                            projection_info[proto_idx] = {  # type: ignore
+                                "img_idx": batch_idx * data_loader.batch_size + img_idx,  # type: ignore
                                 "h": h,
                                 "w": w,
                                 "score": max_sim[img_idx, proto_idx].item(),
@@ -393,6 +462,7 @@ class ProtoTree(ProtoClassifier):
         device: str,
         exist_ok: bool = False,
         strategy: SamplingStrategy = SamplingStrategy.GREEDY,
+        **kwargs,
     ) -> None:
         """Explain the decision for a particular image
 
@@ -492,7 +562,7 @@ class ProtoTree(ProtoClassifier):
                 graph.node(name=f"node_{node.node_id}", image=img_path, imagescale="True")
                 for child_name, similarity in zip(["nsim", "sim"], ["not similar", "similar"]):
                     child = node.get_submodule(f"{node.node_id}_child_{child_name}")
-                    graph = build_tree_explanation(child, graph)
+                    graph = build_tree_explanation(child, graph)  # type: ignore
                     graph.edge(
                         tail_name=f"node_{node.node_id}",
                         head_name=f"node_{child.node_id}",

@@ -4,7 +4,7 @@ from pathlib import Path
 import sys
 from argparse import ArgumentParser, Namespace
 from loguru import logger
-from cabrnet.generic.model import ProtoClassifier
+from cabrnet.generic.model import CaBRNet
 from cabrnet.utils.data import create_dataset_parser, get_dataset_transform
 from cabrnet.visualisation.visualizer import SimilarityVisualizer
 
@@ -19,7 +19,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     """
     if parser is None:
         parser = ArgumentParser(description)
-    parser = ProtoClassifier.create_parser(parser)
+    parser = CaBRNet.create_parser(parser)
     # Relies on dataset configuration of the test to deduce the type of preprocessing
     # that needs to be applied on the source image
     parser = create_dataset_parser(parser)
@@ -29,26 +29,26 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         type=str,
         required=True,
         metavar="path/to/image",
-        help="Path to image to be explained",
+        help="path to image to be explained",
     )
     parser.add_argument(
         "--output-dir",
         type=str,
         required=True,
         metavar="path/to/output/directory",
-        help="Path to output directory",
+        help="path to output directory",
     )
     parser.add_argument(
         "--prototype-dir",
         type=str,
         required=True,
         metavar="path/to/prototype/directory",
-        help="Path to directory containing prototype visualizations",
+        help="path to directory containing prototype visualizations",
     )
     parser.add_argument(
         "--overwrite",
         action="store_true",
-        help="Overwrite existing explanation (if any)",
+        help="overwrite existing explanation (if any)",
     )
     return parser
 
@@ -60,15 +60,10 @@ def execute(args: Namespace) -> None:
         args: Parsed arguments.
 
     """
-    # Set logger level
-    logger.configure(handlers=[{"sink": sys.stderr, "level": "INFO"}])
-
     # Build model and load state dictionary
-    model: ProtoClassifier = ProtoClassifier.build_from_config(
-        config_file=args.model_config, state_dict_path=args.model_state_dict
-    )
+    model: CaBRNet = CaBRNet.build_from_config(config_file=args.model_config, state_dict_path=args.model_state_dict)
     # Init visualizer
-    visualizer = SimilarityVisualizer.build_from_config(config_file=args.visualization, target="test_patch")
+    visualizer = SimilarityVisualizer.build_from_config(config_file=args.visualization)
     # Recover preprocessing function
     preprocess = get_dataset_transform(config_file=args.dataset, dataset="test_set")
 

@@ -63,7 +63,7 @@ class L2SimilaritiesLRPWrapper(L2Similarities):
 
 
 class DecisionLRPWrapper(nn.Module):
-    """Replacement for the decision layer of a ProtoClassifier
+    """Replacement for the decision layer of a CaBRNet model
 
     Args:
         classifier (nn.Module): source decision layer
@@ -80,7 +80,7 @@ class DecisionLRPWrapper(nn.Module):
         self.prototypes = copy.deepcopy(classifier.prototypes)
         self.similarity_layer = L2SimilaritiesLRPWrapper(
             # Do not use classifier.num_prototypes as it might have changed after pruning
-            num_prototypes=classifier.prototypes.size(0),
+            num_prototypes=classifier.max_num_prototypes,
             num_features=classifier.num_features,
             stability_factor=stability_factor,
         )
@@ -278,7 +278,7 @@ class ZBetaConv2d(ZBetaLayer, nn.Conv2d):  # ZBetaLayer takes precedence to supe
             out_channels=module.out_channels,
             kernel_size=module.kernel_size,  # type: ignore
             stride=module.stride,  # type: ignore
-            padding=module.padding,
+            padding=module.padding,  # type: ignore
             dilation=module.dilation,  # type: ignore
             groups=module.groups,
             bias=module.bias is not None,
@@ -446,7 +446,7 @@ class Alpha1Beta0Conv2d(Alpha1Beta0Layer, nn.Conv2d):
             out_channels=module.out_channels,
             kernel_size=module.kernel_size,  # type: ignore
             stride=module.stride,  # type: ignore
-            padding=module.padding,
+            padding=module.padding,  # type: ignore
             dilation=module.dilation,  # type: ignore
             groups=module.groups,
             bias=module.bias is not None,
@@ -669,7 +669,7 @@ def get_cabrnet_lrp_composite_model(
     zbeta_lower_bound: float = min([-0.485 / 0.229, -0.456 / 0.224, -0.406 / 0.225]),
     zbeta_upper_bound: float = max([(1 - 0.485) / 0.229, (1 - 0.456) / 0.224, (1 - 0.406) / 0.225]),
 ) -> nn.Module:
-    """Prepare a CaBRNet ProtoClassifier model for composite LRP
+    """Prepare a CaBRNet model for composite LRP
 
     Args:
         model: target model
@@ -683,8 +683,8 @@ def get_cabrnet_lrp_composite_model(
         copy of the model, ready for running Captum LRP
     """
     if not hasattr(model, "extractor"):
-        # Check attribute presence rather than using isinstance(model, ProtoClassifier) to avoid circular dependencies
-        logger.warning("Target model is not a ProtoClassifier, using generic function instead.")
+        # Check attribute presence rather than using isinstance(model, CaBRNet) to avoid circular dependencies
+        logger.warning("Target is not a CaBRNet model, using generic function instead.")
         # Try to convert the model using the more generic function
         return get_extractor_lrp_composite_model(
             model=model,

@@ -14,7 +14,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         default="examples",
         required=False,
         metavar="path/to/example/directory",
-        help="Path to destination directory of examples",
+        help="path to destination directory of examples",
     )
     return parser
 

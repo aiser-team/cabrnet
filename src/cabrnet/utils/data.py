@@ -83,7 +83,7 @@ def get_datasets(config_file: str) -> dict[str, dict[str, Dataset | int | bool]]
     datasets: dict[str, dict[str, Dataset | int | bool]] = {}
 
     # Configuration should include at least train and projection sets
-    mandatory_sets = ["train_set", "projection_set"]
+    mandatory_sets = ["train_set", "projection_set", "test_set"]
     for dataset_name in mandatory_sets:
         if dataset_name not in config:
             logger.error(f"Missing configuration for {dataset_name}.")
@@ -122,6 +122,8 @@ def get_datasets(config_file: str) -> dict[str, dict[str, Dataset | int | bool]]
         dataset["raw_dataset"] = getattr(module, dconfig["name"])(**params)
         dataset["batch_size"] = batch_size
         dataset["shuffle"] = shuffle
+        # Recover optional number of workers
+        dataset["num_workers"] = dconfig.get("num_workers", 0)
         datasets[dataset_name] = dataset
     return datasets
 
@@ -145,8 +147,13 @@ def get_dataloaders(config_file: str) -> dict[str, DataLoader]:
         raw_dataset: Dataset = datasets[dataset_name]["raw_dataset"]  # type: ignore
         batch_size: int = datasets[dataset_name]["batch_size"]  # type: ignore
         shuffle: bool = datasets[dataset_name]["shuffle"]  # type: ignore
-        dataloaders[dataset_name] = DataLoader(dataset=dataset, batch_size=batch_size, shuffle=shuffle)
-        dataloaders[dataset_name + "_raw"] = DataLoader(dataset=raw_dataset, batch_size=batch_size, shuffle=shuffle)
+        num_workers: int = datasets[dataset_name]["num_workers"]  # type: ignore
+        dataloaders[dataset_name] = DataLoader(
+            dataset=dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers
+        )
+        dataloaders[dataset_name + "_raw"] = DataLoader(
+            dataset=raw_dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers
+        )
     return dataloaders
 
 

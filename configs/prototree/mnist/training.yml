@@ -1,22 +1,26 @@
 param_groups:
-  backbone:
-    start: null
-    # stop: null
-    stop: extractor.convnet.layer4.1.bn2.bias
+  backbone: extractor.convnet
   add_on_layers: extractor.add_on
+  prototypes: classifier.prototypes
 
-optimizer:
-  name: Adam
-  config:
-    backbone:
-      lr: 0.001
-      weight_decay_rate: 0.0
-      momentum: 0.9
-    add_on_layers:
-      lr: 0.001
-      weight_decay_rate: 0.0
-      momentum: 0.9
-  params:
-    lr: 0.001
+optimizers:
+  main_optimizer:
+    type: Adam
+    groups:
+      backbone:
+        lr: 0.001
+        weight_decay_rate: 0.0
+        momentum: 0.9
+      add_on_layers:
+        lr: 0.001
+        weight_decay_rate: 0.0
+        momentum: 0.9
+      prototypes:
+        lr: 0.001
+        weight_decay_rate: 0.0
+        momentum: 0.9
 
 num_epochs: 1
+
+epilogue:
+  pruning_threshold: 0.01

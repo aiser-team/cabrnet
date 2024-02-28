@@ -1,7 +1,7 @@
 # Training configuration
 The training configuration associated with a model is stored in a YML file, according to the following specification.
-For more examples, see the [ProtoPNet](../../../configs/protopnet/training.yml) and 
-[ProtoTree](../../../configs/prototree/training.yml) configuration files.
+For more examples, see the [ProtoPNet](https://git.frama-c.com/pub/cabrnet/-/tree/master/configs/protopnet/training.yml) and 
+[ProtoTree](https://git.frama-c.com/pub/cabrnet/-/tree/master/configs/prototree/training.yml) configuration files.
 
 ## Defining parameter groups
 Parameters of the model can be sorted into different groups, using the following formats:
@@ -18,7 +18,8 @@ or as a range of submodules/parameters, where the names of the parameters can be
 for name, _ in model.named_parameters():
     print(name)
 ```
-Note that for ranges of parameters, either `start` or `stop` keywords can be omitted (not both).
+Note that for ranges of parameters, either `start` or `stop` keywords can be omitted (not both):
+
 - If the `start` keyword is omitted, the range starts from the first parameter of the model.
 - If the `stop` keyword is omitted, the range ends at the last parameter of the model.
 
@@ -54,7 +55,7 @@ optimizers:
     ...
 ```
 Hence, a single optimizer can be used for different parameter groups, 
-with different configurations (e.g. learning rate) for each parameter group.
+with different configurations (*e.g.* learning rate) for each parameter group.
 
 Additionally, each optimizer can be associated with an **optional** learning rate scheduler.
 
@@ -90,3 +91,23 @@ epilogue:
   <EPILOGUE_PARAM_2>: <VALUE>
 ...
 ```
+
+## Creating an Optimizer Manager
+CaBRNet provides a class [OptimizerManager](../API/reference/cabrnet/utils/optimizers.md#optimizermanager-objects) in charge of parsing the configuration file 
+and handling optimizers/schedulers during the training process.
+```python
+from cabrnet.utils.optimizers import OptimizerManager
+from cabrnet.utils.parser import load_config
+from cabrnet.generic.model import CaBRNet
+
+model = CaBRNet.build_from_config(config_file="<path/to/model/configuration/file.yml") 
+training_config = load_config(config_file="<path/to/training/configuration/file.yml>")
+optimizer_mngr=OptimizerManager(config_dict=training_config,module=model)
+```
+For more information on how to build a CaBRNet model from a configuration file, see [here](model.md).
+An Optimizer Manager provides four main functions that are used during training:
+
+- `zero_grad()`: Reset all optimizer(s) gradients (before each batch of data)
+- `freeze(epoch: int)`: Freeze all relevant model parameters, according to the current `epoch`.
+- `optimizer_step(epoch: int)`: Move all relevant optimizers forward (step), according to the current `epoch`. 
+- `scheduler_step(epoch: int)`: Move all relevant schedulers forward (step), according to the current `epoch`. 

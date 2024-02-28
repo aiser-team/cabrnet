@@ -1,4 +1,3 @@
-import matplotlib.pyplot as plt
 from cv2 import applyColorMap, COLORMAP_JET
 import numpy as np
 from PIL import Image, ImageDraw
@@ -70,11 +69,13 @@ def bbox_to_percentile(
     return dst_img
 
 
-def heatmap(img: Image.Image, sim_map: np.ndarray, **kwargs) -> Image.Image:
+def heatmap(img: Image.Image, sim_map: np.ndarray, percentile: float = 0, thickness: int = 4, **kwargs) -> Image.Image:
     """Convert a similarity map into a heatmap
     Args:
         img: original image
         sim_map: similarity map, normalized between 0.0 and 1.0
+        percentile: selection percentile (optional)
+        thickness: rectangle thickness
 
     Returns:
         image with bounding box
@@ -87,4 +88,14 @@ def heatmap(img: Image.Image, sim_map: np.ndarray, **kwargs) -> Image.Image:
     sim_heatmap = applyColorMap(np.uint8(255 * sim_map), COLORMAP_JET)
     # Convert BGR format returned by OpenCV into RGB
     sim_heatmap = sim_heatmap[..., ::-1]
+
+    if percentile > 0.0:
+        return bbox_to_percentile(Image.fromarray(sim_heatmap), sim_map, percentile=percentile, thickness=thickness)
     return Image.fromarray(sim_heatmap)
+
+
+supported_viewing_functions = {
+    "crop_to_percentile": crop_to_percentile,
+    "bbox_to_percentile": bbox_to_percentile,
+    "heatmap": heatmap,
+}
