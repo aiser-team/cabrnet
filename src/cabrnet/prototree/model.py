@@ -291,6 +291,7 @@ class ProtoTree(CaBRNet):
         device: str = "cuda:0",
         verbose: bool = False,
         pruning_threshold: float = 0.0,
+        merge_same_decision: bool = False,
         **kwargs: Any,
     ) -> None:
         """Function called after training, using information from the epilogue
@@ -307,6 +308,7 @@ class ProtoTree(CaBRNet):
             device: target device
             verbose: display progress bar
             pruning_threshold: pruning threshold
+            merge_same_decision: whether branches leading to same top decision should be merged
         """
         # Perform projection
         projection_info = self.project(data_loader=dataloaders["projection_set"], device=device, verbose=verbose)
@@ -336,9 +338,9 @@ class ProtoTree(CaBRNet):
         )
         if pruning_threshold <= 0.0:
             logger.warning(f"Leaf pruning disabled (threshold is {pruning_threshold})")
-        self.prune(pruning_threshold=pruning_threshold)
+        self.prune(pruning_threshold=pruning_threshold, merge_same_decision=merge_same_decision)
 
-    def prune(self, pruning_threshold: float = 0.01) -> None:
+    def prune(self, pruning_threshold: float = 0.01, merge_same_decision: bool = True) -> None:
         """
         Prune decision tree based on threshold.
         Args:
@@ -351,6 +353,8 @@ class ProtoTree(CaBRNet):
             f"Tree statistics before pruning: {num_leaves_before} leaves, " f"{num_prototypes_before} prototypes."
         )
         self.classifier.tree.prune_children(threshold=pruning_threshold)
+        if merge_same_decision:
+            self.classifier.tree.prune_similar_children()
         num_prototypes = self.classifier.tree.num_prototypes
         num_leaves = self.classifier.tree.num_leaves
         logger.info(
