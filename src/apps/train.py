@@ -96,7 +96,12 @@ def execute(args: Namespace) -> None:
                 f"Will use checkpoint file {os.path.join(args.resume_from, 'training.yml')}"
             )
         training_config = os.path.join(args.resume_from, "training.yml")
-        model_config = os.path.join(args.resume_from, "model.yml")
+        model_config = os.path.join(args.resume_from, "model_arch.yml")
+
+        # Compatibility with v0.1: will be removed in the future
+        if os.path.isfile(os.path.join(args.resume_from, "model.yml")):
+            model_config = os.path.join(args.resume_from, "model.yml")
+
         dataset_config = os.path.join(args.resume_from, "dataset.yml")
     else:
         # Check that mandatory options are present

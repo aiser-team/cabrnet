@@ -53,7 +53,7 @@ def save_checkpoint(
     torch.save(model.state_dict(), os.path.join(directory_path, "model_state.pth"))
     if optimizer_mngr is not None:
         torch.save(optimizer_mngr.state_dict(), os.path.join(directory_path, "optimizer_state.pth"))
-    safe_copy(src=model_config, dst=os.path.join(directory_path, "model.yml"))
+    safe_copy(src=model_config, dst=os.path.join(directory_path, "model_arch.yml"))
     if training_config is not None:
         safe_copy(src=training_config, dst=os.path.join(directory_path, "training.yml"))
     safe_copy(src=dataset_config, dst=os.path.join(directory_path, "dataset.yml"))
