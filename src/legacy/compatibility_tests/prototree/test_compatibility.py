@@ -132,7 +132,7 @@ class TestProtoTreeCompatibility(unittest.TestCase):
         # Test configuration
         test_dir = os.path.dirname(os.path.realpath(__file__))
         self.model_config_file = os.path.join(test_dir, "model_arch.yml")
-        self.dataset_config_file = os.path.join(test_dir, "data.yml")
+        self.dataset_config_file = os.path.join(test_dir, "dataset.yml")
         self.training_config_file = os.path.join(test_dir, "training.yml")
         self.legacy_state_dict = os.path.join(test_dir, "legacy_state.pth")
 
