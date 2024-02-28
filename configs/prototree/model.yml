@@ -1,4 +1,4 @@
-custom_arch: # Optional
+top_arch: # Optional
   module: cabrnet.prototree.model
   name: ProtoTree # Take "extractor" and "classifier", implement the generic class ProtoClassifier
 

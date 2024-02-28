@@ -29,14 +29,16 @@ class ExplanationGraph:
         self._dot.node(name="node_0_test", label="", image=rel_path, imagescale="True")
         self._num_nodes += 1
 
-    def add_similarity(self, prototype_img_path: str, test_patch_img_path: str, label: str):
+    def add_similarity(self, prototype_img_path: str, test_patch_img_path: str, label: str, font_color: str = "black"):
         rel_test_patch_img_path = os.path.relpath(test_patch_img_path, self.output_dir)
         rel_prototype_img_path = os.path.relpath(prototype_img_path, self.output_dir)
         # Create subgraph
         subgraph = graphviz.Digraph()
         subgraph.attr(rank="same")
         subgraph.node(name=f"node_{self._num_nodes}_test", image=rel_test_patch_img_path, imagescale="True")
-        subgraph.node(name=f"node_{self._num_nodes}_label", label=label, fontsize="10", height="0.5")
+        subgraph.node(
+            name=f"node_{self._num_nodes}_label", label=label, fontcolor=font_color, fontsize="10", height="0.5"
+        )
         subgraph.node(
             name=f"node_{self._num_nodes}_proto", image=rel_prototype_img_path, imagescale="True", imagepos="tc"
         )

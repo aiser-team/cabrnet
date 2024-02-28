@@ -16,3 +16,7 @@ graphviz~=0.20.1
 opencv-python-headless~=4.8.1.78 # Using headless version for compatibility with graphviz
 captum~=0.7.0
 Augmentor~=0.2.12
+mkdocs
+pydoc-markdown
+pymdown-extensions
+python-markdown-math

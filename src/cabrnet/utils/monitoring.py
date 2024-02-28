@@ -12,9 +12,9 @@ class _MemoryLogger:
         message = f"{message}. " if message is not None else ""
         allocated = torch.cuda.memory_allocated() // 1024**2
         reserved = torch.cuda.memory_reserved() // 1024**2
-        logger.debug(f"{message} Memory allocated: {allocated}MB (delta is {allocated - self._allocated_memory}MB)")
+        logger.info(f"{message} Memory allocated: {allocated}MB (delta is {allocated - self._allocated_memory}MB)")
         if self._show_reserved:
-            logger.debug(f"{message} Memory reserved: {reserved}MB (delta is {reserved - self._reserved_memory}MB)")
+            logger.info(f"{message} Memory reserved: {reserved}MB (delta is {reserved - self._reserved_memory}MB)")
         self._allocated_memory = allocated
         self._reserved_memory = reserved
 

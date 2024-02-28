@@ -158,8 +158,12 @@ class TreeNode(nn.Module):
             "log_probabilities": self.log_probabilities,
             "children": [],
         }
-        for child in self.children():
-            arch["children"].append(child.export_arch())
+        if isinstance(self, BinaryNode):
+            for name in ["nsim", "sim"]:  # Order for serialization matters for reconstructing the tree
+                arch["children"].append(self.get_submodule(f"{self.node_id}_child_{name}").export_arch())
+        else:
+            for child in self.children():
+                arch["children"].append(child.export_arch())
         return arch
 
     @staticmethod

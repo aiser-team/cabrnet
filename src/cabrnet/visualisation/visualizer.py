@@ -2,17 +2,16 @@ from __future__ import annotations
 import torch.nn as nn
 from torch import Tensor
 from loguru import logger
-from PIL import Image
 import argparse
 from cabrnet.utils.parser import load_config
 from cabrnet.visualisation.upsampling import cubic_upsampling
 from cabrnet.visualisation.gradients import smoothgrad, randgrad, prp
 from cabrnet.visualisation.prp_utils import get_cabrnet_lrp_composite_model
-import cabrnet.visualisation.view as viewing_module
+from cabrnet.visualisation.view import *
 from typing import Callable
 
 
-supported_retrace_functions = {
+supported_attribution_functions = {
     "cubic_upsampling": cubic_upsampling,
     "smoothgrad": smoothgrad,
     "randgrad": randgrad,
@@ -23,9 +22,9 @@ supported_retrace_functions = {
 class SimilarityVisualizer(nn.Module):
     def __init__(
         self,
-        retrace_fn: Callable,
+        attribution_fn: Callable,
         view_fn: Callable,
-        retrace_params: dict | None = None,
+        attribution_params: dict | None = None,
         view_params: dict | None = None,
         config_file: str | None = None,
         *args,
@@ -34,15 +33,15 @@ class SimilarityVisualizer(nn.Module):
         """
         Init a patch visualizer
         Args:
-            retrace_fn: visualization function
+            attribution_fn: attribution function
             view_fn: viewing function
-            retrace_params: optional parameters to retrace function
+            attribution_params: optional parameters to attribution function
             view_params: optional parameters to viewing function
             config_file: optional path to the file used to configure the visualizer
         """
         super().__init__(*args, **kwargs)
-        self.retrace = retrace_fn
-        self.retrace_params = retrace_params if retrace_params is not None else {}
+        self.attribution = attribution_fn
+        self.attribution_params = attribution_params if attribution_params is not None else {}
         self.view = view_fn
         self.view_params = view_params if view_params is not None else {}
         self.config_file = config_file
@@ -69,20 +68,20 @@ class SimilarityVisualizer(nn.Module):
         Returns:
             patch visualization
         """
-        sim_map = self.retrace(
+        sim_map = self.attribution(
             model=model,
             img=img,
             img_tensor=img_tensor,
             proto_idx=proto_idx,
             device=device,
             location=location,
-            **self.retrace_params,
+            **self.attribution_params,
         )
         return self.view(img=img, sim_map=sim_map, **self.view_params)
 
     def prepare_model(self, model: nn.Module) -> nn.Module:
-        # Perform model preparation (depends on retrace function)
-        if self.retrace == prp:
+        # Perform model preparation (depends on attribution function)
+        if self.attribution == prp:
             return get_cabrnet_lrp_composite_model(model)
         return model
 
@@ -103,52 +102,45 @@ class SimilarityVisualizer(nn.Module):
             "--visualization",
             required=True,
             metavar="/path/to/file.yml",
-            help="Path to the visualization configuration file",
+            help="path to the visualization configuration file",
         )
         return parser
 
     @staticmethod
-    def build_from_config(config_file: str, target: str | None = None) -> SimilarityVisualizer:
+    def build_from_config(config_file: str) -> SimilarityVisualizer:
         """
         Builds a ProtoVisualizer from a YAML configuration file
         Args:
             config_file: path to configuration file
-            target: name of target in configuration file
 
         Returns:
             ProtoVisualizer
         """
-        logger.info(
-            f"Loading patch visualizer from {config_file}." + f" Target: {target}." if target is not None else ""
-        )
+        logger.info(f"Loading patch visualizer from {config_file}.")
         config_dict = load_config(config_file)
-        if target is not None:
-            if target not in config_dict:
-                raise ValueError(f"Missing target {target} from configuration file {config_file}")
-            config_dict = config_dict[target]
 
         # Sanity checks on mandatory field
-        for mandatory_field in ["retrace", "view"]:
+        for mandatory_field in ["attribution", "view"]:
             if mandatory_field not in config_dict:
                 raise ValueError(f"Missing mandatory field {mandatory_field} in configuration")
 
         # Visualization function
-        retrace_fn = supported_retrace_functions.get(config_dict["retrace"]["type"])
-        if retrace_fn is None:
-            raise NotImplementedError(f"Unknown visualization function {config_dict['retrace']['type']}")
-        retrace_params = config_dict["retrace"]["params"] if "params" in config_dict["retrace"] else None
+        attribution_fn = supported_attribution_functions.get(config_dict["attribution"]["type"])
+        if attribution_fn is None:
+            raise NotImplementedError(f"Unknown visualization function {config_dict['attribution']['type']}")
+        attribution_params = config_dict["attribution"]["params"] if "params" in config_dict["attribution"] else None
 
         # Viewing function
-        if hasattr(viewing_module, config_dict["view"]["type"]):
-            view_fn = getattr(viewing_module, config_dict["view"]["type"])
+        if config_dict["view"]["type"] in supported_viewing_functions:
+            view_fn = supported_viewing_functions[config_dict["view"]["type"]]
         else:
             raise NotImplementedError(f"Unknown viewing function {config_dict['view']['type']}")
         view_params = config_dict["view"]["params"] if "params" in config_dict["view"] else None
 
         return SimilarityVisualizer(
-            retrace_fn=retrace_fn,
+            attribution_fn=attribution_fn,
             view_fn=view_fn,
-            retrace_params=retrace_params,
+            attribution_params=attribution_params,
             view_params=view_params,
             config_file=config_file,
         )

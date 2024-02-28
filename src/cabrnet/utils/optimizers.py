@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 from loguru import logger
 from typing import Any
+import argparse
 from cabrnet.utils.parser import load_config
 
 
@@ -187,9 +188,10 @@ class OptimizerManager:
                 epoch_range = self.periods[epoch_name]["epoch_range"]
                 if not isinstance(epoch_range, list) or len(epoch_range) != 2:
                     raise ValueError(f"Invalid epoch range format for training period {epoch_name}: {epoch_range}")
-                for group_name in self.periods[epoch_name].get("freeze"):
-                    if group_name not in self.param_groups.keys():
-                        raise ValueError(f"Unknown parameter group for training period {epoch_name}: {group_name}")
+                if self.periods[epoch_name].get("freeze") is not None:
+                    for group_name in self.periods[epoch_name]["freeze"]:
+                        if group_name not in self.param_groups.keys():
+                            raise ValueError(f"Unknown parameter group for training period {epoch_name}: {group_name}")
                 for optim_name in self.periods[epoch_name]["optimizers"]:
                     if optim_name not in self.optimizers.keys():
                         raise ValueError(f"Unknown optimizers name for training period {epoch_name}: {optim_name}")
@@ -239,6 +241,11 @@ class OptimizerManager:
                 p_names.append(p_name)
         return p_names
 
+    def freeze_group(self, name: str, freeze: bool) -> None:
+        logger.debug(f"Parameter group {name} is {'frozen' if freeze  else 'trainable'}")
+        for param in self.param_groups[name]:
+            param.requires_grad = not freeze
+
     def freeze(self, epoch: int) -> None:
         """Apply parameter freeze depending on current epoch
 
@@ -252,16 +259,8 @@ class OptimizerManager:
                 groups_to_freeze += period_config["freeze"]
                 logger.info(f"Period {period_name} applies for epoch {epoch}: freezing groups {groups_to_freeze}")
 
-        def _set_requires_grad_on_group(name: str, requires_grad: bool):
-            logger.debug(f"Epoch {epoch}: Parameter group {name} is {'trainable' if requires_grad else 'frozen'}")
-            for param in self.param_groups[name]:
-                param.requires_grad = requires_grad
-
-        for group_to_freeze in groups_to_freeze:
-            _set_requires_grad_on_group(name=group_to_freeze, requires_grad=False)
         for group_name in self.param_groups:
-            if group_name not in groups_to_freeze:
-                _set_requires_grad_on_group(name=group_name, requires_grad=True)
+            self.freeze_group(name=group_name, freeze=(group_name in groups_to_freeze))
 
     def zero_grad(self):
         """Reset all optimizer gradients"""
@@ -310,3 +309,29 @@ class OptimizerManager:
             self.optimizers[optim_name].load_state_dict(state_dict["optimizers"][optim_name])
         for optim_name in self.schedulers:
             self.schedulers[optim_name].load_state_dict(state_dict["schedulers"][optim_name])
+
+
+def create_training_parser(
+    parser: argparse.ArgumentParser | None = None, mandatory_config: bool = True
+) -> argparse.ArgumentParser:
+    """Create the argument parser for CaBRNet training configuration.
+
+    Args:
+        parser: Existing parser (if any)
+        mandatory_config: Make dataset configuration mandatory
+
+    Returns:
+        The parser itself.
+    """
+    if parser is None:
+        parser = argparse.ArgumentParser(description="Load training configuration.")
+
+    parser.add_argument(
+        "--training",
+        "-t",
+        type=str,
+        required=mandatory_config,
+        metavar="/path/to/file.yml",
+        help="path to the training configuration file",
+    )
+    return parser

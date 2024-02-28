@@ -17,6 +17,14 @@ def get_version() -> str:
         return fin.readline()
 
 
+class ParserWithHelper(ArgumentParser):
+    def error(self, message: str):
+        """Overrides default error message in argparse to print help menu"""
+        self._print_message(f"Error: {message}\n", sys.stderr)
+        self.print_help(sys.stderr)
+        self.exit(2)
+
+
 def main():
     """Load the applications and run CaBRNet with them."""
     # Enumerate applications from apps directory
@@ -24,8 +32,9 @@ def main():
     apps = [os.path.splitext(file)[0] for file in os.listdir(apps_dir) if file.endswith(".py")]
 
     # Create parser
-    parser = ArgumentParser(description="CaBRNet front-end")
+    parser = ParserWithHelper(description="CaBRNet front-end")
     subparsers = parser.add_subparsers(help="sub-command help")
+    subparsers.required = True
     for app_name in apps:
         try:
             module = importlib.import_module(f"apps.{app_name}")
@@ -40,13 +49,13 @@ def main():
         subparser = subparsers.add_parser(app_name, help=description)
         subparser.set_defaults(func=module.execute)
         module.create_parser(subparser)
-    parser.add_argument("--version", "-V", action="version", version=get_version())
-    parser.add_argument("--device", type=str, default="cuda:0", help="Target hardware device")
-    parser.add_argument("--seed", "-s", type=int, default=42, help="Seed for reproducible experiments")
-    # what level of information is stored in the log file
-    parser.add_argument("--logger-level", type=str, default="INFO", help="Logger level and verbosity")
-    # print logs and progress bars to the console
-    parser.add_argument("--verbose", action="store_true", help="Verbose output")
+        subparser.add_argument("--version", "-V", action="version", version=get_version())
+        subparser.add_argument("--device", type=str, default="cuda:0", help="Target hardware device")
+        subparser.add_argument("--seed", "-s", type=int, default=42, help="Seed for reproducible experiments")
+        # what level of information is stored in the log file
+        subparser.add_argument("--logger-level", type=str, default="INFO", help="Logger level and verbosity")
+        # print logs and progress bars to the console
+        subparser.add_argument("--verbose", action="store_true", help="Verbose output")
 
     args = parser.parse_args()
 
