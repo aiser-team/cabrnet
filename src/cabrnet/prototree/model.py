@@ -340,11 +340,12 @@ class ProtoTree(CaBRNet):
             logger.warning(f"Leaf pruning disabled (threshold is {pruning_threshold})")
         self.prune(pruning_threshold=pruning_threshold, merge_same_decision=merge_same_decision)
 
-    def prune(self, pruning_threshold: float = 0.01, merge_same_decision: bool = True) -> None:
+    def prune(self, pruning_threshold: float = 0.01, merge_same_decision: bool = False) -> None:
         """
         Prune decision tree based on threshold.
         Args:
             pruning_threshold: Pruning threshold
+            merge_same_decision: whether branches leading to same top decision should be merged
         """
         logger.info(f"Pruning tree. Threshold: {pruning_threshold}")
         num_prototypes_before = self.classifier.tree.num_prototypes
