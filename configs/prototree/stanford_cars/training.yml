@@ -1,17 +1,16 @@
 param_groups:
   backbone_to_freeze:
-    stop: extractor.convnet.layer4.1 # None/null means first named parameter, second name is inclusive
+    stop: extractor.convnet.layer4.1
   backbone_to_train: extractor.convnet.layer4.2
-  add_on_layers: extractor.add_on # All named parameters starting with this prefix
+  add_on_layers: extractor.add_on
   prototypes: classifier.prototypes
-  #leaves_distributions: classifier.tree
 
 optimizers:
   main_optimizer:
     type: AdamW
     groups:
       backbone_to_freeze:
-        lr: 0.00001
+        lr: 0.0002
         weight_decay_rate: 0.0
         momentum: 0.9
       backbone_to_train:
@@ -26,19 +25,16 @@ optimizers:
         lr: 0.001
         weight_decay_rate: 0
         momentum: 0
-  #    leaves_distributions: # If we are not in derivative free mode for tree leaves
-  #      lr: 0.001
-  #      momentum: 0.9
     params:
       lr: 0.001
       momentum: 0.9
     scheduler:
       type: MultiStepLR # or ReduceLROnPlateau
       params:
-        milestones: [60, 70, 80, 90, 100]
+        milestones: [250, 350, 400, 425, 450, 475, 500]
         gamma: 0.5
 
-num_epochs: 100
+num_epochs: 500
 
 # By default, everything that is not frozen is trained
 periods:
