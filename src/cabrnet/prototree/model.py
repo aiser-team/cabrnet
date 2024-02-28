@@ -552,7 +552,7 @@ class ProtoTree(CaBRNet):
             """
             if node.proto_idxs is None:
                 # Leaf
-                class_idx = torch.argmax(node.distribution)
+                class_idx = torch.argmax(node.distribution).item()
                 graph.node(name=f"node_{node.node_id}", label=f"Class {class_idx}", fontsize="25", height="0.5")
             else:
                 proto_idx = node.proto_idxs[0]
