@@ -33,7 +33,7 @@ Some options are present in all applications:
 
 - `--version|-V` allows to check the version of the CaBRNet library.
 - `--device DEVICE` allows to specify a target hardware device (by default, it is set to `cuda:0`).
-- `--seed|-s SEED` allows to specify the random seed to improve the [reproductibilty](#reproducibility) of all 
+- `--seed|-s SEED` allows to specify the random seed to improve the [reproducibility](#reproducibility) of all
 experiments (by default, it is set to 42, as it should be ;)).
 - `--logger-level LOGGER_LEVEL` indicates the level of debug message displayed on the standard output. 
 CaBRNet uses [loguru](https://loguru.readthedocs.io/en/stable/) for logging messages.
@@ -95,9 +95,11 @@ Here is a short description of the options. As in `cabrnet train`:
 `--model-state-dict /path/to/model/state.pth` indicates the location of the legacy state dictionary that should be used 
 to initialize the model.
 - `--output-dir path/to/output/directory` indicates where to store the imported model.
+
 Note that after the loading the CaBRNet model with the parameters of the legacy model (feature extractor, prototypes, etc),
 CaBRNet **finalizes the import process by projecting and extracting the prototypes** and performing the optional epilogue if necessary.
 Therefore, the `cabrnet import` tool also requires the following information:
+
 - `--dataset|-d /path/to/file.yml` indicates how to [load and prepare the data for prototype projection](data.md).
 - `--training|-t /path/to/file.yml` indicates the [parameters of the epilogue](training.md) (if any).
 - `--visualization /path/to/file.yml` indicates how to [visualize the prototypes](visualize.md).
@@ -108,7 +110,7 @@ After training, it is possible to evaluate the loss and accuracy of a model usin
 To evaluate a model, the tool uses the following options:
 
 - `--model-config /path/to/file.yml` indicates how to [build the model](model.md). In addition,
-`--model-state-dict /path/to/model/state.pth` or `--legacy-state-dict /path/to/model/state.pth` indicate 
+`--model-state-dict /path/to/model/state.pth` or `--legacy-state-dict /path/to/model/state.pth` indicates
 the location of a CaBRNet or legacy state dictionary that should be used to initialize the model.
 - `--dataset|-d /path/to/file.yml` indicates how to [load and prepare the test data for the evaluation](data.md).
 
