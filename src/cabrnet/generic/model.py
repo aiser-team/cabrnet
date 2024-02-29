@@ -4,7 +4,7 @@ import argparse
 import importlib
 import shutil
 import os.path
-from typing import Any, Callable
+from typing import Any, Callable, Mapping
 import torch
 import torch.nn as nn
 from loguru import logger
@@ -67,7 +67,7 @@ class CaBRNet(nn.Module):
         x = self.extractor(x, **kwargs)
         return self.classifier.similarity_layer.L2_square_distance(x, self.classifier.prototypes)
 
-    def load_legacy_state_dict(self, legacy_state: dict) -> None:
+    def _load_legacy_state_dict(self, legacy_state: Mapping[str, Any]) -> None:
         """Load state dictionary from legacy format
 
         Args:

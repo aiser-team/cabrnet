@@ -47,8 +47,7 @@ def execute(args: Namespace) -> None:
     device = args.device
 
     # Build CaBRNet model, then load legacy state dictionary
-    model = CaBRNet.build_from_config(model_config)
-    model.load_legacy_state_dict(torch.load(legacy_state_dict, map_location="cpu"))
+    model = CaBRNet.build_from_config(model_config, state_dict_path=legacy_state_dict)
     model.eval()
 
     dataloaders = get_dataloaders(dataset_config)
