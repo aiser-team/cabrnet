@@ -1,7 +1,6 @@
 """Declare the necessary functions to create an app to train a CaBRNet classifier."""
 
 import os
-import sys
 from argparse import ArgumentParser, Namespace
 from loguru import logger
 from tqdm import tqdm
@@ -137,7 +136,9 @@ def execute(args: Namespace) -> None:
         start_epoch = state["epoch"] + 1
         seed = state["seed"]
         train_info = state["stats"]
-        best_metric = train_info["avg_train_accuracy"] if args.save_best == "acc" else train_info["avg_loss"]
+        best_metric = train_info.get(f"best_avg_train_{args.save_best}")
+        if best_metric is None:
+            raise AttributeError(f"Could not recover best model {args.save_best}: invalid --save-best option?")
         # Remap optimizer to device if necessary
         optimizer_mngr.to(device)
     else:
@@ -189,6 +190,8 @@ def execute(args: Namespace) -> None:
         elif args.save_best == "loss" and best_metric > train_info["avg_loss"]:
             best_metric = train_info["avg_loss"]
             save_best_checkpoint = True
+        # Add information regarding current best metric
+        train_info[f"best_avg_train_{args.save_best}"] = best_metric
 
         if save_best_checkpoint:
             logger.info(f"Better model found at epoch {epoch}. Metrics: {metrics_to_str(train_info)}")
