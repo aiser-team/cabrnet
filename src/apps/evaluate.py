@@ -22,13 +22,6 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         parser = ArgumentParser(description)
     parser = CaBRNet.create_parser(parser)
     parser = create_dataset_parser(parser)
-    parser.add_argument(
-        "--legacy-state-dict",
-        type=str,
-        required=False,
-        metavar="path/to/state/dict",
-        help="path to state dictionary of a legacy model",
-    )
     return parser
 
 
@@ -40,12 +33,6 @@ def execute(args: Namespace) -> None:
 
     """
     model = CaBRNet.build_from_config(args.model_config, state_dict_path=args.model_state_dict)
-    if args.legacy_state_dict:
-        if args.model_state_dict is not None:
-            logger.warning(
-                f"Overwriting model state {args.model_state_dict} with legacy state {args.legacy_state_dict}."
-            )
-        model.load_legacy_state_dict(torch.load(args.legacy_state_dict, map_location="cpu"))  # type: ignore
     model.eval()
 
     # Dataloaders

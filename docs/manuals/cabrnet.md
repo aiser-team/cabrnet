@@ -94,8 +94,8 @@ Currently, this tool only supports ProtoPNet and ProtoTree.
 
 Here is a short description of the options. As in `cabrnet train`:
 
-- `--model-config /path/to/file.yml` indicates how to [build the model](model.md). In addition,
-`--model-state-dict /path/to/model/state.pth` indicates the location of the legacy state dictionary that should be used 
+- `--model-config /path/to/file.yml` indicates how to [build the model](model.md). 
+- `--model-state-dict /path/to/model/state.pth` indicates the location of the legacy state dictionary that should be used 
 to initialize the model.
 - `--output-dir path/to/output/directory` indicates where to store the imported model.
 
@@ -113,7 +113,7 @@ After training, it is possible to evaluate the loss and accuracy of a model usin
 To evaluate a model, the tool uses the following options:
 
 - `--model-config /path/to/file.yml` indicates how to [build the model](model.md). In addition,
-`--model-state-dict /path/to/model/state.pth` or `--legacy-state-dict /path/to/model/state.pth` indicates
+`--model-state-dict /path/to/model/state.pth` indicates
 the location of a CaBRNet or legacy state dictionary that should be used to initialize the model.
 - `--dataset|-d /path/to/file.yml` indicates how to [load and prepare the test data for the evaluation](data.md).
 

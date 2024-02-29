@@ -51,7 +51,7 @@ class ProtoTree(CaBRNet):
             # When using PRP visualization with Captum, classifier is no longer a ProtoTreeClassifier
             self.classifier.tree = TreeNode.build_from_arch(state)
 
-    def load_legacy_state_dict(self, legacy_state: dict) -> None:
+    def _load_legacy_state_dict(self, legacy_state: Mapping[str, Any]) -> None:
         """Load state dictionary from legacy format
 
         Args:
@@ -115,7 +115,16 @@ class ProtoTree(CaBRNet):
                 )
             final_state[cbrn_key] = final_state.pop(legacy_key)
             cbrn_keys.remove(cbrn_key)
-        self.load_state_dict(final_state, strict=False)
+        super().load_state_dict(final_state, strict=False)
+
+    def load_state_dict(self, state_dict: Mapping[str, Any], **kwargs):
+        """Overloads nn.Module load_state_dict to take legacy state dictionaries into account"""
+        legacy_state = any([key.startswith("_net") for key in state_dict.keys()])
+        if legacy_state:
+            logger.info("Legacy state dictionary detected, performing import.")
+            self._load_legacy_state_dict(state_dict)
+        else:
+            super().load_state_dict(state_dict, **kwargs)
 
     def analyse_leafs(self, pruning_threshold: float = 0.01) -> None:
         """
