@@ -49,6 +49,14 @@ CaBRNet uses [loguru](https://loguru.readthedocs.io/en/stable/) for logging mess
 - `--save-best acc|loss` indicates how to determine the "best" model, based either on accuracy (`acc`) or `loss`.
 - `--output-dir path/to/output/directory` indicates where to store the model checkpoints during training.
 
+Note: If all configuration files are located in the same directory, it is possible to start the training using the 
+`--start-from <dir>` option, that is effectively equivalent to:
+
+- `--model-config <dir>/model_arch.yml`
+- `--dataset <dir>/dataset.yml`
+- `--training <dir>/training.yml`
+- `--visualization <dir>/visualization.yml`
+
 ### Sanity check
 For a quick sanity check of a particular architecture or overall training configuration, it is possible to use the 
 `--sanity-check-only` option that only processes 5 batches per training epoch. 
@@ -62,6 +70,7 @@ If not provided, **only the best model is kept during training** (in the `best/`
     - a copy of the YML file describing the model architecture, as specified [here](model.md).
     - a copy of the YML file describing the dataset, as specified [here](data.md). 
     - a copy of the YML file describing the training configuration, as specified [here](training.md). 
+    - a copy of the YML file describing the visualization configuration, as specified [here](visualize.md). 
     - the current model state dictionary.
     - the current state of all optimizers and learning rate schedulers.
     - a file `state.pickle` containing auxiliary information such as:
@@ -107,6 +116,12 @@ Therefore, the `cabrnet import` tool also requires the following information:
 - `--training|-t /path/to/file.yml` indicates the [parameters of the epilogue](training.md) (if any).
 - `--visualization /path/to/file.yml` indicates how to [visualize the prototypes](visualize.md).
 
+Similar to the `--start-from` option in `cabrnet train`, the `--config-dir <dir>` option is equivalent to:
+
+- `--model-config <dir>/model_arch.yml`
+- `--dataset <dir>/dataset.yml`
+- `--training <dir>/training.yml`
+- `--visualization <dir>/visualization.yml`
 
 ## Evaluating a CaBRNet model
 After training, it is possible to evaluate the loss and accuracy of a model using the `cabrnet evaluate` tool. 
@@ -116,6 +131,12 @@ To evaluate a model, the tool uses the following options:
 `--model-state-dict /path/to/model/state.pth` indicates
 the location of a CaBRNet or legacy state dictionary that should be used to initialize the model.
 - `--dataset|-d /path/to/file.yml` indicates how to [load and prepare the test data for the evaluation](data.md).
+
+Similar to the `--start-from` option in `cabrnet train`, the `--checkpoint-dir <dir>` option is equivalent to:
+
+- `--model-config <dir>/model_arch.yml`
+- `--model-state-dict/model_state.pth`
+- `--dataset <dir>/dataset.yml`
 
 ## Generating explanations
 Prototype-based architectures provide both global and local explanations:
@@ -132,6 +153,11 @@ the tool uses the following options:
 [training](#training-) are stored (usually in `<training_directory>/prototypes/`).
 - `--output-dir path/to/output/directory` indicates where to store the global explanation.
 
+Similar to `cabrnet evaluate`, the `--checkpoint-dir <dir>` option is equivalent to:
+
+- `--model-config <dir>/model_arch.yml`
+- `--model-state-dict/model_state.pth`
+
 ### Local explanations
 A local explanation is generated using the `explain` method of the CaBRNet model (see the 
 [ProtoTree example](../API/reference/cabrnet/prototree/model.md#explain)). To generate such an explanation, the tool uses the following options:
@@ -146,6 +172,13 @@ based on the transformations applied to the *test* dataset.
 [training](#training-) are stored (usually in `<training_directory>/prototypes/`).
 - `--output-dir path/to/output/directory` indicates where to store the local explanation.
 - `--overwrite` indicates that any existing explanation in the output directory can be overwritten.
+
+As in `cabrnet evaluate`, the `--checkpoint-dir <dir>` option is equivalent to:
+
+- `--model-config <dir>/model_arch.yml`
+- `--model-state-dict <dir>/model_state.pth`
+- `--dataset <dir>/dataset.yml`
+- `--visualization <dir>/visualization.yml`
 
 ## Reproducibility
 ### Random number initialization and deterministic operations

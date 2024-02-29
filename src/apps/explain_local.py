@@ -1,7 +1,6 @@
 """Declare the necessary functions to create an app to explain a classification result."""
 import os.path
 from pathlib import Path
-import sys
 from argparse import ArgumentParser, Namespace
 from loguru import logger
 from cabrnet.generic.model import CaBRNet
@@ -25,6 +24,14 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     parser = create_dataset_parser(parser)
     parser = SimilarityVisualizer.create_parser(parser)
     parser.add_argument(
+        "--checkpoint-dir",
+        type=str,
+        required=False,
+        metavar="/path/to/checkpoint/dir",
+        help="path to a checkpoint directory "
+        "(alternative to --model-config, --model-state-dict, --dataset and --visualization)",
+    )
+    parser.add_argument(
         "--image",
         type=str,
         required=True,
@@ -33,6 +40,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     )
     parser.add_argument(
         "--output-dir",
+        "-o",
         type=str,
         required=True,
         metavar="path/to/output/directory",
@@ -53,6 +61,30 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     return parser
 
 
+def check_args(args: Namespace) -> Namespace:
+    if args.checkpoint_dir is not None:
+        # Fetch all files from directory
+        for param, name in zip(
+            [args.model_config, args.model_state_dict, args.dataset, args.visualization],
+            ["--model-config", "--model-state-dict", "--dataset", "--visualization"],
+        ):
+            if param is not None:
+                logger.warning(f"Ignoring option {name}: using content pointed by --checkpoint-dir instead")
+        args.model_config = os.path.join(args.checkpoint_dir, "model_arch.yml")
+        args.model_state_dict = os.path.join(args.checkpoint_dir, "model_state.pth")
+        args.dataset = os.path.join(args.checkpoint_dir, "dataset.yml")
+        args.visualization = os.path.join(args.checkpoint_dir, "visualization.yml")
+
+    # Check configuration completeness
+    for param, name in zip(
+        [args.model_config, args.model_state_dict, args.dataset, args.visualization],
+        ["model", "state dictionary", "dataset", "visualization"],
+    ):
+        if param is None:
+            raise AttributeError(f"Missing {name} configuration file.")
+    return args
+
+
 def execute(args: Namespace) -> None:
     """Explain the decision of a cabrnet model.
 
@@ -60,6 +92,9 @@ def execute(args: Namespace) -> None:
         args: Parsed arguments.
 
     """
+    # Check and post-process options
+    args = check_args(args)
+
     # Build model and load state dictionary
     model: CaBRNet = CaBRNet.build_from_config(config_file=args.model_config, state_dict_path=args.model_state_dict)
     # Init visualizer

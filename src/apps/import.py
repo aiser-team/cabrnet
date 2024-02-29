@@ -1,5 +1,4 @@
 import os
-import torch
 from loguru import logger
 from cabrnet.generic.model import CaBRNet
 from cabrnet.utils.parser import load_config
@@ -21,13 +20,52 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     parser = create_dataset_parser(parser)
     parser = SimilarityVisualizer.create_parser(parser)
     parser.add_argument(
+        "--config-dir",
+        type=str,
+        required=False,
+        metavar="/path/to/config/dir",
+        help="path to directory containing all configuration files "
+        "(alternative to --model-config, --dataset, --training and --visualization)",
+    )
+    parser.add_argument(
         "--output-dir",
+        "-o",
         type=str,
         required=True,
         metavar="path/to/output/directory",
         help="path to output directory",
     )
     return parser
+
+
+def check_args(args: Namespace) -> Namespace:
+    if args.config_dir is not None:
+        # Fetch all files from directory
+        for param, name in zip(
+            [args.model_config, args.dataset, args.training, args.visualization],
+            ["--model-config", "--dataset", "--training", "--visualization"],
+        ):
+            if param is not None:
+                logger.warning(f"Ignoring option {name}: using content pointed by --config-dir instead")
+        args.model_config = os.path.join(args.config_dir, "model_arch.yml")
+        args.dataset = os.path.join(args.config_dir, "dataset.yml")
+        args.training = os.path.join(args.config_dir, "training.yml")
+        args.visualization = os.path.join(args.config_dir, "visualization.yml")
+
+    # Check configuration completeness
+    for param, name in zip(
+        [args.model_config, args.dataset, args.training, args.visualization, args.model_state_dict],
+        [
+            "model configuration",
+            "dataset configuration",
+            "training configuration",
+            "visualization configuration",
+            "model state",
+        ],
+    ):
+        if param is None:
+            raise AttributeError(f"Missing {name} file.")
+    return args
 
 
 def execute(args: Namespace) -> None:
@@ -37,6 +75,9 @@ def execute(args: Namespace) -> None:
         args: Parsed arguments.
 
     """
+    # Check and post-process options
+    args = check_args(args)
+
     model_config = args.model_config
     dataset_config = args.dataset
     training_config = args.training
