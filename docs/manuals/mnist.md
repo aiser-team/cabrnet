@@ -3,8 +3,8 @@
 ### Training
 ```bash
 cabrnet train --device cpu --seed 42 --verbose --logger-level INFO  \
-  --model-config configs/prototree/mnist/model.yml \
-  --dataset configs/prototree/mnist/data.yml \
+  --model-config configs/prototree/mnist/model_arch.yml \
+  --dataset configs/prototree/mnist/dataset.yml \
   --training configs/prototree/mnist/training.yml \
   --output-dir runs/mnist_prototree \
   --visualization configs/prototree/mnist/visualization.yml
@@ -15,7 +15,7 @@ This command trains a ProtoTree during one epoch, and stores the resulting check
 ### Global explanation
 ```bash
 cabrnet explain_global --verbose \
-  --model-config runs/mnist_prototree/final/model.yml \
+  --model-config runs/mnist_prototree/final/model_arch.yml \
   --model-state-dict runs/mnist_prototree/final/model_state.pth \
   --output-dir runs/mnist_prototree/global_explanation --prototype-dir runs/mnist_prototree/prototypes/
 ```
@@ -27,9 +27,9 @@ This command generates a global explanation for the ProtoTree model and stores t
 ### Local explanation
 ```bash
 cabrnet explain_local --verbose \
-  --model-config runs/mnist_prototree/final/model.yml  \
+  --model-config runs/mnist_prototree/final/model_arch.yml  \
   --model-state-dict runs/mnist_prototree/final/model_state.pth \
-  --dataset configs/prototree/mnist/data.yml \
+  --dataset configs/prototree/mnist/dataset.yml \
   --visualization configs/prototree/mnist/visualization.yml \
   --prototype-dir runs/mnist_prototree/prototypes/ \
   --output-dir runs/mnist_prototree/local_explanations/  \
@@ -44,8 +44,8 @@ This command generates a local explanation for the image stored in `examples/ima
 ### Training
 ```bash
 cabrnet train --device cpu --seed 42 --verbose --logger-level INFO  \
-  --model-config configs/protopnet/mnist/model.yml \
-  --dataset configs/protopnet/mnist/data.yml \
+  --model-config configs/protopnet/mnist/model_arch.yml \
+  --dataset configs/protopnet/mnist/dataset.yml \
   --training configs/protopnet/mnist/training.yml \
   --output-dir runs/mnist_protopnet \
   --visualization configs/protopnet/mnist/visualization.yml
@@ -56,7 +56,7 @@ This command trains a ProtoTree during one epoch, and stores the resulting check
 ### Global explanation
 ```bash
 cabrnet explain_global --verbose \
-  --model-config runs/mnist_protopnet/final/model.yml \
+  --model-config runs/mnist_protopnet/final/model_arch.yml \
   --model-state-dict runs/mnist_protopnet/final/model_state.pth \
   --output-dir runs/mnist_protopnet/global_explanation --prototype-dir runs/mnist_protopnet/prototypes/
 ```
@@ -68,9 +68,9 @@ This command generates a global explanation for the ProtoTree model and stores t
 ### Local explanation
 ```bash
 cabrnet explain_local --verbose \
-  --model-config runs/mnist_protopnet/final/model.yml  \
+  --model-config runs/mnist_protopnet/final/model_arch.yml  \
   --model-state-dict runs/mnist_protopnet/final/model_state.pth \
-  --dataset configs/protopnet/mnist/data.yml \
+  --dataset configs/protopnet/mnist/dataset.yml \
   --visualization configs/protopnet/mnist/visualization.yml \
   --prototype-dir runs/mnist_protopnet/prototypes/ \
   --output-dir runs/mnist_protopnet/local_explanations/  \

@@ -131,8 +131,8 @@ class TestProtoTreeCompatibility(unittest.TestCase):
 
         # Test configuration
         test_dir = os.path.dirname(os.path.realpath(__file__))
-        self.model_config_file = os.path.join(test_dir, "model.yml")
-        self.dataset_config_file = os.path.join(test_dir, "data.yml")
+        self.model_config_file = os.path.join(test_dir, "model_arch.yml")
+        self.dataset_config_file = os.path.join(test_dir, "dataset.yml")
         self.training_config_file = os.path.join(test_dir, "training.yml")
         self.legacy_state_dict = os.path.join(test_dir, "legacy_state.pth")
 
@@ -262,7 +262,7 @@ class TestProtoTreeCompatibility(unittest.TestCase):
         # CaBRNet
         setup_rng(self.seed)
         cabrnet_model = CaBRNet.build_from_config(self.model_config_file, seed=self.seed, compatibility_mode=True)
-        cabrnet_model.load_legacy_state_dict(torch.load(self.legacy_state_dict, map_location="cpu"))
+        cabrnet_model.load_state_dict(torch.load(self.legacy_state_dict, map_location="cpu"))
 
         # Legacy
         setup_rng(self.seed)
@@ -330,7 +330,7 @@ class TestProtoTreeCompatibility(unittest.TestCase):
         # CaBRNet
         setup_rng(self.seed)
         cabrnet_model = CaBRNet.build_from_config(self.model_config_file, seed=self.seed, compatibility_mode=True)
-        cabrnet_model.load_legacy_state_dict(torch.load(self.legacy_state_dict, map_location="cpu"))
+        cabrnet_model.load_state_dict(torch.load(self.legacy_state_dict, map_location="cpu"))
         cabrnet_model.eval()
         yc_distributed = cabrnet_model(torch.randn((10, 3, 224, 224)), strategy=SamplingStrategy.DISTRIBUTED)[0]
         yc_sample_max = cabrnet_model(torch.randn((10, 3, 224, 224)), strategy=SamplingStrategy.SAMPLE_MAX)[0]
@@ -354,7 +354,7 @@ class TestProtoTreeCompatibility(unittest.TestCase):
         # CaBRNet
         setup_rng(self.seed)
         cabrnet_model = CaBRNet.build_from_config(self.model_config_file, seed=self.seed, compatibility_mode=True)
-        cabrnet_model.load_legacy_state_dict(torch.load(self.legacy_state_dict, map_location="cpu"))
+        cabrnet_model.load_state_dict(torch.load(self.legacy_state_dict, map_location="cpu"))
         cabrnet_model.prune(pruning_threshold=0.01)
 
         # Legacy
@@ -370,7 +370,7 @@ class TestProtoTreeCompatibility(unittest.TestCase):
         setup_rng(self.seed)
         cabrnet_model = CaBRNet.build_from_config(self.model_config_file, seed=self.seed, compatibility_mode=True)
         dataloaders = get_dataloaders(config_file=self.dataset_config_file)
-        cabrnet_model.load_legacy_state_dict(torch.load(self.legacy_state_dict, map_location="cpu"))
+        cabrnet_model.load_state_dict(torch.load(self.legacy_state_dict, map_location="cpu"))
         cabrnet_model.prune(pruning_threshold=0.01)
         cabrnet_projection_info = cabrnet_model.project(
             data_loader=dataloaders["projection_set"], device=self.device, verbose=True

@@ -4,7 +4,7 @@ import argparse
 import importlib
 import shutil
 import os.path
-from typing import Any, Callable
+from typing import Any, Callable, Mapping
 import torch
 import torch.nn as nn
 from loguru import logger
@@ -67,7 +67,7 @@ class CaBRNet(nn.Module):
         x = self.extractor(x, **kwargs)
         return self.classifier.similarity_layer.L2_square_distance(x, self.classifier.prototypes)
 
-    def load_legacy_state_dict(self, legacy_state: dict) -> None:
+    def _load_legacy_state_dict(self, legacy_state: Mapping[str, Any]) -> None:
         """Load state dictionary from legacy format
 
         Args:
@@ -87,7 +87,7 @@ class CaBRNet(nn.Module):
     @staticmethod
     def create_parser(
         parser: argparse.ArgumentParser | None = None,
-        mandatory_config: bool = True,
+        mandatory_config: bool = False,
         skip_state_dict: bool = False,
     ) -> argparse.ArgumentParser:
         """Create the argument parser for a CaBRNet model.
@@ -110,7 +110,7 @@ class CaBRNet(nn.Module):
         if not skip_state_dict:
             parser.add_argument(
                 "--model-state-dict",
-                required=True,
+                required=mandatory_config,
                 metavar="/path/to/model/state.pth",
                 help="path to the model state dictionary",
             )
@@ -152,7 +152,9 @@ class CaBRNet(nn.Module):
         if state_dict_path is not None:
             # Disable parameter loading when building the extractor, since all weights will eventually be overwritten
             config_dict["extractor"]["backbone"]["weights"] = None
-        extractor = ConvExtractor.build_from_dict(config_dict["extractor"], seed=seed)
+        extractor = ConvExtractor.build_from_dict(
+            config_dict["extractor"], seed=seed, disable_weight_logs=(state_dict_path is not None)
+        )
 
         # Build classifier
         classifier_config = config_dict["classifier"]
@@ -373,8 +375,11 @@ class CaBRNet(nn.Module):
         os.makedirs(dir_path, exist_ok=True)
         # Copy visualizer configuration file
         if os.path.isfile(visualizer.config_file):  # type: ignore
-            if os.path.join(dir_path, "visualization.yml") != visualizer.config_file:
+            try:
                 shutil.copyfile(src=visualizer.config_file, dst=os.path.join(dir_path, "visualization.yml"))  # type: ignore
+            except shutil.SameFileError:
+                logger.warning(f"Ignoring file copy from {visualizer.config_file} to itself.")
+                pass
 
         # Show progress on progress bar if needed
         data_iter = tqdm(

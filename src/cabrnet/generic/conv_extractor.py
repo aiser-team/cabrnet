@@ -26,7 +26,13 @@ class ConvExtractor(nn.Module):
     """
 
     def __init__(
-        self, arch: str, weights: str | None, layer: str, add_on: dict[str, dict], seed: int | None = None
+        self,
+        arch: str,
+        weights: str | None,
+        layer: str,
+        add_on: dict[str, dict],
+        seed: int | None = None,
+        disable_weight_logs: bool = False,
     ) -> None:
         """Initialize ConvExtractor.
 
@@ -36,15 +42,18 @@ class ConvExtractor(nn.Module):
             layer: Layer to inspect.
             add_on: Add-on layers configuration.
             seed: Random seed (used only to resynchronise random number generators in compatibility tests)
+            disable_weight_logs: Disable logger messages regarding model weights (they will be overwritten later on)
         """
         super(ConvExtractor, self).__init__()
         assert arch.lower() in torch_models.list_models(), f"Unsupported model architecture: {arch}"
 
         if weights is None:
-            logger.warning(f"Random initialisation of feature extractor with architecture {arch}")
+            if not disable_weight_logs:
+                logger.warning(f"Random initialisation of feature extractor with architecture {arch}")
             model = torch_models.get_model(arch)
         elif os.path.isfile(weights):
-            logger.info(f"Loading state dict for feature extractor: {weights}")
+            if not disable_weight_logs:
+                logger.info(f"Loading state dict for feature extractor: {weights}")
             loaded_weights = torch.load(weights, map_location="cpu")
             model = torch_models.get_model(arch)
             if isinstance(loaded_weights, dict):
@@ -54,7 +63,8 @@ class ConvExtractor(nn.Module):
             else:
                 raise ValueError(f"Unsupported weights type: {type(loaded_weights)}")
         elif hasattr(torch_models.get_model_weights(arch), weights):
-            logger.info(f"Loading pytorch weights: {weights}")
+            if not disable_weight_logs:
+                logger.info(f"Loading pytorch weights: {weights}")
             loaded_weights = getattr(torch_models.get_model_weights(arch), weights)
             model = torch_models.get_model(arch, weights=loaded_weights)
         else:
@@ -150,12 +160,18 @@ class ConvExtractor(nn.Module):
         return add_on, in_channels
 
     @staticmethod
-    def build_from_dict(config: dict[str, dict], seed: int | None = None) -> nn.Module:
+    def build_from_dict(
+        config: dict[str, dict],
+        seed: int | None = None,
+        disable_weight_logs: bool = False,
+    ) -> nn.Module:
         """
         Builds a ConvExtractor from a configuration dictionary.
         Args:
             config: Configuration dictionary
             seed: Random seed (used only to resynchronise random number generators in compatibility tests)
+            disable_weight_logs: Disable logger messages regarding model weights (they will be overwritten later on)
+
         Returns:
             ConvExtractor
 
@@ -171,5 +187,10 @@ class ConvExtractor(nn.Module):
         backbone = config["backbone"]
         add_on = config.get("add_on")
         return ConvExtractor(
-            arch=backbone["arch"], weights=backbone["weights"], layer=backbone["layer"], add_on=add_on, seed=seed  # type: ignore
+            arch=backbone["arch"],
+            weights=backbone["weights"],
+            layer=backbone["layer"],
+            add_on=add_on,
+            seed=seed,
+            disable_weight_logs=disable_weight_logs,
         )

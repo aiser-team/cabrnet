@@ -1,4 +1,4 @@
-import sys
+import os
 from argparse import ArgumentParser, Namespace
 from loguru import logger
 from cabrnet.generic.model import CaBRNet
@@ -16,7 +16,15 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         parser = ArgumentParser(description)
     parser = CaBRNet.create_parser(parser)
     parser.add_argument(
+        "--checkpoint-dir",
+        type=str,
+        required=False,
+        metavar="/path/to/checkpoint/dir",
+        help="path to a checkpoint directory (alternative to --model-config, --model-state-dict)",
+    )
+    parser.add_argument(
         "--output-dir",
+        "-o",
         type=str,
         required=True,
         metavar="path/to/output/directory",
@@ -32,6 +40,28 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     return parser
 
 
+def check_args(args: Namespace) -> Namespace:
+    if args.checkpoint_dir is not None:
+        # Fetch all files from directory
+        for param, name in zip(
+            [args.model_config, args.model_state_dict],
+            ["--model-config", "--model-state-dict"],
+        ):
+            if param is not None:
+                logger.warning(f"Ignoring option {name}: using content pointed by --checkpoint-dir instead")
+        args.model_config = os.path.join(args.checkpoint_dir, "model_arch.yml")
+        args.model_state_dict = os.path.join(args.checkpoint_dir, "model_state.pth")
+
+    # Check configuration completeness
+    for param, name in zip(
+        [args.model_config, args.model_state_dict],
+        ["model", "state dictionary"],
+    ):
+        if param is None:
+            raise AttributeError(f"Missing {name} configuration file.")
+    return args
+
+
 def execute(args: Namespace) -> None:
     """Explain the global behaviour of a CaBRNet classifier
 
@@ -39,6 +69,9 @@ def execute(args: Namespace) -> None:
         args: Parsed arguments.
 
     """
+    # Check and post-process options
+    args = check_args(args)
+
     # Build model and load state dictionary
     model: CaBRNet = CaBRNet.build_from_config(config_file=args.model_config, state_dict_path=args.model_state_dict)
 

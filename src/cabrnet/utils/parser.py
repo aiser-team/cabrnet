@@ -21,4 +21,4 @@ def load_config(config_file: str) -> dict:
     if file_ext in [".yml", ".yaml"]:
         with open(config_file, "r", encoding="utf-8") as file:
             return yaml.safe_load(file)
-    raise ValueError("Unsupported file format, only YAML is supported.")
+    raise ValueError(f"Error opening {config_file}. Unsupported file format, only YAML is supported.")

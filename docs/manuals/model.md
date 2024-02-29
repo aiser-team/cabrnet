@@ -1,7 +1,7 @@
 # Model configuration
 The specification of a CaBRNet model architecture is stored in a YML file, according to the following specification.
-For more examples, see the [ProtoPNet](https://git.frama-c.com/pub/cabrnet/-/tree/master/configs/protopnet/model.yml) and 
-[ProtoTree](https://git.frama-c.com/pub/cabrnet/-/tree/master/configs/prototree/model.yml) configuration files.
+For more examples, see the [ProtoPNet](https://git.frama-c.com/pub/cabrnet/-/tree/master/configs/protopnet/model_arch.yml) and 
+[ProtoTree](https://git.frama-c.com/pub/cabrnet/-/tree/master/configs/prototree/model_arch.yml) configuration files.
 
 As shown below, each CaBRNet model is composed of:
 

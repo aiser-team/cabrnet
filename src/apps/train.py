@@ -1,7 +1,6 @@
 """Declare the necessary functions to create an app to train a CaBRNet classifier."""
 
 import os
-import sys
 from argparse import ArgumentParser, Namespace
 from loguru import logger
 from tqdm import tqdm
@@ -23,9 +22,9 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     """
     if parser is None:
         parser = ArgumentParser(description)
-    parser = CaBRNet.create_parser(parser, mandatory_config=False, skip_state_dict=True)
-    parser = create_dataset_parser(parser, mandatory_config=False)
-    parser = create_training_parser(parser, mandatory_config=False)
+    parser = CaBRNet.create_parser(parser, skip_state_dict=True)
+    parser = create_dataset_parser(parser)
+    parser = create_training_parser(parser)
     parser = SimilarityVisualizer.create_parser(parser)
     parser.add_argument(
         "--output-dir",
@@ -34,11 +33,20 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         metavar="path/to/output/directory",
         help="path to output directory",
     )
-    parser.add_argument(
+    x_group = parser.add_mutually_exclusive_group(required=False)
+    x_group.add_argument(
         "--resume-from",
         type=str,
         metavar="/path/to/checkpoint/directory",
-        help="path to existing checkpoint directory",
+        help="path to existing checkpoint directory to resume training",
+    )
+    x_group.add_argument(
+        "--start-from",
+        type=str,
+        required=False,
+        metavar="/path/to/config/dir",
+        help="path to directory containing all configuration files to start training "
+        "(alternative to --model-config, --dataset, --training and --visualization)",
     )
     parser.add_argument(
         "--save-best",
@@ -70,6 +78,43 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     return parser
 
 
+def check_args(args: Namespace) -> Namespace:
+    """Checks for three possible modes:
+
+    - "--resume-from": in this case, ignore options --model-config, --dataset, --training and --visualization
+    - "--start-from": in this case, ignore options --model-config, --dataset, --training and --visualization
+    - "--model-config", "--dataset", "--training" and "--visualization": in this case, all options are mandatory
+    """
+    for dir_path, option_name in zip([args.resume_from, args.start_from], ["--resume-from", "--start-from"]):
+        if dir_path is not None:
+            for param, name in zip(
+                [args.model_config, args.dataset, args.training, args.visualization],
+                ["--model-config", "--dataset", "--training", "--visualization"],
+            ):
+                if param is not None:
+                    logger.warning(f"Ignoring option {name}: using content pointed by {option_name} instead")
+            args.model_config = os.path.join(dir_path, "model_arch.yml")
+            # Compatibility with v0.1: will be removed in the future
+            if os.path.isfile(os.path.join(dir_path, "model.yml")):
+                args.model_config = os.path.join(dir_path, "model.yml")
+                logger.warning(
+                    f"Using model.yml from {dir_path}: "
+                    f"please consider renaming the file to model_arch.yml to ensure compatibility with future versions"
+                )
+            args.dataset = os.path.join(dir_path, "dataset.yml")
+            args.training = os.path.join(dir_path, "training.yml")
+            args.visualization = os.path.join(dir_path, "visualization.yml")
+
+    for param, name in zip(
+        [args.model_config, args.dataset, args.training, args.visualization],
+        ["model", "dataset", "training", "visualization"],
+    ):
+        if param is None:
+            raise AttributeError(f"Missing {name} configuration file.")
+
+    return args
+
+
 def metrics_to_str(metrics: dict[str, float]) -> str:
     """Controls number of digits when showing batch statistics"""
     return ", ".join([f"{key}: {value:.3f}" for key, value in metrics.items()])
@@ -82,30 +127,15 @@ def execute(args: Namespace) -> None:
         args: Parsed arguments.
 
     """
-    # Recover common options
+    # Check and post-process options
+    args = check_args(args)
+
+    # Recover options
     verbose = args.verbose
     device = args.device
-
-    if args.training is None and args.resume_from is None:
-        raise AttributeError("Missing training configuration file. Use option --training or --resume-from.")
-
-    if args.resume_from is not None:
-        if args.training is not None:
-            logger.warning(
-                f"Ignoring training configuration file {args.training}. "
-                f"Will use checkpoint file {os.path.join(args.resume_from, 'training.yml')}"
-            )
-        training_config = os.path.join(args.resume_from, "training.yml")
-        model_config = os.path.join(args.resume_from, "model.yml")
-        dataset_config = os.path.join(args.resume_from, "dataset.yml")
-    else:
-        # Check that mandatory options are present
-        for mandatory_field in ["training", "model_config", "dataset"]:
-            if getattr(args, mandatory_field) is None:
-                raise AttributeError(f"Missing option: {mandatory_field}")
-        training_config = args.training
-        model_config = args.model_config
-        dataset_config = args.dataset
+    training_config = args.training
+    model_config = args.model_config
+    dataset_config = args.dataset
 
     model: CaBRNet = CaBRNet.build_from_config(config_file=model_config, seed=args.seed)
 
@@ -132,7 +162,9 @@ def execute(args: Namespace) -> None:
         start_epoch = state["epoch"] + 1
         seed = state["seed"]
         train_info = state["stats"]
-        best_metric = train_info["avg_train_accuracy"] if args.save_best == "acc" else train_info["avg_loss"]
+        best_metric = train_info.get(f"best_avg_train_{args.save_best}")
+        if best_metric is None:
+            raise AttributeError(f"Could not recover best model {args.save_best}: invalid --save-best option?")
         # Remap optimizer to device if necessary
         optimizer_mngr.to(device)
     else:
@@ -184,6 +216,8 @@ def execute(args: Namespace) -> None:
         elif args.save_best == "loss" and best_metric > train_info["avg_loss"]:
             best_metric = train_info["avg_loss"]
             save_best_checkpoint = True
+        # Add information regarding current best metric
+        train_info[f"best_avg_train_{args.save_best}"] = best_metric
 
         if save_best_checkpoint:
             logger.info(f"Better model found at epoch {epoch}. Metrics: {metrics_to_str(train_info)}")
@@ -194,6 +228,7 @@ def execute(args: Namespace) -> None:
                 optimizer_mngr=optimizer_mngr,
                 training_config=training_config,
                 dataset_config=dataset_config,
+                visualization_config=args.visualization,
                 epoch=epoch,
                 seed=seed,
                 device=device,
@@ -207,6 +242,7 @@ def execute(args: Namespace) -> None:
                 optimizer_mngr=optimizer_mngr,
                 training_config=training_config,
                 dataset_config=dataset_config,
+                visualization_config=args.visualization,
                 epoch=epoch,
                 seed=seed,
                 device=device,
@@ -241,6 +277,7 @@ def execute(args: Namespace) -> None:
         optimizer_mngr=None,
         training_config=training_config,
         dataset_config=dataset_config,
+        visualization_config=args.visualization,
         epoch="final",
         seed=seed,
         device=device,

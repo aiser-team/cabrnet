@@ -312,7 +312,7 @@ class OptimizerManager:
 
 
 def create_training_parser(
-    parser: argparse.ArgumentParser | None = None, mandatory_config: bool = True
+    parser: argparse.ArgumentParser | None = None, mandatory_config: bool = False
 ) -> argparse.ArgumentParser:
     """Create the argument parser for CaBRNet training configuration.
 
