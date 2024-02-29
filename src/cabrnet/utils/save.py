@@ -19,6 +19,7 @@ def save_checkpoint(
     optimizer_mngr: OptimizerManager | None,
     training_config: str | None,
     dataset_config: str,
+    visualization_config: str,
     epoch: int | str,
     seed: int | None,
     device: str,
@@ -33,6 +34,7 @@ def save_checkpoint(
         optimizer_mngr: Optimizer manager
         training_config: Path to the training configuration file
         dataset_config: Path to the dataset configuration file
+        visualization_config: Path to the visualization configuration file
         epoch: Current epoch
         seed: Initial random seed (recorded for reproducibility)
         device: Target hardware device (recorded for reproducibility)
@@ -57,6 +59,7 @@ def save_checkpoint(
     if training_config is not None:
         safe_copy(src=training_config, dst=os.path.join(directory_path, "training.yml"))
     safe_copy(src=dataset_config, dst=os.path.join(directory_path, "dataset.yml"))
+    safe_copy(src=visualization_config, dst=os.path.join(directory_path, "visualization.yml"))
 
     state = {
         "random_generators": {

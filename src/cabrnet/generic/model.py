@@ -375,8 +375,11 @@ class CaBRNet(nn.Module):
         os.makedirs(dir_path, exist_ok=True)
         # Copy visualizer configuration file
         if os.path.isfile(visualizer.config_file):  # type: ignore
-            if os.path.join(dir_path, "visualization.yml") != visualizer.config_file:
+            try:
                 shutil.copyfile(src=visualizer.config_file, dst=os.path.join(dir_path, "visualization.yml"))  # type: ignore
+            except shutil.SameFileError:
+                logger.warning(f"Ignoring file copy from {visualizer.config_file} to itself.")
+                pass
 
         # Show progress on progress bar if needed
         data_iter = tqdm(
