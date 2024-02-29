@@ -83,3 +83,4 @@ This allows the user to access raw images rather than their preprocessed counter
 More precisely, each dataset specified in the configuration file produces two dataloaders:
     - `<DATASET_NAME>`: Dataloader returning preprocessed data
     - `<DATASET_NAME>_raw`: Dataloader returning raw data (see above)
+

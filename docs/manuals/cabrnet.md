@@ -142,6 +142,7 @@ Similar to the `--start-from` option in `cabrnet train`, the `--checkpoint-dir <
 Prototype-based architectures provide both global and local explanations:
 - global explanations provide an overview of the decision-making process of the entire model.
 - local explanations provide information regarding a particular decision (for a particular image). 
+
 ### Global explanations
 A global explanation is generated using the `explain_global` method of a CaBRNet model (see the 
 [ProtoTree example](../API/reference/cabrnet/prototree/model.md#explain_global)). To generate such an explanation, 
@@ -196,7 +197,9 @@ np.random.seed(seed)
 random.seed(seed)
 ```
 Additionally, CaBRNet use a pytorch feature called [torch.use_deterministic_algorithm](https://pytorch.org/docs/stable/generated/torch.use_deterministic_algorithms.html),
-which ensures reproducible results for a given hardware/software configuration. IMPORTANT NOTE: for compatibility reasons,
+which ensures reproducible results for a given hardware/software configuration. 
+
+**IMPORTANT NOTE**: for compatibility reasons,
 it might be necessary to manually set the `CUBLAS_WORKSPACE_CONFIG` environment variable before launching the CaBRNet 
 main tool.
 ```bash
@@ -216,3 +219,4 @@ In other words, a model in `eval()` mode does not return the same outputs depend
 (and the target hardware). While this effect is limited when performing traditional linear operations (the tensors are usually `allclose` from pytorch point of view), 
 the use of the **L2 distance between vectors tends to amplify the phenomenon**. In particular, this may have an effect during prototype projection, where an image patch may
 be considered closer or farther than another patch depending on the batch size.
+
