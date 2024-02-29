@@ -4,7 +4,7 @@ All CaBRNet applications are accessible through a single front-end script. To li
 cabrnet --help
 ```
 ```
-usage: cabrnet [-h] {download_examples,evaluate,train,import,explain,explain_global} ...
+usage: cabrnet [-h] [--version] {download_examples,evaluate,train,import,explain,explain_global} ...
 
 CaBRNet front-end
 
@@ -20,6 +20,7 @@ positional arguments:
 
 options:
   -h, --help            show this help message and exit
+  --version, -V         show program's version number and exit
 ```
 To obtain the documentation for a specific application, simple enter `cabrnet <app_name> --help`, *e.g.*:
 ```bash
@@ -31,7 +32,6 @@ it is also easy to [add new applications](applications.md).
 ## Common options
 Some options are present in all applications:
 
-- `--version|-V` allows to check the version of the CaBRNet library.
 - `--device DEVICE` allows to specify a target hardware device (by default, it is set to `cuda:0`).
 - `--seed|-s SEED` allows to specify the random seed to improve the [reproducibility](#reproducibility) of all
 experiments (by default, it is set to 42, as it should be ;)).
