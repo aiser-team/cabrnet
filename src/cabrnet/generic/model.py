@@ -87,7 +87,7 @@ class CaBRNet(nn.Module):
     @staticmethod
     def create_parser(
         parser: argparse.ArgumentParser | None = None,
-        mandatory_config: bool = True,
+        mandatory_config: bool = False,
         skip_state_dict: bool = False,
     ) -> argparse.ArgumentParser:
         """Create the argument parser for a CaBRNet model.
@@ -110,7 +110,7 @@ class CaBRNet(nn.Module):
         if not skip_state_dict:
             parser.add_argument(
                 "--model-state-dict",
-                required=True,
+                required=mandatory_config,
                 metavar="/path/to/model/state.pth",
                 help="path to the model state dictionary",
             )
