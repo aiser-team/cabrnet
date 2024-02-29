@@ -80,9 +80,12 @@ CaBRNet assumes that the high-level training process is common to all prototype-
 - The model is initialized, usually from a pre-trained convolutional neural network that is used as a feature extractor 
 (backbone), and with random prototypes.
 - The model is trained for several epochs, modifying the values of the prototypes and the weights of the backbone.
-- The prototypes are *projected* to their closest vectors from a projection dataset (usually the training set).
-- The visualization of each prototype is generated and stored in the `prototypes/` subdirectory.
-- An optional *epilogue* takes place, usually to prune weak prototypes.
+- An optional *epilogue* takes place, in which:
+    - The prototypes are *projected* to their closest vectors from a projection dataset (usually the training set).
+    - The visualization of each prototype is generated and stored in the `prototypes/` subdirectory.
+    - Weak prototypes are pruned.
+
+Note that the order of operations in the epilogue depends on the chosen architecture.
 
 ## Importing a legacy model
 To avoid restarting previous computations performed using the codes provided by the original authors,
