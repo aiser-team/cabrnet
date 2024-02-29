@@ -11,7 +11,7 @@ from torch.utils.data import DataLoader, Dataset
 
 
 def create_dataset_parser(
-    parser: argparse.ArgumentParser | None = None, mandatory_config: bool = True
+    parser: argparse.ArgumentParser | None = None, mandatory_config: bool = False
 ) -> argparse.ArgumentParser:
     """Create the argument parser for CaBRNet datasets.
 

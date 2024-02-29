@@ -88,10 +88,12 @@ class SimilarityVisualizer(nn.Module):
     @staticmethod
     def create_parser(
         parser: argparse.ArgumentParser | None = None,
+        mandatory_config: bool = False,
     ) -> argparse.ArgumentParser:
         """Create the argument parser for a ProtoVisualizer.
         Args:
             parser: Existing parser (if any)
+            mandatory_config: Make configuration mandatory
 
         Returns:
             The parser itself.
@@ -100,7 +102,7 @@ class SimilarityVisualizer(nn.Module):
             parser = argparse.ArgumentParser(description="Build a ProtoVisualizer")
         parser.add_argument(
             "--visualization",
-            required=True,
+            required=mandatory_config,
             metavar="/path/to/file.yml",
             help="path to the visualization configuration file",
         )
