@@ -32,5 +32,5 @@ pydoc-markdown
 ## Generating the mkdocs website
 Use the following command to generate the mkdocs documentation website
 ```bash
-mkdocs build
+mkdocs build -f docs/mkdocs.yml
 ```
