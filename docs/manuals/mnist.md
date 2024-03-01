@@ -19,7 +19,7 @@ cabrnet explain_global --verbose \
   --model-state-dict runs/mnist_prototree/final/model_state.pth \
   --output-dir runs/mnist_prototree/global_explanation --prototype-dir runs/mnist_prototree/prototypes/
 ```
-This command generates a global explanation for the ProtoTree model and stores the result in 
+This command generates a global explanation for the ProtoTree model in 
 `runs/mnist_prototree/global_explanation`.
 
 ![prototree mnist global explanation](../imgs/prototree_mnist_global_explanation.png)
@@ -50,7 +50,7 @@ cabrnet train --device cpu --seed 42 --verbose --logger-level INFO  \
   --output-dir runs/mnist_protopnet \
   --visualization configs/protopnet/mnist/visualization.yml
 ```
-This command trains a ProtoTree during one epoch, and stores the resulting checkpoint in 
+This command trains a ProtoPNet during one epoch, and stores the resulting checkpoint in 
 `runs/mnist_protopnet/final`.
 
 ### Global explanation
@@ -60,7 +60,7 @@ cabrnet explain_global --verbose \
   --model-state-dict runs/mnist_protopnet/final/model_state.pth \
   --output-dir runs/mnist_protopnet/global_explanation --prototype-dir runs/mnist_protopnet/prototypes/
 ```
-This command generates a global explanation for the ProtoTree model and stores the result in 
+This command generates a global explanation for the ProtoPNet model in 
 `runs/mnist_protopnet/global_explanation`.
 
 ![protopnet mnist global explanation](../imgs/protopnet_mnist_global_explanation.png)
@@ -76,7 +76,7 @@ cabrnet explain_local --verbose \
   --output-dir runs/mnist_protopnet/local_explanations/  \
   --image examples/images/mnist_sample.png
 ```
-This command generates a local explanation for the image stored in `examples/images/mnist_sample.png` and stores the result in 
+This command generates a local explanation for the image `examples/images/mnist_sample.png` and stores the result in 
 `runs/mnist_protopnet/local_explanation`.
 
 ![protopnet mnist local explanation](../imgs/protopnet_mnist_local_explanation.png)

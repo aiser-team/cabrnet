@@ -93,7 +93,7 @@ epilogue:
 ```
 
 ## Creating an Optimizer Manager
-CaBRNet provides a class [OptimizerManager](../API/reference/cabrnet/utils/optimizers.md#optimizermanager-objects) in charge of parsing the configuration file 
+CaBRNet provides a class [OptimizerManager](https://git.frama-c.com/pub/cabrnet/-/blob/master/src/cabrnet/utils/optimizers.py) in charge of parsing the configuration file 
 and handling optimizers/schedulers during the training process.
 ```python
 from cabrnet.utils.optimizers import OptimizerManager
@@ -110,4 +110,5 @@ An Optimizer Manager provides four main functions that are used during training:
 - `zero_grad()`: Reset all optimizer(s) gradients (before each batch of data)
 - `freeze(epoch: int)`: Freeze all relevant model parameters, according to the current `epoch`.
 - `optimizer_step(epoch: int)`: Move all relevant optimizers forward (step), according to the current `epoch`. 
-- `scheduler_step(epoch: int)`: Move all relevant schedulers forward (step), according to the current `epoch`. 
+- `scheduler_step(epoch: int)`: Move all relevant schedulers forward (step), according to the current `epoch`.
+

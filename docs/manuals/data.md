@@ -71,7 +71,7 @@ unless they are regrouped into a `RandomOrder` or `RandomChoice` block.
 ## Creating datasets and dataloaders
 CaBRNet provides two main functions for creating datasets and dataloaders from a configuration file:
 
-- [get_datasets](../API/reference/cabrnet/utils/data.md#get_datasets) parses the configuration file and returns a dictionary of entries, indexed by the name of the 
+- `get_datasets` parses the configuration file and returns a dictionary of entries, indexed by the name of the 
 dataset. Each entry is a dictionary containing the following information:
     - `dataset`: A dataset object of the class given in the configuration file, with data preprocessing as specified in 
 the `transform` and `target_transform` keywords.
@@ -79,7 +79,8 @@ the `transform` and `target_transform` keywords.
 This allows the user to access raw images rather than their preprocessed counterparts.
     - `batch_size`: Size of each batch. Used when building a dataloader from the dataset.
     - `shuffle` (True or False): Whether data should be shuffled. Used when building a dataloader from the dataset.
-- [get_dataloaders](../API/reference/cabrnet/utils/data.md#get_dataloaders) parses the configuration file and returns a dictionary of dataloaders. 
+- `get_dataloaders` parses the configuration file and returns a dictionary of dataloaders. 
 More precisely, each dataset specified in the configuration file produces two dataloaders:
     - `<DATASET_NAME>`: Dataloader returning preprocessed data
     - `<DATASET_NAME>_raw`: Dataloader returning raw data (see above)
+

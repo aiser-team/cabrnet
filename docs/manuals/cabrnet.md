@@ -108,7 +108,7 @@ Here is a short description of the options. As in `cabrnet train`:
 to initialize the model.
 - `--output-dir path/to/output/directory` indicates where to store the imported model.
 
-Note that after the loading the CaBRNet model with the parameters of the legacy model (feature extractor, prototypes, etc),
+Note that after the loading the CaBRNet model with the parameters of the legacy model (feature extractor, prototypes, etc.),
 CaBRNet **finalizes the import process by projecting and extracting the prototypes** and performing the optional epilogue if necessary.
 Therefore, the `cabrnet import` tool also requires the following information:
 
@@ -127,8 +127,8 @@ Similar to the `--start-from` option in `cabrnet train`, the `--config-dir <dir>
 After training, it is possible to evaluate the loss and accuracy of a model using the `cabrnet evaluate` tool. 
 To evaluate a model, the tool uses the following options:
 
-- `--model-config /path/to/file.yml` indicates how to [build the model](model.md). In addition,
-`--model-state-dict /path/to/model/state.pth` indicates
+- `--model-config /path/to/file.yml` indicates how to [build the model](model.md).
+- `--model-state-dict /path/to/model/state.pth` indicates
 the location of a CaBRNet or legacy state dictionary that should be used to initialize the model.
 - `--dataset|-d /path/to/file.yml` indicates how to [load and prepare the test data for the evaluation](data.md).
 
@@ -142,9 +142,10 @@ Similar to the `--start-from` option in `cabrnet train`, the `--checkpoint-dir <
 Prototype-based architectures provide both global and local explanations:
 - global explanations provide an overview of the decision-making process of the entire model.
 - local explanations provide information regarding a particular decision (for a particular image). 
+
 ### Global explanations
 A global explanation is generated using the `explain_global` method of a CaBRNet model (see the 
-[ProtoTree example](../API/reference/cabrnet/prototree/model.md#explain_global)). To generate such an explanation, 
+[MNIST example](mnist.md)). To generate such an explanation, 
 the tool uses the following options:
 
 - `--model-config /path/to/file.yml` and `--model-state-dict /path/to/model/state.pth` indicate how to 
@@ -160,7 +161,7 @@ Similar to `cabrnet evaluate`, the `--checkpoint-dir <dir>` option is equivalent
 
 ### Local explanations
 A local explanation is generated using the `explain` method of the CaBRNet model (see the 
-[ProtoTree example](../API/reference/cabrnet/prototree/model.md#explain)). To generate such an explanation, the tool uses the following options:
+[MNIST example](mnist.md)). To generate such an explanation, the tool uses the following options:
 
 - `--model-config /path/to/file.yml` and `--model-state-dict /path/to/model/state.pth` indicate how to 
 [build and initialize the model](model.md).
@@ -196,7 +197,9 @@ np.random.seed(seed)
 random.seed(seed)
 ```
 Additionally, CaBRNet use a pytorch feature called [torch.use_deterministic_algorithm](https://pytorch.org/docs/stable/generated/torch.use_deterministic_algorithms.html),
-which ensures reproducible results for a given hardware/software configuration. IMPORTANT NOTE: for compatibility reasons,
+which ensures reproducible results for a given hardware/software configuration. 
+
+**IMPORTANT NOTE**: for compatibility reasons,
 it might be necessary to manually set the `CUBLAS_WORKSPACE_CONFIG` environment variable before launching the CaBRNet 
 main tool.
 ```bash
@@ -216,3 +219,4 @@ In other words, a model in `eval()` mode does not return the same outputs depend
 (and the target hardware). While this effect is limited when performing traditional linear operations (the tensors are usually `allclose` from pytorch point of view), 
 the use of the **L2 distance between vectors tends to amplify the phenomenon**. In particular, this may have an effect during prototype projection, where an image patch may
 be considered closer or farther than another patch depending on the batch size.
+
