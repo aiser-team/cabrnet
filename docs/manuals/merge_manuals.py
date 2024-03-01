@@ -10,6 +10,8 @@ md_files = [
     "training.md",
     "visualize.md",
     "mnist.md",
+    "legacy.md",
+    "download.md",
 ]
 
 

@@ -26,3 +26,4 @@ To check compatibility, simply run
 python3 src/legacy/compatibility_tests/prototree/test_compatibility.py  -v
 python3 src/legacy/compatibility_tests/protopnet/test_compatibility.py  -v
 ```
+
