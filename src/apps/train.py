@@ -28,6 +28,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     parser = SimilarityVisualizer.create_parser(parser)
     parser.add_argument(
         "--output-dir",
+        "-o",
         type=str,
         required=True,
         metavar="path/to/output/directory",
