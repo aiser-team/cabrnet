@@ -5,7 +5,7 @@ from argparse import ArgumentParser, Namespace
 from loguru import logger
 from cabrnet.generic.model import CaBRNet
 from cabrnet.utils.data import create_dataset_parser, get_dataset_transform
-from cabrnet.visualisation.visualizer import SimilarityVisualizer
+from cabrnet.visualization.visualizer import SimilarityVisualizer
 
 description = "explain the decision of a CaBRNet classifier"
 

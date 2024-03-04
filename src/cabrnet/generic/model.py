@@ -11,7 +11,7 @@ from loguru import logger
 from cabrnet.generic.conv_extractor import ConvExtractor, layer_init_functions
 from cabrnet.utils.parser import load_config
 from cabrnet.utils.optimizers import OptimizerManager
-from cabrnet.visualisation.visualizer import SimilarityVisualizer
+from cabrnet.visualization.visualizer import SimilarityVisualizer
 from torch import Tensor
 from torch.utils.data import DataLoader
 from tqdm import tqdm

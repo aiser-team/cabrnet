@@ -4,8 +4,8 @@ from PIL import Image
 import torch.nn as nn
 import numpy as np
 from loguru import logger
-from cabrnet.visualisation.postprocess import post_process
-from cabrnet.visualisation.prp_utils import get_cabrnet_lrp_composite_model, attach_lrp_comp_rules
+from cabrnet.visualization.postprocess import post_process
+from cabrnet.visualization.prp_utils import get_cabrnet_lrp_composite_model, attach_lrp_comp_rules
 from captum.attr import LRP
 
 
