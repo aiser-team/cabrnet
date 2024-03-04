@@ -18,6 +18,10 @@ from tqdm import tqdm
 
 
 class CaBRNet(nn.Module):
+    # Regroup common default file names in a single location
+    DEFAULT_MODEL_CONFIG: str = "model_arch.yml"
+    DEFAULT_MODEL_STATE: str = "model_state.pth"
+
     def __init__(self, extractor: nn.Module, classifier: nn.Module, compatibility_mode: bool = False):
         """Build a CaBRNet prototype-based classifier
 
@@ -378,7 +382,10 @@ class CaBRNet(nn.Module):
         # Copy visualizer configuration file
         if os.path.isfile(visualizer.config_file):  # type: ignore
             try:
-                shutil.copyfile(src=visualizer.config_file, dst=os.path.join(dir_path, "visualization.yml"))  # type: ignore
+                shutil.copyfile(
+                    src=visualizer.config_file,
+                    dst=os.path.join(dir_path, SimilarityVisualizer.DEFAULT_VISUALIZATION_CONFIG),
+                )  # type: ignore
             except shutil.SameFileError:
                 logger.warning(f"Ignoring file copy from {visualizer.config_file} to itself.")
                 pass

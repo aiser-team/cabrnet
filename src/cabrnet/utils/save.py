@@ -9,6 +9,8 @@ import numpy as np
 import torch
 from loguru import logger
 from cabrnet.utils.optimizers import OptimizerManager
+from cabrnet.utils.data import DatasetManager
+from cabrnet.visualization.visualizer import SimilarityVisualizer
 from cabrnet.generic.model import CaBRNet
 
 
@@ -52,14 +54,16 @@ def save_checkpoint(
 
     model.eval()  # NOTE: do we want this?
 
-    torch.save(model.state_dict(), os.path.join(directory_path, "model_state.pth"))
+    torch.save(model.state_dict(), os.path.join(directory_path, CaBRNet.DEFAULT_MODEL_STATE))
     if optimizer_mngr is not None:
-        torch.save(optimizer_mngr.state_dict(), os.path.join(directory_path, "optimizer_state.pth"))
-    safe_copy(src=model_config, dst=os.path.join(directory_path, "model_arch.yml"))
+        torch.save(optimizer_mngr.state_dict(), os.path.join(directory_path, OptimizerManager.DEFAULT_TRAINING_STATE))
+    safe_copy(src=model_config, dst=os.path.join(directory_path, CaBRNet.DEFAULT_MODEL_CONFIG))
     if training_config is not None:
-        safe_copy(src=training_config, dst=os.path.join(directory_path, "training.yml"))
-    safe_copy(src=dataset_config, dst=os.path.join(directory_path, "dataset.yml"))
-    safe_copy(src=visualization_config, dst=os.path.join(directory_path, "visualization.yml"))
+        safe_copy(src=training_config, dst=os.path.join(directory_path, OptimizerManager.DEFAULT_TRAINING_CONFIG))
+    safe_copy(src=dataset_config, dst=os.path.join(directory_path, DatasetManager.DEFAULT_DATASET_CONFIG))
+    safe_copy(
+        src=visualization_config, dst=os.path.join(directory_path, SimilarityVisualizer.DEFAULT_VISUALIZATION_CONFIG)
+    )
 
     state = {
         "random_generators": {
@@ -97,10 +101,10 @@ def load_checkpoint(
     if not os.path.isdir(directory_path):
         raise ValueError(f"Unknown checkpoint directory {directory_path}")
 
-    model.load_state_dict(torch.load(os.path.join(directory_path, "model_state.pth"), map_location="cpu"))
+    model.load_state_dict(torch.load(os.path.join(directory_path, CaBRNet.DEFAULT_MODEL_STATE), map_location="cpu"))
     if optimizer_mngr is not None:
         optimizer_mngr.load_state_dict(
-            torch.load(os.path.join(directory_path, "optimizer_state.pth"), map_location="cpu")
+            torch.load(os.path.join(directory_path, OptimizerManager.DEFAULT_TRAINING_STATE), map_location="cpu")
         )
 
     # Restore RNG state

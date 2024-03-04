@@ -85,6 +85,8 @@ class SimilarityVisualizer(nn.Module):
             return get_cabrnet_lrp_composite_model(model)
         return model
 
+    DEFAULT_VISUALIZATION_CONFIG = "visualization.yml"
+
     @staticmethod
     def create_parser(
         parser: argparse.ArgumentParser | None = None,

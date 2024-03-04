@@ -5,8 +5,8 @@ from argparse import ArgumentParser, Namespace
 from loguru import logger
 from tqdm import tqdm
 from cabrnet.generic.model import CaBRNet
-from cabrnet.utils.optimizers import create_training_parser, OptimizerManager
-from cabrnet.utils.data import create_dataset_parser, get_dataloaders
+from cabrnet.utils.optimizers import OptimizerManager
+from cabrnet.utils.data import DatasetManager
 from cabrnet.utils.parser import load_config
 from cabrnet.utils.save import save_checkpoint, load_checkpoint
 from cabrnet.visualization.visualizer import SimilarityVisualizer
@@ -23,8 +23,8 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     if parser is None:
         parser = ArgumentParser(description)
     parser = CaBRNet.create_parser(parser, skip_state_dict=True)
-    parser = create_dataset_parser(parser)
-    parser = create_training_parser(parser)
+    parser = DatasetManager.create_parser(parser)
+    parser = OptimizerManager.create_parser(parser)
     parser = SimilarityVisualizer.create_parser(parser)
     parser.add_argument(
         "-b",
@@ -97,17 +97,18 @@ def check_args(args: Namespace) -> Namespace:
             ):
                 if param is not None:
                     logger.warning(f"Ignoring option {name}: using content pointed by {option_name} instead")
-            args.model_config = os.path.join(dir_path, "model_arch.yml")
+            args.model_config = os.path.join(dir_path, CaBRNet.DEFAULT_MODEL_CONFIG)
             # Compatibility with v0.1: will be removed in the future
-            if os.path.isfile(os.path.join(dir_path, "model.yml")):
-                args.model_config = os.path.join(dir_path, "model.yml")
+            if os.path.isfile(os.path.join(dir_path, "model_arch.yml")):
+                args.model_config = os.path.join(dir_path, "model_arch.yml")
                 logger.warning(
-                    f"Using model.yml from {dir_path}: "
-                    f"please consider renaming the file to model_arch.yml to ensure compatibility with future versions"
+                    f"Using model_arch.yml from {dir_path}: "
+                    f"please consider renaming the file to {CaBRNet.DEFAULT_MODEL_CONFIG} to ensure compatibility "
+                    f"with future versions"
                 )
-            args.dataset = os.path.join(dir_path, "dataset.yml")
-            args.training = os.path.join(dir_path, "training.yml")
-            args.visualization = os.path.join(dir_path, "visualization.yml")
+            args.dataset = os.path.join(dir_path, DatasetManager.DEFAULT_DATASET_CONFIG)
+            args.training = os.path.join(dir_path, OptimizerManager.DEFAULT_TRAINING_CONFIG)
+            args.visualization = os.path.join(dir_path, SimilarityVisualizer.DEFAULT_VISUALIZATION_CONFIG)
 
     for param, name in zip(
         [args.model_config, args.dataset, args.training, args.visualization],
@@ -158,7 +159,7 @@ def execute(args: Namespace) -> None:
     # Build optimizer manager
     optimizer_mngr = OptimizerManager.build_from_config(config_file=training_config, model=model)
     # Dataloaders
-    dataloaders = get_dataloaders(config_file=dataset_config)
+    dataloaders = DatasetManager.get_dataloaders(config_file=dataset_config)
 
     if args.resume_from is not None:
         # Restore state

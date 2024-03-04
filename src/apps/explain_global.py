@@ -51,8 +51,8 @@ def check_args(args: Namespace) -> Namespace:
         ):
             if param is not None:
                 logger.warning(f"Ignoring option {name}: using content pointed by --checkpoint-dir instead")
-        args.model_config = os.path.join(args.checkpoint_dir, "model_arch.yml")
-        args.model_state_dict = os.path.join(args.checkpoint_dir, "model_state.pth")
+        args.model_config = os.path.join(args.checkpoint_dir, CaBRNet.DEFAULT_MODEL_CONFIG)
+        args.model_state_dict = os.path.join(args.checkpoint_dir, CaBRNet.DEFAULT_MODEL_STATE)
 
     # Check configuration completeness
     for param, name in zip(

@@ -4,7 +4,7 @@ from pathlib import Path
 from argparse import ArgumentParser, Namespace
 from loguru import logger
 from cabrnet.generic.model import CaBRNet
-from cabrnet.utils.data import create_dataset_parser, get_dataset_transform
+from cabrnet.utils.data import DatasetManager
 from cabrnet.visualization.visualizer import SimilarityVisualizer
 
 description = "explain the decision of a CaBRNet classifier"
@@ -21,7 +21,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     parser = CaBRNet.create_parser(parser)
     # Relies on dataset configuration of the test to deduce the type of preprocessing
     # that needs to be applied on the source image
-    parser = create_dataset_parser(parser)
+    parser = DatasetManager.create_parser(parser)
     parser = SimilarityVisualizer.create_parser(parser)
     parser.add_argument(
         "-c",
@@ -73,10 +73,10 @@ def check_args(args: Namespace) -> Namespace:
         ):
             if param is not None:
                 logger.warning(f"Ignoring option {name}: using content pointed by --checkpoint-dir instead")
-        args.model_config = os.path.join(args.checkpoint_dir, "model_arch.yml")
-        args.model_state_dict = os.path.join(args.checkpoint_dir, "model_state.pth")
-        args.dataset = os.path.join(args.checkpoint_dir, "dataset.yml")
-        args.visualization = os.path.join(args.checkpoint_dir, "visualization.yml")
+        args.model_config = os.path.join(args.checkpoint_dir, CaBRNet.DEFAULT_MODEL_CONFIG)
+        args.model_state_dict = os.path.join(args.checkpoint_dir, CaBRNet.DEFAULT_MODEL_STATE)
+        args.dataset = os.path.join(args.checkpoint_dir, DatasetManager.DEFAULT_DATASET_CONFIG)
+        args.visualization = os.path.join(args.checkpoint_dir, SimilarityVisualizer.DEFAULT_VISUALIZATION_CONFIG)
 
     # Check configuration completeness
     for param, name in zip(
@@ -103,7 +103,7 @@ def execute(args: Namespace) -> None:
     # Init visualizer
     visualizer = SimilarityVisualizer.build_from_config(config_file=args.visualization)
     # Recover preprocessing function
-    preprocess = get_dataset_transform(config_file=args.dataset, dataset="test_set")
+    preprocess = DatasetManager.get_dataset_transform(config_file=args.dataset, dataset="test_set")
 
     # Generate explanation
     model.explain(

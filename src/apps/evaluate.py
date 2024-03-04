@@ -5,7 +5,7 @@ from argparse import ArgumentParser, Namespace
 from loguru import logger
 
 from cabrnet.generic.model import CaBRNet
-from cabrnet.utils.data import create_dataset_parser, get_dataloaders
+from cabrnet.utils.data import DatasetManager
 
 description = "evaluate a CaBRNet classifier"
 
@@ -19,7 +19,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     if parser is None:
         parser = ArgumentParser(description)
     parser = CaBRNet.create_parser(parser)
-    parser = create_dataset_parser(parser)
+    parser = DatasetManager.create_parser(parser)
     parser.add_argument(
         "-c",
         "--checkpoint-dir",
@@ -40,9 +40,9 @@ def check_args(args: Namespace) -> Namespace:
         ):
             if param is not None:
                 logger.warning(f"Ignoring option {name}: using content pointed by --checkpoint-dir instead")
-        args.model_config = os.path.join(args.checkpoint_dir, "model_arch.yml")
-        args.model_state_dict = os.path.join(args.checkpoint_dir, "model_state.pth")
-        args.dataset = os.path.join(args.checkpoint_dir, "dataset.yml")
+        args.model_config = os.path.join(args.checkpoint_dir, CaBRNet.DEFAULT_MODEL_CONFIG)
+        args.model_state_dict = os.path.join(args.checkpoint_dir, CaBRNet.DEFAULT_MODEL_STATE)
+        args.dataset = os.path.join(args.checkpoint_dir, DatasetManager.DEFAULT_DATASET_CONFIG)
 
     # Check configuration completeness
     for param, name in zip(
@@ -68,7 +68,7 @@ def execute(args: Namespace) -> None:
     model.eval()
 
     # Dataloaders
-    dataloaders = get_dataloaders(config_file=args.dataset)
+    dataloaders = DatasetManager.get_dataloaders(config_file=args.dataset)
     model.to(args.device)
 
     stats = model.evaluate(

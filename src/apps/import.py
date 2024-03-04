@@ -2,8 +2,8 @@ import os
 from loguru import logger
 from cabrnet.generic.model import CaBRNet
 from cabrnet.utils.parser import load_config
-from cabrnet.utils.optimizers import create_training_parser
-from cabrnet.utils.data import create_dataset_parser, get_dataloaders
+from cabrnet.utils.optimizers import OptimizerManager
+from cabrnet.utils.data import DatasetManager
 from cabrnet.utils.save import save_checkpoint
 from cabrnet.visualization.visualizer import SimilarityVisualizer
 from argparse import ArgumentParser, Namespace
@@ -16,8 +16,8 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     if parser is None:
         parser = ArgumentParser(description)
     parser = CaBRNet.create_parser(parser)
-    parser = create_training_parser(parser)
-    parser = create_dataset_parser(parser)
+    parser = OptimizerManager.create_parser(parser)
+    parser = DatasetManager.create_parser(parser)
     parser = SimilarityVisualizer.create_parser(parser)
     parser.add_argument(
         "-c",
@@ -48,10 +48,10 @@ def check_args(args: Namespace) -> Namespace:
         ):
             if param is not None:
                 logger.warning(f"Ignoring option {name}: using content pointed by --config-dir instead")
-        args.model_config = os.path.join(args.config_dir, "model_arch.yml")
-        args.dataset = os.path.join(args.config_dir, "dataset.yml")
-        args.training = os.path.join(args.config_dir, "training.yml")
-        args.visualization = os.path.join(args.config_dir, "visualization.yml")
+        args.model_config = os.path.join(args.config_dir, CaBRNet.DEFAULT_MODEL_CONFIG)
+        args.dataset = os.path.join(args.config_dir, DatasetManager.DEFAULT_DATASET_CONFIG)
+        args.training = os.path.join(args.config_dir, OptimizerManager.DEFAULT_TRAINING_CONFIG)
+        args.visualization = os.path.join(args.config_dir, SimilarityVisualizer.DEFAULT_VISUALIZATION_CONFIG)
 
     # Check configuration completeness
     for param, name in zip(
@@ -92,7 +92,7 @@ def execute(args: Namespace) -> None:
     model = CaBRNet.build_from_config(model_config, state_dict_path=legacy_state_dict)
     model.eval()
 
-    dataloaders = get_dataloaders(dataset_config)
+    dataloaders = DatasetManager.get_dataloaders(dataset_config)
 
     # Call epilogue
     trainer = load_config(training_config)

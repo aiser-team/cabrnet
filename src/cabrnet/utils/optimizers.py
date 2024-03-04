@@ -310,28 +310,31 @@ class OptimizerManager:
         for optim_name in self.schedulers:
             self.schedulers[optim_name].load_state_dict(state_dict["schedulers"][optim_name])
 
+    DEFAULT_TRAINING_CONFIG: str = "training.yml"
+    DEFAULT_TRAINING_STATE: str = "optimizer_state.pth"
 
-def create_training_parser(
-    parser: argparse.ArgumentParser | None = None, mandatory_config: bool = False
-) -> argparse.ArgumentParser:
-    """Create the argument parser for CaBRNet training configuration.
+    @staticmethod
+    def create_parser(
+        parser: argparse.ArgumentParser | None = None, mandatory_config: bool = False
+    ) -> argparse.ArgumentParser:
+        """Create the argument parser for CaBRNet training configuration.
 
-    Args:
-        parser: Existing parser (if any)
-        mandatory_config: Make dataset configuration mandatory
+        Args:
+            parser: Existing parser (if any)
+            mandatory_config: Make dataset configuration mandatory
 
-    Returns:
-        The parser itself.
-    """
-    if parser is None:
-        parser = argparse.ArgumentParser(description="Load training configuration.")
+        Returns:
+            The parser itself.
+        """
+        if parser is None:
+            parser = argparse.ArgumentParser(description="Load training configuration.")
 
-    parser.add_argument(
-        "-t",
-        "--training",
-        type=str,
-        required=mandatory_config,
-        metavar="/path/to/file.yml",
-        help="path to the training configuration file",
-    )
-    return parser
+        parser.add_argument(
+            "-t",
+            "--training",
+            type=str,
+            required=mandatory_config,
+            metavar="/path/to/file.yml",
+            help="path to the training configuration file",
+        )
+        return parser
