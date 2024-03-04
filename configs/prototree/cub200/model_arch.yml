@@ -6,10 +6,7 @@ extractor: # How to build the feature extractor
   backbone:
     arch: resnet50
     layer: layer4
-    #weights: IMAGENET1K_V1
     weights: examples/pretrained_conv_extractors/resnet50_inat.pth
-    # weights: /home/toto/state.pth
-    # weights: null
   add_on:
     init_mode: XAVIER
     conv1:
@@ -20,12 +17,6 @@ extractor: # How to build the feature extractor
         bias: False
     sigmoid1:
       type: Sigmoid
-    # custom_layer: # TODO: support custom layers
-    #   type: custom
-    #   module: <module name>
-    #   name: <function name>
-    #   params:
-    #     <function params>
 
 classifier: # How to compute the decision from the features
   module: cabrnet.prototree.decision

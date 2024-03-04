@@ -12,22 +12,18 @@ optimizers:
       backbone_to_freeze:
         lr: 0.0002
         weight_decay_rate: 0.0
-        momentum: 0.9
       backbone_to_train:
         lr: 0.001
         weight_decay_rate: 0.0
-        momentum: 0.9
       add_on_layers:
         lr: 0.001
         weight_decay_rate: 0.0
-        momentum: 0.9
       prototypes:
         lr: 0.001
         weight_decay_rate: 0
-        momentum: 0
     params:
       lr: 0.001
-      momentum: 0.9
+      eps: 0.0000001
     scheduler:
       type: MultiStepLR # or ReduceLROnPlateau
       params:
@@ -43,8 +39,6 @@ periods:
       freeze: [ backbone_to_freeze ]
       optimizers:
         - main_optimizer
-
-
 
 # After training
 epilogue:
