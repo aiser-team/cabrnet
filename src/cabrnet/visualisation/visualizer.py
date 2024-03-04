@@ -101,6 +101,7 @@ class SimilarityVisualizer(nn.Module):
         if parser is None:
             parser = argparse.ArgumentParser(description="Build a ProtoVisualizer")
         parser.add_argument(
+            "-z",
             "--visualization",
             required=mandatory_config,
             metavar="/path/to/file.yml",

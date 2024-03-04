@@ -327,8 +327,8 @@ def create_training_parser(
         parser = argparse.ArgumentParser(description="Load training configuration.")
 
     parser.add_argument(
-        "--training",
         "-t",
+        "--training",
         type=str,
         required=mandatory_config,
         metavar="/path/to/file.yml",

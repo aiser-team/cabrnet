@@ -20,6 +20,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     parser = create_dataset_parser(parser)
     parser = SimilarityVisualizer.create_parser(parser)
     parser.add_argument(
+        "-c",
         "--config-dir",
         type=str,
         required=False,
@@ -28,8 +29,8 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         "(alternative to --model-config, --dataset, --training and --visualization)",
     )
     parser.add_argument(
-        "--output-dir",
         "-o",
+        "--output-dir",
         type=str,
         required=True,
         metavar="path/to/output/directory",

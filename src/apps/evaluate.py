@@ -18,15 +18,16 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     """
     if parser is None:
         parser = ArgumentParser(description)
+    parser = CaBRNet.create_parser(parser)
+    parser = create_dataset_parser(parser)
     parser.add_argument(
+        "-c",
         "--checkpoint-dir",
         type=str,
         required=False,
         metavar="/path/to/checkpoint/dir",
         help="path to a checkpoint directory (alternative to --model-config, --model-state-dict and --dataset)",
     )
-    parser = CaBRNet.create_parser(parser)
-    parser = create_dataset_parser(parser)
     return parser
 
 

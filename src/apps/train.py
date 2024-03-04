@@ -27,29 +27,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     parser = create_training_parser(parser)
     parser = SimilarityVisualizer.create_parser(parser)
     parser.add_argument(
-        "--output-dir",
-        "-o",
-        type=str,
-        required=True,
-        metavar="path/to/output/directory",
-        help="path to output directory",
-    )
-    x_group = parser.add_mutually_exclusive_group(required=False)
-    x_group.add_argument(
-        "--resume-from",
-        type=str,
-        metavar="/path/to/checkpoint/directory",
-        help="path to existing checkpoint directory to resume training",
-    )
-    x_group.add_argument(
-        "--start-from",
-        type=str,
-        required=False,
-        metavar="/path/to/config/dir",
-        help="path to directory containing all configuration files to start training "
-        "(alternative to --model-config, --dataset, --training and --visualization)",
-    )
-    parser.add_argument(
+        "-b",
         "--save-best",
         type=str,
         required=False,
@@ -59,6 +37,31 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         help="save best model based on accuracy or loss",
     )
     parser.add_argument(
+        "-o",
+        "--output-dir",
+        type=str,
+        required=True,
+        metavar="path/to/output/directory",
+        help="path to output directory",
+    )
+    x_group = parser.add_mutually_exclusive_group(required=False)
+    x_group.add_argument(
+        "-f",
+        "--start-from",
+        type=str,
+        required=False,
+        metavar="/path/to/config/dir",
+        help="path to directory containing all configuration files to start training "
+        "(alternative to --model-config, --dataset, --training and --visualization)",
+    )
+    x_group.add_argument(
+        "-r",
+        "--resume-from",
+        type=str,
+        metavar="/path/to/checkpoint/directory",
+        help="path to existing checkpoint directory to resume training",
+    )
+    parser.add_argument(
         "--checkpoint-frequency",
         type=int,
         required=False,
@@ -66,15 +69,15 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         help="checkpoint frequency (in epochs)",
     )
     parser.add_argument(
-        "--sanity-check-only",
-        action="store_true",
-        help="check the training pipeline without performing the entire process.",
-    )
-    parser.add_argument(
         "--overwrite",
         action="store_true",
         help="allow output directory to be overwritten with new results. This option should be enabled when "
         "resuming training from a given checkpoint.",
+    )
+    parser.add_argument(
+        "--sanity-check-only",
+        action="store_true",
+        help="check the training pipeline without performing the entire process.",
     )
     return parser
 

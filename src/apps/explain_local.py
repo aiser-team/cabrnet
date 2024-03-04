@@ -24,6 +24,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     parser = create_dataset_parser(parser)
     parser = SimilarityVisualizer.create_parser(parser)
     parser.add_argument(
+        "-c",
         "--checkpoint-dir",
         type=str,
         required=False,
@@ -32,6 +33,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         "(alternative to --model-config, --model-state-dict, --dataset and --visualization)",
     )
     parser.add_argument(
+        "-i",
         "--image",
         type=str,
         required=True,
@@ -39,14 +41,15 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         help="path to image to be explained",
     )
     parser.add_argument(
-        "--output-dir",
         "-o",
+        "--output-dir",
         type=str,
         required=True,
         metavar="path/to/output/directory",
         help="path to output directory",
     )
     parser.add_argument(
+        "-p",
         "--prototype-dir",
         type=str,
         required=True,

@@ -16,6 +16,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         parser = ArgumentParser(description)
     parser = CaBRNet.create_parser(parser)
     parser.add_argument(
+        "-c",
         "--checkpoint-dir",
         type=str,
         required=False,
@@ -23,14 +24,15 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         help="path to a checkpoint directory (alternative to --model-config, --model-state-dict)",
     )
     parser.add_argument(
-        "--output-dir",
         "-o",
+        "--output-dir",
         type=str,
         required=True,
         metavar="path/to/output/directory",
         help="path to output directory",
     )
     parser.add_argument(
+        "-p",
         "--prototype-dir",
         type=str,
         required=True,

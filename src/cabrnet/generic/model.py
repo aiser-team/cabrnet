@@ -102,6 +102,7 @@ class CaBRNet(nn.Module):
         if parser is None:
             parser = argparse.ArgumentParser(description="Build a CaBRNet model")
         parser.add_argument(
+            "-m",
             "--model-config",
             required=mandatory_config,
             metavar="/path/to/file.yml",
@@ -109,6 +110,7 @@ class CaBRNet(nn.Module):
         )
         if not skip_state_dict:
             parser.add_argument(
+                "-s",
                 "--model-state-dict",
                 required=mandatory_config,
                 metavar="/path/to/model/state.pth",

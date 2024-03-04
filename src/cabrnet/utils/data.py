@@ -25,8 +25,8 @@ def create_dataset_parser(
     if parser is None:
         parser = argparse.ArgumentParser(description="Load datasets.")
     parser.add_argument(
-        "--dataset",
         "-d",
+        "--dataset",
         required=mandatory_config,
         metavar="/path/to/file.yml",
         help="path to the dataset config",

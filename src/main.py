@@ -48,14 +48,20 @@ def main():
         # Create dedicated sub-parser
         subparser = subparsers.add_parser(app_name, help=description)
         subparser.set_defaults(func=module.execute)
-        module.create_parser(subparser)
-        subparser.add_argument("--device", type=str, default="cuda:0", help="Target hardware device")
-        subparser.add_argument("--seed", "-s", type=int, default=42, help="Seed for reproducible experiments")
+        app_specific_parser = subparser.add_argument_group(description="APPLICATION-SPECIFIC OPTIONS")
+        module.create_parser(app_specific_parser)
+        common_group = subparser.add_argument_group(description="OTHER OPTIONS")
+        common_group.add_argument(
+            "--device", type=str, metavar="device", default="cuda:0", help="Target hardware device"
+        )
+        common_group.add_argument(
+            "--seed", type=int, default=42, metavar="value", help="Seed for reproducible experiments"
+        )
         # what level of information is stored in the log file
-        subparser.add_argument("--logger-level", type=str, default="INFO", help="Logger level and verbosity")
+        common_group.add_argument("--logger-level", type=str, metavar="level", default="INFO", help="Logger level")
         # print logs and progress bars to the console
-        subparser.add_argument("--verbose", action="store_true", help="Verbose output")
-    parser.add_argument("--version", "-V", action="version", version=get_version())
+        common_group.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
+    parser.add_argument("-V", "--version", action="version", version=get_version())
 
     args = parser.parse_args()
 
