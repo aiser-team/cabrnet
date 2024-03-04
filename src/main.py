@@ -59,6 +59,13 @@ def main():
         )
         # what level of information is stored in the log file
         common_group.add_argument("--logger-level", type=str, metavar="level", default="INFO", help="Logger level")
+        common_group.add_argument(
+            "--logger-file",
+            type=str,
+            metavar="path/to/file",
+            default=sys.stderr,
+            help="Logger file (default: sys.stderr)",
+        )
         # print logs and progress bars to the console
         common_group.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
     parser.add_argument("-V", "--version", action="version", version=get_version())
@@ -73,7 +80,7 @@ def main():
     random.seed(seed)
 
     # Set logger level
-    logger.configure(handlers=[{"sink": sys.stderr, "level": args.logger_level}])
+    logger.configure(handlers=[{"sink": args.logger_file, "level": args.logger_level}])
 
     if not hasattr(args, "func"):
         # Print help menu when no argument is given

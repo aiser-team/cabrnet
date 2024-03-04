@@ -20,7 +20,7 @@ positional arguments:
 
 options:
   -h, --help            show this help message and exit
-  --version, -V         show program's version number and exit
+  -V, --version         show program's version number and exit
 ```
 To obtain the documentation for a specific application, simple enter `cabrnet <app_name> --help`, *e.g.*:
 ```bash
@@ -32,12 +32,14 @@ it is also easy to [add new applications](applications.md).
 ## Common options
 Some options are present in all applications:
 
-- `--device DEVICE` allows to specify a target hardware device (by default, it is set to `cuda:0`).
-- `--seed|-s SEED` allows to specify the random seed to improve the [reproducibility](#reproducibility) of all
+- `--device device` allows to specify a target hardware device (by default, it is set to `cuda:0`).
+- `--seed value` allows to specify the random seed to improve the [reproducibility](#reproducibility) of all
 experiments (by default, it is set to 42, as it should be ;)).
-- `--logger-level LOGGER_LEVEL` indicates the level of debug message displayed on the standard output. 
+- `--logger-level level` indicates the level of debug messages that should be displayed. 
 CaBRNet uses [loguru](https://loguru.readthedocs.io/en/stable/) for logging messages.
-- `--verbose` enables [tqdm](https://tqdm.github.io/) progression bars during long operations.
+- `--logger-file path/to/file` indicates where the debug messages should be displayed. By default, it is set to the 
+standard error output. 
+- `-v, --verbose` enables [tqdm](https://tqdm.github.io/) progression bars during long operations.
 
 ## Training 
 `cabrnet train` is used to train a prototype-based model.
