@@ -12,8 +12,8 @@ from cabrnet.generic.model import CaBRNet
 from cabrnet.utils.optimizers import OptimizerManager
 from cabrnet.utils.tree import TreeNode, MappingMode
 from cabrnet.prototree.decision import SamplingStrategy, ProtoTreeClassifier
-from cabrnet.visualisation.visualizer import SimilarityVisualizer
-from cabrnet.visualisation.explainer import ExplanationGraph
+from cabrnet.visualization.visualizer import SimilarityVisualizer
+from cabrnet.visualization.explainer import ExplanationGraph
 from cabrnet.utils.save import save_checkpoint
 import copy
 from loguru import logger

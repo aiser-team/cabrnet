@@ -9,7 +9,7 @@ from cabrnet.utils.optimizers import create_training_parser, OptimizerManager
 from cabrnet.utils.data import create_dataset_parser, get_dataloaders
 from cabrnet.utils.parser import load_config
 from cabrnet.utils.save import save_checkpoint, load_checkpoint
-from cabrnet.visualisation.visualizer import SimilarityVisualizer
+from cabrnet.visualization.visualizer import SimilarityVisualizer
 
 description = "train a CaBRNet classifier"
 

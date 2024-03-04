@@ -4,7 +4,7 @@ import torch.nn as nn
 import numpy as np
 from PIL import Image
 import cv2
-from cabrnet.visualisation.postprocess import normalize_min_max
+from cabrnet.visualization.postprocess import normalize_min_max
 
 
 def cubic_upsampling(
