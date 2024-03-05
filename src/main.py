@@ -33,7 +33,7 @@ def main():
 
     # Create parser
     parser = ParserWithHelper(description="CaBRNet front-end")
-    subparsers = parser.add_subparsers(help="sub-command help")
+    subparsers = parser.add_subparsers(help="sub-command help", dest="appname")
     subparsers.required = True
     for app_name in apps:
         try:
@@ -86,7 +86,11 @@ def main():
         # Print help menu when no argument is given
         parser.print_help()
     else:
-        args.func(args)
+        try:
+            args.func(args)
+        except AttributeError as e:
+            print(e)
+            parser.parse_args([args.appname, "-h"])
 
 
 if __name__ == "__main__":
