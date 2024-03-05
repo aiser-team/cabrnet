@@ -5,6 +5,7 @@ import os
 import pathlib
 import sys
 import random
+import traceback
 from argparse import ArgumentParser
 from loguru import logger
 
@@ -38,8 +39,8 @@ def main():
     for app_name in apps:
         try:
             module = importlib.import_module(f"apps.{app_name}")
-        except ModuleNotFoundError as e:
-            logger.warning(f"Skipping application {app_name}. Could not load module: {e}")
+        except Exception as e:
+            logger.warning(f"Skipping application {app_name}. Could not load module: {traceback.format_exc()}")
             continue
         description = module.description if hasattr(module, "description") else f"help menu for {app_name}"
         if not hasattr(module, "create_parser") or not hasattr(module, "execute"):
