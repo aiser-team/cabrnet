@@ -111,7 +111,7 @@ to initialize the model.
 - `--output-dir path/to/output/directory` indicates where to store the imported model.
 
 Note that after the loading the CaBRNet model with the parameters of the legacy model (feature extractor, prototypes, etc.),
-CaBRNet **finalizes the import process by projecting and extracting the prototypes** and performing the optional epilogue if necessary.
+CaBRNet **finalizes the import process by performing the optional model [epilogue](#training-process)**.
 Therefore, the `cabrnet import` tool also requires the following information:
 
 - `--dataset|-d /path/to/file.yml` indicates how to [load and prepare the data for prototype projection](data.md).

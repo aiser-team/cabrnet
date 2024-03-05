@@ -194,7 +194,7 @@ from typing import Any, Callable
 from tqdm import tqdm
 from cabrnet.generic.model import CaBRNet
 from cabrnet.utils.optimizers import OptimizerManager
-from cabrnet.visualisation.visualizer import SimilarityVisualizer
+from cabrnet.visualization.visualizer import SimilarityVisualizer
 
 
 class ArchName(CaBRNet):
