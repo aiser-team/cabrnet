@@ -1,7 +1,7 @@
 # Model configuration
 The specification of a CaBRNet model architecture is stored in a YML file, according to the following specification.
-For more examples, see the [ProtoPNet](https://git.frama-c.com/pub/cabrnet/-/tree/master/configs/protopnet/model.yml) and 
-[ProtoTree](https://git.frama-c.com/pub/cabrnet/-/tree/master/configs/prototree/model.yml) configuration files.
+For more examples, see the [ProtoPNet](https://git.frama-c.com/pub/cabrnet/-/tree/master/configs/protopnet/cub200/model_arch.yml) and 
+[ProtoTree](https://git.frama-c.com/pub/cabrnet/-/tree/master/configs/prototree/cub200/model_arch.yml) configuration files.
 
 As shown below, each CaBRNet model is composed of:
 
@@ -103,7 +103,7 @@ top_arch:
 # Implementing a new prototype-based architecture
 ## Defining a new classifier architecture
 The module in charge of classification should be placed inside a dedicated file in
-`src/cabrnet/<ARCH_NAME>/decision.py` (*e.g.* [src/cabrnet/prototree/decision.py](../API/reference/cabrnet/prototree/decision.md#prototreeclassifier-objects)).
+`src/cabrnet/<ARCH_NAME>/decision.py` (*e.g.* [src/cabrnet/prototree/decision.py](https://git.frama-c.com/pub/cabrnet/-/blob/master/src/cabrnet/prototree/decision.py)).
 
 The following code provides a minimal example on how to define a new classifier.
 The classifier must inherit from the `CaBRNetAbstractClassifier` class as follows:
@@ -132,14 +132,18 @@ class ArchNameClassifier(CaBRNetAbstractClassifier, nn.Module):
         """
         nn.Module.__init__(self)
         CaBRNetAbstractClassifier.__init__(
-            self, num_classes=num_classes, num_features=num_features, proto_init_mode=proto_init_mode
+            self, num_classes=num_classes, 
+            num_features=num_features, 
+            proto_init_mode=proto_init_mode
         )
 
         
         # Init prototypes
         self.prototypes = nn.Parameter(
             init_prototypes(
-                num_prototypes=self.num_prototypes, num_features=self.num_features, init_mode=proto_init_mode
+                num_prototypes=self.num_prototypes, 
+                num_features=self.num_features, 
+                init_mode=proto_init_mode
             )
         )
         # Example of a L2 based similarity layer
@@ -150,7 +154,8 @@ class ArchNameClassifier(CaBRNetAbstractClassifier, nn.Module):
     @property
     def max_num_prototypes(self) -> ...:
         """
-        Returns: Maximum number of prototypes (might differ from current number of prototypes due to pruning)
+        Returns: Maximum number of prototypes 
+            (might differ from current number of prototypes due to pruning)
         """
         ...
 
@@ -179,8 +184,8 @@ class ArchNameClassifier(CaBRNetAbstractClassifier, nn.Module):
 
 ## Defining a new top-module
 The module in charge of combining the feature extractor and the classifier should be
-placed inside a dedicated file in `src/cabrnet/<ARCH_NAME>/model.py` (*e.g.* [src/cabrnet/prototree/model.py](../API/reference/cabrnet/prototree/model.md)).
-The top-module class should inherit from the generic class [CaBRNet](../API/reference/cabrnet/generic/model.md#cabrnet-objects), and implements
+placed inside a dedicated file in `src/cabrnet/<ARCH_NAME>/model.py` (*e.g.* [src/cabrnet/prototree/model.py](https://git.frama-c.com/pub/cabrnet/-/blob/master/src/cabrnet/prototree/model.py)).
+The top-module class should inherit from the generic class [CaBRNet](https://git.frama-c.com/pub/cabrnet/-/blob/master/src/cabrnet/generic/model.py), and implements
 some mandatory functions as illustrated below.
 ```python
 import torch.nn.functional
@@ -189,7 +194,7 @@ from typing import Any, Callable
 from tqdm import tqdm
 from cabrnet.generic.model import CaBRNet
 from cabrnet.utils.optimizers import OptimizerManager
-from cabrnet.visualisation.visualizer import SimilarityVisualizer
+from cabrnet.visualization.visualizer import SimilarityVisualizer
 
 
 class ArchName(CaBRNet):
@@ -198,7 +203,8 @@ class ArchName(CaBRNet):
         """
         Loss function
         Args:
-            model_output: Model output, in this case a tuple containing the prediction and the leaf probabilities
+            model_output: Model output, in this case a tuple containing the prediction 
+                and the leaf probabilities
             label: Batch labels
 
         Returns:
@@ -292,7 +298,8 @@ class ArchName(CaBRNet):
         """
         Perform prototype projection after training
         Args:
-            data_loader: Dataloader containing projection data. WARNING: This dataloader must not be shuffled!
+            data_loader: Dataloader containing projection data. 
+                WARNING: This dataloader must not be shuffled!
             device: Target device
             verbose: Display progress bar
             progress_bar_position: Position of the progress bar.
@@ -334,7 +341,8 @@ class ArchName(CaBRNet):
         **kwargs,
     ) -> None:
         """OPTIONAL Function called after training, using information from the epilogue
-        field in the training configuration. This usually contains prototype pruning, projection and extraction.
+        field in the training configuration. 
+        This usually contains prototype pruning, projection and extraction.
         """
         ...
     
@@ -376,3 +384,4 @@ class ArchName(CaBRNet):
         """
         ...
 ```
+

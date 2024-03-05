@@ -10,19 +10,11 @@ source venv/bin/activate
 python3 -m pip install -r requirements.txt -e .
 ```
 
-With `conda`/`mamba`:
+With `conda`:
 
 ```bash
 conda env create -f environment.yml
 conda activate cabrnet
-python3 -m pip install -e .
-```
-
-or
-
-```bash
-mamba env create -f environment.yml
-mamba activate cabrnet
 python3 -m pip install -e .
 ```
 

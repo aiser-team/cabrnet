@@ -6,34 +6,25 @@ extractor: # How to build the feature extractor
   backbone:
     arch: resnet50
     layer: layer4
-    #weights: IMAGENET1K_V1
-    weights: examples/pretrained_conv_extractors/resnet50_inat.pth
-    # weights: /home/toto/state.pth
-    # weights: null
+    weights: IMAGENET1K_V1
   add_on:
     init_mode: XAVIER
     conv1:
       type: Conv2d # nn.Module name
       params:
-        out_channels: 256
+        out_channels: 128
         kernel_size: 1
         bias: False
     sigmoid1:
       type: Sigmoid
-    # custom_layer: # TODO: support custom layers
-    #   type: custom
-    #   module: <module name>
-    #   name: <function name>
-    #   params:
-    #     <function params>
 
 classifier: # How to compute the decision from the features
   module: cabrnet.prototree.decision
   name: ProtoTreeClassifier
   params:
-    num_features: 256 # Can be set automatically
-    num_classes: 200
-    depth: 9
+    num_features: 128
+    num_classes: 196
+    depth: 11
     leaves_init_mode: ZEROS
     proto_init_mode: SHIFTED_NORMAL
-    log_probabilities: False # False in the default Prototree training setup
+    log_probabilities: False

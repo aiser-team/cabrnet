@@ -11,7 +11,7 @@ import torch.nn as nn
 
 from cabrnet.generic.model import CaBRNet
 from cabrnet.utils.parser import load_config
-from cabrnet.utils.data import get_dataloaders
+from cabrnet.utils.data import DatasetManager
 from cabrnet.utils.optimizers import OptimizerManager
 from cabrnet.prototree.decision import SamplingStrategy
 
@@ -131,9 +131,9 @@ class TestProtoTreeCompatibility(unittest.TestCase):
 
         # Test configuration
         test_dir = os.path.dirname(os.path.realpath(__file__))
-        self.model_config_file = os.path.join(test_dir, "model.yml")
-        self.dataset_config_file = os.path.join(test_dir, "data.yml")
-        self.training_config_file = os.path.join(test_dir, "training.yml")
+        self.model_config_file = os.path.join(test_dir, CaBRNet.DEFAULT_MODEL_CONFIG)
+        self.dataset_config_file = os.path.join(test_dir, DatasetManager.DEFAULT_DATASET_CONFIG)
+        self.training_config_file = os.path.join(test_dir, OptimizerManager.DEFAULT_TRAINING_CONFIG)
         self.legacy_state_dict = os.path.join(test_dir, "legacy_state.pth")
 
         # Create a namespace with all legacy options
@@ -220,7 +220,7 @@ class TestProtoTreeCompatibility(unittest.TestCase):
     def test_dataloaders(self):
         # CaBRNet
         setup_rng(self.seed)
-        dataloaders = get_dataloaders(config_file=self.dataset_config_file)
+        dataloaders = DatasetManager.get_dataloaders(config_file=self.dataset_config_file)
         xc_train, yc_train = next(iter(dataloaders["train_set"]))
         xc_test, yc_test = next(iter(dataloaders["test_set"]))
         xc_proj, yc_proj = next(iter(dataloaders["projection_set"]))
@@ -262,7 +262,7 @@ class TestProtoTreeCompatibility(unittest.TestCase):
         # CaBRNet
         setup_rng(self.seed)
         cabrnet_model = CaBRNet.build_from_config(self.model_config_file, seed=self.seed, compatibility_mode=True)
-        cabrnet_model.load_legacy_state_dict(torch.load(self.legacy_state_dict, map_location="cpu"))
+        cabrnet_model.load_state_dict(torch.load(self.legacy_state_dict, map_location="cpu"))
 
         # Legacy
         setup_rng(self.seed)
@@ -275,7 +275,7 @@ class TestProtoTreeCompatibility(unittest.TestCase):
         # CaBRNet
         setup_rng(self.seed)
         cabrnet_model = CaBRNet.build_from_config(self.model_config_file, seed=self.seed, compatibility_mode=True)
-        dataloaders = get_dataloaders(config_file=self.dataset_config_file)
+        dataloaders = DatasetManager.get_dataloaders(config_file=self.dataset_config_file)
         optimizer_mngr = OptimizerManager.build_from_config(self.training_config_file, cabrnet_model)
         trainer = load_config(self.training_config_file)
         num_epochs = trainer["num_epochs"]
@@ -330,7 +330,7 @@ class TestProtoTreeCompatibility(unittest.TestCase):
         # CaBRNet
         setup_rng(self.seed)
         cabrnet_model = CaBRNet.build_from_config(self.model_config_file, seed=self.seed, compatibility_mode=True)
-        cabrnet_model.load_legacy_state_dict(torch.load(self.legacy_state_dict, map_location="cpu"))
+        cabrnet_model.load_state_dict(torch.load(self.legacy_state_dict, map_location="cpu"))
         cabrnet_model.eval()
         yc_distributed = cabrnet_model(torch.randn((10, 3, 224, 224)), strategy=SamplingStrategy.DISTRIBUTED)[0]
         yc_sample_max = cabrnet_model(torch.randn((10, 3, 224, 224)), strategy=SamplingStrategy.SAMPLE_MAX)[0]
@@ -354,7 +354,7 @@ class TestProtoTreeCompatibility(unittest.TestCase):
         # CaBRNet
         setup_rng(self.seed)
         cabrnet_model = CaBRNet.build_from_config(self.model_config_file, seed=self.seed, compatibility_mode=True)
-        cabrnet_model.load_legacy_state_dict(torch.load(self.legacy_state_dict, map_location="cpu"))
+        cabrnet_model.load_state_dict(torch.load(self.legacy_state_dict, map_location="cpu"))
         cabrnet_model.prune(pruning_threshold=0.01)
 
         # Legacy
@@ -369,8 +369,8 @@ class TestProtoTreeCompatibility(unittest.TestCase):
         # CaBRNet
         setup_rng(self.seed)
         cabrnet_model = CaBRNet.build_from_config(self.model_config_file, seed=self.seed, compatibility_mode=True)
-        dataloaders = get_dataloaders(config_file=self.dataset_config_file)
-        cabrnet_model.load_legacy_state_dict(torch.load(self.legacy_state_dict, map_location="cpu"))
+        dataloaders = DatasetManager.get_dataloaders(config_file=self.dataset_config_file)
+        cabrnet_model.load_state_dict(torch.load(self.legacy_state_dict, map_location="cpu"))
         cabrnet_model.prune(pruning_threshold=0.01)
         cabrnet_projection_info = cabrnet_model.project(
             data_loader=dataloaders["projection_set"], device=self.device, verbose=True

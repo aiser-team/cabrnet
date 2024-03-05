@@ -13,14 +13,16 @@ Recognition](https://openaccess.thecvf.com/content/CVPR2021/papers/Nauta_Neural_
 2021 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR), pages 14928–14938, 2021.
 
 # Index
-- [Build and install](./install.md)
-- [CaBRNet application overview](./cabrnet.md)
+- [Build and install](install.md)
+- [CaBRNet application overview](cabrnet.md)
 - Configuration files:
-    - [Model configuration](./model.md)
-    - [Data configuration](./data.md)
-    - [Training configuration](./training.md)
-    - [Visualization configuration](./visualize.md)
-- [Example: MNIST](./mnist.md)
+    - [Model configuration](model.md)
+    - [Data configuration](data.md)
+    - [Training configuration](training.md)
+    - [Visualization configuration](visualize.md)
+- [Example: MNIST](mnist.md)
+- [Compatibility with legacy codes](legacy.md)
+- [Downloading pre-trained models](download.md)
 
 # Documentation
 ## Generating the reference API
@@ -34,3 +36,4 @@ Use the following command to generate the mkdocs documentation website
 ```bash
 mkdocs build
 ```
+

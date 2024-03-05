@@ -86,6 +86,45 @@ class TreeNode(nn.Module):
             # Rename grand child with child's name to maintain consistency
             self.add_module(child_name, grand_child)
 
+    def prune_similar_children(self) -> None:
+        """
+        Prune nodes that have the same decision on all children.
+        """
+        if self.proto_idxs is None: # Leaf
+            return
+
+        names = ["nsim", "sim"]
+        for child_name in names:
+            child = self.get_submodule(f"{self.node_id}_child_{child_name}")
+            child.prune_similar_children()
+
+        # if a child of `this` is such that
+        # its two children are leaves with the same decision,
+        # replace child with its second child
+        for child_name in names:
+            childfullname = f"{self.node_id}_child_{child_name}"
+            child = self.get_submodule(childfullname)
+
+            if child.proto_idxs is None: # child has no children
+                continue
+
+            has_great_grand_children = False
+            decisions = set()
+            for grandchild_name in names:
+                grandchild = child.get_submodule(f"{child.node_id}_child_{grandchild_name}")
+                if grandchild.proto_idxs is None:
+                    decision = torch.argmax(grandchild.distribution)
+                    decisions.add(decision.item())
+                else:
+                    has_great_grand_children = True
+            if has_great_grand_children:
+                continue
+            if len(decisions) > 1:
+                continue
+            logger.debug(f"Merging children of {child.node_id}")
+            self.__delattr__(childfullname)
+            self.add_module(childfullname, grandchild)
+
     def size(self) -> int:
         """Alias for self.num_nodes"""
         return self.num_nodes

@@ -1,12 +1,11 @@
 import os
-import torch
 from loguru import logger
 from cabrnet.generic.model import CaBRNet
 from cabrnet.utils.parser import load_config
-from cabrnet.utils.optimizers import create_training_parser
-from cabrnet.utils.data import create_dataset_parser, get_dataloaders
+from cabrnet.utils.optimizers import OptimizerManager
+from cabrnet.utils.data import DatasetManager
 from cabrnet.utils.save import save_checkpoint
-from cabrnet.visualisation.visualizer import SimilarityVisualizer
+from cabrnet.visualization.visualizer import SimilarityVisualizer
 from argparse import ArgumentParser, Namespace
 
 
@@ -17,10 +16,20 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     if parser is None:
         parser = ArgumentParser(description)
     parser = CaBRNet.create_parser(parser)
-    parser = create_training_parser(parser)
-    parser = create_dataset_parser(parser)
+    parser = OptimizerManager.create_parser(parser)
+    parser = DatasetManager.create_parser(parser)
     parser = SimilarityVisualizer.create_parser(parser)
     parser.add_argument(
+        "-c",
+        "--config-dir",
+        type=str,
+        required=False,
+        metavar="/path/to/config/dir",
+        help="path to directory containing all configuration files "
+        "(alternative to --model-config, --dataset, --training and --visualization)",
+    )
+    parser.add_argument(
+        "-o",
         "--output-dir",
         type=str,
         required=True,
@@ -30,6 +39,36 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     return parser
 
 
+def check_args(args: Namespace) -> Namespace:
+    if args.config_dir is not None:
+        # Fetch all files from directory
+        for param, name in zip(
+            [args.model_config, args.dataset, args.training, args.visualization],
+            ["--model-config", "--dataset", "--training", "--visualization"],
+        ):
+            if param is not None:
+                logger.warning(f"Ignoring option {name}: using content pointed by --config-dir instead")
+        args.model_config = os.path.join(args.config_dir, CaBRNet.DEFAULT_MODEL_CONFIG)
+        args.dataset = os.path.join(args.config_dir, DatasetManager.DEFAULT_DATASET_CONFIG)
+        args.training = os.path.join(args.config_dir, OptimizerManager.DEFAULT_TRAINING_CONFIG)
+        args.visualization = os.path.join(args.config_dir, SimilarityVisualizer.DEFAULT_VISUALIZATION_CONFIG)
+
+    # Check configuration completeness
+    for param, name in zip(
+        [args.model_config, args.dataset, args.training, args.visualization, args.model_state_dict],
+        [
+            "model configuration",
+            "dataset configuration",
+            "training configuration",
+            "visualization configuration",
+            "model state",
+        ],
+    ):
+        if param is None:
+            raise AttributeError(f"Missing {name} file.")
+    return args
+
+
 def execute(args: Namespace) -> None:
     """Create CaBRNet model, then load a state dictionary in legacy form.
 
@@ -37,6 +76,9 @@ def execute(args: Namespace) -> None:
         args: Parsed arguments.
 
     """
+    # Check and post-process options
+    args = check_args(args)
+
     model_config = args.model_config
     dataset_config = args.dataset
     training_config = args.training
@@ -47,11 +89,10 @@ def execute(args: Namespace) -> None:
     device = args.device
 
     # Build CaBRNet model, then load legacy state dictionary
-    model = CaBRNet.build_from_config(model_config)
-    model.load_legacy_state_dict(torch.load(legacy_state_dict, map_location="cpu"))
+    model = CaBRNet.build_from_config(model_config, state_dict_path=legacy_state_dict)
     model.eval()
 
-    dataloaders = get_dataloaders(dataset_config)
+    dataloaders = DatasetManager.get_dataloaders(dataset_config)
 
     # Call epilogue
     trainer = load_config(training_config)
@@ -79,6 +120,7 @@ def execute(args: Namespace) -> None:
         optimizer_mngr=None,
         training_config=training_config,
         dataset_config=dataset_config,
+        visualization_config=args.visualization,
         epoch="imported",
         seed=seed,
         device=device,

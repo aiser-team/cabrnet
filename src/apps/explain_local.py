@@ -1,12 +1,11 @@
 """Declare the necessary functions to create an app to explain a classification result."""
 import os.path
 from pathlib import Path
-import sys
 from argparse import ArgumentParser, Namespace
 from loguru import logger
 from cabrnet.generic.model import CaBRNet
-from cabrnet.utils.data import create_dataset_parser, get_dataset_transform
-from cabrnet.visualisation.visualizer import SimilarityVisualizer
+from cabrnet.utils.data import DatasetManager
+from cabrnet.visualization.visualizer import SimilarityVisualizer
 
 description = "explain the decision of a CaBRNet classifier"
 
@@ -22,9 +21,19 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     parser = CaBRNet.create_parser(parser)
     # Relies on dataset configuration of the test to deduce the type of preprocessing
     # that needs to be applied on the source image
-    parser = create_dataset_parser(parser)
+    parser = DatasetManager.create_parser(parser)
     parser = SimilarityVisualizer.create_parser(parser)
     parser.add_argument(
+        "-c",
+        "--checkpoint-dir",
+        type=str,
+        required=False,
+        metavar="/path/to/checkpoint/dir",
+        help="path to a checkpoint directory "
+        "(alternative to --model-config, --model-state-dict, --dataset and --visualization)",
+    )
+    parser.add_argument(
+        "-i",
         "--image",
         type=str,
         required=True,
@@ -32,6 +41,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         help="path to image to be explained",
     )
     parser.add_argument(
+        "-o",
         "--output-dir",
         type=str,
         required=True,
@@ -39,6 +49,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         help="path to output directory",
     )
     parser.add_argument(
+        "-p",
         "--prototype-dir",
         type=str,
         required=True,
@@ -53,6 +64,30 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     return parser
 
 
+def check_args(args: Namespace) -> Namespace:
+    if args.checkpoint_dir is not None:
+        # Fetch all files from directory
+        for param, name in zip(
+            [args.model_config, args.model_state_dict, args.dataset, args.visualization],
+            ["--model-config", "--model-state-dict", "--dataset", "--visualization"],
+        ):
+            if param is not None:
+                logger.warning(f"Ignoring option {name}: using content pointed by --checkpoint-dir instead")
+        args.model_config = os.path.join(args.checkpoint_dir, CaBRNet.DEFAULT_MODEL_CONFIG)
+        args.model_state_dict = os.path.join(args.checkpoint_dir, CaBRNet.DEFAULT_MODEL_STATE)
+        args.dataset = os.path.join(args.checkpoint_dir, DatasetManager.DEFAULT_DATASET_CONFIG)
+        args.visualization = os.path.join(args.checkpoint_dir, SimilarityVisualizer.DEFAULT_VISUALIZATION_CONFIG)
+
+    # Check configuration completeness
+    for param, name in zip(
+        [args.model_config, args.model_state_dict, args.dataset, args.visualization],
+        ["model", "state dictionary", "dataset", "visualization"],
+    ):
+        if param is None:
+            raise AttributeError(f"Missing {name} configuration file.")
+    return args
+
+
 def execute(args: Namespace) -> None:
     """Explain the decision of a cabrnet model.
 
@@ -60,12 +95,15 @@ def execute(args: Namespace) -> None:
         args: Parsed arguments.
 
     """
+    # Check and post-process options
+    args = check_args(args)
+
     # Build model and load state dictionary
     model: CaBRNet = CaBRNet.build_from_config(config_file=args.model_config, state_dict_path=args.model_state_dict)
     # Init visualizer
     visualizer = SimilarityVisualizer.build_from_config(config_file=args.visualization)
     # Recover preprocessing function
-    preprocess = get_dataset_transform(config_file=args.dataset, dataset="test_set")
+    preprocess = DatasetManager.get_dataset_transform(config_file=args.dataset, dataset="test_set")
 
     # Generate explanation
     model.explain(

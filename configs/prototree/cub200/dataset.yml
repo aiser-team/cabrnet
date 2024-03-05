@@ -38,14 +38,14 @@ train_set:
         params:
           mean: [0.485, 0.456, 0.406]
           std: [0.229, 0.224, 0.225]
-  batch_size: 16
+  batch_size: 64
   shuffle: True
 
 projection_set:
   module: torchvision.datasets # Module name
   name: ImageFolder # Class name
   params: # How to initialize the dataset
-    root: data/CUB_200_2011/dataset/train_crop
+    root: data/CUB_200_2011/dataset/train_full
     transform:
       resize:
         type: Resize
@@ -58,7 +58,7 @@ projection_set:
         params:
           mean: [0.485, 0.456, 0.406]
           std: [0.229, 0.224, 0.225]
-  batch_size: 4
+  batch_size: 64
   shuffle: False
 
 test_set:
@@ -78,5 +78,5 @@ test_set:
         params:
           mean: [0.485, 0.456, 0.406]
           std: [0.229, 0.224, 0.225]
-  batch_size: 16
+  batch_size: 64
   shuffle: False

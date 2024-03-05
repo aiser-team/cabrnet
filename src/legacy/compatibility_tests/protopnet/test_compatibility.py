@@ -15,7 +15,7 @@ import torchvision.datasets as datasets
 
 from cabrnet.generic.model import CaBRNet
 from cabrnet.utils.parser import load_config
-from cabrnet.utils.data import get_dataloaders
+from cabrnet.utils.data import DatasetManager
 from cabrnet.utils.optimizers import OptimizerManager
 
 import legacy.protopnet.settings as legacy_settings
@@ -130,9 +130,9 @@ class TestProtoPNetCompatibility(unittest.TestCase):
 
         # Test configuration
         test_dir = os.path.dirname(os.path.realpath(__file__))
-        self.model_config_file = os.path.join(test_dir, "model.yml")
-        self.dataset_config_file = os.path.join(test_dir, "data.yml")
-        self.training_config_file = os.path.join(test_dir, "training.yml")
+        self.model_config_file = os.path.join(test_dir, CaBRNet.DEFAULT_MODEL_CONFIG)
+        self.dataset_config_file = os.path.join(test_dir, DatasetManager.DEFAULT_DATASET_CONFIG)
+        self.training_config_file = os.path.join(test_dir, OptimizerManager.DEFAULT_TRAINING_CONFIG)
         self.legacy_state_dict = os.path.join(test_dir, "legacy_state.pth")
         self.device: str = "cuda:0"
         self.seed: int = 42
@@ -194,7 +194,7 @@ class TestProtoPNetCompatibility(unittest.TestCase):
     def test_dataloaders(self):
         # CaBRNet
         setup_rng(self.seed)
-        dataloaders = get_dataloaders(config_file=self.dataset_config_file)
+        dataloaders = DatasetManager.get_dataloaders(config_file=self.dataset_config_file)
         xc_train, yc_train = next(iter(dataloaders["train_set"]))
         xc_test, yc_test = next(iter(dataloaders["test_set"]))
 
@@ -239,7 +239,7 @@ class TestProtoPNetCompatibility(unittest.TestCase):
         training_config = load_config(self.training_config_file)
         cabrnet_model.register_training_params(training_config)
         optimizer_mngr = OptimizerManager.build_from_config(self.training_config_file, cabrnet_model)
-        dataloaders = get_dataloaders(config_file=self.dataset_config_file)
+        dataloaders = DatasetManager.get_dataloaders(config_file=self.dataset_config_file)
         num_epochs = training_config["num_epochs"]
         for epoch in tqdm(range(num_epochs), desc="Training CaBRNet model", disable=not self.verbose):
             optimizer_mngr.freeze(epoch=epoch)
@@ -329,7 +329,7 @@ class TestProtoPNetCompatibility(unittest.TestCase):
         # CaBRNet
         setup_rng(self.seed)
         cabrnet_model = CaBRNet.build_from_config(self.model_config_file, seed=self.seed, compatibility_mode=True)
-        cabrnet_model.load_legacy_state_dict(torch.load(self.legacy_state_dict, map_location="cpu"))  # type: ignore
+        cabrnet_model.load_state_dict(torch.load(self.legacy_state_dict, map_location="cpu"))  # type: ignore
 
         # Legacy
         setup_rng(self.seed)
@@ -342,7 +342,7 @@ class TestProtoPNetCompatibility(unittest.TestCase):
         # CaBRNet
         setup_rng(self.seed)
         cabrnet_model = CaBRNet.build_from_config(self.model_config_file, seed=self.seed, compatibility_mode=True)
-        dataloaders = get_dataloaders(config_file=self.dataset_config_file)
+        dataloaders = DatasetManager.get_dataloaders(config_file=self.dataset_config_file)
         cabrnet_model.project(data_loader=dataloaders["projection_set"], device=self.device, verbose=self.verbose)
 
         # Legacy
@@ -369,13 +369,13 @@ class TestProtoPNetCompatibility(unittest.TestCase):
     def test_compatibility_mode(self):
         # Model with compatibility mode
         compatible_model = CaBRNet.build_from_config(self.model_config_file, seed=self.seed, compatibility_mode=True)
-        compatible_model.load_legacy_state_dict(torch.load(self.legacy_state_dict, map_location="cpu"))  # type: ignore
+        compatible_model.load_state_dict(torch.load(self.legacy_state_dict, map_location="cpu"))  # type: ignore
 
         cabrnet_model = CaBRNet.build_from_config(self.model_config_file, seed=self.seed, compatibility_mode=False)
-        cabrnet_model.load_legacy_state_dict(torch.load(self.legacy_state_dict, map_location="cpu"))  # type: ignore
+        cabrnet_model.load_state_dict(torch.load(self.legacy_state_dict, map_location="cpu"))  # type: ignore
 
         # Get batch of images
-        dataloaders = get_dataloaders(config_file=self.dataset_config_file)
+        dataloaders = DatasetManager.get_dataloaders(config_file=self.dataset_config_file)
         xs, ys = next(iter(dataloaders["train_set"]))
 
         # Compare outputs and loss values
@@ -394,8 +394,8 @@ class TestProtoPNetCompatibility(unittest.TestCase):
         # CaBRNet
         setup_rng(self.seed)
         cabrnet_model = CaBRNet.build_from_config(self.model_config_file, seed=self.seed, compatibility_mode=True)
-        cabrnet_model.load_legacy_state_dict(torch.load(self.legacy_state_dict, map_location=self.device))  # type: ignore
-        dataloaders = get_dataloaders(config_file=self.dataset_config_file)
+        cabrnet_model.load_state_dict(torch.load(self.legacy_state_dict, map_location=self.device))  # type: ignore
+        dataloaders = DatasetManager.get_dataloaders(config_file=self.dataset_config_file)
         training_config = load_config(self.training_config_file)
         cabrnet_model.prune(
             data_loader=dataloaders["projection_set"],

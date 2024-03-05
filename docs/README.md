@@ -21,6 +21,8 @@ Recognition](https://openaccess.thecvf.com/content/CVPR2021/papers/Nauta_Neural_
     - [Training configuration](manuals/training.md)
     - [Visualization configuration](manuals/visualize.md)
 - [Example: MNIST](manuals/mnist.md)
+- [Compatibility with legacy codes](manuals/legacy.md)
+- [Downloading pre-trained models](manuals/download.md)
 
 # Documentation
 ## Generating the reference API
@@ -32,5 +34,5 @@ pydoc-markdown
 ## Generating the mkdocs website
 Use the following command to generate the mkdocs documentation website
 ```bash
-mkdocs build
+mkdocs build -f docs/mkdocs.yml
 ```

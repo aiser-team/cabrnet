@@ -33,3 +33,4 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
 def execute(args: Namespace) -> None:
     print(args.message)
 ```
+

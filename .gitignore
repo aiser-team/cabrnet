@@ -17,3 +17,5 @@ logs/
 *.pth
 *.ckpt
 docs/API/reference/
+website
+*.log

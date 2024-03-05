@@ -4,10 +4,10 @@ from torch import Tensor
 from loguru import logger
 import argparse
 from cabrnet.utils.parser import load_config
-from cabrnet.visualisation.upsampling import cubic_upsampling
-from cabrnet.visualisation.gradients import smoothgrad, randgrad, prp
-from cabrnet.visualisation.prp_utils import get_cabrnet_lrp_composite_model
-from cabrnet.visualisation.view import *
+from cabrnet.visualization.upsampling import cubic_upsampling
+from cabrnet.visualization.gradients import smoothgrad, randgrad, prp
+from cabrnet.visualization.prp_utils import get_cabrnet_lrp_composite_model
+from cabrnet.visualization.view import *
 from typing import Callable
 
 
@@ -85,13 +85,17 @@ class SimilarityVisualizer(nn.Module):
             return get_cabrnet_lrp_composite_model(model)
         return model
 
+    DEFAULT_VISUALIZATION_CONFIG = "visualization.yml"
+
     @staticmethod
     def create_parser(
         parser: argparse.ArgumentParser | None = None,
+        mandatory_config: bool = False,
     ) -> argparse.ArgumentParser:
         """Create the argument parser for a ProtoVisualizer.
         Args:
             parser: Existing parser (if any)
+            mandatory_config: Make configuration mandatory
 
         Returns:
             The parser itself.
@@ -99,8 +103,9 @@ class SimilarityVisualizer(nn.Module):
         if parser is None:
             parser = argparse.ArgumentParser(description="Build a ProtoVisualizer")
         parser.add_argument(
+            "-z",
             "--visualization",
-            required=True,
+            required=mandatory_config,
             metavar="/path/to/file.yml",
             help="path to the visualization configuration file",
         )

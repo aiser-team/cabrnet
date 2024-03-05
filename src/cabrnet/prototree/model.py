@@ -12,8 +12,8 @@ from cabrnet.generic.model import CaBRNet
 from cabrnet.utils.optimizers import OptimizerManager
 from cabrnet.utils.tree import TreeNode, MappingMode
 from cabrnet.prototree.decision import SamplingStrategy, ProtoTreeClassifier
-from cabrnet.visualisation.visualizer import SimilarityVisualizer
-from cabrnet.visualisation.explainer import ExplanationGraph
+from cabrnet.visualization.visualizer import SimilarityVisualizer
+from cabrnet.visualization.explainer import ExplanationGraph
 from cabrnet.utils.save import save_checkpoint
 import copy
 from loguru import logger
@@ -51,7 +51,7 @@ class ProtoTree(CaBRNet):
             # When using PRP visualization with Captum, classifier is no longer a ProtoTreeClassifier
             self.classifier.tree = TreeNode.build_from_arch(state)
 
-    def load_legacy_state_dict(self, legacy_state: dict) -> None:
+    def _load_legacy_state_dict(self, legacy_state: Mapping[str, Any]) -> None:
         """Load state dictionary from legacy format
 
         Args:
@@ -115,7 +115,16 @@ class ProtoTree(CaBRNet):
                 )
             final_state[cbrn_key] = final_state.pop(legacy_key)
             cbrn_keys.remove(cbrn_key)
-        self.load_state_dict(final_state, strict=False)
+        super().load_state_dict(final_state, strict=False)
+
+    def load_state_dict(self, state_dict: Mapping[str, Any], **kwargs):
+        """Overloads nn.Module load_state_dict to take legacy state dictionaries into account"""
+        legacy_state = any([key.startswith("_net") for key in state_dict.keys()])
+        if legacy_state:
+            logger.info("Legacy state dictionary detected, performing import.")
+            self._load_legacy_state_dict(state_dict)
+        else:
+            super().load_state_dict(state_dict, **kwargs)
 
     def analyse_leafs(self, pruning_threshold: float = 0.01) -> None:
         """
@@ -291,6 +300,7 @@ class ProtoTree(CaBRNet):
         device: str = "cuda:0",
         verbose: bool = False,
         pruning_threshold: float = 0.0,
+        merge_same_decision: bool = False,
         **kwargs: Any,
     ) -> None:
         """Function called after training, using information from the epilogue
@@ -307,6 +317,7 @@ class ProtoTree(CaBRNet):
             device: target device
             verbose: display progress bar
             pruning_threshold: pruning threshold
+            merge_same_decision: whether branches leading to same top decision should be merged
         """
         # Perform projection
         projection_info = self.project(data_loader=dataloaders["projection_set"], device=device, verbose=verbose)
@@ -318,6 +329,7 @@ class ProtoTree(CaBRNet):
             optimizer_mngr=None,
             training_config=training_config,
             dataset_config=dataset_config,
+            visualization_config=visualizer.config_file,
             epoch="projected",
             seed=seed,
             device=device,
@@ -336,13 +348,14 @@ class ProtoTree(CaBRNet):
         )
         if pruning_threshold <= 0.0:
             logger.warning(f"Leaf pruning disabled (threshold is {pruning_threshold})")
-        self.prune(pruning_threshold=pruning_threshold)
+        self.prune(pruning_threshold=pruning_threshold, merge_same_decision=merge_same_decision)
 
-    def prune(self, pruning_threshold: float = 0.01) -> None:
+    def prune(self, pruning_threshold: float = 0.01, merge_same_decision: bool = False) -> None:
         """
         Prune decision tree based on threshold.
         Args:
             pruning_threshold: Pruning threshold
+            merge_same_decision: whether branches leading to same top decision should be merged
         """
         logger.info(f"Pruning tree. Threshold: {pruning_threshold}")
         num_prototypes_before = self.classifier.tree.num_prototypes
@@ -351,6 +364,8 @@ class ProtoTree(CaBRNet):
             f"Tree statistics before pruning: {num_leaves_before} leaves, " f"{num_prototypes_before} prototypes."
         )
         self.classifier.tree.prune_children(threshold=pruning_threshold)
+        if merge_same_decision:
+            self.classifier.tree.prune_similar_children()
         num_prototypes = self.classifier.tree.num_prototypes
         num_leaves = self.classifier.tree.num_leaves
         logger.info(
@@ -552,7 +567,7 @@ class ProtoTree(CaBRNet):
             """
             if node.proto_idxs is None:
                 # Leaf
-                class_idx = torch.argmax(node.distribution)
+                class_idx = torch.argmax(node.distribution).item()
                 graph.node(name=f"node_{node.node_id}", label=f"Class {class_idx}", fontsize="25", height="0.5")
             else:
                 proto_idx = node.proto_idxs[0]

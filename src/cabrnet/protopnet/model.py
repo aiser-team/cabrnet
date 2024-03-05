@@ -1,6 +1,6 @@
 import copy
 import os
-from typing import Any, Callable
+from typing import Any, Callable, Mapping
 
 import graphviz
 from PIL import Image
@@ -9,8 +9,8 @@ import torch.nn as nn
 import numpy as np
 from cabrnet.generic.model import CaBRNet
 from cabrnet.utils.optimizers import OptimizerManager
-from cabrnet.visualisation.visualizer import SimilarityVisualizer
-from cabrnet.visualisation.explainer import ExplanationGraph
+from cabrnet.visualization.visualizer import SimilarityVisualizer
+from cabrnet.visualization.explainer import ExplanationGraph
 from cabrnet.utils.save import save_checkpoint
 from loguru import logger
 from torch.utils.data import DataLoader
@@ -41,7 +41,7 @@ class ProtoPNet(CaBRNet):
             "num_ft_epochs": 20,
         }
 
-    def load_legacy_state_dict(self, legacy_state: dict) -> None:
+    def _load_legacy_state_dict(self, legacy_state: Mapping[str, any]) -> None:
         """Load state dictionary from legacy format.
 
         Args:
@@ -91,7 +91,16 @@ class ProtoPNet(CaBRNet):
                 )
             final_state[cbrn_key] = final_state.pop(legacy_key)
             cbrn_keys.remove(cbrn_key)
-        self.load_state_dict(final_state, strict=False)
+        super().load_state_dict(final_state, strict=False)
+
+    def load_state_dict(self, state_dict: Mapping[str, Any], **kwargs):
+        """Overloads nn.Module load_state_dict to take legacy state dictionaries into account"""
+        legacy_state = any([key.startswith("features") for key in state_dict.keys()])
+        if legacy_state:
+            logger.info("Legacy state dictionary detected, performing import.")
+            self._load_legacy_state_dict(state_dict)
+        else:
+            super().load_state_dict(state_dict, **kwargs)
 
     def register_training_params(self, training_config: dict[str, Any]) -> None:
         """Save additional information from the training configuration directly into the model
@@ -385,6 +394,7 @@ class ProtoPNet(CaBRNet):
             optimizer_mngr=None,
             training_config=training_config,
             dataset_config=dataset_config,
+            visualization_config=visualizer.config_file,
             epoch="projected",
             seed=seed,
             device=device,

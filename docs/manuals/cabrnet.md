@@ -4,7 +4,7 @@ All CaBRNet applications are accessible through a single front-end script. To li
 cabrnet --help
 ```
 ```
-usage: cabrnet [-h] {download_examples,evaluate,train,import,explain,explain_global} ...
+usage: cabrnet [-h] [--version] {download_examples,evaluate,train,import,explain,explain_global} ...
 
 CaBRNet front-end
 
@@ -20,6 +20,7 @@ positional arguments:
 
 options:
   -h, --help            show this help message and exit
+  -V, --version         show program's version number and exit
 ```
 To obtain the documentation for a specific application, simple enter `cabrnet <app_name> --help`, *e.g.*:
 ```bash
@@ -31,13 +32,14 @@ it is also easy to [add new applications](applications.md).
 ## Common options
 Some options are present in all applications:
 
-- `--version|-V` allows to check the version of the CaBRNet library.
-- `--device DEVICE` allows to specify a target hardware device (by default, it is set to `cuda:0`).
-- `--seed|-s SEED` allows to specify the random seed to improve the [reproducibility](#reproducibility) of all
+- `--device device` allows to specify a target hardware device (by default, it is set to `cuda:0`).
+- `--seed value` allows to specify the random seed to improve the [reproducibility](#reproducibility) of all
 experiments (by default, it is set to 42, as it should be ;)).
-- `--logger-level LOGGER_LEVEL` indicates the level of debug message displayed on the standard output. 
+- `--logger-level level` indicates the level of debug messages that should be displayed. 
 CaBRNet uses [loguru](https://loguru.readthedocs.io/en/stable/) for logging messages.
-- `--verbose` enables [tqdm](https://tqdm.github.io/) progression bars during long operations.
+- `--logger-file path/to/file` indicates where the debug messages should be displayed. By default, it is set to the 
+standard error output. 
+- `-v, --verbose` enables [tqdm](https://tqdm.github.io/) progression bars during long operations.
 
 ## Training 
 `cabrnet train` is used to train a prototype-based model.
@@ -48,6 +50,14 @@ CaBRNet uses [loguru](https://loguru.readthedocs.io/en/stable/) for logging mess
 - `--visualization /path/to/file.yml` indicates how to [visualize the prototypes and patches of test image](visualize.md).
 - `--save-best acc|loss` indicates how to determine the "best" model, based either on accuracy (`acc`) or `loss`.
 - `--output-dir path/to/output/directory` indicates where to store the model checkpoints during training.
+
+Note: If all configuration files are located in the same directory, it is possible to start the training using the 
+`--start-from <dir>` option, that is effectively equivalent to:
+
+- `--model-config <dir>/model_arch.yml`
+- `--dataset <dir>/dataset.yml`
+- `--training <dir>/training.yml`
+- `--visualization <dir>/visualization.yml`
 
 ### Sanity check
 For a quick sanity check of a particular architecture or overall training configuration, it is possible to use the 
@@ -62,6 +72,7 @@ If not provided, **only the best model is kept during training** (in the `best/`
     - a copy of the YML file describing the model architecture, as specified [here](model.md).
     - a copy of the YML file describing the dataset, as specified [here](data.md). 
     - a copy of the YML file describing the training configuration, as specified [here](training.md). 
+    - a copy of the YML file describing the visualization configuration, as specified [here](visualize.md). 
     - the current model state dictionary.
     - the current state of all optimizers and learning rate schedulers.
     - a file `state.pickle` containing auxiliary information such as:
@@ -80,9 +91,12 @@ CaBRNet assumes that the high-level training process is common to all prototype-
 - The model is initialized, usually from a pre-trained convolutional neural network that is used as a feature extractor 
 (backbone), and with random prototypes.
 - The model is trained for several epochs, modifying the values of the prototypes and the weights of the backbone.
-- The prototypes are *projected* to their closest vectors from a projection dataset (usually the training set).
-- The visualization of each prototype is generated and stored in the `prototypes/` subdirectory.
-- An optional *epilogue* takes place, usually to prune weak prototypes.
+- An optional *epilogue* takes place, in which:
+    - The prototypes are *projected* to their closest vectors from a projection dataset (usually the training set).
+    - The visualization of each prototype is generated and stored in the `prototypes/` subdirectory.
+    - Weak prototypes are pruned.
+
+Note that the order of operations in the epilogue depends on the chosen architecture.
 
 ## Importing a legacy model
 To avoid restarting previous computations performed using the codes provided by the original authors,
@@ -91,36 +105,49 @@ Currently, this tool only supports ProtoPNet and ProtoTree.
 
 Here is a short description of the options. As in `cabrnet train`:
 
-- `--model-config /path/to/file.yml` indicates how to [build the model](model.md). In addition,
-`--model-state-dict /path/to/model/state.pth` indicates the location of the legacy state dictionary that should be used 
+- `--model-config /path/to/file.yml` indicates how to [build the model](model.md). 
+- `--model-state-dict /path/to/model/state.pth` indicates the location of the legacy state dictionary that should be used 
 to initialize the model.
 - `--output-dir path/to/output/directory` indicates where to store the imported model.
 
-Note that after the loading the CaBRNet model with the parameters of the legacy model (feature extractor, prototypes, etc),
-CaBRNet **finalizes the import process by projecting and extracting the prototypes** and performing the optional epilogue if necessary.
+Note that after the loading the CaBRNet model with the parameters of the legacy model (feature extractor, prototypes, etc.),
+CaBRNet **finalizes the import process by performing the optional model [epilogue](#training-process)**.
 Therefore, the `cabrnet import` tool also requires the following information:
 
 - `--dataset|-d /path/to/file.yml` indicates how to [load and prepare the data for prototype projection](data.md).
 - `--training|-t /path/to/file.yml` indicates the [parameters of the epilogue](training.md) (if any).
 - `--visualization /path/to/file.yml` indicates how to [visualize the prototypes](visualize.md).
 
+Similar to the `--start-from` option in `cabrnet train`, the `--config-dir <dir>` option is equivalent to:
+
+- `--model-config <dir>/model_arch.yml`
+- `--dataset <dir>/dataset.yml`
+- `--training <dir>/training.yml`
+- `--visualization <dir>/visualization.yml`
 
 ## Evaluating a CaBRNet model
 After training, it is possible to evaluate the loss and accuracy of a model using the `cabrnet evaluate` tool. 
 To evaluate a model, the tool uses the following options:
 
-- `--model-config /path/to/file.yml` indicates how to [build the model](model.md). In addition,
-`--model-state-dict /path/to/model/state.pth` or `--legacy-state-dict /path/to/model/state.pth` indicates
+- `--model-config /path/to/file.yml` indicates how to [build the model](model.md).
+- `--model-state-dict /path/to/model/state.pth` indicates
 the location of a CaBRNet or legacy state dictionary that should be used to initialize the model.
 - `--dataset|-d /path/to/file.yml` indicates how to [load and prepare the test data for the evaluation](data.md).
+
+Similar to the `--start-from` option in `cabrnet train`, the `--checkpoint-dir <dir>` option is equivalent to:
+
+- `--model-config <dir>/model_arch.yml`
+- `--model-state-dict/model_state.pth`
+- `--dataset <dir>/dataset.yml`
 
 ## Generating explanations
 Prototype-based architectures provide both global and local explanations:
 - global explanations provide an overview of the decision-making process of the entire model.
 - local explanations provide information regarding a particular decision (for a particular image). 
+
 ### Global explanations
 A global explanation is generated using the `explain_global` method of a CaBRNet model (see the 
-[ProtoTree example](../API/reference/cabrnet/prototree/model.md#explain_global)). To generate such an explanation, 
+[MNIST example](mnist.md)). To generate such an explanation, 
 the tool uses the following options:
 
 - `--model-config /path/to/file.yml` and `--model-state-dict /path/to/model/state.pth` indicate how to 
@@ -129,9 +156,14 @@ the tool uses the following options:
 [training](#training-) are stored (usually in `<training_directory>/prototypes/`).
 - `--output-dir path/to/output/directory` indicates where to store the global explanation.
 
+Similar to `cabrnet evaluate`, the `--checkpoint-dir <dir>` option is equivalent to:
+
+- `--model-config <dir>/model_arch.yml`
+- `--model-state-dict/model_state.pth`
+
 ### Local explanations
 A local explanation is generated using the `explain` method of the CaBRNet model (see the 
-[ProtoTree example](../API/reference/cabrnet/prototree/model.md#explain)). To generate such an explanation, the tool uses the following options:
+[MNIST example](mnist.md)). To generate such an explanation, the tool uses the following options:
 
 - `--model-config /path/to/file.yml` and `--model-state-dict /path/to/model/state.pth` indicate how to 
 [build and initialize the model](model.md).
@@ -143,6 +175,13 @@ based on the transformations applied to the *test* dataset.
 [training](#training-) are stored (usually in `<training_directory>/prototypes/`).
 - `--output-dir path/to/output/directory` indicates where to store the local explanation.
 - `--overwrite` indicates that any existing explanation in the output directory can be overwritten.
+
+As in `cabrnet evaluate`, the `--checkpoint-dir <dir>` option is equivalent to:
+
+- `--model-config <dir>/model_arch.yml`
+- `--model-state-dict <dir>/model_state.pth`
+- `--dataset <dir>/dataset.yml`
+- `--visualization <dir>/visualization.yml`
 
 ## Reproducibility
 ### Random number initialization and deterministic operations
@@ -160,7 +199,9 @@ np.random.seed(seed)
 random.seed(seed)
 ```
 Additionally, CaBRNet use a pytorch feature called [torch.use_deterministic_algorithm](https://pytorch.org/docs/stable/generated/torch.use_deterministic_algorithms.html),
-which ensures reproducible results for a given hardware/software configuration. IMPORTANT NOTE: for compatibility reasons,
+which ensures reproducible results for a given hardware/software configuration. 
+
+**IMPORTANT NOTE**: for compatibility reasons,
 it might be necessary to manually set the `CUBLAS_WORKSPACE_CONFIG` environment variable before launching the CaBRNet 
 main tool.
 ```bash
@@ -180,3 +221,4 @@ In other words, a model in `eval()` mode does not return the same outputs depend
 (and the target hardware). While this effect is limited when performing traditional linear operations (the tensors are usually `allclose` from pytorch point of view), 
 the use of the **L2 distance between vectors tends to amplify the phenomenon**. In particular, this may have an effect during prototype projection, where an image patch may
 be considered closer or farther than another patch depending on the batch size.
+
