@@ -5,7 +5,7 @@ from loguru import logger
 import argparse
 from cabrnet.utils.parser import load_config
 from cabrnet.visualization.upsampling import cubic_upsampling
-from cabrnet.visualization.gradients import smoothgrad, randgrad, prp
+from cabrnet.visualization.gradients import smoothgrad, randgrad, prp, saliency
 from cabrnet.visualization.prp_utils import get_cabrnet_lrp_composite_model
 from cabrnet.visualization.view import *
 from typing import Callable
@@ -14,6 +14,7 @@ from typing import Callable
 supported_attribution_functions = {
     "cubic_upsampling": cubic_upsampling,
     "smoothgrad": smoothgrad,
+    "saliency": saliency,
     "randgrad": randgrad,
     "prp": prp,
 }
