@@ -19,7 +19,7 @@ contribute to the similarity between $I$ and $P$.
 
 ```yaml
 attribution:
-    type: <cubic_upsampling|smoothgrad|randgrad|prp>
+    type: <cubic_upsampling|smoothgrad|saliency|randgrad|prp>
     params:
       <METHOD_PARAM_NAME_1>: <PARAM_VALUE>
       ...
@@ -40,7 +40,16 @@ This method supports the following options:
 
 - `single_location`: only up-sample the location of highest similarity inside the similarity map. 
 This option sets all other similarity scores to zero prior to up-sampling.
-- `normalize`: apply min-max normalization after up-sampling.
+
+### Saliency
+This method implements the [Saliency](https://arxiv.org/abs/1312.6034) explanation algorithm.
+By default, this method computes a sum of the gradients of each location inside the similarity map $S(I,P)$ w.r.t. to $I$,
+weighted by the corresponding similarity scores, i.e.
+$A = \sum\limits_{h,w} S_{h,w}(I,P)\times \dfrac{\delta S_{h,w}(I,P)}{\delta I}$
+
+This method supports the following options:
+
+- `single_location`: only compute the gradients at the location of highest similarity inside the similarity map. 
 
 ### SmoothGrad
 This method implements the [SmoothGrad](https://arxiv.org/abs/1706.03825) explanation algorithm.
@@ -59,6 +68,7 @@ This method supports the following options:
 This method implements the variant of LRP for prototype-based architectures, as described [here](https://www.sciencedirect.com/science/article/pii/S0031320322006513),
 and supports the following option:
 
+- `single_location`: only compute the gradients at the location of highest similarity inside the similarity map. 
 - `stability_factor`: stability factor used during relevance propagation
 
 ### Rand-Grads
@@ -67,7 +77,7 @@ quality of attribution methods.
 
 
 ### Post-processing gradients
-Additionally, SmoothGrad, RandGrad and PRP offer a post-processing capability that normalizes and smooths the gradients,
+Additionally, SmoothGrad, Saliency, RandGrad and PRP offer a post-processing capability that normalizes and smooths the gradients,
 using the following options:
 
 - `polarity`: keep only `positive` or `negative` gradients, or their `absolute` value. 
@@ -103,4 +113,10 @@ image based on this bounding-box, using the `percentile` option as in the [previ
 Alternatively, important pixels can be visualized using the `heatmap` method.
 
 ![heatmap view](../imgs/view_heatmap.png)
+
+Additionally, using the `percentile` option as in the [previous methods](#bounding-box-to-percentile), it is possible to overlay a bounding box
+to the heamap.
+
+![heatmap with bbox view](../imgs/view_heatmap_bbox.png)
+
 
