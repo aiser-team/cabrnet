@@ -8,6 +8,7 @@ import random
 import traceback
 from argparse import ArgumentParser
 from loguru import logger
+from cabrnet.utils.exceptions import ArgumentError
 
 import numpy as np
 import torch
@@ -89,7 +90,7 @@ def main():
     else:
         try:
             args.func(args)
-        except AttributeError as e:
+        except ArgumentError as e:
             print(e)
             parser.parse_args([args.appname, "-h"])
 

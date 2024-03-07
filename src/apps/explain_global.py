@@ -2,6 +2,7 @@ import os
 from argparse import ArgumentParser, Namespace
 from loguru import logger
 from cabrnet.generic.model import CaBRNet
+from cabrnet.utils.exceptions import ArgumentError
 
 description = "explain the global behaviour of a CaBRNet classifier"
 
@@ -60,7 +61,7 @@ def check_args(args: Namespace) -> Namespace:
         ["model", "state dictionary"],
     ):
         if param is None:
-            raise AttributeError(f"Missing {name} configuration file.")
+            raise ArgumentError(f"Missing {name} configuration file.")
     return args
 
 

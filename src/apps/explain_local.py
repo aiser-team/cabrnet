@@ -6,6 +6,7 @@ from loguru import logger
 from cabrnet.generic.model import CaBRNet
 from cabrnet.utils.data import DatasetManager
 from cabrnet.visualization.visualizer import SimilarityVisualizer
+from cabrnet.utils.exceptions import ArgumentError
 
 description = "explain the decision of a CaBRNet classifier"
 
@@ -84,7 +85,7 @@ def check_args(args: Namespace) -> Namespace:
         ["model", "state dictionary", "dataset", "visualization"],
     ):
         if param is None:
-            raise AttributeError(f"Missing {name} configuration file.")
+            raise ArgumentError(f"Missing {name} configuration file.")
     return args
 
 

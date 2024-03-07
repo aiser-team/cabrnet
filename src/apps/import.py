@@ -6,6 +6,7 @@ from cabrnet.utils.optimizers import OptimizerManager
 from cabrnet.utils.data import DatasetManager
 from cabrnet.utils.save import save_checkpoint
 from cabrnet.visualization.visualizer import SimilarityVisualizer
+from cabrnet.utils.exceptions import ArgumentError
 from argparse import ArgumentParser, Namespace
 
 
@@ -65,7 +66,7 @@ def check_args(args: Namespace) -> Namespace:
         ],
     ):
         if param is None:
-            raise AttributeError(f"Missing {name} file.")
+            raise ArgumentError(f"Missing {name} file.")
     return args
 
 

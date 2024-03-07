@@ -10,6 +10,7 @@ from cabrnet.utils.data import DatasetManager
 from cabrnet.utils.parser import load_config
 from cabrnet.utils.save import save_checkpoint, load_checkpoint
 from cabrnet.visualization.visualizer import SimilarityVisualizer
+from cabrnet.utils.exceptions import ArgumentError
 
 description = "train a CaBRNet classifier"
 
@@ -115,7 +116,7 @@ def check_args(args: Namespace) -> Namespace:
         ["model", "dataset", "training", "visualization"],
     ):
         if param is None:
-            raise AttributeError(f"Missing {name} configuration file.")
+            raise ArgumentError(f"Missing {name} configuration file.")
 
     return args
 
@@ -151,7 +152,7 @@ def execute(args: Namespace) -> None:
 
     # Check that output directory is available
     if not args.overwrite and os.path.exists(os.path.join(root_dir, "best")):
-        raise AttributeError(
+        raise ArgumentError(
             f"Output directory {os.path.join(root_dir, 'best')} is not empty. "
             f"To overwrite existing results, use --overwrite option."
         )
@@ -169,7 +170,7 @@ def execute(args: Namespace) -> None:
         train_info = state["stats"]
         best_metric = train_info.get(f"best_avg_train_{args.save_best}")
         if best_metric is None:
-            raise AttributeError(f"Could not recover best model {args.save_best}: invalid --save-best option?")
+            raise ArgumentError(f"Could not recover best model {args.save_best}: invalid --save-best option?")
         # Remap optimizer to device if necessary
         optimizer_mngr.to(device)
     else:
