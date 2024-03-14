@@ -48,14 +48,14 @@ def check_args(args: Namespace) -> Namespace:
             ["--model-config", "--dataset", "--training", "--visualization"],
         ):
             if param is not None:
-                logger.warning(f"Ignoring option {name}: using content pointed by --config-dir instead")
+                raise ArgumentError(f"Cannot specify both options {name} and --config_dir")
         args.model_config = os.path.join(args.config_dir, CaBRNet.DEFAULT_MODEL_CONFIG)
         args.dataset = os.path.join(args.config_dir, DatasetManager.DEFAULT_DATASET_CONFIG)
         args.training = os.path.join(args.config_dir, OptimizerManager.DEFAULT_TRAINING_CONFIG)
         args.visualization = os.path.join(args.config_dir, SimilarityVisualizer.DEFAULT_VISUALIZATION_CONFIG)
 
     # Check configuration completeness
-    for param, name in zip(
+    for param, name, option in zip(
         [args.model_config, args.dataset, args.training, args.visualization, args.model_state_dict],
         [
             "model configuration",
@@ -64,9 +64,10 @@ def check_args(args: Namespace) -> Namespace:
             "visualization configuration",
             "model state",
         ],
+        ["-m", "-d", "-z", "-t", "-s"],
     ):
         if param is None:
-            raise ArgumentError(f"Missing {name} file.")
+            raise ArgumentError(f"Missing {name} file (option {option}).")
     return args
 
 
