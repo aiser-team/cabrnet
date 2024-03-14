@@ -97,13 +97,13 @@ def check_args(args: Namespace) -> Namespace:
                 ["--model-config", "--dataset", "--training", "--visualization"],
             ):
                 if param is not None:
-                    logger.warning(f"Ignoring option {name}: using content pointed by {option_name} instead")
+                    raise ArgumentError(f"Cannot specify both options {name} and {option_name}")
             args.model_config = os.path.join(dir_path, CaBRNet.DEFAULT_MODEL_CONFIG)
             # Compatibility with v0.1: will be removed in the future
-            if os.path.isfile(os.path.join(dir_path, "model_arch.yml")):
-                args.model_config = os.path.join(dir_path, "model_arch.yml")
+            if not os.path.isfile(args.model_config) and os.path.isfile(os.path.join(dir_path, "model.yml")):
+                args.model_config = os.path.join(dir_path, "model.yml")
                 logger.warning(
-                    f"Using model_arch.yml from {dir_path}: "
+                    f"Using model.yml from {dir_path}: "
                     f"please consider renaming the file to {CaBRNet.DEFAULT_MODEL_CONFIG} to ensure compatibility "
                     f"with future versions"
                 )
@@ -111,12 +111,13 @@ def check_args(args: Namespace) -> Namespace:
             args.training = os.path.join(dir_path, OptimizerManager.DEFAULT_TRAINING_CONFIG)
             args.visualization = os.path.join(dir_path, SimilarityVisualizer.DEFAULT_VISUALIZATION_CONFIG)
 
-    for param, name in zip(
+    for param, name, option in zip(
         [args.model_config, args.dataset, args.training, args.visualization],
         ["model", "dataset", "training", "visualization"],
+        ["-m", "-d", "-t", "-z"],
     ):
         if param is None:
-            raise ArgumentError(f"Missing {name} configuration file.")
+            raise ArgumentError(f"Missing {name} configuration file (option {option}).")
 
     return args
 

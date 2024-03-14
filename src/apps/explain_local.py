@@ -73,19 +73,20 @@ def check_args(args: Namespace) -> Namespace:
             ["--model-config", "--model-state-dict", "--dataset", "--visualization"],
         ):
             if param is not None:
-                logger.warning(f"Ignoring option {name}: using content pointed by --checkpoint-dir instead")
+                raise ArgumentError(f"Cannot specify both options {name} and --checkpoint-dir")
         args.model_config = os.path.join(args.checkpoint_dir, CaBRNet.DEFAULT_MODEL_CONFIG)
         args.model_state_dict = os.path.join(args.checkpoint_dir, CaBRNet.DEFAULT_MODEL_STATE)
         args.dataset = os.path.join(args.checkpoint_dir, DatasetManager.DEFAULT_DATASET_CONFIG)
         args.visualization = os.path.join(args.checkpoint_dir, SimilarityVisualizer.DEFAULT_VISUALIZATION_CONFIG)
 
     # Check configuration completeness
-    for param, name in zip(
+    for param, name, option in zip(
         [args.model_config, args.model_state_dict, args.dataset, args.visualization],
-        ["model", "state dictionary", "dataset", "visualization"],
+        ["model configuration", "state dictionary", "dataset configuration", "visualization configuration"],
+        ["-m", "-s", "-d", "-z"],
     ):
         if param is None:
-            raise ArgumentError(f"Missing {name} configuration file.")
+            raise ArgumentError(f"Missing {name} file (option {option}).")
     return args
 
 
