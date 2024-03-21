@@ -47,8 +47,7 @@ fi
 
 if [ ! -d data/CUB_200_2011/dataset/train_crop_augmented ]; then
   echo "Performing ProtoPNet augmentation (this may take a while)"
-  #if ! msg=$(python3 src/legacy/protopnet/img_aug.py 1&> /dev/null); then
-  if ! msg=$(python3 src/legacy/protopnet/img_aug.py); then
+  if ! msg=$(python3 src/legacy/protopnet/img_aug.py 1&> /dev/null); then
     echo "FAILED: ${msg}"
     exit
   fi
