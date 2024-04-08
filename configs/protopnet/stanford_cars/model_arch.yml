@@ -1,6 +1,6 @@
 top_arch: # Optional
-  module: cabrnet.prototree.model
-  name: ProtoTree # Take "extractor" and "classifier", implement the generic class ProtoClassifier
+  module: cabrnet.protopnet.model
+  name: ProtoPNet # Take "extractor" and "classifier", implement the generic class ProtoClassifier
 
 extractor: # How to build the feature extractor
   backbone:
@@ -19,12 +19,11 @@ extractor: # How to build the feature extractor
       type: Sigmoid
 
 classifier: # How to compute the decision from the features
-  module: cabrnet.prototree.decision
-  name: ProtoTreeClassifier
+  module: cabrnet.protopnet.decision
+  name: ProtoPNetClassifier
   params:
-    num_features: 128
     num_classes: 196
-    depth: 9
-    leaves_init_mode: ZEROS
+    num_proto_per_class: 10
     proto_init_mode: SHIFTED_NORMAL
-    log_probabilities: False
+
+

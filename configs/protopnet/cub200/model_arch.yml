@@ -32,6 +32,5 @@ classifier:
   params:
     num_classes: 200
     num_proto_per_class: 10
-    #prototype_activation: log
     proto_init_mode: UNIFORM
     compatibility_mode: True
