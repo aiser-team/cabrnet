@@ -102,6 +102,27 @@ class ProtoPNet(CaBRNet):
             logger.info("Legacy state dictionary detected, performing import.")
             self._load_legacy_state_dict(state_dict)
         else:
+            # Due to prototype pruning, some tensors might be smaller than expected
+            if state_dict["classifier.prototypes"].shape != self.classifier.prototypes.shape:
+                updated_num_prototypes = state_dict["classifier.prototypes"].shape[0]
+                logger.warning(
+                    f"Adjusting number of prototypes from {self.num_prototypes} to {updated_num_prototypes} "
+                    f"to match model state"
+                )
+                # self.num_prototypes is automatically updated after changing the prototype tensor
+                self.classifier.prototypes = nn.Parameter(
+                    torch.zeros((updated_num_prototypes, self.classifier.num_features, 1, 1)), requires_grad=True
+                )
+                # Update shape of all other relevant tensors
+                self.classifier.proto_class_map = torch.zeros(self.num_prototypes, self.classifier.num_classes)
+                self.classifier.similarity_layer.register_buffer(
+                    "_summation_kernel", torch.ones((self.num_prototypes, self.classifier.num_features, 1, 1))
+                )
+                pruned_last_layer = nn.Linear(
+                    in_features=self.num_prototypes, out_features=self.classifier.num_classes, bias=False
+                )
+                self.classifier.last_layer = pruned_last_layer
+            # Load state dictionary
             super().load_state_dict(state_dict, **kwargs)
 
     def register_training_params(self, training_config: dict[str, Any]) -> None:
@@ -192,6 +213,7 @@ class ProtoPNet(CaBRNet):
         optimizer_mngr: OptimizerManager | torch.optim.Optimizer,
         device: str = "cuda:0",
         progress_bar_position: int = 0,
+        progress_bar_title: str = "",
         epoch_idx: int = 0,
         verbose: bool = False,
         max_batches: int | None = None,
@@ -203,6 +225,7 @@ class ProtoPNet(CaBRNet):
             optimizer_mngr: Optimizer manager
             device: Target device
             progress_bar_position: Position of the progress bar.
+            progress_bar_title: Progress bar title
             epoch_idx: Epoch index
             max_batches: Max number of batches (early stop for small compatibility tests)
             verbose: Display progress bar
@@ -223,7 +246,7 @@ class ProtoPNet(CaBRNet):
         # Show progress on progress bar if needed
         train_iter = tqdm(
             enumerate(train_loader),
-            desc=f"Training epoch {epoch_idx}",
+            desc=progress_bar_title,
             total=len(train_loader),
             leave=False,
             position=progress_bar_position,
@@ -304,6 +327,7 @@ class ProtoPNet(CaBRNet):
             optimizer_mngr=optimizer_mngr,
             device=device,
             progress_bar_position=progress_bar_position,
+            progress_bar_title=f"Training epoch {epoch_idx}",
             epoch_idx=epoch_idx,
             verbose=verbose,
             max_batches=max_batches,
@@ -330,12 +354,13 @@ class ProtoPNet(CaBRNet):
                 position=progress_bar_position,
                 disable=not verbose,
             )
-            for _ in fine_tuning_progress:
+            for ft_epoch_idx in fine_tuning_progress:
                 train_info = self._train_epoch(
                     dataloaders=dataloaders,
                     optimizer_mngr=optimizer_mngr.optimizers["last_layer_optimizer"],  # type: ignore
                     device=device,
                     progress_bar_position=progress_bar_position + 1,
+                    progress_bar_title=f"Fine-tuning epoch {ft_epoch_idx}",
                     epoch_idx=epoch_idx,
                     verbose=verbose,
                     max_batches=max_batches,
