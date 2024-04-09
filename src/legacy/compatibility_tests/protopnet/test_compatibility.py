@@ -134,6 +134,7 @@ class TestProtoPNetCompatibility(unittest.TestCase):
         self.dataset_config_file = os.path.join(test_dir, DatasetManager.DEFAULT_DATASET_CONFIG)
         self.training_config_file = os.path.join(test_dir, OptimizerManager.DEFAULT_TRAINING_CONFIG)
         self.legacy_state_dict = os.path.join(test_dir, "legacy_state.pth")
+        self.output_dir = os.path.join(test_dir, "output")
         self.device: str = "cuda:0"
         self.seed: int = 42
         self.verbose: bool = True
@@ -247,6 +248,7 @@ class TestProtoPNetCompatibility(unittest.TestCase):
                 epoch_idx=epoch,
                 dataloaders=dataloaders,
                 optimizer_mngr=optimizer_mngr,
+                output_dir=self.output_dir,
                 device=self.device,
                 progress_bar_position=1,
                 max_batches=max_batches,
@@ -343,7 +345,11 @@ class TestProtoPNetCompatibility(unittest.TestCase):
         setup_rng(self.seed)
         cabrnet_model = CaBRNet.build_from_config(self.model_config_file, seed=self.seed, compatibility_mode=True)
         dataloaders = DatasetManager.get_dataloaders(config_file=self.dataset_config_file)
-        cabrnet_model.project(data_loader=dataloaders["projection_set"], device=self.device, verbose=self.verbose)
+        cabrnet_model.project(
+            dataloader=dataloaders["projection_set"],
+            device=self.device,
+            verbose=self.verbose,
+        )
 
         # Legacy
         setup_rng(self.seed)
@@ -398,7 +404,7 @@ class TestProtoPNetCompatibility(unittest.TestCase):
         dataloaders = DatasetManager.get_dataloaders(config_file=self.dataset_config_file)
         training_config = load_config(self.training_config_file)
         cabrnet_model.prune(
-            data_loader=dataloaders["projection_set"],
+            dataloader=dataloaders["projection_set"],
             device=self.device,
             verbose=True,
             **training_config.get("epilogue", {}),

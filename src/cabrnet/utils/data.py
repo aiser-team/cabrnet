@@ -7,7 +7,21 @@ from typing import Any, Callable
 import torchvision.transforms
 from loguru import logger
 from cabrnet.utils.parser import load_config
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader, Dataset, Subset
+
+
+class VisionDatasetSubset(Subset):
+    """Overwrites the Subset class so that it exposes all properties of a VisionDataset"""
+
+    @property
+    def transform(self) -> Any:
+        return getattr(self.dataset, "transform", None)
+
+    def target_transform(self) -> Any:
+        return getattr(self.dataset, "target_transform", None)
+
+    def transforms(self) -> Any:
+        return getattr(self.dataset, "transforms", None)
 
 
 class DatasetManager:
@@ -73,11 +87,15 @@ class DatasetManager:
         return getattr(module, trans_config["type"])()
 
     @staticmethod
-    def get_datasets(config_file: str) -> dict[str, dict[str, Dataset | int | bool]]:
+    def get_datasets(
+        config_file: str, sampling_ratio: int = 1, load_segmentation: bool = False
+    ) -> dict[str, dict[str, Dataset | int | bool]]:
         """Load datasets from yaml configuration file.
 
         Args:
             config_file: path to configuration file
+            sampling_ratio: sampling ratio (e.g. 5 means only one image in five is used)
+            load_segmentation: load segmentation datasets if available
 
         Returns:
             dictionary of datasets with their respective batch size and shuffle property
@@ -126,6 +144,20 @@ class DatasetManager:
                 # Remove image preprocessing to recover raw images
                 params["transform"] = None
             dataset["raw_dataset"] = getattr(module, dconfig["name"])(**params)
+            if load_segmentation:
+                try:
+                    params["root"] += "_seg"
+                    dataset["seg_dataset"] = getattr(module, dconfig["name"])(**params)
+                except FileNotFoundError:
+                    logger.warning(f"Segmentation set unavailable for dataset {dataset_name}")
+
+            if sampling_ratio > 1:
+                # Apply data sub-selection
+                selected_indices = [idx for idx in range(len(dataset["dataset"]))][::sampling_ratio]  # type: ignore
+                for key in ["dataset", "raw_dataset", "seg_dataset"]:
+                    if dataset.get(key, None) is not None:
+                        dataset[key] = VisionDatasetSubset(dataset[key], selected_indices)
+
             dataset["batch_size"] = batch_size
             dataset["shuffle"] = shuffle
             # Recover optional number of workers
@@ -134,11 +166,15 @@ class DatasetManager:
         return datasets
 
     @staticmethod
-    def get_dataloaders(config_file: str) -> dict[str, DataLoader]:
+    def get_dataloaders(
+        config_file: str, sampling_ratio: int = 1, load_segmentation: bool = False
+    ) -> dict[str, DataLoader]:
         """Create dataloaders from yaml configuration file.
 
         Args:
             config_file: path to configuration file
+            sampling_ratio: sampling ratio (e.g. 5 means only one image in five is used)
+            load_segmentation: load segmentation datasets if available
 
         Returns:
             dictionary of dataloaders
@@ -146,7 +182,9 @@ class DatasetManager:
         Raises:
             ValueError whenever a dataset could not be loaded or a parameter is invalid
         """
-        datasets = DatasetManager.get_datasets(config_file=config_file)
+        datasets = DatasetManager.get_datasets(
+            config_file=config_file, sampling_ratio=sampling_ratio, load_segmentation=load_segmentation
+        )
         dataloaders: dict[str, DataLoader] = {}
         for dataset_name in datasets:
             dataset: Dataset = datasets[dataset_name]["dataset"]  # type: ignore
@@ -160,6 +198,14 @@ class DatasetManager:
             dataloaders[dataset_name + "_raw"] = DataLoader(
                 dataset=raw_dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers
             )
+            if load_segmentation:
+                try:
+                    seg_dataset: Dataset = datasets[dataset_name]["seg_dataset"]  # type: ignore
+                    dataloaders[dataset_name + "_seg"] = DataLoader(
+                        dataset=seg_dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers
+                    )
+                except KeyError:
+                    pass
         return dataloaders
 
     @staticmethod

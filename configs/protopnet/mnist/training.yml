@@ -46,3 +46,4 @@ auxiliary_info:
 epilogue:
   pruning_threshold: 3
   num_nearest_patches: 6
+  projection_file: projection_info.csv

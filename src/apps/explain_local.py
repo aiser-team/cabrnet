@@ -103,13 +103,13 @@ def execute(args: Namespace) -> None:
     # Build model and load state dictionary
     model: CaBRNet = CaBRNet.build_from_config(config_file=args.model_config, state_dict_path=args.model_state_dict)
     # Init visualizer
-    visualizer = SimilarityVisualizer.build_from_config(config_file=args.visualization)
+    visualizer = SimilarityVisualizer.build_from_config(config_file=args.visualization, model=model)
     # Recover preprocessing function
     preprocess = DatasetManager.get_dataset_transform(config_file=args.dataset, dataset="test_set")
 
     # Generate explanation
     model.explain(
-        img_path=args.image,
+        img=args.image,
         preprocess=preprocess,
         visualizer=visualizer,
         prototype_dir_path=args.prototype_dir,

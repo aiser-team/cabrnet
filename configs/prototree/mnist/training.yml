@@ -24,3 +24,4 @@ num_epochs: 1
 
 epilogue:
   pruning_threshold: 0.01
+  projection_file: projection_info.csv

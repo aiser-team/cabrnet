@@ -80,7 +80,7 @@ class DecisionLRPWrapper(nn.Module):
         self.prototypes = copy.deepcopy(classifier.prototypes)
         self.similarity_layer = L2SimilaritiesLRPWrapper(
             # Do not use classifier.num_prototypes as it might have changed after pruning
-            num_prototypes=classifier.max_num_prototypes,
+            num_prototypes=classifier.num_prototypes,
             num_features=classifier.num_features,
             stability_factor=stability_factor,
         )
@@ -529,7 +529,6 @@ def attach_lrp_comp_rules(module: nn.Module, module_path: str = "") -> None:
     for name, child in module.named_children():
         for key in policy.keys():
             if isinstance(child, key):
-                logger.debug(f"Setting rule {policy[key].__name__} to module {module_path}{name} of type {key}")
                 child.rule = policy[key]()
         attach_lrp_comp_rules(child, module_path=f"{module_path}{name}.")
 

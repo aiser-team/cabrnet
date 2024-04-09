@@ -90,7 +90,7 @@ class TreeNode(nn.Module):
         """
         Prune nodes that have the same decision on all children.
         """
-        if self.proto_idxs is None: # Leaf
+        if self.proto_idxs is None:  # Leaf
             return
 
         names = ["nsim", "sim"]
@@ -105,7 +105,7 @@ class TreeNode(nn.Module):
             childfullname = f"{self.node_id}_child_{child_name}"
             child = self.get_submodule(childfullname)
 
-            if child.proto_idxs is None: # child has no children
+            if child.proto_idxs is None:  # child has no children
                 continue
 
             has_great_grand_children = False
@@ -138,6 +138,12 @@ class TreeNode(nn.Module):
         for child in self.children():
             for leaf in child.leaves:
                 yield leaf
+
+    @property
+    def active_prototypes(self) -> list[int] | None:
+        res = self.proto_idxs.copy() if self.proto_idxs is not None else []
+        res += [proto_idx for child in self.children() for proto_idx in child.active_prototypes]
+        return res
 
     @property
     def num_leaves(self) -> int:

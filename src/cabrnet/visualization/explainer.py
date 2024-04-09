@@ -18,15 +18,33 @@ class ExplanationGraph:
         self.output_dir = output_dir
         self._num_nodes = 0
 
-    def set_test_image(self, img_path: str) -> None:
+    def set_test_image(self, img_path: str, label="") -> None:
         """Set test image
 
         Args:
             img_path: path to image
+            label: image label
         """
         # Relative path between the image and the final directory where rendering will occur
         rel_path = os.path.relpath(img_path, self.output_dir)
-        self._dot.node(name="node_0_test", label="", image=rel_path, imagescale="True")
+        if label == "":
+            self._dot.node(name=f"node_{self._num_nodes}_test", label="", image=rel_path, imagescale="True")
+        else:
+            self._dot.node(
+                name=f"node_{self._num_nodes}_test",
+                height="2.3",
+                imagepos="tc",
+                label=label,
+                labelloc="b",
+                image=rel_path,
+                imagescale="True",
+            )
+        if self._num_nodes > 0:
+            self._dot.edge(
+                tail_name=f"node_{self._num_nodes - 1}_test",
+                head_name=f"node_{self._num_nodes}_test",
+                label="",
+            )
         self._num_nodes += 1
 
     def add_similarity(self, prototype_img_path: str, test_patch_img_path: str, label: str, font_color: str = "black"):
@@ -58,7 +76,21 @@ class ExplanationGraph:
         )
         self._num_nodes += 1
 
-    def render(self) -> None:
+    def add_prediction(self, class_id: str | int) -> None:
+        # Create subgraph
+        subgraph = graphviz.Digraph()
+        subgraph.attr(rank="same")
+        subgraph.node(name=f"node_prediction", label=f"Class: {class_id}")
+        self._dot.subgraph(subgraph)
+        self._dot.edge(
+            tail_name=f"node_{self._num_nodes-1}_test",
+            head_name=f"node_prediction",
+            label="",
+        )
+
+    def render(self, path: str | None = None) -> None:
         """Generate explanation file"""
         logger.debug(self._dot.source)
-        self._dot.render(filename=os.path.join(self.output_dir, "explanation"))
+        if path is None:
+            path = os.path.join(self.output_dir, "explanation")
+        self._dot.render(filename=path)

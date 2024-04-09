@@ -23,6 +23,7 @@ supported_attribution_functions = {
 class SimilarityVisualizer(nn.Module):
     def __init__(
         self,
+        model: nn.Module,
         attribution_fn: Callable,
         view_fn: Callable,
         attribution_params: dict | None = None,
@@ -34,6 +35,7 @@ class SimilarityVisualizer(nn.Module):
         """
         Init a patch visualizer
         Args:
+            model: attach visualizer to a specific model
             attribution_fn: attribution function
             view_fn: viewing function
             attribution_params: optional parameters to attribution function
@@ -47,9 +49,18 @@ class SimilarityVisualizer(nn.Module):
         self.view_params = view_params if view_params is not None else {}
         self.config_file = config_file
 
+        self.model = model
+        if self.attribution == prp:
+            logger.info("Canonizing model for PRP")
+            self.model = get_cabrnet_lrp_composite_model(
+                model=model,
+                set_bias_to_zero=True,
+                stability_factor=self.attribution_params.get("stability_factor", 1e-6),
+                use_zbeta=True,
+            )
+
     def forward(
         self,
-        model: nn.Module,
         img: Image.Image,
         img_tensor: Tensor,
         proto_idx: int,
@@ -59,7 +70,6 @@ class SimilarityVisualizer(nn.Module):
         """
         Generates a visualization of the most similar patch to a given prototype
         Args:
-            model: target model
             img: original image
             img_tensor: image tensor
             proto_idx: prototype index
@@ -70,7 +80,7 @@ class SimilarityVisualizer(nn.Module):
             patch visualization
         """
         sim_map = self.attribution(
-            model=model,
+            model=self.model,
             img=img,
             img_tensor=img_tensor,
             proto_idx=proto_idx,
@@ -80,11 +90,35 @@ class SimilarityVisualizer(nn.Module):
         )
         return self.view(img=img, sim_map=sim_map, **self.view_params)
 
-    def prepare_model(self, model: nn.Module) -> nn.Module:
-        # Perform model preparation (depends on attribution function)
-        if self.attribution == prp:
-            return get_cabrnet_lrp_composite_model(model)
-        return model
+    def get_attribution(
+        self,
+        img: Image.Image,
+        img_tensor: Tensor,
+        proto_idx: int,
+        device: str,
+        location: tuple[int, int] | None = None,
+    ) -> np.ndarray:
+        """
+        Identify the most similar pixels to a given prototype
+        Args:
+            img: original image
+            img_tensor: image tensor
+            proto_idx: prototype index
+            device: target hardware device
+            location: location inside the similarity map
+
+        Returns:
+            importance map
+        """
+        return self.attribution(
+            model=self.model,
+            img=img,
+            img_tensor=img_tensor,
+            proto_idx=proto_idx,
+            device=device,
+            location=location,
+            **self.attribution_params,
+        )
 
     DEFAULT_VISUALIZATION_CONFIG = "visualization.yml"
 
@@ -113,11 +147,12 @@ class SimilarityVisualizer(nn.Module):
         return parser
 
     @staticmethod
-    def build_from_config(config_file: str) -> SimilarityVisualizer:
+    def build_from_config(config_file: str, model: nn.Module) -> SimilarityVisualizer:
         """
         Builds a ProtoVisualizer from a YAML configuration file
         Args:
             config_file: path to configuration file
+            model: target model
 
         Returns:
             ProtoVisualizer
@@ -144,6 +179,7 @@ class SimilarityVisualizer(nn.Module):
         view_params = config_dict["view"]["params"] if "params" in config_dict["view"] else None
 
         return SimilarityVisualizer(
+            model=model,
             attribution_fn=attribution_fn,
             view_fn=view_fn,
             attribution_params=attribution_params,

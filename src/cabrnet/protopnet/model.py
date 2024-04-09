@@ -15,6 +15,8 @@ from cabrnet.utils.save import save_checkpoint
 from loguru import logger
 from torch.utils.data import DataLoader
 from tqdm import tqdm
+import pickle
+import csv
 
 
 class ProtoPNet(CaBRNet):
@@ -117,18 +119,6 @@ class ProtoPNet(CaBRNet):
             self.loss_coefficients = aux_training_params["loss_coefficients"]
         if aux_training_params.get("projection_config") is not None:
             self.projection_config = aux_training_params["projection_config"]
-
-    def similarities(self, x: torch.Tensor, **kwargs) -> torch.Tensor:
-        """
-        Return similarity scores
-        Args:
-            x: input tensor
-
-        Returns:
-            tensor of similarity scores
-        """
-        x = self.extractor(x, **kwargs)
-        return self.classifier.similarity_layer(x, self.classifier.prototypes)[0]
 
     def loss(self, model_output: Any, label: torch.Tensor) -> tuple[torch.Tensor, dict[str, float]]:
         """Loss function.
@@ -324,7 +314,7 @@ class ProtoPNet(CaBRNet):
             and (epoch_idx - self.projection_config["start_epoch"]) % self.projection_config["frequency"] == 0
         ):
             self.project(
-                data_loader=dataloaders["projection_set"],
+                dataloader=dataloaders["projection_set"],
                 device=device,
                 verbose=verbose,
                 progress_bar_position=progress_bar_position,
@@ -366,6 +356,8 @@ class ProtoPNet(CaBRNet):
         verbose: bool = False,
         pruning_threshold: int = 3,
         num_nearest_patches: int = 6,
+        disable_pruned_prototypes: bool = False,
+        projection_file: str = "projection_info.csv",
         **kwargs,
     ) -> None:
         """Function called after training, using information from the epilogue field in the training configuration.
@@ -380,13 +372,24 @@ class ProtoPNet(CaBRNet):
             seed: initial random seed
             pruning_threshold: Pruning threshold
             num_nearest_patches: Number of patches near the prototype to look at
+            disable_pruned_prototypes: Only disable prototypes instead of deleting them during pruning
+            projection_file: output file containing all projection information
             device: target device
             verbose: display progress bar
         """
-        assert not self._compatibility_mode, "Compatibility mode not supported during epilogue"
         # Perform projection
-        projection_info = self.project(data_loader=dataloaders["projection_set"], device=device, verbose=verbose)
+        projection_info = self.project(
+            dataloader=dataloaders["projection_set"],
+            device=device,
+            verbose=verbose,
+        )
+
         eval_info = self.evaluate(dataloader=dataloaders["test_set"], device=device, verbose=verbose)
+        logger.info(
+            f"After projection. Average loss: {eval_info['avg_loss']:.2f}. "
+            f"Average accuracy: {eval_info['avg_eval_accuracy']:.2f}."
+        )
+
         save_checkpoint(
             directory_path=os.path.join(output_dir, f"projected"),
             model=self,
@@ -401,6 +404,26 @@ class ProtoPNet(CaBRNet):
             stats=eval_info,
         )
 
+        # Prune weak prototypes
+        self.prune(
+            dataloader=dataloaders["projection_set"],
+            pruning_threshold=pruning_threshold,
+            num_nearest_patches=num_nearest_patches,
+            disable_pruned_prototypes=disable_pruned_prototypes,
+            device=device,
+            verbose=verbose,
+            progress_bar_position=0,
+        )
+
+        if self._compatibility_mode or not disable_pruned_prototypes:
+            # Perform second projection to take into account deleted prototypes
+            # This operation should not change the model parameters but will rebuild an updated projection information
+            projection_info = self.project(
+                dataloader=dataloaders["projection_set"],
+                device=device,
+                verbose=verbose,
+            )
+
         # Extract prototypes
         self.extract_prototypes(
             dataloader_raw=dataloaders["projection_set_raw"],
@@ -412,21 +435,25 @@ class ProtoPNet(CaBRNet):
             verbose=verbose,
         )
 
-        # Prune weak prototypes
-        self.prune(
-            data_loader=dataloaders["projection_set"],
-            pruning_threshold=pruning_threshold,
-            num_nearest_patches=num_nearest_patches,
-            device=device,
-            verbose=verbose,
-            progress_bar_position=0,
-        )
+        # Save projection information
+        projection_file = os.path.join(output_dir, "prototypes", projection_file)
+        if projection_file.lower().endswith(("pickle", "pkl")):
+            with open(projection_file, "wb") as f:
+                pickle.dump(projection_info, f)
+        else:
+            # CSV format
+            with open(projection_file, "w") as f:
+                writer = csv.DictWriter(f, fieldnames=["proto_idx"] + list(projection_info[0].keys()))
+                writer.writeheader()
+                for proto_idx in projection_info.keys():
+                    writer.writerow(projection_info[proto_idx] | {"proto_idx": proto_idx})
 
     def prune(
         self,
-        data_loader: DataLoader,
+        dataloader: DataLoader,
         pruning_threshold: int = 3,
         num_nearest_patches: int = 6,
+        disable_pruned_prototypes: bool = False,
         device: str = "cuda:0",
         verbose: bool = False,
         progress_bar_position: int = 0,
@@ -434,9 +461,10 @@ class ProtoPNet(CaBRNet):
         """Prune prototypes based on threshold.
 
         Args:
-            data_loader: dataloader containing projection data
+            dataloader: dataloader containing projection data
             pruning_threshold: Pruning threshold
             num_nearest_patches: Number of patches near the prototype to look at
+            disable_pruned_prototypes: Only disable prototypes instead of deleting them
             device: target device
             verbose: display progress bar
             progress_bar_position: position of the progress bar.
@@ -449,15 +477,15 @@ class ProtoPNet(CaBRNet):
         class_mapping = torch.argmax(self.classifier.proto_class_map, dim=1).detach().cpu()
 
         data_iter = tqdm(
-            data_loader,
-            total=len(data_loader),
+            dataloader,
+            total=len(dataloader),
             leave=False,
             position=progress_bar_position,
             disable=not verbose,
             desc="Prototypes pruning",
         )
 
-        prune_info = {proto_idx: [] for proto_idx in range(self.classifier.num_prototypes)}
+        prune_info = {proto_idx: [] for proto_idx in range(self.num_prototypes)}
 
         with torch.no_grad():
             for xs, ys in data_iter:
@@ -466,7 +494,7 @@ class ProtoPNet(CaBRNet):
                 min_dist, _ = torch.min(distances.view(distances.shape[:2] + (-1,)), dim=2)
 
                 for img_idx, (_, y) in enumerate(zip(xs, ys)):
-                    for proto_idx in range(self.classifier.num_prototypes):
+                    for proto_idx in range(self.num_prototypes):
                         if len(prune_info[proto_idx]) < num_nearest_patches:
                             prune_info[proto_idx].append(
                                 {"dist": min_dist[img_idx, proto_idx].item(), "class": y.item()}
@@ -482,7 +510,7 @@ class ProtoPNet(CaBRNet):
                             # sort the dictionary by distance every time a new value is added
                             prune_info[proto_idx] = sorted(prune_info[proto_idx], key=lambda d: d["dist"])
 
-        logger.info(f"Model statistics before pruning: {self.classifier.num_prototypes} prototypes.")
+        logger.info(f"Model statistics before pruning: {self.num_prototypes} prototypes.")
         index_prototypes_to_keep = []
         index_prototypes_to_prune = []
         for proto_idx, proto_info in prune_info.items():
@@ -493,10 +521,10 @@ class ProtoPNet(CaBRNet):
             else:
                 index_prototypes_to_prune.append(proto_idx)
 
-        if self._compatibility_mode:
+        if self._compatibility_mode or not disable_pruned_prototypes:
             index_prototypes_to_keep = torch.tensor(index_prototypes_to_keep).to(device)
 
-            # overwrite prototypes with selected subset
+            # overwrite prototypes with selected subset (self.num_prototypes is updated automatically)
             self.classifier.prototypes = nn.Parameter(
                 torch.index_select(input=self.classifier.prototypes, dim=0, index=index_prototypes_to_keep),
                 requires_grad=True,
@@ -504,7 +532,7 @@ class ProtoPNet(CaBRNet):
 
             # update last layer
             pruned_last_layer = nn.Linear(
-                in_features=self.classifier.num_prototypes, out_features=self.classifier.num_classes, bias=False
+                in_features=self.num_prototypes, out_features=self.classifier.num_classes, bias=False
             )
             pruned_last_layer.weight.data.copy_(
                 torch.index_select(input=self.classifier.last_layer.weight.data, dim=1, index=index_prototypes_to_keep)
@@ -513,28 +541,29 @@ class ProtoPNet(CaBRNet):
 
             # update shape of similarity layer for computation purposes
             self.classifier.similarity_layer.register_buffer(
-                "_summation_kernel", torch.ones((self.classifier.num_prototypes, self.classifier.num_features, 1, 1))
+                "_summation_kernel", torch.ones((self.num_prototypes, self.classifier.num_features, 1, 1))
             )
 
             # update mapping between prototypes and classes
             self.classifier.proto_class_map = torch.index_select(
                 input=self.classifier.proto_class_map, dim=0, index=index_prototypes_to_keep
             )
-            logger.info(f"Model statistics after pruning: {self.classifier.num_prototypes} prototypes.")
+            logger.info(f"Model statistics after pruning: {self.num_prototypes} prototypes.")
         else:
             last_layer_weights = self.classifier.last_layer.weight.data
             for p_index in index_prototypes_to_prune:
                 last_layer_weights[:, p_index] = 0
-
+                # Detach prototype from all classes
+                self.classifier.proto_class_map[p_index, :] = 0
             self.classifier.last_layer.weight.data.copy_(last_layer_weights)
             logger.info(
                 f"Model statistics after pruning: "
-                f"{self.classifier.num_prototypes-len(index_prototypes_to_prune)} prototypes."
+                f"{self.num_prototypes-len(index_prototypes_to_prune)} (active) prototypes."
             )
 
     def project(
         self,
-        data_loader: DataLoader,
+        dataloader: DataLoader,
         device: str = "cuda:0",
         verbose: bool = False,
         progress_bar_position: int = 0,
@@ -542,7 +571,7 @@ class ProtoPNet(CaBRNet):
         """
         Perform prototype projection after training
         Args:
-            data_loader: dataloader containing projection data
+            dataloader: dataloader containing projection data
             device: target device
             verbose: display progress bar
             progress_bar_position: position of the progress bar.
@@ -554,12 +583,6 @@ class ProtoPNet(CaBRNet):
         self.eval()
         self.to(device)
 
-        if data_loader.batch_size != 1:
-            logger.warning(
-                "Projection results may vary depending on batch size, see issue "
-                "https://discuss.pytorch.org/t/cudnn-causing-inconsistent-test-results-depending-on-batch-size/189277"
-            )
-
         # For each class, keep track of the related prototypes
         np_proto_class_map = self.classifier.proto_class_map.detach().cpu().numpy()
         class_mapping = {c: list(np.nonzero(np_proto_class_map[:, c])[0]) for c in range(self.classifier.num_classes)}
@@ -570,16 +593,16 @@ class ProtoPNet(CaBRNet):
 
         # Show progress on progress bar if needed
         data_iter = tqdm(
-            enumerate(data_loader),
+            enumerate(dataloader),
             desc="Prototype projection",
-            total=len(data_loader),
+            total=len(dataloader),
             leave=False,
             position=progress_bar_position,
             disable=not verbose,
         )
 
-        # Original number of prototypes (before pruning) and prototype length
-        max_num_prototypes, proto_dim = self.classifier.max_num_prototypes, self.classifier.num_features
+        # Number of prototypes and prototype length
+        num_prototypes, proto_dim = self.num_prototypes, self.classifier.num_features
 
         # For each prototype, keep track of:
         #   - the index of the closest projection image
@@ -593,7 +616,7 @@ class ProtoPNet(CaBRNet):
                 "w": -1,
                 "dist": float("inf"),
             }
-            for proto_idx in range(max_num_prototypes)
+            for proto_idx in range(num_prototypes)
         }
         projection_vectors = torch.zeros_like(self.classifier.prototypes)
 
@@ -620,7 +643,7 @@ class ProtoPNet(CaBRNet):
                                 min_dist_idxs[img_idx, proto_idx].item() % W,
                             )
                             projection_info[proto_idx] = {
-                                "img_idx": batch_idx * data_loader.batch_size + img_idx,  # type: ignore
+                                "img_idx": batch_idx * dataloader.batch_size + img_idx,  # type: ignore
                                 "h": h,
                                 "w": w,
                                 "dist": min_dist[img_idx, proto_idx].item(),
@@ -629,38 +652,53 @@ class ProtoPNet(CaBRNet):
 
             # Update prototype vectors
             self.classifier.prototypes.copy_(projection_vectors)
+
         return projection_info
 
     def explain(
         self,
-        img_path: str,
+        img: str | Image.Image,
         preprocess: Callable,
-        visualizer: SimilarityVisualizer,
-        prototype_dir_path: str,
-        output_dir_path: str,
-        device: str,
+        visualizer: SimilarityVisualizer | None,
+        prototype_dir_path: str = "",
+        output_dir_path: str = "",
+        device: str = "cuda:0",
         exist_ok: bool = False,
+        disable_rendering: bool = False,
         num_closest: int = 10,
         **kwargs,
-    ) -> None:
+    ) -> list[tuple[int, float, bool]]:
         """Explain the decision for a particular image
 
         Args:
-            img_path: raw original image
+            img: path to image or image itself
             preprocess: preprocessing function
             visualizer: prototype visualizer
             prototype_dir_path: path to directory containing prototype visualizations
             output_dir_path: path to output directory containing the explanation
             device: target hardware device
             exist_ok: silently overwrite existing explanation if any
+            disable_rendering: when True, no visual explanation is generated
             num_closest: number of closest prototypes to display
+
+        Returns:
+            list of most relevant prototypes for the decision, where each entry is in the form
+                (<prototype index>, <similarity score>, <similar>)
+            and <similar> indicates whether the prototype is considered similar or dissimilar
         """
         self.eval()
-        img = Image.open(img_path)
+
+        if isinstance(img, str):
+            img = Image.open(img)
+
         img_tensor = preprocess(img)
         if img_tensor.dim() != 4:
             # Fix number of dimensions if necessary
             img_tensor = torch.unsqueeze(img_tensor, dim=0)
+
+        # Map to device
+        self.to(device)
+        img_tensor = img_tensor.to(device)
 
         # Perform inference and get minimum distance to each prototype
         prediction, min_distances = self.forward(img_tensor)
@@ -668,35 +706,45 @@ class ProtoPNet(CaBRNet):
         min_distances = min_distances[0]
 
         # Ignore distances to pruned prototypes
-        for proto_idx in range(self.classifier.num_prototypes):
-            if int(torch.max(self.classifier.proto_class_map[proto_idx])) == 0:
+        for proto_idx in range(self.num_prototypes):
+            if not self.classifier.prototype_is_active(proto_idx):
                 min_distances[proto_idx] = float("inf")
 
         # Build explanation
-        os.makedirs(os.path.join(output_dir_path, "test_patches"), exist_ok=exist_ok)
+        img_path = os.path.join(output_dir_path, f"original.png")
+        if not disable_rendering:
+            os.makedirs(os.path.join(output_dir_path, "test_patches"), exist_ok=exist_ok)
+            # Copy source image
+            img.save(img_path)
         explanation = ExplanationGraph(output_dir=output_dir_path)
         explanation.set_test_image(img_path=img_path)
+        most_relevant_prototypes = []  # Keep track of most relevant prototypes
 
         for _ in range(num_closest):
             proto_idx = int(torch.argmin(min_distances).item())
+            min_distance = torch.min(min_distances)
+            score = torch.log((min_distance + 1) / (min_distance + 1e-4)).item()
+            most_relevant_prototypes.append((proto_idx, score, True))  # ProtoPNet only considers positive similarities
             # Recover path to prototype image
             prototype_image_path = os.path.join(prototype_dir_path, f"prototype_{proto_idx}.png")
             prototype_class_idx = int(torch.argmax(self.classifier.proto_class_map[proto_idx]))
             # Generate test image patch
-            patch_image = visualizer.forward(
-                model=self, img=img, img_tensor=img_tensor, proto_idx=proto_idx, device=device
-            )
             patch_image_path = os.path.join(output_dir_path, "test_patches", f"proto_similarity_{proto_idx}.png")
-            patch_image.save(patch_image_path)
+            if not disable_rendering:
+                patch_image = visualizer.forward(img=img, img_tensor=img_tensor, proto_idx=proto_idx, device=device)
+                patch_image.save(patch_image_path)
             explanation.add_similarity(
                 prototype_img_path=prototype_image_path,
                 test_patch_img_path=patch_image_path,
-                label=f"Prototype {proto_idx} (class {prototype_class_idx})",
+                label=f"Prototype {proto_idx}\n(class {prototype_class_idx}, score: {score:.2f})",
                 font_color="black" if class_idx == prototype_class_idx else "red",
             )
             # "Disable" prototype from search
             min_distances[proto_idx] = float("inf")
-        explanation.render()
+        explanation.add_prediction(torch.argmax(prediction).item())
+        if not disable_rendering:
+            explanation.render()
+        return most_relevant_prototypes
 
     def explain_global(self, prototype_dir_path: str, output_dir_path: str, **kwargs) -> None:
         """Build global explanation_graph.

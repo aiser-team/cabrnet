@@ -84,6 +84,8 @@ using the following options:
 - `gaussian_ksize`: apply a Gaussian filter with a kernel of a given size.
 - `normalize`: apply min-max normalization
 - `grads_x_input`: multiply the attribution map (gradients) and the image element-wise.
+- `similarity_threshold`: when `single_location` is set to `False`, this threshold $t$ is used to speed-up computations by
+filtering out locations with a similarity score lower than this value.
 
 ## Viewing methods
 CaBRNet supports the following methods for visualizing the most contributing pixels to the similarity
@@ -115,8 +117,10 @@ Alternatively, important pixels can be visualized using the `heatmap` method.
 ![heatmap view](../imgs/view_heatmap.png)
 
 Additionally, using the `percentile` option as in the [previous methods](#bounding-box-to-percentile), it is possible to overlay a bounding box
-to the heamap.
+to the heatmap.
 
 ![heatmap with bbox view](../imgs/view_heatmap_bbox.png)
 
+Finally, using the `overlay` option, the heatmap is overlaid onto the original image.
 
+![heatmap with overlay and bbox view](../imgs/view_heatmap_overlay.png)
