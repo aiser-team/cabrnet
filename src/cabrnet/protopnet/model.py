@@ -213,6 +213,7 @@ class ProtoPNet(CaBRNet):
         optimizer_mngr: OptimizerManager | torch.optim.Optimizer,
         device: str = "cuda:0",
         progress_bar_position: int = 0,
+        progress_bar_title: str = "",
         epoch_idx: int = 0,
         verbose: bool = False,
         max_batches: int | None = None,
@@ -224,6 +225,7 @@ class ProtoPNet(CaBRNet):
             optimizer_mngr: Optimizer manager
             device: Target device
             progress_bar_position: Position of the progress bar.
+            progress_bar_title: Progress bar title
             epoch_idx: Epoch index
             max_batches: Max number of batches (early stop for small compatibility tests)
             verbose: Display progress bar
@@ -244,7 +246,7 @@ class ProtoPNet(CaBRNet):
         # Show progress on progress bar if needed
         train_iter = tqdm(
             enumerate(train_loader),
-            desc=f"Training epoch {epoch_idx}",
+            desc=progress_bar_title,
             total=len(train_loader),
             leave=False,
             position=progress_bar_position,
@@ -325,6 +327,7 @@ class ProtoPNet(CaBRNet):
             optimizer_mngr=optimizer_mngr,
             device=device,
             progress_bar_position=progress_bar_position,
+            progress_bar_title=f"Training epoch {epoch_idx}",
             epoch_idx=epoch_idx,
             verbose=verbose,
             max_batches=max_batches,
@@ -351,12 +354,13 @@ class ProtoPNet(CaBRNet):
                 position=progress_bar_position,
                 disable=not verbose,
             )
-            for _ in fine_tuning_progress:
+            for ft_epoch_idx in fine_tuning_progress:
                 train_info = self._train_epoch(
                     dataloaders=dataloaders,
                     optimizer_mngr=optimizer_mngr.optimizers["last_layer_optimizer"],  # type: ignore
                     device=device,
                     progress_bar_position=progress_bar_position + 1,
+                    progress_bar_title=f"Fine-tuning epoch {ft_epoch_idx}",
                     epoch_idx=epoch_idx,
                     verbose=verbose,
                     max_batches=max_batches,
