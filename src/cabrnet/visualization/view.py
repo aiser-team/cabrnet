@@ -65,15 +65,20 @@ def bbox_to_percentile(
     dst_img = img.copy()
     # Draw bounding box
     img_with_bbox = ImageDraw.Draw(im=dst_img)
-    img_with_bbox.rectangle(xy=((x_min, y_min), (x_max, y_max)), width=thickness, outline="yellow")
+    if x_max > x_min and y_max > y_min:
+        # Handle the case when no bounding box is found
+        img_with_bbox.rectangle(xy=((x_min, y_min), (x_max, y_max)), width=thickness, outline="yellow")
     return dst_img
 
 
-def heatmap(img: Image.Image, sim_map: np.ndarray, percentile: float = 0, thickness: int = 4, **kwargs) -> Image.Image:
+def heatmap(
+    img: Image.Image, sim_map: np.ndarray, overlay: bool = False, percentile: float = 0, thickness: int = 4, **kwargs
+) -> Image.Image:
     """Convert a similarity map into a heatmap
     Args:
         img: original image
         sim_map: similarity map, normalized between 0.0 and 1.0
+        overlay: overlay heatmap on top of original image
         percentile: selection percentile (optional)
         thickness: rectangle thickness
 
@@ -88,6 +93,12 @@ def heatmap(img: Image.Image, sim_map: np.ndarray, percentile: float = 0, thickn
     sim_heatmap = applyColorMap(np.uint8(255 * sim_map), COLORMAP_JET)
     # Convert BGR format returned by OpenCV into RGB
     sim_heatmap = sim_heatmap[..., ::-1]
+
+    if overlay:
+        img_array = np.array(img)
+        if img_array.ndim < 3:
+            img_array = np.expand_dims(img_array, -1)
+        sim_heatmap = (0.4 * sim_heatmap + 0.6 * img_array).astype(np.uint8)
 
     if percentile > 0.0:
         return bbox_to_percentile(Image.fromarray(sim_heatmap), sim_map, percentile=percentile, thickness=thickness)

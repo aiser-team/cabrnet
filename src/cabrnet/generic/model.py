@@ -5,10 +5,12 @@ import importlib
 import shutil
 import os.path
 from typing import Any, Callable, Mapping
+from PIL import Image
 import torch
 import torch.nn as nn
 from loguru import logger
 from cabrnet.generic.conv_extractor import ConvExtractor, layer_init_functions
+from cabrnet.generic.decision import CaBRNetGenericClassifier
 from cabrnet.utils.parser import load_config
 from cabrnet.utils.optimizers import OptimizerManager
 from cabrnet.visualization.visualizer import SimilarityVisualizer
@@ -22,7 +24,7 @@ class CaBRNet(nn.Module):
     DEFAULT_MODEL_CONFIG: str = "model_arch.yml"
     DEFAULT_MODEL_STATE: str = "model_state.pth"
 
-    def __init__(self, extractor: nn.Module, classifier: nn.Module, compatibility_mode: bool = False):
+    def __init__(self, extractor: nn.Module, classifier: CaBRNetGenericClassifier, compatibility_mode: bool = False):
         """Build a CaBRNet prototype-based classifier
 
         Args:
@@ -70,6 +72,14 @@ class CaBRNet(nn.Module):
         """
         x = self.extractor(x, **kwargs)
         return self.classifier.similarity_layer.L2_square_distance(x, self.classifier.prototypes)
+
+    @property
+    def num_prototypes(self) -> int:
+        return self.classifier.num_prototypes
+
+    def prototype_is_active(self, proto_idx: int) -> bool:
+        """Is the prototype active or disabled?"""
+        return self.classifier.prototype_is_active(proto_idx)
 
     def _load_legacy_state_dict(self, legacy_state: Mapping[str, Any]) -> None:
         """Load state dictionary from legacy format
@@ -253,8 +263,8 @@ class CaBRNet(nn.Module):
         training_config: str,
         dataset_config: str,
         seed: int,
-        device: str,
-        verbose: bool,
+        device: str = "cuda:0",
+        verbose: bool = False,
         **kwargs,
     ) -> None:
         """Function called after training, using information from the epilogue
@@ -335,7 +345,7 @@ class CaBRNet(nn.Module):
 
     def project(
         self,
-        data_loader: DataLoader,
+        dataloader: DataLoader,
         device: str = "cuda:0",
         verbose: bool = False,
         progress_bar_position: int = 0,
@@ -343,7 +353,7 @@ class CaBRNet(nn.Module):
         """
         Perform prototype projection after training
         Args:
-            data_loader: dataloader containing projection data
+            dataloader: dataloader containing projection data
             device: target device
             verbose: display progress bar
             progress_bar_position: position of the progress bar.
@@ -360,7 +370,7 @@ class CaBRNet(nn.Module):
         projection_info: dict[int, dict],
         visualizer: SimilarityVisualizer,
         dir_path: str,
-        device: str,
+        device: str = "cuda:0",
         verbose: bool = False,
         progress_bar_position: int = 0,
     ) -> None:
@@ -399,9 +409,8 @@ class CaBRNet(nn.Module):
             position=progress_bar_position,
             disable=not verbose,
         )
-        visualizer_model = visualizer.prepare_model(self)
         for proto_idx in data_iter:
-            if projection_info[proto_idx]["img_idx"] == -1:
+            if not self.classifier.prototype_is_active(proto_idx):
                 # Skip pruned prototype
                 continue
             # Original image obtained from dataloader without normalization
@@ -410,7 +419,6 @@ class CaBRNet(nn.Module):
             img_tensor = dataloader.dataset[projection_info[proto_idx]["img_idx"]][0]
             h, w = projection_info[proto_idx]["h"], projection_info[proto_idx]["w"]
             prototype_part = visualizer.forward(
-                model=visualizer_model,
                 img=img,
                 img_tensor=img_tensor,
                 proto_idx=proto_idx,
@@ -422,25 +430,32 @@ class CaBRNet(nn.Module):
 
     def explain(
         self,
-        img_path: str,
+        img: str | Image.Image,
         preprocess: Callable,
-        visualizer: SimilarityVisualizer,
-        prototype_dir_path: str,
-        output_dir_path: str,
-        device: str,
+        visualizer: SimilarityVisualizer | None,
+        prototype_dir_path: str = "",
+        output_dir_path: str = "",
+        device: str = "cuda:0",
         exist_ok: bool = False,
+        disable_rendering: bool = False,
         **kwargs,
-    ) -> None:
+    ) -> list[tuple[int, float, bool]]:
         """Explain the decision for a particular image
 
         Args:
-            img_path: path to raw original image
+            img: path to image or image itself
             preprocess: preprocessing function
             visualizer: prototype visualizer
             prototype_dir_path: path to directory containing prototype visualizations
             output_dir_path: path to output directory containing the explanation
             device: target hardware device
             exist_ok: silently overwrite existing explanation if any
+            disable_rendering: when True, no visual explanation is generated
+
+        Returns:
+            list of most relevant prototypes for the decision, where each entry is in the form
+                (<prototype index>, <similarity score>, <similar>)
+            and <similar> indicates whether the prototype is considered similar or dissimilar
         """
         raise NotImplementedError
 

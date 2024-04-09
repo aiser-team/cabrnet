@@ -1,0 +1,23 @@
+local_perturbation_analysis:
+  info_db: local_perturbation_analysis.csv # Path to raw analysis output file
+  distribution_img: local_perturbation_analysis.png # Path to output image showing distribution of max similarity drops
+  prototype_stats: prototype_stats.csv # Path to CSV file containing general prototype stats
+  sampling_ratio: 1 # Sampling ratio: only 1 in X images is analysed
+  quiet: False # Do not the distribution image
+  debug_mode: False # Save perturbations (for debugging purposes)
+  # Perturbation parameters
+  brightness_factor: 0.3
+  contrast_factor: 0.2
+  saturation_factor: 0.3
+  hue_factor: 0.2
+  gaussian_noise_ksize: 21
+  gaussian_noise_sigma: 2.0
+  distortion_periods: 5
+  distortion_amplitude: 7
+
+relevance_analysis:
+  projection_info: projection_info.csv #
+  prototype_info_db: prototype_info_db.csv # Path to raw prototype analysis output file
+  patch_info_db: patch_info_db.csv
+  percentage: 0.2
+  debug_mode: False # Save debug images

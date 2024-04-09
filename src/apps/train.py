@@ -47,8 +47,8 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     )
     x_group = parser.add_mutually_exclusive_group(required=False)
     x_group.add_argument(
-        "-f",
-        "--start-from",
+        "-c",
+        "--config-dir",
         type=str,
         required=False,
         metavar="/path/to/config/dir",
@@ -80,6 +80,11 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         action="store_true",
         help="check the training pipeline without performing the entire process.",
     )
+    parser.add_argument(
+        "--epilogue-only",
+        action="store_true",
+        help="skip training and go to epilogue.",
+    )
     return parser
 
 
@@ -87,10 +92,10 @@ def check_args(args: Namespace) -> Namespace:
     """Checks for three possible modes:
 
     - "--resume-from": in this case, ignore options --model-config, --dataset, --training and --visualization
-    - "--start-from": in this case, ignore options --model-config, --dataset, --training and --visualization
+    - "--config-dir": in this case, ignore options --model-config, --dataset, --training and --visualization
     - "--model-config", "--dataset", "--training" and "--visualization": in this case, all options are mandatory
     """
-    for dir_path, option_name in zip([args.resume_from, args.start_from], ["--resume-from", "--start-from"]):
+    for dir_path, option_name in zip([args.resume_from, args.config_dir], ["--resume-from", "--config-dir"]):
         if dir_path is not None:
             for param, name in zip(
                 [args.model_config, args.dataset, args.training, args.visualization],
@@ -152,7 +157,7 @@ def execute(args: Namespace) -> None:
     root_dir = args.output_dir
 
     # Check that output directory is available
-    if not args.overwrite and os.path.exists(os.path.join(root_dir, "best")):
+    if not args.epilogue_only and not args.overwrite and os.path.exists(os.path.join(root_dir, "best")):
         raise ArgumentError(
             f"Output directory {os.path.join(root_dir, 'best')} is not empty. "
             f"To overwrite existing results, use --overwrite option."
@@ -180,14 +185,18 @@ def execute(args: Namespace) -> None:
         best_metric = 0.0 if args.save_best == "acc" else float("inf")
         seed = args.seed
 
-    if not args.sanity_check_only:
-        max_batches = None  # Process all data batches
-        epoch_select = None
-    else:
+    if args.epilogue_only:
+        logger.warning(f"{'=' * 20} GOING STRAIGHT TO EPILOGUE {'=' * 20}")
+        epoch_select = [None]
+    elif args.sanity_check_only:
         logger.warning(f"{'='*20} SANITY CHECK MODE: THE TRAINING WILL NOT BE FULLY PERFORMED {'='*20}")
         max_batches = 5  # Process only a few batches
         # Only perform one epoch per training period
         epoch_select = [optimizer_mngr.periods[p_name]["epoch_range"][0] for p_name in optimizer_mngr.periods]
+    else:
+        # Process all data batches and all epochs
+        max_batches = None
+        epoch_select = None
 
     num_epochs = trainer["num_epochs"]
     for epoch in tqdm(
@@ -207,6 +216,7 @@ def execute(args: Namespace) -> None:
         train_info = model.train_epoch(
             dataloaders=dataloaders,
             optimizer_mngr=optimizer_mngr,
+            output_dir=root_dir,
             device=device,
             progress_bar_position=1,
             epoch_idx=epoch,
@@ -260,7 +270,7 @@ def execute(args: Namespace) -> None:
     load_checkpoint(directory_path=os.path.join(root_dir, "best"), model=model)
 
     # Call epilogue
-    visualizer = SimilarityVisualizer.build_from_config(config_file=args.visualization)
+    visualizer = SimilarityVisualizer.build_from_config(config_file=args.visualization, model=model)
     model.epilogue(
         dataloaders=dataloaders,
         visualizer=visualizer,

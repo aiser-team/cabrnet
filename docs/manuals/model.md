@@ -106,15 +106,15 @@ The module in charge of classification should be placed inside a dedicated file 
 `src/cabrnet/<ARCH_NAME>/decision.py` (*e.g.* [src/cabrnet/prototree/decision.py](https://git.frama-c.com/pub/cabrnet/-/blob/master/src/cabrnet/prototree/decision.py)).
 
 The following code provides a minimal example on how to define a new classifier.
-The classifier must inherit from the `CaBRNetAbstractClassifier` class as follows:
+The classifier must inherit from the `CaBRNetGenericClassifier` class as follows:
 ```python
 import torch.nn as nn
 import torch
 from cabrnet.utils.prototypes import init_prototypes
 from cabrnet.utils.similarities import L2Similarities
-from cabrnet.generic.decision import CaBRNetAbstractClassifier
+from cabrnet.generic.decision import CaBRNetGenericClassifier
 
-class ArchNameClassifier(CaBRNetAbstractClassifier, nn.Module):
+class ArchNameClassifier(CaBRNetGenericClassifier):
   
     def __init__(
         self,
@@ -130,9 +130,8 @@ class ArchNameClassifier(CaBRNetAbstractClassifier, nn.Module):
             proto_init_mode: Init mode for prototypes
             ...
         """
-        nn.Module.__init__(self)
-        CaBRNetAbstractClassifier.__init__(
-            self, num_classes=num_classes, 
+        super().__init__(
+            num_classes=num_classes, 
             num_features=num_features, 
             proto_init_mode=proto_init_mode
         )
@@ -151,19 +150,9 @@ class ArchNameClassifier(CaBRNetAbstractClassifier, nn.Module):
             num_prototypes=self.num_prototypes, num_features=self.num_features
         )
 
-    @property
-    def max_num_prototypes(self) -> ...:
-        """
-        Returns: Maximum number of prototypes 
-            (might differ from current number of prototypes due to pruning)
-        """
-        ...
 
-    @property
-    def num_prototypes(self) -> ...:
-        """
-        Returns: Current number of prototypes
-        """
+    def prototype_is_active(self, proto_idx: int) -> bool:
+        """Is the prototype active or disabled?"""
         ...
 
 
@@ -192,6 +181,7 @@ import torch.nn.functional
 from torch.utils.data import DataLoader
 from typing import Any, Callable
 from tqdm import tqdm
+from PIL import Image
 from cabrnet.generic.model import CaBRNet
 from cabrnet.utils.optimizers import OptimizerManager
 from cabrnet.visualization.visualizer import SimilarityVisualizer
@@ -290,7 +280,7 @@ class ArchName(CaBRNet):
     
     def project(
         self,
-        data_loader: DataLoader,
+        dataloader: DataLoader,
         device: str = "cuda:0",
         verbose: bool = False,
         progress_bar_position: int = 0,
@@ -298,7 +288,7 @@ class ArchName(CaBRNet):
         """
         Perform prototype projection after training
         Args:
-            data_loader: Dataloader containing projection data. 
+            dataloader: Dataloader containing projection data. 
                 WARNING: This dataloader must not be shuffled!
             device: Target device
             verbose: Display progress bar
@@ -306,8 +296,8 @@ class ArchName(CaBRNet):
         Returns:
             dictionary containing projection information for each prototype
         """
-        # Original number of prototypes
-        max_num_prototypes = self.classifier.max_num_prototypes
+        # Number of prototypes
+        num_prototypes = self.num_prototypes
 
         # For each prototype, keep track of:
         #   - the index of the closest projection image
@@ -321,7 +311,7 @@ class ArchName(CaBRNet):
                 "w": -1,
                 "score": 0,
             }
-            for proto_idx in range(max_num_prototypes)
+            for proto_idx in range(num_prototypes)
         }
         # Perform projection
         ...
@@ -336,8 +326,8 @@ class ArchName(CaBRNet):
         training_config: str,
         dataset_config: str,
         seed: int,
-        device: str,
-        verbose: bool,
+        device: str = "cuda:0",
+        verbose: bool = False,
         **kwargs,
     ) -> None:
         """OPTIONAL Function called after training, using information from the epilogue
@@ -348,25 +338,32 @@ class ArchName(CaBRNet):
     
     def explain(
         self,
-        img_path: str,
+        img: str | Image.Image,
         preprocess: Callable,
-        visualizer: SimilarityVisualizer,
-        prototype_dir_path: str,
-        output_dir_path: str,
-        device: str,
+        visualizer: SimilarityVisualizer | None,
+        prototype_dir_path: str = "",
+        output_dir_path: str = "",
+        device: str = "cuda:0",
         exist_ok: bool = False,
+        disable_rendering: bool = False,
         **kwargs,
-    ) -> None:
+    ) -> list[tuple[int, float, bool]]:
         """Explain the decision for a particular image
 
         Args:
-            img_path: raw original image
+            img: path to image or image itself
             preprocess: preprocessing function
             visualizer: prototype visualizer
             prototype_dir_path: path to directory containing prototype visualizations
             output_dir_path: path to output directory containing the explanation
             device: target hardware device
             exist_ok: silently overwrite existing explanation if any
+            disable_rendering: when True, no visual explanation is generated
+
+        Returns:
+            list of most relevant prototypes for the decision, where each entry is in the form
+                (<prototype index>, <similarity score>, <similar>)
+            and <similar> indicates whether the prototype is considered similar or dissimilar
         """
         ...
     

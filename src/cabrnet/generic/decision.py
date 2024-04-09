@@ -1,10 +1,9 @@
-from abc import ABC, abstractmethod
 from cabrnet.utils.prototypes import prototype_init_modes
 from argparse import ArgumentParser
 import torch.nn as nn
 
 
-class CaBRNetAbstractClassifier(ABC):
+class CaBRNetGenericClassifier(nn.Module):
     prototypes: nn.Parameter()
 
     """Abstract class for CaBRNet classification based on extracted features
@@ -20,6 +19,8 @@ class CaBRNetAbstractClassifier(ABC):
         num_features: int,
         proto_init_mode: str = "SHIFTED_NORMAL",
     ) -> None:
+        super().__init__()
+
         # Sanity check on all parameters
         assert num_classes > 1, f"Invalid number of classes: {num_classes}"
         assert num_features > 0, f"Invalid number of features: {num_features}"
@@ -35,19 +36,12 @@ class CaBRNetAbstractClassifier(ABC):
         self.similarity_layer = None
 
     @property
-    @abstractmethod
     def num_prototypes(self) -> int:
-        """
-        Returns: Current number of prototypes
-        """
-        raise NotImplementedError
+        """Number of prototypes. Note: some prototypes might be inactive"""
+        return self.prototypes.size(0)
 
-    @property
-    @abstractmethod
-    def max_num_prototypes(self) -> int:
-        """
-        Returns: Maximum number of prototypes (might differ from current number of prototypes due to pruning)
-        """
+    def prototype_is_active(self, proto_idx: int) -> bool:
+        """Is the prototype active or disabled?"""
         raise NotImplementedError
 
     @staticmethod

@@ -82,6 +82,7 @@ def _captum_attribution(
     gaussian_ksize: int = 5,
     normalize: bool = False,
     grads_x_input: bool = False,
+    similarity_threshold: float = 0.1,
     **kwargs,
 ) -> np.array:
     """
@@ -101,6 +102,7 @@ def _captum_attribution(
         num_samples: number of random samples
         noise_ratio: noise ratio for random samples
         grads_x_input: perform element-wise multiplication between gradient and image
+        similarity_threshold: minimum similarity score to compute attribution
 
     Returns:
         similarity map
@@ -131,6 +133,9 @@ def _captum_attribution(
             # Location is predefined
             h_max, w_max = location
 
+        # Update similarity threshold to ensure that at least one location is used
+        similarity_threshold = sim_map[h_max, w_max]
+
     # Create Captum wrapper
     assert algorithm in supported_captum_algorithms, f"Unsupported attribution method: {algorithm}"
     captum_model = supported_captum_algorithms[algorithm]["wrapper"](model)
@@ -143,7 +148,7 @@ def _captum_attribution(
             # Skip location
             continue
         for w in range(sim_map_width):
-            if 0 <= w_max != w:
+            if 0 <= w_max != w or sim_map[h, w] < similarity_threshold:
                 # Skip location
                 continue
             model.zero_grad()
@@ -184,6 +189,7 @@ def smoothgrad(
     num_samples: int = 10,
     noise_ratio: float = 0.2,
     grads_x_input: bool = False,
+    similarity_threshold: float = 0.1,
 ) -> np.array:
     """
     Perform patch visualization using SmoothGrad (https://arxiv.org/abs/1706.03825)
@@ -201,6 +207,7 @@ def smoothgrad(
         num_samples: number of random samples
         noise_ratio: noise ratio for random samples
         grads_x_input: perform element-wise multiplication between gradient and image
+        similarity_threshold: minimum similarity score to compute attribution
 
     Returns:
         similarity map
@@ -220,6 +227,7 @@ def smoothgrad(
         grads_x_input=grads_x_input,
         num_samples=num_samples,
         noise_ratio=noise_ratio,
+        similarity_threshold=similarity_threshold,
     )
 
 
@@ -235,6 +243,7 @@ def saliency(
     gaussian_ksize: int = 5,
     normalize: bool = False,
     grads_x_input: bool = False,
+    similarity_threshold: float = 0.1,
 ) -> np.array:
     """
     Perform patch visualization using saliency (https://arxiv.org/abs/1312.6034)
@@ -250,6 +259,7 @@ def saliency(
         gaussian_ksize: size of gaussian filter kernel size
         normalize: perform min-max normalization
         grads_x_input: perform element-wise multiplication between gradient and image
+        similarity_threshold: minimum similarity score to compute attribution
 
     Returns:
         similarity map
@@ -267,30 +277,24 @@ def saliency(
         gaussian_ksize=gaussian_ksize,
         normalize=normalize,
         grads_x_input=grads_x_input,
+        similarity_threshold=similarity_threshold,
     )
 
 
 def randgrad(
-    model: nn.Module,
     img: Image.Image,
     img_tensor: Tensor,
-    proto_idx: int,
-    device: str,
-    location: tuple[int, int] | None = None,
     polarity: str | None = "absolute",
     gaussian_ksize: int = 5,
     normalize: bool = False,
     grads_x_input: bool = False,
+    **kwargs,
 ) -> np.array:
     """
     Return random patch visualization (used as a baseline for evaluating properties of other retracing functions)
     Args:
-        model: target model
         img: raw input image
         img_tensor: input image tensor
-        proto_idx: prototype index
-        device: target hardware device
-        location: coordinates of feature vector
         polarity: polarity filter (either None, "absolute", "positive", or "negative")
         gaussian_ksize: size of gaussian filter kernel size
         normalize: perform min-max normalization
@@ -301,7 +305,7 @@ def randgrad(
     """
     img_tensor = _check_tensor_dims(img_tensor)
 
-    grads = np.random.random(img_tensor.shape)
+    grads = np.random.random(img_tensor[0].shape)
     return post_process(
         array=grads,
         img=img,
@@ -327,6 +331,7 @@ def prp(
     gaussian_ksize: int = 5,
     normalize: bool = False,
     grads_x_input: bool = False,
+    similarity_threshold: float = 0.1,
 ) -> np.array:
     """Perform patch visualization using Prototype Relevance Propagation
         (https://www.sciencedirect.com/science/article/pii/S0031320322006513#bib0030)
@@ -343,6 +348,8 @@ def prp(
         gaussian_ksize: size of gaussian filter kernel size
         normalize: perform min-max normalization
         grads_x_input: perform element-wise multiplication between gradient and image
+        similarity_threshold: minimum similarity score to compute attribution
+
     Returns:
         similarity map
     """
@@ -370,4 +377,5 @@ def prp(
         normalize=normalize,
         grads_x_input=grads_x_input,
         stability_factor=stability_factor,
+        similarity_threshold=similarity_threshold,
     )

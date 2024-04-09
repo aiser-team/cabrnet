@@ -52,7 +52,7 @@ standard error output.
 - `--output-dir path/to/output/directory` indicates where to store the model checkpoints during training.
 
 Note: If all configuration files are located in the same directory, it is possible to start the training using the 
-`--start-from <dir>` option, that is effectively equivalent to:
+`--config-dir <dir>` option, that is effectively equivalent to:
 
 - `--model-config <dir>/model_arch.yml`
 - `--dataset <dir>/dataset.yml`
@@ -97,6 +97,8 @@ CaBRNet assumes that the high-level training process is common to all prototype-
     - Weak prototypes are pruned.
 
 Note that the order of operations in the epilogue depends on the chosen architecture.
+Finally, when resuming computations, it is possible to load a given checkpoint and perform only the epilogue using the 
+`--epilogue-only` option. 
 
 ## Importing a legacy model
 To avoid restarting previous computations performed using the codes provided by the original authors,
@@ -118,7 +120,7 @@ Therefore, the `cabrnet import` tool also requires the following information:
 - `--training|-t /path/to/file.yml` indicates the [parameters of the epilogue](training.md) (if any).
 - `--visualization /path/to/file.yml` indicates how to [visualize the prototypes](visualize.md).
 
-Similar to the `--start-from` option in `cabrnet train`, the `--config-dir <dir>` option is equivalent to:
+Similar to the option in `cabrnet train`, the `--config-dir <dir>` option is equivalent to:
 
 - `--model-config <dir>/model_arch.yml`
 - `--dataset <dir>/dataset.yml`
@@ -134,7 +136,7 @@ To evaluate a model, the tool uses the following options:
 the location of a CaBRNet or legacy state dictionary that should be used to initialize the model.
 - `--dataset|-d /path/to/file.yml` indicates how to [load and prepare the test data for the evaluation](data.md).
 
-Similar to the `--start-from` option in `cabrnet train`, the `--checkpoint-dir <dir>` option is equivalent to:
+Similar to the `--config-dir` option in `cabrnet train`, the `--checkpoint-dir <dir>` option is equivalent to:
 
 - `--model-config <dir>/model_arch.yml`
 - `--model-state-dict/model_state.pth`

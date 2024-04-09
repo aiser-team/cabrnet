@@ -4,7 +4,7 @@ from argparse import ArgumentParser
 from enum import Enum
 import torch.nn as nn
 import torch
-from cabrnet.generic.decision import CaBRNetAbstractClassifier
+from cabrnet.generic.decision import CaBRNetGenericClassifier
 from cabrnet.utils.prototypes import init_prototypes
 from cabrnet.utils.similarities import L2Similarities
 from cabrnet.utils.tree import BinaryNode
@@ -46,7 +46,7 @@ class ProtoTreeSimilarityScore(L2Similarities):
         return torch.exp(-distances)
 
 
-class ProtoTreeClassifier(CaBRNetAbstractClassifier, nn.Module):
+class ProtoTreeClassifier(CaBRNetGenericClassifier):
     def __init__(
         self,
         num_classes: int,
@@ -66,10 +66,7 @@ class ProtoTreeClassifier(CaBRNetAbstractClassifier, nn.Module):
             proto_init_mode: Init mode for prototypes
             log_probabilities: Use log of probabilities
         """
-        nn.Module.__init__(self)
-        CaBRNetAbstractClassifier.__init__(
-            self, num_classes=num_classes, num_features=num_features, proto_init_mode=proto_init_mode
-        )
+        super().__init__(num_classes=num_classes, num_features=num_features, proto_init_mode=proto_init_mode)
 
         # Sanity check on all parameters
         assert depth > 0, f"Invalid tree depth: {depth}"
@@ -85,13 +82,13 @@ class ProtoTreeClassifier(CaBRNetAbstractClassifier, nn.Module):
         )
 
         # Init prototypes
+        num_prototypes = self.tree.num_prototypes
         self.prototypes = nn.Parameter(
-            init_prototypes(
-                num_prototypes=self.num_prototypes, num_features=self.num_features, init_mode=proto_init_mode
-            )
+            init_prototypes(num_prototypes=num_prototypes, num_features=self.num_features, init_mode=proto_init_mode)
         )
+        self._active_prototypes = self.tree.active_prototypes
         self.similarity_layer = ProtoTreeSimilarityScore(
-            num_prototypes=self.num_prototypes, num_features=self.num_features, log_probabilities=log_probabilities
+            num_prototypes=num_prototypes, num_features=self.num_features, log_probabilities=log_probabilities
         )
         if log_probabilities:
             self.register_buffer("_root_prob", torch.zeros(1))
@@ -99,19 +96,9 @@ class ProtoTreeClassifier(CaBRNetAbstractClassifier, nn.Module):
             self.register_buffer("_root_prob", torch.ones(1))
         self.register_buffer("_root_greedy_path", torch.Tensor([True]))
 
-    @property
-    def max_num_prototypes(self) -> int:
-        """
-        Returns: Maximum number of prototypes (might differ from current number of prototypes due to pruning)
-        """
-        return self.prototypes.size(0)
-
-    @property
-    def num_prototypes(self) -> int:
-        """
-        Returns: Total number of prototypes in the decision tree
-        """
-        return self.tree.num_prototypes
+    def prototype_is_active(self, proto_idx: int) -> bool:
+        """Is the prototype active or disabled?"""
+        return proto_idx in self._active_prototypes
 
     def forward(
         self, features: Tensor, strategy: SamplingStrategy = SamplingStrategy.DISTRIBUTED
@@ -171,7 +158,7 @@ class ProtoTreeClassifier(CaBRNetAbstractClassifier, nn.Module):
         """
         if parser is None:
             parser = ArgumentParser(description="builds a ProtoTreeClassifier object.")
-        parser = CaBRNetAbstractClassifier.create_parser(parser)
+        parser = CaBRNetGenericClassifier.create_parser(parser)
         parser.add_argument(
             "--leaves-init-mode",
             type=str,
