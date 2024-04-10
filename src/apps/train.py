@@ -295,7 +295,7 @@ def execute(args: Namespace) -> None:
         training_config=training_config,
         dataset_config=dataset_config,
         visualization_config=args.visualization,
-        epoch="final",
+        epoch=epoch,
         seed=seed,
         device=device,
         stats=eval_info,
