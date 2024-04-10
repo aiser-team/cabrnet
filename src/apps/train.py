@@ -291,7 +291,7 @@ def execute(args: Namespace) -> None:
         directory_path=os.path.join(root_dir, "final"),
         model=model,
         model_config=model_config,
-        optimizer_mngr=None,
+        optimizer_mngr=optimizer_mngr,
         training_config=training_config,
         dataset_config=dataset_config,
         visualization_config=args.visualization,
