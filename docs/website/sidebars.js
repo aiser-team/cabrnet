@@ -10,9 +10,8 @@
  */
 module.exports = {
   someSidebar: {
-    "Tutorial": ['intro'],
     "CaBRNet API Documentation": [
-      require("./docs/reference/sidebar.json")
+      require("../API/reference/sidebar.json")
     ],
   },
 };

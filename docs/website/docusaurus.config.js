@@ -39,6 +39,8 @@ const config = {
       /** @type {import('@docusaurus/preset-classic').Options} */
       ({
         docs: {
+            path: '../API/',
+            routeBasePath: '../API/',
           sidebarPath: './sidebars.js',
 	  exclude: [
             // '**/_*.{js,jsx,ts,tsx,md,mdx}',
