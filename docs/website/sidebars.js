@@ -10,7 +10,7 @@
  */
 module.exports = {
   someSidebar: {
-    "CaBRNet API Documentation": [
+      "CaBRNet API Documentation": [
       require("../API/reference/sidebar.json")
     ],
   },
