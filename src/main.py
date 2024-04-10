@@ -9,6 +9,7 @@ import traceback
 from argparse import ArgumentParser
 from loguru import logger
 from cabrnet.utils.exceptions import ArgumentError
+from cabrnet.utils.system_info import get_hardware_info
 
 import numpy as np
 import torch
@@ -83,6 +84,7 @@ def main():
 
     # Set logger level
     logger.configure(handlers=[{"sink": args.logger_file, "level": args.logger_level}])
+    logger.info(f"Hardware information {get_hardware_info(device)}")
 
     if not hasattr(args, "func"):
         # Print help menu when no argument is given
