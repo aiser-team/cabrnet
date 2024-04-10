@@ -207,7 +207,7 @@ class ArchName(CaBRNet):
 
     def train_epoch( # Mandatory signature
         self,
-        dataloaders: dict[str,DataLoader],
+        dataloaders: dict[str, DataLoader],
         optimizer_mngr: OptimizerManager,
         device: str = "cuda:0",
         progress_bar_position: int = 0,
