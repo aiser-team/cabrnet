@@ -82,6 +82,9 @@ def main():
     np.random.seed(seed)
     random.seed(seed)
 
+    # Set device
+    device = args.device
+    
     # Set logger level
     logger.configure(handlers=[{"sink": args.logger_file, "level": args.logger_level}])
     logger.info(f"Hardware information {get_hardware_info(device)}")
