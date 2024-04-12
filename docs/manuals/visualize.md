@@ -103,24 +103,24 @@ This methods supports the following options:
 - `percentile`: sets the selection threshold for pixels, based on their attribution values.
 - `thickness`: thickness of the bounding-box, in pixels.
 
-![bounding box view](../imgs/view_bbox.png)
+![bounding box view](imgs/view_bbox.png)
 
 ### Crop to percentile
 Rather than drawing a bounding-box around the most contributing pixels, this method crops the
 image based on this bounding-box, using the `percentile` option as in the [previous method](#bounding-box-to-percentile). 
 
-![cropped view](../imgs/view_cropped.png)
+![cropped view](imgs/view_cropped.png)
 
 ### Heatmap
 Alternatively, important pixels can be visualized using the `heatmap` method.
 
-![heatmap view](../imgs/view_heatmap.png)
+![heatmap view](imgs/view_heatmap.png)
 
 Additionally, using the `percentile` option as in the [previous methods](#bounding-box-to-percentile), it is possible to overlay a bounding box
 to the heatmap.
 
-![heatmap with bbox view](../imgs/view_heatmap_bbox.png)
+![heatmap with bbox view](imgs/view_heatmap_bbox.png)
 
 Finally, using the `overlay` option, the heatmap is overlaid onto the original image.
 
-![heatmap with overlay and bbox view](../imgs/view_heatmap_overlay.png)
+![heatmap with overlay and bbox view](imgs/view_heatmap_overlay.png)

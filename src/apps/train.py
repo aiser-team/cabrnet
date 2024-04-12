@@ -216,7 +216,6 @@ def execute(args: Namespace) -> None:
         train_info = model.train_epoch(
             dataloaders=dataloaders,
             optimizer_mngr=optimizer_mngr,
-            output_dir=root_dir,
             device=device,
             progress_bar_position=1,
             epoch_idx=epoch,

@@ -1,4 +1,4 @@
-![cabrnet banner](../logos/banner.png)
+![cabrnet banner](imgs/banner.png)
 
 CaBRNet is an open source library that offers an API to use state-of-the-art
 prototype-based architectures (also called case-based reasoning models), or easily add a new one.
@@ -25,15 +25,20 @@ Recognition](https://openaccess.thecvf.com/content/CVPR2021/papers/Nauta_Neural_
 - [Downloading pre-trained models](download.md)
 
 # Documentation
-## Generating the reference API
+## Generating the reference API and the user manual
 Use the following command to generate the markdown API reference:
 ```bash
-cd docs/
+cd .. # Go back to docs/ directory
 pydoc-markdown
+```
+To compile the user manual in PDF format, simply enter:
+```bash
+make
 ```
 ## Generating the mkdocs website
 Use the following command to generate the mkdocs documentation website
 ```bash
+cd ../ # Go back to docs/ directory
 mkdocs build
 ```
 

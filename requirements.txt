@@ -21,3 +21,4 @@ pydoc-markdown
 pymdown-extensions
 python-markdown-math
 pandas~=2.2.1
+py-cpuinfo~=9.0.0

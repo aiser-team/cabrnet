@@ -5,6 +5,7 @@ Nevertheless, it is possible to fetch these repositories and to verify their com
 ## Downloading existing repositories and preprocessing datasets
 To fetch existing repositories, simply enter
 ```bash
+cd ../../ # Go back to root directory
 ./src/legacy/fetch_legacy_repos.sh
 ```
 Currently, this script:
@@ -23,6 +24,7 @@ the `./data/CUB_200_2011/dataset` directory.
 As a sanity check, CaBRNet implements a small test suite that ensures its compatibility with legacy codes.
 To check compatibility, simply run
 ```bash
+cd ../../ # Go back to root directory
 python3 src/legacy/compatibility_tests/prototree/test_compatibility.py  -v
 python3 src/legacy/compatibility_tests/protopnet/test_compatibility.py  -v
 ```
