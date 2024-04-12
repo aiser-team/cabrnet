@@ -93,7 +93,7 @@ epilogue:
 ```
 
 ## Creating an Optimizer Manager
-CaBRNet provides a class [OptimizerManager](https://github.com/asier-team/cabrnet/tree/master/src/cabrnet/utils/optimizers.py) in charge of parsing the configuration file 
+CaBRNet provides a class [OptimizerManager](https://github.com/aiser-team/cabrnet/tree/master/src/cabrnet/utils/optimizers.py) in charge of parsing the configuration file 
 and handling optimizers/schedulers during the training process.
 ```python
 from cabrnet.utils.optimizers import OptimizerManager
