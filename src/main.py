@@ -66,7 +66,6 @@ def main():
             "--logger-file",
             type=str,
             metavar="path/to/file",
-            default=sys.stderr,
             help="Logger file (default: sys.stderr)",
         )
         # print logs and progress bars to the console
@@ -83,7 +82,10 @@ def main():
     random.seed(seed)
 
     # Set logger level
-    logger.configure(handlers=[{"sink": args.logger_file, "level": args.logger_level}])
+    logger.configure(handlers=[{"sink": sys.stderr, "level": args.logger_level}])
+    if args.logger_file is not None:
+        logger.info(f"Using log file: {args.logger_file}")
+        logger.add(sink=args.logger_file, level=args.logger_level)
     logger.info(f"Hardware information: {get_hardware_info(args.device)}")
 
     if not hasattr(args, "func"):
