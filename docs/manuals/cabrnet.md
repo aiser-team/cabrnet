@@ -189,7 +189,7 @@ As in `cabrnet evaluate`, the `--checkpoint-dir <dir>` option is equivalent to:
 ## Reproducibility
 ### Random number initialization and deterministic operations
 For reproducibility purposes, CaBRNet explicitly uses a random `seed` to initialize the various random number 
-generators that may be used during the training process, as shown [here](https://git.frama-c.com/pub/cabrnet/-/tree/master/src/main.py).
+generators that may be used during the training process, as shown [here](https://github.com/aiser-team/cabrnet/tree/master/src/main.py).
 ```python
 import numpy as np
 import torch
