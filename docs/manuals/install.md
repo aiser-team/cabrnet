@@ -5,6 +5,7 @@
 With `pip`:
 
 ```bash
+cd ../../ # Go back to root directory
 python3 -m venv venv
 source venv/bin/activate
 python3 -m pip install -r requirements.txt -e .
@@ -13,6 +14,7 @@ python3 -m pip install -r requirements.txt -e .
 With `conda`:
 
 ```bash
+cd ../../ # Go back to root directory
 conda env create -f environment.yml
 conda activate cabrnet
 python3 -m pip install -e .
@@ -21,6 +23,7 @@ python3 -m pip install -e .
 With `micromamba`:
 
 ```bash
+cd ../../ # Go back to root directory
 micromamba create -f environment.yml
 micromamba activate cabrnet
 python3 -m pip install -e .
@@ -37,6 +40,7 @@ Once the dependencies are downloaded, the CaBRNet package can be built from
 `pyproject.toml` as follows:
 
 ```bash
+cd ../../ # Go back to root directory
 python3 -m build
 ```
 

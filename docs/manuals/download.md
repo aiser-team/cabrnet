@@ -4,6 +4,7 @@ existing architectures. Furthermore, to improve the significance of scientific r
 **at least 3 models are provided**.
 To download these models, simply enter:
 ```bash
+cd ../../ # Go back to root directory
 python3 tools/download_examples.py --target all
 ```
 By default, this scripts downloads all files in the `examples/` directory.
