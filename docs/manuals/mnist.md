@@ -8,7 +8,8 @@ cabrnet train --device cpu --seed 42 --verbose --logger-level INFO  \
   --dataset configs/prototree/mnist/dataset.yml \
   --training configs/prototree/mnist/training.yml \
   --output-dir runs/mnist_prototree \
-  --visualization configs/prototree/mnist/visualization.yml
+  --visualization configs/prototree/mnist/visualization.yml \
+  --logger-file runs/mnist_prototree/log.txt
 ```
 This command trains a ProtoTree during one epoch, and stores the resulting checkpoint in 
 `runs/mnist_prototree/final`.
@@ -52,7 +53,8 @@ cabrnet train --device cpu --seed 42 --verbose --logger-level INFO  \
   --dataset configs/protopnet/mnist/dataset.yml \
   --training configs/protopnet/mnist/training.yml \
   --output-dir runs/mnist_protopnet \
-  --visualization configs/protopnet/mnist/visualization.yml
+  --visualization configs/protopnet/mnist/visualization.yml \
+  --logger-file runs/mnist_prototree/log.txt
 ```
 This command trains a ProtoPNet during one epoch, and stores the resulting checkpoint in 
 `runs/mnist_protopnet/final`.

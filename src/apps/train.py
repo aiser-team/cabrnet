@@ -234,9 +234,9 @@ def execute(args: Namespace) -> None:
             save_best_checkpoint = True
         # Add information regarding current best metric
         train_info[f"best_avg_train_{args.save_best}"] = best_metric
-
+        logger.info(f"Metrics at epoch {epoch}: {metrics_to_str(train_info)}")
         if save_best_checkpoint:
-            logger.info(f"Better model found at epoch {epoch}. Metrics: {metrics_to_str(train_info)}")
+            logger.success(f"Better model found at epoch {epoch}. Saving checkpoint.")
             save_checkpoint(
                 directory_path=os.path.join(root_dir, "best"),
                 model=model,
