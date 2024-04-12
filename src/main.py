@@ -84,7 +84,7 @@ def main():
 
     # Set logger level
     logger.configure(handlers=[{"sink": args.logger_file, "level": args.logger_level}])
-    logger.info(f"Hardware information {get_hardware_info(device)}")
+    logger.info(f"Hardware information: {get_hardware_info(args.device)}")
 
     if not hasattr(args, "func"):
         # Print help menu when no argument is given
