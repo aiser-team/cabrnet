@@ -59,16 +59,21 @@ Note: If all configuration files are located in the same directory, it is possib
 - `--training <dir>/training.yml`
 - `--visualization <dir>/visualization.yml`
 
+To avoid inadvertently erasing a previous training run, CaBRNet will abort the training process if the output 
+directory already exists. To override this check, use the `--overwrite` option.
+
 ### Sanity check
 For a quick sanity check of a particular architecture or overall training configuration, it is possible to use the 
-`--sanity-check-only` option that only processes 5 batches per training epoch. 
+`--sanity-check` option that only processes 5 batches per training epoch. 
 
 ### Resuming computations
 CaBRNet provides options to save training checkpoints and resuming the training process from a given checkpoint.
 
 - `--checkpoint-frequency <num_epochs>` indicates the frequency of checkpoints (in number of epochs). 
 If not provided, **only the best model is kept during training** (in the `best/` subdirectory)
-- `--resume-from </path/to/checkpoint/directory>` indicates the directory from which the training process should resume. If not provided, the training process starts from the first epoch. More precisely, each training checkpoint directory contains:
+- `--resume-from </path/to/checkpoint/directory>` indicates the directory from which the training process should resume
+(if not provided, the training process starts from the first epoch, see above). 
+More precisely, each training checkpoint directory contains:
     - a copy of the YML file describing the model architecture, as specified [here](model.md).
     - a copy of the YML file describing the dataset, as specified [here](data.md). 
     - a copy of the YML file describing the training configuration, as specified [here](training.md). 
@@ -81,8 +86,9 @@ If not provided, **only the best model is kept during training** (in the `best/`
         - the current best metrics (*e.g.* accuracy or cross-entropy loss).
         - the random seed used originally.
         - the internal state of each random number generator (torch, numpy and python).
-- To avoid inadvertently erasing a previous training run, CaBRNet will abort the training process if the output 
-directory already exists. To override this check, use the `--overwrite` option.
+
+In resume mode, specifying the output directory (option `--output-dir`) is optional. 
+If not provided, the parent directory of the checkpoint is used.
 
 ### Training process
 
@@ -98,7 +104,35 @@ CaBRNet assumes that the high-level training process is common to all prototype-
 
 Note that the order of operations in the epilogue depends on the chosen architecture.
 Finally, when resuming computations, it is possible to load a given checkpoint and perform only the epilogue using the 
-`--epilogue-only` option. 
+`--epilogue` option. 
+
+### Summary
+`cabrnet train` provides multiples modes of operation, that can be summarized as follows (for readability, 
+we assume that all configuration files are stored in a single directory):
+- `cabrnet train --config-dir CONFIG_DIR --output-dir OUTPUT_DIR [--checkpoint-frequency NUM]`: the training starts from the first epoch, 
+and the best model is stored and updated in the `OUTPUT_DIR/best` directory. 
+If the `OUTPUT_DIR/best` directory already exists, option `--overwrite` must be used to authorize the application to overwrite the result of a previous training.
+If specified, a checkpoint is created every `NUM` epoch in the `OUTPUT_DIR/epoch_XXX` directory. 
+At the end of the training, the epilogue is applied on the model stored in `OUTPUT_DIR/best`, and the resulting model is
+saved in the `OUTPUT_DIR/final` directory.
+- `cabrnet train --resume-from OUTPUT_DIR/CHECKPOINT [--checkpoint-frequency NUM]`: the training resumes from the model
+saved in `OUTPUT_DIR/CHECKPOINT`, and the best model is stored and updated in the `OUTPUT_DIR/best` directory.
+If specified, a checkpoint is created every `NUM` epoch in the `OUTPUT_DIR/epoch_XXX` directory.
+At the end of the training, the epilogue is applied on the model stored in `OUTPUT_DIR/best`, and the resulting model is
+saved in the `OUTPUT_DIR/final` directory. Note that in this case, option `--overwrite` is not necessary since the 
+training process resumes from the same original directory `OUTPUT_DIR`.
+- `cabrnet train --resume-from OUTPUT_DIR/CHECKPOINT --output-dir ALT_OUTPUT_DIR [--checkpoint-frequency NUM]`: 
+the training resumes from the model saved in `OUTPUT_DIR/CHECKPOINT`, and the best model (**if any**) is stored and updated in the `ALT_OUTPUT_DIR/best` directory. 
+If the `ALT_OUTPUT_DIR/best` directory already exists, option `--overwrite` must be used to authorize the application to overwrite the result of a previous training.
+If specified, a checkpoint is created every `NUM` epoch in the `OUTPUT_DIR/epoch_XXX` directory.
+At the end of the training, the epilogue is applied on the model stored in `ALT_OUTPUT_DIR/best` (if present), or on the model
+stored in `OUTPUT_DIR/best` if no better model was found since resuming the training process, and the resulting model is
+saved in the `ALT_OUTPUT_DIR/final` directory.
+- `cabrnet train --resume-from OUTPUT_DIR/CHECKPOINT --epilogue`: the application loads the model saved in `OUTPUT_DIR/CHECKPOINT`,
+and goes straight to the epilogue phase, applying the operation on that model (not necessarily the best model). The resulting model is
+saved in the `OUTPUT_DIR/final` directory. 
+If the `OUTPUT_DIR/final` directory already exists, option `--overwrite` must be used to authorize the application to 
+overwrite the result of a previous epilogue.
 
 ## Importing a legacy model
 To avoid restarting previous computations performed using the codes provided by the original authors,

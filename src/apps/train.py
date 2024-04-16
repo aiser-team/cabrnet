@@ -1,6 +1,7 @@
 """Declare the necessary functions to create an app to train a CaBRNet classifier."""
 
 import os
+from pathlib import Path
 from argparse import ArgumentParser, Namespace
 from loguru import logger
 from tqdm import tqdm
@@ -41,7 +42,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         "-o",
         "--output-dir",
         type=str,
-        required=True,
+        required=False,
         metavar="path/to/output/directory",
         help="path to output directory",
     )
@@ -76,16 +77,27 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         "resuming training from a given checkpoint.",
     )
     parser.add_argument(
-        "--sanity-check-only",
+        "--sanity-check",
         action="store_true",
         help="check the training pipeline without performing the entire process.",
     )
     parser.add_argument(
-        "--epilogue-only",
+        "--epilogue",
         action="store_true",
         help="skip training and go to epilogue.",
     )
     return parser
+
+
+def get_parent_directory(dir_path: str):
+    """
+    Args:
+        dir_path: path to directory
+
+    Returns:
+        absolute path to parent directory
+    """
+    return Path(dir_path).parent.absolute()
 
 
 def check_args(args: Namespace) -> Namespace:
@@ -124,6 +136,33 @@ def check_args(args: Namespace) -> Namespace:
         if param is None:
             raise ArgumentError(f"Missing {name} configuration file (option {option}).")
 
+    # In resume mode, specifying the output directory is optional
+    if args.output_dir is None and args.resume_from is not None:
+        args.output_dir = get_parent_directory(args.resume_from)
+        logger.warning(f"Using {args.output_dir} as default output directory based on checkpoint path")
+    if args.output_dir is None:
+        ArgumentError("Missing path to output directory (option --output-dir)")
+
+    # In full training mode (all epochs), or when the output directory is different from the checkpoint parent directory
+    # (resume mode), check that the best model directory is available
+    best_model_path = os.path.join(args.output_dir, "best")
+    if (
+        os.path.exists(best_model_path)
+        and not args.overwrite
+        and not args.epilogue
+        and (args.resume_from is None or get_parent_directory(args.resume_from) != args.output_dir)
+    ):
+        raise ArgumentError(
+            f"Output directory {best_model_path} is not empty. "
+            f"To overwrite existing results, use --overwrite option."
+        )
+    final_model_path = os.path.join(args.output_dir, "final")
+    if args.epilogue and os.path.exists(final_model_path) and not args.overwrite:
+        raise ArgumentError(
+            f"Output directory {final_model_path} is not empty. "
+            f"To overwrite existing results, use --overwrite option."
+        )
+
     return args
 
 
@@ -148,6 +187,9 @@ def execute(args: Namespace) -> None:
     training_config = args.training
     model_config = args.model_config
     dataset_config = args.dataset
+    epilogue_only = args.epilogue
+    sanity_check_only = args.sanity_check
+    resume_dir = args.resume_from
 
     model: CaBRNet = CaBRNet.build_from_config(config_file=model_config, seed=args.seed)
 
@@ -156,21 +198,21 @@ def execute(args: Namespace) -> None:
     model.register_training_params(trainer)  # Register auxiliary training parameters directly into model
     root_dir = args.output_dir
 
-    # Check that output directory is available
-    if not args.epilogue_only and not args.overwrite and os.path.exists(os.path.join(root_dir, "best")):
-        raise ArgumentError(
-            f"Output directory {os.path.join(root_dir, 'best')} is not empty. "
-            f"To overwrite existing results, use --overwrite option."
-        )
-
     # Build optimizer manager
     optimizer_mngr = OptimizerManager.build_from_config(config_file=training_config, model=model)
     # Dataloaders
     dataloaders = DatasetManager.get_dataloaders(config_file=dataset_config)
 
-    if args.resume_from is not None:
+    # By default, process all data batches and all epochs
+    max_batches = None
+    start_epoch = 0
+    num_epochs = trainer["num_epochs"]
+    best_metric = 0.0 if args.save_best == "acc" else float("inf")
+    seed = args.seed
+
+    if resume_dir is not None:
         # Restore state
-        state = load_checkpoint(args.resume_from, model=model, optimizer_mngr=optimizer_mngr)
+        state = load_checkpoint(resume_dir, model=model, optimizer_mngr=optimizer_mngr)
         start_epoch = state["epoch"] + 1
         seed = state["seed"]
         train_info = state["stats"]
@@ -179,38 +221,30 @@ def execute(args: Namespace) -> None:
             raise ArgumentError(f"Could not recover best model {args.save_best}: invalid --save-best option?")
         # Remap optimizer to device if necessary
         optimizer_mngr.to(device)
-    else:
-        # Start from beginning
-        start_epoch = 0
-        best_metric = 0.0 if args.save_best == "acc" else float("inf")
-        seed = args.seed
 
-    if args.epilogue_only:
+    epoch_select = range(start_epoch, num_epochs)
+    if epilogue_only:
         logger.warning(f"{'=' * 20} GOING STRAIGHT TO EPILOGUE {'=' * 20}")
-        epoch_select = [None]
-    elif args.sanity_check_only:
+        epoch_select = []
+    elif sanity_check_only:
         logger.warning(f"{'='*20} SANITY CHECK MODE: THE TRAINING WILL NOT BE FULLY PERFORMED {'='*20}")
         max_batches = 5  # Process only a few batches
         # Only perform one epoch per training period
         epoch_select = [optimizer_mngr.periods[p_name]["epoch_range"][0] for p_name in optimizer_mngr.periods]
-    else:
-        # Process all data batches and all epochs
-        max_batches = None
-        epoch_select = None
+        epoch_select = (
+            [epoch for epoch in epoch_select if epoch >= start_epoch]  # Select epochs after start_epoch (if any)
+            if start_epoch <= epoch_select[-1]
+            else [start_epoch]
+        )
 
-    num_epochs = trainer["num_epochs"]
     for epoch in tqdm(
-        range(start_epoch, num_epochs),
+        epoch_select,
         initial=start_epoch,
         total=num_epochs,
         leave=False,
         desc="Training epochs",
         disable=not verbose,
     ):
-        if epoch_select is not None and epoch not in epoch_select:
-            # Quietly skip epoch (sanity check mode)
-            continue
-
         # Freeze parameters if necessary depending on current epoch and parameter group
         optimizer_mngr.freeze(epoch=epoch)
         train_info = model.train_epoch(
@@ -265,8 +299,17 @@ def execute(args: Namespace) -> None:
                 stats=train_info,
             )
 
-    # Load best model
-    load_checkpoint(directory_path=os.path.join(root_dir, "best"), model=model)
+    if not epilogue_only:
+        # Seek best model (in epilogue mode, keep the existing model state)
+        if os.path.isdir(os.path.join(root_dir, "best")):
+            path_to_best = os.path.join(root_dir, "best")
+        elif resume_dir is not None and os.path.isdir(os.path.join(get_parent_directory(resume_dir), "best")):
+            # Best checkpoint occurred before training was resumed
+            path_to_best = os.path.join(get_parent_directory(resume_dir), "best")
+        else:
+            raise FileNotFoundError("Could not find path to best model. Aborting epilogue.")
+        logger.info(f"Loading best model from checkpoint {path_to_best}")
+        load_checkpoint(directory_path=path_to_best, model=model, optimizer_mngr=optimizer_mngr)
 
     # Call epilogue
     visualizer = SimilarityVisualizer.build_from_config(config_file=args.visualization, model=model)
