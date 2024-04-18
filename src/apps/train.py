@@ -316,6 +316,7 @@ def execute(args: Namespace) -> None:
     model.epilogue(
         dataloaders=dataloaders,
         visualizer=visualizer,
+        optimizer_mngr=optimizer_mngr,
         output_dir=root_dir,
         model_config=model_config,
         training_config=training_config,
