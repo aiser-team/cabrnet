@@ -103,9 +103,11 @@ def load_checkpoint(
 
     model.load_state_dict(torch.load(os.path.join(directory_path, CaBRNet.DEFAULT_MODEL_STATE), map_location="cpu"))
     if optimizer_mngr is not None:
-        optimizer_mngr.load_state_dict(
-            torch.load(os.path.join(directory_path, OptimizerManager.DEFAULT_TRAINING_STATE), map_location="cpu")
-        )
+        optimizer_state_path = os.path.join(directory_path, OptimizerManager.DEFAULT_TRAINING_STATE)
+        if os.path.isfile(optimizer_state_path):
+            optimizer_mngr.load_state_dict(torch.load(optimizer_state_path, map_location="cpu"))
+        else:
+            logger.warning(f"Could not find optimizer state {optimizer_state_path}. Using default state instead.")
 
     # Restore RNG state
     with open(os.path.join(directory_path, "state.pickle"), "rb") as file:

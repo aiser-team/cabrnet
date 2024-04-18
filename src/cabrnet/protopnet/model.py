@@ -372,6 +372,7 @@ class ProtoPNet(CaBRNet):
         self,
         dataloaders: dict[str, DataLoader],
         visualizer: SimilarityVisualizer,
+        optimizer_mngr: OptimizerManager,
         output_dir: str,
         model_config: str,
         training_config: str,
@@ -380,9 +381,11 @@ class ProtoPNet(CaBRNet):
         device: str = "cuda:0",
         verbose: bool = False,
         pruning_threshold: int = 3,
-        num_nearest_patches: int = 6,
+        num_nearest_patches: int = 0,
+        num_fine_tuning_epochs: int = 20,
         disable_pruned_prototypes: bool = False,
         projection_file: str = "projection_info.csv",
+        progress_bar_position: int = 0,
         **kwargs,
     ) -> None:
         """Function called after training, using information from the epilogue field in the training configuration.
@@ -390,6 +393,7 @@ class ProtoPNet(CaBRNet):
         Args:
             dataloaders: dataloader containing projection data
             visualizer: patch visualizer
+            optimizer_mngr: optimizer manager
             output_dir: output directory
             model_config: path to YML model configuration
             training_config: path to YML training configuration
@@ -397,8 +401,10 @@ class ProtoPNet(CaBRNet):
             seed: initial random seed
             pruning_threshold: Pruning threshold
             num_nearest_patches: Number of patches near the prototype to look at
+            num_fine_tuning_epochs: number of fine-tuning epochs to perform after pruning
             disable_pruned_prototypes: Only disable prototypes instead of deleting them during pruning
             projection_file: output file containing all projection information
+            progress_bar_position: position of the progress bar.
             device: target device
             verbose: display progress bar
         """
@@ -429,25 +435,44 @@ class ProtoPNet(CaBRNet):
             stats=eval_info,
         )
 
-        # Prune weak prototypes
-        self.prune(
-            dataloader=dataloaders["projection_set"],
-            pruning_threshold=pruning_threshold,
-            num_nearest_patches=num_nearest_patches,
-            disable_pruned_prototypes=disable_pruned_prototypes,
-            device=device,
-            verbose=verbose,
-            progress_bar_position=0,
-        )
-
-        if self._compatibility_mode or not disable_pruned_prototypes:
-            # Perform second projection to take into account deleted prototypes
-            # This operation should not change the model parameters but will rebuild an updated projection information
-            projection_info = self.project(
+        if num_nearest_patches > 0:
+            # Prune weak prototypes
+            self.prune(
                 dataloader=dataloaders["projection_set"],
+                pruning_threshold=pruning_threshold,
+                num_nearest_patches=num_nearest_patches,
+                disable_pruned_prototypes=disable_pruned_prototypes,
                 device=device,
                 verbose=verbose,
+                progress_bar_position=0,
             )
+
+            if self._compatibility_mode or not disable_pruned_prototypes:
+                # Perform second projection to take into account deleted prototypes
+                # This operation should not change the model parameters but will rebuild an updated projection information
+                projection_info = self.project(
+                    dataloader=dataloaders["projection_set"],
+                    device=device,
+                    verbose=verbose,
+                )
+
+            # Last layer fine-tuning
+            fine_tuning_progress = tqdm(
+                range(num_fine_tuning_epochs),
+                desc="Fine-tuning last layer after pruning",
+                leave=False,
+                position=progress_bar_position,
+                disable=not verbose,
+            )
+            for ft_epoch_idx in fine_tuning_progress:
+                self._train_epoch(
+                    dataloaders=dataloaders,
+                    optimizer_mngr=optimizer_mngr.optimizers["last_layer_optimizer"],  # type: ignore
+                    device=device,
+                    progress_bar_position=progress_bar_position + 1,
+                    progress_bar_title=f"Fine-tuning epoch {ft_epoch_idx}",
+                    verbose=verbose,
+                )
 
         # Extract prototypes
         self.extract_prototypes(

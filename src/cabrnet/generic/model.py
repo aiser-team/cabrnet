@@ -258,6 +258,7 @@ class CaBRNet(nn.Module):
         self,
         dataloaders: dict[str, DataLoader],
         visualizer: SimilarityVisualizer,
+        optimizer_mngr: OptimizerManager,
         output_dir: str,
         model_config: str,
         training_config: str,

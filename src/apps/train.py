@@ -316,6 +316,7 @@ def execute(args: Namespace) -> None:
     model.epilogue(
         dataloaders=dataloaders,
         visualizer=visualizer,
+        optimizer_mngr=optimizer_mngr,
         output_dir=root_dir,
         model_config=model_config,
         training_config=training_config,
@@ -333,7 +334,7 @@ def execute(args: Namespace) -> None:
         directory_path=os.path.join(root_dir, "final"),
         model=model,
         model_config=model_config,
-        optimizer_mngr=optimizer_mngr,
+        optimizer_mngr=None,
         training_config=training_config,
         dataset_config=dataset_config,
         visualization_config=args.visualization,

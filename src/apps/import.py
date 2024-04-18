@@ -96,12 +96,16 @@ def execute(args: Namespace) -> None:
 
     dataloaders = DatasetManager.get_dataloaders(dataset_config)
 
+    # Build optimizer manager
+    optimizer_mngr = OptimizerManager.build_from_config(config_file=training_config, model=model)
+
     # Call epilogue
     trainer = load_config(training_config)
     visualizer = SimilarityVisualizer.build_from_config(config_file=args.visualization, model=model)
     model.epilogue(
         dataloaders=dataloaders,
         visualizer=visualizer,
+        optimizer_mngr=optimizer_mngr,
         output_dir=root_dir,
         model_config=model_config,
         training_config=training_config,
