@@ -248,7 +248,6 @@ class TestProtoPNetCompatibility(unittest.TestCase):
                 epoch_idx=epoch,
                 dataloaders=dataloaders,
                 optimizer_mngr=optimizer_mngr,
-                output_dir=self.output_dir,
                 device=self.device,
                 progress_bar_position=1,
                 max_batches=max_batches,
