@@ -52,14 +52,6 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         help="path to output directory",
     )
     parser.add_argument(
-        "-p",
-        "--prototype-dir",
-        type=str,
-        required=True,
-        metavar="path/to/prototype/directory",
-        help="path to directory containing prototype visualizations",
-    )
-    parser.add_argument(
         "--overwrite",
         action="store_true",
         help="overwrite existing explanation (if any)",
@@ -112,17 +104,32 @@ def execute(args: Namespace) -> None:
 
     # Build model and load state dictionary
     model: CaBRNet = CaBRNet.build_from_config(config_file=args.model_config, state_dict_path=args.model_state_dict)
+
     # Init visualizer
     visualizer = SimilarityVisualizer.build_from_config(config_file=args.visualization, model=model)
+
     # Recover preprocessing function
     preprocess = DatasetManager.get_dataset_transform(config_file=args.dataset, dataset="test_set")
+
+    # Build prototypes
+    dataloaders = DatasetManager.get_dataloaders(config_file=args.dataset)
+    projection_info = model.project(dataloaders["projection_set"])
+    model.extract_prototypes(
+        dataloader_raw=dataloaders["projection_set_raw"],
+        dataloader=dataloaders["projection_set"],
+        projection_info=projection_info,
+        visualizer=visualizer,
+        dir_path=os.path.join(args.output_dir, "prototypes"),
+        device=args.device,
+        verbose=args.verbose,
+    )
 
     # Generate explanation
     model.explain(
         img=args.image,
         visualizer=visualizer,
         preprocess=preprocess,  # type: ignore
-        prototype_dir=args.prototype_dir,
+        prototype_dir=os.path.join(args.output_dir, "prototypes"),
         output_dir=os.path.join(args.output_dir, Path(args.image).stem),
         device=args.device,
         exist_ok=args.overwrite,
