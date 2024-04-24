@@ -120,8 +120,8 @@ def execute(args: Namespace) -> None:
     # Generate explanation
     model.explain(
         img=args.image,
-        preprocess=preprocess,
         visualizer=visualizer,
+        preprocess=preprocess,  # type: ignore
         prototype_dir=args.prototype_dir,
         output_dir=os.path.join(args.output_dir, Path(args.image).stem),
         device=args.device,

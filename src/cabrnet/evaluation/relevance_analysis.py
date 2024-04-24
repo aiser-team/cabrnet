@@ -159,9 +159,7 @@ def patches_relevance_analysis(
             # Discard inactive prototype and try again
             original_sim_map[proto_idx] = 0
 
-        attribution = visualizer.get_attribution(
-            img=img, img_tensor=img_tensor, proto_idx=proto_idx, device=device  # type: ignore
-        )
+        attribution = visualizer.get_attribution(img=img, img_tensor=img_tensor, proto_idx=proto_idx, device=device)
 
         mask_relevance = pg_mask_relevance(attribution, np.asarray(seg), area_percentage)
         energy_relevance = pg_energy_relevance(attribution, np.asarray(seg))
@@ -319,14 +317,14 @@ def proto_relevance_analysis(
 
     for proto_idx in proto_iter:
         # Recover source image for the prototype
-        img = projection_set[projection_db[proto_idx]["img_idx"]][0]
+        img = projection_set[projection_db[proto_idx]["img_idx"]][0]  # type: ignore
         img_tensor = preprocess(img)  # type: ignore
         attribution = visualizer.get_attribution(img=img, img_tensor=img_tensor, proto_idx=proto_idx, device=device)
         mask_relevance = pg_mask_relevance(
-            attribution, np.asarray(segmentation_set[projection_db[proto_idx]["img_idx"]][0]), area_percentage
+            attribution, np.asarray(segmentation_set[projection_db[proto_idx]["img_idx"]][0]), area_percentage  # type: ignore
         )
         energy_relevance = pg_energy_relevance(
-            attribution, np.asarray(segmentation_set[projection_db[proto_idx]["img_idx"]][0])
+            attribution, np.asarray(segmentation_set[projection_db[proto_idx]["img_idx"]][0])  # type: ignore
         )
         stats.append(
             {

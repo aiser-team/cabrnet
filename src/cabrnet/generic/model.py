@@ -74,7 +74,7 @@ class CaBRNet(nn.Module):
             Tensor of similarity scores.
         """
         x = self.extractor(x, **kwargs)
-        return self.classifier.similarity_layer(x, self.classifier.prototypes)
+        return self.classifier.similarity_layer(x, self.classifier.prototypes)  # type: ignore
 
     def l2_distances(self, x: Tensor, **kwargs) -> Tensor:
         r"""Returns L2 distances to each prototype.
@@ -86,7 +86,7 @@ class CaBRNet(nn.Module):
             Tensor of L2 distances.
         """
         x = self.extractor(x, **kwargs)
-        return self.classifier.similarity_layer.L2_square_distance(x, self.classifier.prototypes)
+        return self.classifier.similarity_layer.L2_square_distance(x, self.classifier.prototypes)  # type: ignore
 
     @property
     def num_prototypes(self) -> int:
@@ -388,7 +388,7 @@ class CaBRNet(nn.Module):
         device: str = "cuda:0",
         verbose: bool = False,
         tqdm_position: int = 0,
-    ) -> dict[int, dict]:
+    ) -> dict[int, dict[str, int | float]]:
         r"""Performs prototype projection after training.
 
         Args:
@@ -432,7 +432,7 @@ class CaBRNet(nn.Module):
         if os.path.isfile(visualizer.config_file):  # type: ignore
             try:
                 shutil.copyfile(
-                    src=visualizer.config_file,
+                    src=visualizer.config_file,  # type: ignore
                     dst=os.path.join(dir_path, SimilarityVisualizer.DEFAULT_VISUALIZATION_CONFIG),
                 )  # type: ignore
             except shutil.SameFileError:

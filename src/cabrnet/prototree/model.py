@@ -37,7 +37,7 @@ class ProtoTree(CaBRNet):
             extractor (Module): Feature extractor.
             classifier (CaBRNetGenericClassifier): Classification based on extracted features.
         """
-        super(ProtoTree, self).__init__(extractor, classifier, **kwargs)
+        super(ProtoTree, self).__init__(extractor, classifier, **kwargs)  # type: ignore
 
         # Constant tensor for internal computations
         self.register_buffer("_eye", torch.eye(self.classifier.num_classes))
@@ -117,7 +117,7 @@ class ProtoTree(CaBRNet):
                         break
                 cbrn_key = possible_keys[0]
                 # Expand dimension of leaf distribution
-                final_state[legacy_key] = torch.unsqueeze(final_state[legacy_key], 0)
+                final_state[legacy_key] = torch.unsqueeze(final_state[legacy_key], 0)  # type: ignore
 
             # Update state
             if cbrn_state[cbrn_key].size() != final_state[legacy_key].size():
@@ -125,11 +125,11 @@ class ProtoTree(CaBRNet):
                     f"Mismatching parameter size for {legacy_key} and {cbrn_key}. "
                     f"Expected {cbrn_state[cbrn_key].size()}, got {final_state[legacy_key].size()}"
                 )
-            final_state[cbrn_key] = final_state.pop(legacy_key)
+            final_state[cbrn_key] = final_state.pop(legacy_key)  # type: ignore
             cbrn_keys.remove(cbrn_key)
         super().load_state_dict(final_state, strict=False)
 
-    def load_state_dict(self, state_dict: Mapping[str, Any], **kwargs):
+    def load_state_dict(self, state_dict: Mapping[str, Any], **kwargs):  # type: ignore
         r"""Overloads nn.Module load_state_dict to take legacy state dictionaries into account.
 
         Args:
@@ -309,6 +309,7 @@ class ProtoTree(CaBRNet):
         self,
         dataloaders: dict[str, DataLoader],
         visualizer: SimilarityVisualizer,
+        optimizer_mngr: OptimizerManager,
         output_dir: str,
         model_config: str,
         training_config: str,
@@ -326,6 +327,7 @@ class ProtoTree(CaBRNet):
         Args:
             dataloaders (dictionary): Dictionary of dataloaders.
             visualizer (SimilarityVisualizer): Similarity visualizer.
+            optimizer_mngr (OptimizerManager): Optimizer manager.
             output_dir (str): Path to output directory.
             model_config (str): Path to model configuration.
             training_config (str): Path to model training configuration.
@@ -350,13 +352,13 @@ class ProtoTree(CaBRNet):
             f"Average accuracy: {eval_info['avg_eval_accuracy']:.2f}."
         )
         save_checkpoint(
-            directory_path=os.path.join(output_dir, f"projected"),
+            directory_path=os.path.join(output_dir, "projected"),
             model=self,
             model_config=model_config,
             optimizer_mngr=None,
             training_config=training_config,
             dataset_config=dataset_config,
-            visualization_config=visualizer.config_file,
+            visualization_config=visualizer.config_file,  # type: ignore
             epoch="projected",
             seed=seed,
             device=device,
@@ -482,7 +484,9 @@ class ProtoTree(CaBRNet):
                 xs = xs.to(device)
                 feats = self.extractor(xs)  # Shape N x D x H x W
                 _, W = feats.shape[2], feats.shape[3]
-                similarities = self.classifier.similarity_layer(feats, self.classifier.prototypes)  # Shape (N, P, H, W)
+                similarities = self.classifier.similarity_layer(  # type: ignore
+                    feats, self.classifier.prototypes
+                )  # Shape (N, P, H, W)
                 max_sim, max_sim_idxs = torch.max(similarities.view(similarities.shape[:2] + (-1,)), dim=2)
 
                 for img_idx, (x, y) in enumerate(zip(xs, ys)):
@@ -510,7 +514,7 @@ class ProtoTree(CaBRNet):
             # Update prototype vectors
             self.classifier.prototypes.copy_(projection_vectors)
 
-        return projection_info
+        return projection_info  # type: ignore
 
     def explain(
         self,
@@ -566,7 +570,7 @@ class ProtoTree(CaBRNet):
         leaf_path = self.classifier.tree.get_mapping(mode=MappingMode.NODE_PATHS)[leaf_id]
 
         # Build explanation
-        img_path = os.path.join(output_dir, f"original.png")
+        img_path = os.path.join(output_dir, "original.png")
         if not disable_rendering:
             os.makedirs(os.path.join(output_dir, "test_patches"), exist_ok=exist_ok)
             # Copy source image
@@ -596,7 +600,7 @@ class ProtoTree(CaBRNet):
                 most_relevant_prototypes.append((proto_idx, score, True))
                 patch_image_path = os.path.join(output_dir, "test_patches", f"proto_similarity_{proto_idx}.png")
                 if not disable_rendering:
-                    patch_image = visualizer.forward(img=img, img_tensor=img_tensor, proto_idx=proto_idx, device=device)
+                    patch_image = visualizer.forward(img=img, img_tensor=img_tensor, proto_idx=proto_idx, device=device)  # type: ignore
                     patch_image.save(patch_image_path)
                 explanation.add_similarity(
                     prototype_img_path=prototype_image_path,
@@ -607,7 +611,7 @@ class ProtoTree(CaBRNet):
             if prototype_mapping[node_id] is None:
                 break
             proto_idx = prototype_mapping[node_id][0]  # Update index of prototype associated with next node
-        explanation.add_prediction(torch.argmax(prediction).item())
+        explanation.add_prediction(torch.argmax(prediction).item())  # type: ignore
         if not disable_rendering:
             explanation.render()
         return most_relevant_prototypes
