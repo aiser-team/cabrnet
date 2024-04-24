@@ -290,7 +290,7 @@ class CaBRNet(nn.Module):
         device: str = "cuda:0",
         verbose: bool = False,
         **kwargs,
-    ) -> None:
+    ) -> dict[int, dict[str, int | float]]:
         r"""Function called after training, using information from the epilogue field in the training configuration.
 
         Args:
@@ -304,8 +304,11 @@ class CaBRNet(nn.Module):
             seed (int): Random seed.
             device (str, optional): Target device. Default: cuda:0.
             verbose (bool, optional): Display progress bar. Default: False.
+
+        Returns:
+            Projection informations.
         """
-        pass
+        return {}
 
     def evaluate(
         self,

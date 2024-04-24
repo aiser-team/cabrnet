@@ -321,7 +321,7 @@ class ProtoTree(CaBRNet):
         merge_same_decision: bool = False,
         projection_file: str = "projection_info.csv",
         **kwargs: Any,
-    ) -> None:
+    ) -> dict[int, dict[str, int | float]]:
         r"""Function called after training, using information from the epilogue field in the training configuration.
 
         Args:
@@ -339,6 +339,9 @@ class ProtoTree(CaBRNet):
             merge_same_decision (bool, optional): If True, merges branches leading to same top decision. Default: False.
             projection_file (str, optional): Path to output file containing all projection information.
                 Default: projection_info.csv.
+
+        Returns:
+            Projection informations.
         """
         # Perform projection
         projection_info = self.project(
@@ -392,6 +395,8 @@ class ProtoTree(CaBRNet):
                 writer.writeheader()
                 for proto_idx in projection_info.keys():
                     writer.writerow(projection_info[proto_idx] | {"proto_idx": proto_idx})
+
+        return projection_info
 
     def prune(self, pruning_threshold: float = 0.01, merge_same_decision: bool = False) -> None:
         r"""Prunes the decision tree based on a threshold.

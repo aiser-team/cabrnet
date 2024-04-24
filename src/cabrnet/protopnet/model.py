@@ -400,7 +400,7 @@ class ProtoPNet(CaBRNet):
         projection_file: str = "projection_info.csv",
         tqdm_position: int = 0,
         **kwargs,
-    ) -> None:
+    ) -> dict[int, dict[str, int | float]]:
         r"""Function called after training, using information from the epilogue field in the training configuration.
 
         Args:
@@ -423,6 +423,9 @@ class ProtoPNet(CaBRNet):
             projection_file (str, optional): Path to output file containing all projection information.
                 Default: projection_info.csv.
             tqdm_position (int, optional): Position of the progress bar. Default: 0.
+
+        Returns:
+            Projection informations.
         """
         # Perform projection
         projection_info = self.project(
@@ -513,6 +516,8 @@ class ProtoPNet(CaBRNet):
                 writer.writeheader()
                 for proto_idx in projection_info.keys():
                     writer.writerow(projection_info[proto_idx] | {"proto_idx": proto_idx})
+
+        return projection_info
 
     def prune(
         self,
