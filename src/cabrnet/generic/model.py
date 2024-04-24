@@ -280,7 +280,6 @@ class CaBRNet(nn.Module):
     def epilogue(
         self,
         dataloaders: dict[str, DataLoader],
-        visualizer: SimilarityVisualizer,
         optimizer_mngr: OptimizerManager,
         output_dir: str,
         model_config: str,
@@ -295,7 +294,6 @@ class CaBRNet(nn.Module):
 
         Args:
             dataloaders (dictionary): Dictionary of dataloaders.
-            visualizer (SimilarityVisualizer): Similarity visualizer.
             optimizer_mngr (OptimizerManager): Optimizer manager.
             output_dir (str): Path to output directory.
             model_config (str): Path to model configuration.

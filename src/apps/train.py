@@ -8,7 +8,6 @@ from cabrnet.utils.optimizers import OptimizerManager
 from cabrnet.utils.data import DatasetManager
 from cabrnet.utils.parser import load_config
 from cabrnet.utils.save import save_checkpoint, load_checkpoint
-from cabrnet.visualization.visualizer import SimilarityVisualizer
 from cabrnet.utils.exceptions import ArgumentError
 
 description = "trains a CaBRNet model"
@@ -29,7 +28,6 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     parser = CaBRNet.create_parser(parser, skip_state_dict=True)
     parser = DatasetManager.create_parser(parser)
     parser = OptimizerManager.create_parser(parser)
-    parser = SimilarityVisualizer.create_parser(parser)
     parser.add_argument(
         "-b",
         "--save-best",
@@ -56,7 +54,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         required=False,
         metavar="/path/to/config/dir",
         help="path to directory containing all configuration files to start training "
-        "(alternative to --model-config, --dataset, --training and --visualization)",
+        "(alternative to --model-config, --dataset and --training)",
     )
     x_group.add_argument(
         "-r",
@@ -115,8 +113,7 @@ def check_args(args: Namespace) -> Namespace:
     for dir_path, option_name in zip([args.resume_from, args.config_dir], ["--resume-from", "--config-dir"]):
         if dir_path is not None:
             for param, name in zip(
-                [args.model_config, args.dataset, args.training, args.visualization],
-                ["--model-config", "--dataset", "--training", "--visualization"],
+                [args.model_config, args.dataset, args.training], ["--model-config", "--dataset", "--training"]
             ):
                 if param is not None:
                     raise ArgumentError(f"Cannot specify both options {name} and {option_name}")
@@ -131,12 +128,9 @@ def check_args(args: Namespace) -> Namespace:
                 )
             args.dataset = os.path.join(dir_path, DatasetManager.DEFAULT_DATASET_CONFIG)
             args.training = os.path.join(dir_path, OptimizerManager.DEFAULT_TRAINING_CONFIG)
-            args.visualization = os.path.join(dir_path, SimilarityVisualizer.DEFAULT_VISUALIZATION_CONFIG)
 
     for param, name, option in zip(
-        [args.model_config, args.dataset, args.training, args.visualization],
-        ["model", "dataset", "training", "visualization"],
-        ["-m", "-d", "-t", "-z"],
+        [args.model_config, args.dataset, args.training], ["model", "dataset", "training"], ["-m", "-d", "-t"]
     ):
         if param is None:
             raise ArgumentError(f"Missing {name} configuration file (option {option}).")
@@ -290,7 +284,7 @@ def execute(args: Namespace) -> None:
                 optimizer_mngr=optimizer_mngr,
                 training_config=training_config,
                 dataset_config=dataset_config,
-                visualization_config=args.visualization,
+                visualization_config=None,
                 epoch=epoch,
                 seed=seed,
                 device=device,
@@ -304,7 +298,7 @@ def execute(args: Namespace) -> None:
                 optimizer_mngr=optimizer_mngr,
                 training_config=training_config,
                 dataset_config=dataset_config,
-                visualization_config=args.visualization,
+                visualization_config=None,
                 epoch=epoch,
                 seed=seed,
                 device=device,
@@ -324,10 +318,8 @@ def execute(args: Namespace) -> None:
         load_checkpoint(directory_path=path_to_best, model=model, optimizer_mngr=optimizer_mngr)
 
     # Call epilogue
-    visualizer = SimilarityVisualizer.build_from_config(config_file=args.visualization, model=model)
     model.epilogue(
         dataloaders=dataloaders,
-        visualizer=visualizer,
         optimizer_mngr=optimizer_mngr,
         output_dir=root_dir,
         model_config=model_config,
@@ -349,7 +341,7 @@ def execute(args: Namespace) -> None:
         optimizer_mngr=None,
         training_config=training_config,
         dataset_config=dataset_config,
-        visualization_config=args.visualization,
+        visualization_config=None,
         epoch=num_epochs,
         seed=seed,
         device=device,

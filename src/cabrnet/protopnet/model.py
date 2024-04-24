@@ -384,7 +384,6 @@ class ProtoPNet(CaBRNet):
     def epilogue(
         self,
         dataloaders: dict[str, DataLoader],
-        visualizer: SimilarityVisualizer,
         optimizer_mngr: OptimizerManager,
         output_dir: str,
         model_config: str,
@@ -405,7 +404,6 @@ class ProtoPNet(CaBRNet):
 
         Args:
             dataloaders (dictionary): Dictionary of dataloaders.
-            visualizer (SimilarityVisualizer): Similarity visualizer.
             optimizer_mngr (OptimizerManager): Optimizer manager.
             output_dir (str): Path to output directory.
             model_config (str): Path to model configuration.
@@ -447,7 +445,7 @@ class ProtoPNet(CaBRNet):
             optimizer_mngr=None,
             training_config=training_config,
             dataset_config=dataset_config,
-            visualization_config=visualizer.config_file,  # type: ignore
+            visualization_config=None,
             epoch="projected",
             seed=seed,
             device=device,
