@@ -493,19 +493,8 @@ class ProtoPNet(CaBRNet):
                     verbose=verbose,
                 )
 
-        # Extract prototypes
-        self.extract_prototypes(
-            dataloader_raw=dataloaders["projection_set_raw"],
-            dataloader=dataloaders["projection_set"],
-            projection_info=projection_info,
-            visualizer=visualizer,
-            dir_path=os.path.join(output_dir, "prototypes"),
-            device=device,
-            verbose=verbose,
-        )
-
         # Save projection information
-        projection_file = os.path.join(output_dir, "prototypes", projection_file)
+        projection_file = os.path.join(output_dir, projection_file)
         if projection_file.lower().endswith(("pickle", "pkl")):
             with open(projection_file, "wb") as f:
                 pickle.dump(projection_info, f)
