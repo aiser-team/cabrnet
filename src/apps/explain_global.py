@@ -2,7 +2,9 @@ import os
 from argparse import ArgumentParser, Namespace
 from loguru import logger
 from cabrnet.generic.model import CaBRNet
+from cabrnet.utils.data import DatasetManager
 from cabrnet.utils.exceptions import ArgumentError
+from cabrnet.visualization.visualizer import SimilarityVisualizer
 
 description = "explains the global behaviour of a CaBRNet model"
 
@@ -20,6 +22,8 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     if parser is None:
         parser = ArgumentParser(description)
     parser = CaBRNet.create_parser(parser)
+    parser = DatasetManager.create_parser(parser)
+    parser = SimilarityVisualizer.create_parser(parser)
     parser.add_argument(
         "-c",
         "--checkpoint-dir",
@@ -35,14 +39,6 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         required=True,
         metavar="path/to/output/directory",
         help="path to output directory",
-    )
-    parser.add_argument(
-        "-p",
-        "--prototype-dir",
-        type=str,
-        required=True,
-        metavar="path/to/prototype/directory",
-        help="path to directory containing prototype visualizations",
     )
     return parser
 
@@ -91,11 +87,24 @@ def execute(args: Namespace) -> None:
     # Build model and load state dictionary
     model: CaBRNet = CaBRNet.build_from_config(config_file=args.model_config, state_dict_path=args.model_state_dict)
 
+    # Init visualizer
+    visualizer = SimilarityVisualizer.build_from_config(config_file=args.visualization, model=model)
+
+    # Build prototypes
+    dataloaders = DatasetManager.get_dataloaders(config_file=args.dataset)
+    projection_info = model.project(dataloaders["projection_set"])
+    model.extract_prototypes(
+        dataloader_raw=dataloaders["projection_set_raw"],
+        dataloader=dataloaders["projection_set"],
+        projection_info=projection_info,
+        visualizer=visualizer,
+        dir_path=os.path.join(args.output_dir, "prototypes"),
+        device=args.device,
+        verbose=args.verbose,
+    )
+
     # Generate explanation
     try:
-        model.explain_global(
-            prototype_dir=args.prototype_dir,
-            output_dir=args.output_dir,
-        )
+        model.explain_global(prototype_dir=os.path.join(args.output_dir, "prototypes"), output_dir=args.output_dir)
     except NotImplementedError:
         logger.error("Global explanation not available for this model.")
