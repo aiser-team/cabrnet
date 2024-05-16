@@ -109,6 +109,7 @@ Finally, when resuming computations, it is possible to load a given checkpoint a
 ### Summary
 `cabrnet train` provides multiples modes of operation, that can be summarized as follows (for readability, 
 we assume that all configuration files are stored in a single directory):
+
 - `cabrnet train --config-dir CONFIG_DIR --output-dir OUTPUT_DIR [--checkpoint-frequency NUM]`: the training starts from the first epoch, 
 and the best model is stored and updated in the `OUTPUT_DIR/best` directory. 
 If the `OUTPUT_DIR/best` directory already exists, option `--overwrite` must be used to authorize the application to overwrite the result of a previous training.

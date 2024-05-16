@@ -1,4 +1,4 @@
-"""Implement the saving and loading capabilities for a CaBRNet model."""
+"""Implements the saving and loading capabilities for a CaBRNet model."""
 
 import os
 import pickle
@@ -27,20 +27,20 @@ def save_checkpoint(
     device: str,
     stats: dict[str, Any] | None = None,
 ) -> None:
-    """Save everything needed to restart a training process.
+    r"""Saves everything needed to restart a training process.
 
     Args:
-        directory_path: Target location
-        model: CaBRNet model
-        model_config: Path to the model configuration file
-        optimizer_mngr: Optimizer manager
-        training_config: Path to the training configuration file
-        dataset_config: Path to the dataset configuration file
-        visualization_config: Path to the visualization configuration file
-        epoch: Current epoch
-        seed: Initial random seed (recorded for reproducibility)
-        device: Target hardware device (recorded for reproducibility)
-        stats: Other optional statistics
+        directory_path (str): Target location.
+        model (Module): CaBRNet model.
+        model_config (str): Path to the model configuration file.
+        optimizer_mngr (OptimizerManager): Optimizer manager.
+        training_config (str): Path to the training configuration file.
+        dataset_config (str): Path to the dataset configuration file.
+        visualization_config (str): Path to the visualization configuration file.
+        epoch (int or str): Current epoch.
+        seed (int): Initial random seed (recorded for reproducibility).
+        device (str): Target hardware device (recorded for reproducibility).
+        stats (dictionary, optional): Other optional statistics. Default: None.
     """
 
     def safe_copy(src: str, dst: str):
@@ -88,15 +88,15 @@ def load_checkpoint(
     model: CaBRNet,
     optimizer_mngr: OptimizerManager | None = None,
 ) -> Mapping[str, Any]:
-    """Restore training process using checkpoint directory.
+    r"""Restores training process using checkpoint directory.
 
     Args:
-        directory_path: Target location
-        model: CaBRNet mode
-        optimizer_mngr: Optimizer manager
+        directory_path (str): Target location.
+        model (Module): CaBRNet mode.
+        optimizer_mngr (OptimizerManager, optional): Optimizer manager. Default: None.
 
     Returns:
-        dictionary containing auxiliary state information (epoch, seed, device, stats)
+        Dictionary containing auxiliary state information (epoch, seed, device, stats).
     """
     if not os.path.isdir(directory_path):
         raise ValueError(f"Unknown checkpoint directory {directory_path}")

@@ -20,19 +20,26 @@ from tqdm import tqdm
 
 
 class CaBRNet(nn.Module):
-    # Regroup common default file names in a single location
+    r"""Top-module of a Case-Based Reasoning Network (CaBRNet).
+
+    Attributes:
+        extractor: Model used to extract convolutional features from the input image.
+        classifier: Model used to compute the classification, based on similarity scores with a set of prototypes.
+    """
+    # Regroups common default file names in a single location
     DEFAULT_MODEL_CONFIG: str = "model_arch.yml"
     DEFAULT_MODEL_STATE: str = "model_state.pth"
 
     def __init__(self, extractor: nn.Module, classifier: CaBRNetGenericClassifier, compatibility_mode: bool = False):
-        """Build a CaBRNet prototype-based classifier
+        r"""Builds a CaBRNet prototype-based model.
 
         Args:
-            extractor: Feature extractor
-            classifier: Classification based on extracted features
-            compatibility_mode: Compatibility mode with legacy architectures. \
+            extractor (Module): Feature extractor.
+            classifier (CaBRNetGenericClassifier): Classification based on extracted features.
+            compatibility_mode (bool, optional): Compatibility mode with legacy architectures. \
                 When enabled, batch_norm running parameters are not "properly" frozen, ie they are updated during the
                 forward-pass even if the backbone parameters should not be modified.
+                Default: False.
 
         """
         super(CaBRNet, self).__init__()
@@ -46,55 +53,68 @@ class CaBRNet(nn.Module):
             )
 
     def forward(self, x: Tensor, **kwargs):
+        r"""Computes model output.
+
+        Args:
+            x (tensor): Input tensor.
+
+        Returns:
+            Model output.
+        """
         x = self.extractor(x, **kwargs)
         return self.classifier(x, **kwargs)
 
     def similarities(self, x: Tensor, **kwargs) -> Tensor:
-        """
-        Return similarity scores
+        r"""Returns similarity scores.
+
         Args:
-            x: input tensor
+            x (tensor): Input tensor.
 
         Returns:
-            tensor of similarity scores
+            Tensor of similarity scores.
         """
         x = self.extractor(x, **kwargs)
         return self.classifier.similarity_layer(x, self.classifier.prototypes)
 
     def l2_distances(self, x: Tensor, **kwargs) -> Tensor:
-        """
-        Return similarity scores
+        r"""Returns L2 distances to each prototype.
+
         Args:
-            x: input tensor
+            x (tensor): Input tensor.
 
         Returns:
-            tensor of similarity scores
+            Tensor of L2 distances.
         """
         x = self.extractor(x, **kwargs)
         return self.classifier.similarity_layer.L2_square_distance(x, self.classifier.prototypes)
 
     @property
     def num_prototypes(self) -> int:
+        r"""Returns the number of prototypes."""
         return self.classifier.num_prototypes
 
     def prototype_is_active(self, proto_idx: int) -> bool:
-        """Is the prototype active or disabled?"""
+        r"""Is the prototype *proto_idx* active or disabled?
+
+        Args:
+            proto_idx (int): Prototype index.
+        """
         return self.classifier.prototype_is_active(proto_idx)
 
     def _load_legacy_state_dict(self, legacy_state: Mapping[str, Any]) -> None:
-        """Load state dictionary from legacy format
+        r"""Loads a state dictionary in legacy format.
 
         Args:
-            legacy_state: Legacy state dictionary
+            legacy_state (state dictionary): Legacy state dictionary.
         """
         # Specific to legacy architectures
         raise NotImplementedError
 
     def register_training_params(self, training_config: dict[str, Any]) -> None:
-        """Save additional information from the training configuration directly into the model
+        r"""Saves additional information from the training configuration directly into the model.
 
         Args:
-            training_config: dictionary containing training configuration
+            training_config (dictionary): Dictionary containing training configuration.
         """
         pass
 
@@ -104,11 +124,12 @@ class CaBRNet(nn.Module):
         mandatory_config: bool = False,
         skip_state_dict: bool = False,
     ) -> argparse.ArgumentParser:
-        """Create the argument parser for a CaBRNet model.
+        r"""Creates the argument parser for a CaBRNet model.
+
         Args:
-            parser: Existing parser (if any)
-            mandatory_config: Make model configuration mandatory
-            skip_state_dict: Disable option to load external state dict
+            parser (ArgumentParser, optional): Existing parser (if any). Default: None.
+            mandatory_config (bool, optional): When true, make model configuration mandatory. Default: False.
+            skip_state_dict (bool, optional): When true, disable option to load external state dict. Default: False.
 
         Returns:
             The parser itself.
@@ -139,16 +160,17 @@ class CaBRNet(nn.Module):
         compatibility_mode: bool = False,
         state_dict_path: str | None = None,
     ) -> CaBRNet:
-        """
-        Builds a CaBRNet model from a YAML configuration file
+        r"""Builds a CaBRNet model from a YAML configuration file.
+
         Args:
-            config_file: path to configuration file
-            seed: random seed (used only to resynchronise random number generators in compatibility tests)
-            compatibility_mode: compatibility mode with legacy architectures
-            state_dict_path: path to model state dictionary
+            config_file (str): Path to configuration file.
+            seed (int, optional): Random seed (used only to resynchronise random number generators in
+                compatibility tests). Default: None.
+            compatibility_mode (bool, optional): Compatibility mode with legacy architectures. Default: False.
+            state_dict_path (str, optional): Path to model state dictionary. Default: None.
 
         Returns:
-            CaBRNet model
+            CaBRNet model.
         """
         config_dict = load_config(config_file)
 
@@ -217,14 +239,14 @@ class CaBRNet(nn.Module):
         return model
 
     def loss(self, model_output: Any, label: torch.Tensor) -> tuple[torch.Tensor, dict[str, float]]:
-        """
-        Computes the loss and the accuracy over a batch of model outputs
+        r"""Computes the loss and statistics over a batch of model outputs.
+
         Args:
-            model_output: Model output
-            label: Batch label
+            model_output (Any): Model output.
+            label (Tensor): Batch label.
 
         Returns:
-            loss tensor and batch statistics
+            Loss tensor and batch statistics.
         """
         raise NotImplementedError
 
@@ -233,24 +255,25 @@ class CaBRNet(nn.Module):
         dataloaders: dict[str, DataLoader],
         optimizer_mngr: OptimizerManager,
         device: str = "cuda:0",
-        progress_bar_position: int = 0,
+        tqdm_position: int = 0,
         epoch_idx: int = 0,
         verbose: bool = False,
         max_batches: int | None = None,
     ) -> dict[str, float]:
-        """
-        Train the model for one epoch.
+        r"""Trains the model for one epoch.
+
         Args:
-            dataloaders: Dictionary of dataloaders
-            optimizer_mngr: Optimizer manager
-            device: Target device
-            progress_bar_position: Position of the progress bar.
-            epoch_idx: Epoch index
-            verbose: Display progress bar
-            max_batches: Max number of batches (early stop for small compatibility tests)
+            dataloaders (dictionary): Dictionary of dataloaders.
+            optimizer_mngr (OptimizerManager): Optimizer manager.
+            device (str, optional): Target device. Default: cuda:0.
+            tqdm_position (int, optional): Position of the progress bar. Default: 0.
+            epoch_idx (int, optional): Epoch index. Default: 0.
+            verbose (bool, optional): Display progress bar. Default: False.
+            max_batches (int, optional): Max number of batches (early stop for small compatibility tests).
+                Default: None.
 
         Returns:
-            dictionary containing learning statistics
+            Dictionary containing learning statistics.
         """
         raise NotImplementedError
 
@@ -268,8 +291,19 @@ class CaBRNet(nn.Module):
         verbose: bool = False,
         **kwargs,
     ) -> None:
-        """Function called after training, using information from the epilogue
-        field in the training configuration
+        r"""Function called after training, using information from the epilogue field in the training configuration.
+
+        Args:
+            dataloaders (dictionary): Dictionary of dataloaders.
+            visualizer (SimilarityVisualizer): Similarity visualizer.
+            optimizer_mngr (OptimizerManager): Optimizer manager.
+            output_dir (str): Path to output directory.
+            model_config (str): Path to model configuration.
+            training_config (str): Path to model training configuration.
+            dataset_config (str): Path to dataset configuration.
+            seed (int): Random seed.
+            device (str, optional): Target device. Default: cuda:0.
+            verbose (bool, optional): Display progress bar. Default: False.
         """
         pass
 
@@ -277,19 +311,19 @@ class CaBRNet(nn.Module):
         self,
         dataloader: DataLoader,
         device: str = "cuda:0",
-        progress_bar_position: int = 0,
+        tqdm_position: int = 0,
         verbose: bool = False,
     ) -> dict[str, float]:
-        """
-        Evaluate the model.
+        r"""Evaluates the model.
+
         Args:
-            dataloader: Dataloader containing evaluation data
-            device: Target device
-            progress_bar_position: Position of the progress bar
-            verbose: Display progress bar
+            dataloader (DataLoader): Dataloader containing evaluation data.
+            device (str, optional): Target device. Default: cuda:0.
+            tqdm_position (int, optional): Position of the progress bar. Default: 0.
+            verbose (bool, optional): Display progress bar. Default: 0.
 
         Returns:
-            dictionary containing evaluation statistics
+            Dictionary containing evaluation statistics.
         """
         logger.info("Evaluating classifier")
         self.eval()
@@ -305,7 +339,7 @@ class CaBRNet(nn.Module):
             desc="Model evaluation",
             total=len(dataloader),
             leave=False,
-            position=progress_bar_position,
+            position=tqdm_position,
             disable=not verbose,
         )
         batch_num = len(dataloader)
@@ -329,9 +363,13 @@ class CaBRNet(nn.Module):
         return {"avg_loss": total_loss / batch_num, "avg_eval_accuracy": total_acc / batch_num}
 
     def train(self, mode: bool = True) -> nn.Module:
-        """Overwrite train() function to freeze elements if necessary
+        r"""Overwrites the nn.Module train() function to freeze elements if necessary.
 
-        :param mode: Train (true) or eval (false)
+        Args:
+            mode (bool, optional): Train (True) or eval (False). Default: True.
+
+        Returns:
+            Model in updated state.
         """
         self.training = mode
         self.extractor.train(mode)
@@ -349,18 +387,18 @@ class CaBRNet(nn.Module):
         dataloader: DataLoader,
         device: str = "cuda:0",
         verbose: bool = False,
-        progress_bar_position: int = 0,
+        tqdm_position: int = 0,
     ) -> dict[int, dict]:
-        """
-        Perform prototype projection after training
-        Args:
-            dataloader: dataloader containing projection data
-            device: target device
-            verbose: display progress bar
-            progress_bar_position: position of the progress bar.
-        Returns:
-            dictionary containing projection information for each prototype
+        r"""Performs prototype projection after training.
 
+        Args:
+            dataloader (DataLoader): Dataloader containing projection data.
+            device (str, optional): Target device. Default: cuda:0.
+            verbose (bool, optional): Display progress bar. Default: False.
+            tqdm_position (int, optional): Position of the progress bar. Default: 0.
+
+        Returns:
+            Dictionary containing projection information for each prototype.
         """
         raise NotImplementedError
 
@@ -373,19 +411,19 @@ class CaBRNet(nn.Module):
         dir_path: str,
         device: str = "cuda:0",
         verbose: bool = False,
-        progress_bar_position: int = 0,
+        tqdm_position: int = 0,
     ) -> None:
-        """
-        Show prototypes based on projection info
+        r"""Shows prototypes based on projection info.
+
         Args:
-            dataloader_raw: dataloader containing raw projection images (without preprocessing)
-            dataloader: dataloader containing projection tensors (with preprocessing)
-            projection_info: projection information (as returned by project method)
-            visualizer: similarity visualizer
-            dir_path: destination directory
-            device: target hardware device
-            verbose: display progress bar
-            progress_bar_position: position of the progress bar.
+            dataloader_raw (DataLoader): Dataloader containing raw projection images (without preprocessing).
+            dataloader (DataLoader): Dataloader containing projection tensors (with preprocessing).
+            projection_info (dictionary): Projection information (as returned by project method).
+            visualizer (SimilarityVisualizer): Similarity visualizer.
+            dir_path (str): Destination directory.
+            device (str, optional): Target hardware device. Default: cuda:0.
+            verbose (bool, optional): Display progress bar. Default: 0.
+            tqdm_position (int, optional): Position of the progress bar. Default: 0.
         """
         logger.info("Extracting prototype visualization")
         # Create destination directory if necessary
@@ -407,7 +445,7 @@ class CaBRNet(nn.Module):
             desc="Prototype extraction",
             total=len(projection_info),
             leave=False,
-            position=progress_bar_position,
+            position=tqdm_position,
             disable=not verbose,
         )
         for proto_idx in data_iter:
@@ -434,42 +472,42 @@ class CaBRNet(nn.Module):
         img: str | Image.Image,
         preprocess: Callable,
         visualizer: SimilarityVisualizer | None,
-        prototype_dir_path: str = "",
-        output_dir_path: str = "",
+        prototype_dir: str,
+        output_dir: str,
         device: str = "cuda:0",
         exist_ok: bool = False,
         disable_rendering: bool = False,
         **kwargs,
     ) -> list[tuple[int, float, bool]]:
-        """Explain the decision for a particular image
+        r"""Explains the decision for a particular image.
 
         Args:
-            img: path to image or image itself
-            preprocess: preprocessing function
-            visualizer: prototype visualizer
-            prototype_dir_path: path to directory containing prototype visualizations
-            output_dir_path: path to output directory containing the explanation
-            device: target hardware device
-            exist_ok: silently overwrite existing explanation if any
-            disable_rendering: when True, no visual explanation is generated
+            img (str or Image): Path to image or image itself.
+            preprocess (Callable): Preprocessing function.
+            visualizer (SimilarityVisualizer): Similarity visualizer.
+            prototype_dir (str): Path to directory containing prototype visualizations.
+            output_dir (str): Path to output directory.
+            device (str, optional): Target hardware device. Default: cuda:0.
+            exist_ok (bool, optional): Silently overwrites existing explanation (if any). Default: False.
+            disable_rendering (bool, optional): When True, no visual explanation is generated. Default: False.
 
         Returns:
-            list of most relevant prototypes for the decision, where each entry is in the form
+            List of most relevant prototypes for the decision, where each entry is in the form
                 (<prototype index>, <similarity score>, <similar>)
-            and <similar> indicates whether the prototype is considered similar or dissimilar
+            and <similar> indicates whether the prototype is considered similar or dissimilar.
         """
         raise NotImplementedError
 
     def explain_global(
         self,
-        prototype_dir_path: str,
-        output_dir_path: str,
+        prototype_dir: str,
+        output_dir: str,
         **kwargs,
     ) -> None:
-        """Explain the global decision-making process
+        r"""Explains the global decision-making process of a CaBRNet model.
 
         Args:
-            prototype_dir_path: path to directory containing prototype visualizations
-            output_dir_path: path to output directory containing the explanations
+            prototype_dir (str): Path to directory containing prototype visualizations.
+            output_dir (str): Path to output directory.
         """
         raise NotImplementedError

@@ -5,10 +5,10 @@ import yaml
 
 
 def load_config(config_file: str) -> dict:
-    """Load a configuration file for CaBRNet.
+    r"""Loads a configuration file in YAML format for CaBRNet.
 
     Args:
-        config_file: Path to the configuration file.
+        config_file (str): Path to the configuration file.
 
     Returns:
         The properly loaded config file.

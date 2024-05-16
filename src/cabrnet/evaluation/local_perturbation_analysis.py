@@ -20,13 +20,13 @@ import pickle
 
 
 def get_config(config_file: str) -> dict[str, Any] | None:
-    """Recover configuration for YML file
+    r"""Recovers configuration from YML file.
 
     Args:
-        config_file: path to configuration file
+        config_file (str): Path to configuration file.
 
     Returns:
-        benchmark parameters
+        Benchmark parameters.
     """
     config = load_config(config_file)
     bench_config = config.get("local_perturbation_analysis", None)
@@ -48,6 +48,18 @@ def get_config(config_file: str) -> dict[str, Any] | None:
 def _wave_distortion(
     img_array: np.ndarray, attribution: np.ndarray, num_periods: int = 5, amplitude: float = 7, percentile: float = 0.7
 ) -> np.ndarray:
+    r"""Applies a sinusoid distortion to a region of an image.
+
+    Args:
+        img_array (Numpy array): Original image in Numpy format.
+        attribution (Numpy array): Attribution map.
+        num_periods (int, optional): Number of periods for the sinus distortion. Default: 5.
+        amplitude (float, optional): Amplitude factor of the sinus distortion. Default: 7.0.
+        percentile (float, optional): Hard threshold used to calibrate the sinus deformation. Default: 0.7.
+
+    Returns:
+        Deformed image.
+    """
     # Get an estimation of the patch bounding box to calibrate the sinus deformation
     x_min, x_max, y_min, y_max = compute_bbox(array=attribution[..., 0], threshold=1.0 - percentile)
     periods = num_periods / max(x_max - x_min, y_max - y_min)
@@ -80,25 +92,25 @@ def _compute_perturbations(
     distortion_amplitude: float = 7.0,
     **kwargs,
 ) -> dict[str, dict[str, Any]]:
-    """Apply a set of perturbations on an image
+    r"""Applies a set of perturbations on an image.
 
     Args:
-        img: original image in PIL format
-        img_array: original image in Numpy format
-        attribution: attribution map
-        prefix: output prefix in debug mode
-        debug: debug mode
-        brightness_factor: brightness factor
-        contrast_factor: contrast factor
-        saturation_factor: saturation factor
-        hue_factor: hue factor
-        gaussian_noise_ksize: gaussian noise kernel size
-        gaussian_noise_sigma: gaussian noise standard deviation
-        distortion_periods: number of periods for the sinus distortion
-        distortion_amplitude: amplitude factor of the sinus distortion
+        img (Image): Original image in PIL format.
+        img_array (Numpy array): Original image in Numpy format.
+        attribution (Numpy array): Attribution map.
+        prefix (str, optional): Output prefix in debug mode. Default: None.
+        debug (bool, optional): Debug mode. Default: False.
+        brightness_factor (float, optional): Brightness factor. Default: 0.3.
+        contrast_factor (float, optional): Contrast factor. Default: 0.2.
+        saturation_factor (float, optional): Saturation factor. Default: 0.3.
+        hue_factor (float, optional): Hue factor. Default: 0.2.
+        gaussian_noise_ksize (int, optional): Gaussian noise kernel size. Default: 21.
+        gaussian_noise_sigma (float, optional): Gaussian noise standard deviation. Default: 2.0.
+        distortion_periods (int, optional): Number of periods for the sinus distortion. Default: 5.
+        distortion_amplitude (float, optional): Amplitude factor of the sinus distortion. Default: 7.0.
 
     Returns:
-        dictionary of perturbed images, where the key corresponds to the name of the perturbation
+        Dictionary of perturbed images, where the key corresponds to the name of the perturbation.
     """
 
     def _merge(a: np.ndarray, b: np.ndarray, mask: np.ndarray, name: str):
@@ -247,23 +259,24 @@ def execute(
     enable_dual_mode: bool = True,
     sampling_ratio: int = 1,
     debug_mode: bool = False,
-    progress_bar_position: int = 0,
+    tqdm_position: int = 0,
     **kwargs,
 ) -> None:
-    """Perform local similarity analysis
+    r"""Performs local similarity analysis.
 
     Args:
-            model: CaBRNet model
-            dataset_config: path to dataset configuration file
-            visualization_config: path to visualization configuration file
-            root_dir: path to root output directory
-            device: target device
-            verbose: verbose mode
-            info_db: output file containing individual prototype information (pickle)
-            enable_dual_mode: enable dual perturbations
-            sampling_ratio: ratio of test images to use during evaluation (e.g. 10 means only one image in ten is used)
-            debug_mode: debug mode, save all perturbations
-            progress_bar_position: position of the progress bar.
+            model (Module): CaBRNet model.
+            dataset_config (str): Path to dataset configuration file.
+            visualization_config (str): Path to visualization configuration file.
+            root_dir (str): Path to root output directory.
+            device (str): Target device.
+            verbose (bool): Verbose mode.
+            info_db (str): Output file containing individual prototype information.
+            enable_dual_mode (bool, optional): Enable dual perturbations. Default: True.
+            sampling_ratio (int, optional): Ratio of test images to use during evaluation (e.g. 10 means only
+                one image in ten is used). Default: 1.
+            debug_mode (bool, optional): Debug mode, save all perturbations. Default: False.
+            tqdm_position (int, optional): Position of the progress bar. Default: 0.
     """
     logger.info("Starting perturbation benchmark")
 
@@ -286,11 +299,11 @@ def execute(
         desc=f"Benchmark on test set",
         total=len(dataset),  # type: ignore
         leave=False,
-        position=progress_bar_position,
+        position=tqdm_position,
         disable=not verbose,
     )
 
-    """ Init statistics. For each image in the training set, and the active prototype most similar to that image, 
+    """Init statistics. For each image in the training set, and the active prototype most similar to that image, 
     record the original similarity score and the score after each perturbation
     """
     stats = []
@@ -424,15 +437,15 @@ def show_results(
     quiet: bool = False,
     **kwargs,
 ) -> None:
-    """Show results of analysis
+    r"""Shows results of analysis.
 
     Args:
-        model: target model
-        src_path: path to input file containing statistics per test image
-        output_dir: output directory
-        prototype_stats: name of output CSV file containing prototype statistics
-        distribution_img: name of output distribution graph
-        quiet: do not display analysis results
+        model (Module): Target model.
+        src_path (str): Path to input file containing statistics per test image.
+        output_dir (str): Output directory.
+        prototype_stats (str): Name of output CSV file containing prototype statistics.
+        distribution_img (str): Mame of output distribution graph.
+        quiet (bool, optional): If True, does not display analysis results. Default: False.
     """
     if src_path.lower().endswith(tuple(["pickle", "pkl"])):
         # Open pickle and convert to pandas dataframe

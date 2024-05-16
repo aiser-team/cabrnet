@@ -8,11 +8,11 @@ from cabrnet.utils.parser import load_config
 
 
 def move_optimizer_to(optim: torch.optim.Optimizer, device: str) -> None:
-    """
-    Move optimizer to target device. Solution from https://github.com/pytorch/pytorch/issues/8741
+    r"""Moves optimizer to target device. Solution from https://github.com/pytorch/pytorch/issues/8741.
+
     Args:
-        optim: Optimizer
-        device: Target device
+        optim (Optimizer): Optimizer.
+        device (str): Target device.
     """
     for param in optim.state.values():
         if isinstance(param, torch.Tensor):
@@ -28,12 +28,22 @@ def move_optimizer_to(optim: torch.optim.Optimizer, device: str) -> None:
 
 
 class OptimizerManager:
+    r"""Manager in charge of optimizers, learning rate schedulers and freezing parameters.
+
+    Attributes:
+        config: Configuration dictionary used to build this object.
+        param_groups: Dictionary separating the model parameters into groups.
+        optimizers: Dictionary of optimizers associated with different parameter groups.
+        schedulers: Dictionary of learning rate schedulers associated with optimizers.
+        periods: Dictionary defining training periods.
+    """
+
     def __init__(self, config_dict: dict, module: nn.Module) -> None:
-        """Manager in charge of optimizers, learning rate schedulers and freezing parameters
+        r"""Initializes a OptimizeManager object.
 
         Args:
-            config_dict: configuration dictionary
-            module: target model
+            config_dict (dictionary): Configuration dictionary.
+            module (Module): Target module.
 
         """
         self.config = config_dict
@@ -49,20 +59,22 @@ class OptimizerManager:
 
     @staticmethod
     def build_from_config(config_file: str, model: nn.Module) -> OptimizerManager:
-        """Build a OptimizerManager object from a YML file
+        r"""Builds an OptimizerManager object from a YML file.
 
         Args:
-            config_file: path to configuration file
-            model: target model
+            config_file (str): Path to configuration file.
+            model (Module): Target module.
 
         Returns:
-            OptimizerManager
+            OptimizerManager.
         """
         return OptimizerManager(config_dict=load_config(config_file), module=model)
 
     def _set_param_groups(self, module: nn.Module) -> None:
-        """
-        Build the groups of parameters from the configuration dictionary.
+        r"""Builds the groups of parameters from the configuration dictionary.
+
+        Args:
+            module (Module): Target module.
         """
         param_groups = self.config.get("param_groups")
 
@@ -123,10 +135,7 @@ class OptimizerManager:
             )
 
     def _set_optimizers(self) -> None:
-        """
-        Set optimizers.
-        """
-
+        r"""Sets optimizers."""
         optim_config = self.config["optimizers"]
         for optim_name in optim_config:
             config = optim_config[optim_name]
@@ -160,9 +169,7 @@ class OptimizerManager:
                 logger.warning(f"No scheduler defined for optimizer {optim_name}")
 
     def _set_periods(self) -> None:
-        """
-        Set training periods.
-        """
+        r"""Sets training periods."""
         num_epochs = self.config["num_epochs"]
         if self.config.get("periods") is None:
             # Single training period
@@ -226,13 +233,13 @@ class OptimizerManager:
                 )
 
     def get_active_periods(self, epoch: int) -> list[str]:
-        """Get all active periods associated with a given epoch index
+        r"""Returns all active periods associated with a given epoch index.
 
         Args:
-            epoch: current index
+            epoch (int): Current epoch.
 
         Returns:
-            list of period names
+            List of period names.
         """
         p_names = []
         for p_name in self.periods:
@@ -242,15 +249,20 @@ class OptimizerManager:
         return p_names
 
     def freeze_group(self, name: str, freeze: bool) -> None:
+        r"""Freezes all parameters of a given group.
+        Args:
+            name (str): Group name.
+            freeze (bool): Whether this parameter should be frozen or unfrozen.
+        """
         logger.debug(f"Parameter group {name} is {'frozen' if freeze  else 'trainable'}")
         for param in self.param_groups[name]:
             param.requires_grad = not freeze
 
     def freeze(self, epoch: int) -> None:
-        """Apply parameter freeze depending on current epoch
+        r"""Applies parameter freeze depending on current epoch.
 
         Args:
-            epoch: current epoch
+            epoch (int): Current epoch.
         """
         groups_to_freeze = []
         for period_name in self.get_active_periods(epoch):
@@ -263,15 +275,15 @@ class OptimizerManager:
             self.freeze_group(name=group_name, freeze=(group_name in groups_to_freeze))
 
     def zero_grad(self):
-        """Reset all optimizer gradients"""
+        r"""Resets all optimizer gradients."""
         for name in self.optimizers:
             self.optimizers[name].zero_grad()
 
     def optimizer_step(self, epoch: int):
-        """Apply optimizer step depending on current epoch
+        r"""Applies optimizer step depending on current epoch.
 
         Args:
-            epoch: current epoch
+            epoch (int): Current epoch.
         """
         for period_name in self.get_active_periods(epoch):
             period_config = self.periods[period_name]
@@ -279,10 +291,10 @@ class OptimizerManager:
                 self.optimizers[optim_name].step()
 
     def scheduler_step(self, epoch: int):
-        """Apply learning rate scheduler step depending on current epoch
+        r"""Applies learning rate scheduler step depending on current epoch.
 
         Args:
-            epoch: current epoch
+            epoch (int): Current epoch.
         """
         for period_name in self.get_active_periods(epoch):
             period_config = self.periods[period_name]
@@ -292,11 +304,16 @@ class OptimizerManager:
                     self.schedulers[optim_name].step()
 
     def to(self, device: str):
+        r"""Moves OptimizerManager to a given device.
+
+        Args:
+            device (str): Target hardware device.
+        """
         for optim_name in self.optimizers:
             move_optimizer_to(self.optimizers[optim_name], device)
 
     def state_dict(self) -> dict[str, Any]:
-        """Returns the state of the Optimizer manager as a dictionary"""
+        r"""Returns the state of the Optimizer manager as a dictionary."""
         state = {"optimizers": {}, "schedulers": {}}
         for optim_name in self.optimizers:
             state["optimizers"][optim_name] = self.optimizers[optim_name].state_dict()
@@ -305,6 +322,11 @@ class OptimizerManager:
         return state
 
     def load_state_dict(self, state_dict: dict[str, Any]) -> None:
+        r"""Loads state dictionary, restoring optimizers and schedulers to a previous state.
+
+        Args:
+            state_dict (dictionary): State dictionary.
+        """
         for optim_name in self.optimizers:
             self.optimizers[optim_name].load_state_dict(state_dict["optimizers"][optim_name])
         for optim_name in self.schedulers:
@@ -317,11 +339,11 @@ class OptimizerManager:
     def create_parser(
         parser: argparse.ArgumentParser | None = None, mandatory_config: bool = False
     ) -> argparse.ArgumentParser:
-        """Create the argument parser for CaBRNet training configuration.
+        r"""Creates the argument parser for CaBRNet training configuration.
 
         Args:
-            parser: Existing parser (if any)
-            mandatory_config: Make dataset configuration mandatory
+            parser (ArgumentParser, optional): Existing parser (if any). Default: False.
+            mandatory_config (bool, optional): If True, makes the configuration mandatory. Default: False.
 
         Returns:
             The parser itself.

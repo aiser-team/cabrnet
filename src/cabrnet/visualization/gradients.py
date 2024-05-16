@@ -11,6 +11,14 @@ from captum._utils.typing import TargetType
 
 
 def _check_tensor_dims(x: Tensor) -> Tensor:
+    r"""Checks and extends (if necessary) number of dimensions to 4.
+
+    Args:
+        x (tensor): Input tensor.
+
+    Returns:
+        Modified tensor (if necessary).
+    """
     if x.dim() not in [3, 4]:
         raise ValueError(f"Unsupported number of dimensions in tensor. Expected 3 or 4, got {x.dim()}")
     if x.dim() == 3:
@@ -22,27 +30,61 @@ def _check_tensor_dims(x: Tensor) -> Tensor:
 
 
 def _captum_saliency_wrapper(model: nn.Module) -> Attribution:
+    r"""Wrapper for the Saliency module in Captum.
+
+    Args:
+        model (Module): Target module.
+
+    Returns:
+        Attribution object.
+    """
     return Saliency(model.similarities)
 
 
 def _captum_saliency_nt_wrapper(model: nn.Module) -> Attribution:
+    r"""Wrapper for the Smoothgrad module in Captum.
+
+    Args:
+        model (Module): Target module.
+
+    Returns:
+        Attribution object.
+    """
     return NoiseTunnel(attribution_method=Saliency(model.similarities))
 
 
-def _captum_attribute(captum_model: Attribution, img_tensor: Tensor, target=TargetType, **kwargs) -> np.ndarray:
-    """Default Captum attribution"""
+def _captum_attribute(captum_model: Attribution, img_tensor: Tensor, target: TargetType, **kwargs) -> np.ndarray:
+    r"""Default Captum attribution.
+
+    Args:
+        captum_model (Attribution): Model prepared for Captum.
+        img_tensor (tensor): Image tensor.
+        target (TargetType): Target in model output (e.g. class index).
+    Returns:
+        Captum attribution.
+    """
     return captum_model.attribute(img_tensor, target=target)[0].detach().cpu().numpy()
 
 
 def _captum_smoothgrad_attribute(
     captum_model: Attribution,
     img_tensor: Tensor,
-    target=TargetType,
+    target: TargetType,
     num_samples: int = 10,
     noise_ratio: float = 0.2,
     **kwargs,
 ) -> np.ndarray:
-    """Smoothgrad attribution"""
+    r"""Smoothgrad attribution.
+
+    Args:
+        captum_model (Attribution): Model prepared for Captum.
+        img_tensor (tensor): Image tensor.
+        target (TargetType): Target in model output (e.g. class index).
+        num_samples (int, optional): Number of random samples. Default: 10.
+        noise_ratio (float, optional): Noise ratio for random samples. Default: 0.2.
+    Returns:
+        Captum attribution.
+    """
     # Compute standard deviation dynamically based on noise ratio
     stdev = float(
         (img_tensor.max() - img_tensor.min()).detach().cpu().numpy() * noise_ratio
@@ -85,27 +127,27 @@ def _captum_attribution(
     similarity_threshold: float = 0.1,
     **kwargs,
 ) -> np.array:
-    """
-    Compute attributions using a post-hoc explanation method from Captum
+    r"""Computes attributions using a post-hoc explanation method from Captum.
+
     Args:
-        model: target model
-        algorithm: name of the explanation method
-        img: raw input image
-        img_tensor: input image tensor
-        proto_idx: prototype index
-        device: target hardware device
-        location: coordinates of feature vector
-        single_location: keep only a single location
-        polarity: polarity filter (either None, "absolute", "positive", or "negative")
-        gaussian_ksize: size of gaussian filter kernel size
-        normalize: perform min-max normalization
-        num_samples: number of random samples
-        noise_ratio: noise ratio for random samples
-        grads_x_input: perform element-wise multiplication between gradient and image
-        similarity_threshold: minimum similarity score to compute attribution
+        model (Module): Target model.
+        algorithm (str): Name of the attribution method.
+        img (Image): Raw input image.
+        img_tensor (tensor): Input image tensor.
+        proto_idx (int): Prototype index.
+        device (str): Target hardware device.
+        location (tuple[int,int], optional): Location inside the similarity map. Default: None.
+        single_location (bool, optional): Focus on the location of maximum similarity only. Default: False.
+        polarity (str, optional): Polarity filter (None, "absolute", "positive", or "negative"). Default: absolute.
+        gaussian_ksize (int, optional): Size of gaussian filter kernel size. Default: 5.
+        normalize (bool, optional): If True, performs min-max normalization. Default: False.
+        grads_x_input (bool, optional): If True, performs element-wise multiplication between gradient and image.
+            Default: False.
+        similarity_threshold (float, optional): Ignore locations in the similarity map with a score lower than this
+            threshold. Default: 0.1.
 
     Returns:
-        similarity map
+        Similarity map.
     """
     img_tensor = _check_tensor_dims(img_tensor)
 
@@ -191,26 +233,27 @@ def smoothgrad(
     grads_x_input: bool = False,
     similarity_threshold: float = 0.1,
 ) -> np.array:
-    """
-    Perform patch visualization using SmoothGrad (https://arxiv.org/abs/1706.03825)
-    Args:
-        model: target model
-        img: raw input image
-        img_tensor: input image tensor
-        proto_idx: prototype index
-        device: target hardware device
-        location: coordinates of feature vector
-        single_location: keep only a single location
-        polarity: polarity filter (either None, "absolute", "positive", or "negative")
-        gaussian_ksize: size of gaussian filter kernel size
-        normalize: perform min-max normalization
-        num_samples: number of random samples
-        noise_ratio: noise ratio for random samples
-        grads_x_input: perform element-wise multiplication between gradient and image
-        similarity_threshold: minimum similarity score to compute attribution
+    r"""Performs patch visualization using SmoothGrad (https://arxiv.org/abs/1706.03825).
 
+    Args:
+        model (Module): Target model.
+        img (Image): Raw input image.
+        img_tensor (tensor): Input image tensor.
+        proto_idx (int): Prototype index.
+        device (str): Target hardware device.
+        location (tuple[int,int], optional): Location inside the similarity map. Default: None.
+        single_location (bool, optional): Focus on the location of maximum similarity only. Default: False.
+        polarity (str, optional): Polarity filter (None, "absolute", "positive", or "negative"). Default: absolute.
+        gaussian_ksize (int, optional): Size of gaussian filter kernel size. Default: 5.
+        normalize (bool, optional): If True, performs min-max normalization. Default: False.
+        num_samples (int, optional): Number of random samples. Default: 10.
+        noise_ratio (float, optional): Noise ratio for random samples. Default: 0.2.
+        grads_x_input (bool, optional): If True, performs element-wise multiplication between gradient and image.
+            Default: False.
+        similarity_threshold (float, optional): Ignore locations in the similarity map with a score lower than this
+            threshold. Default: 0.1.
     Returns:
-        similarity map
+        Similarity map.
     """
     return _captum_attribution(
         model=model,
@@ -245,24 +288,26 @@ def saliency(
     grads_x_input: bool = False,
     similarity_threshold: float = 0.1,
 ) -> np.array:
-    """
-    Perform patch visualization using saliency (https://arxiv.org/abs/1312.6034)
+    r"""Performs patch visualization using saliency (https://arxiv.org/abs/1312.6034).
+
     Args:
-        model: target model
-        img: raw input image
-        img_tensor: input image tensor
-        proto_idx: prototype index
-        device: target hardware device
-        location: coordinates of feature vector
-        single_location: keep only a single location
-        polarity: polarity filter (either None, "absolute", "positive", or "negative")
-        gaussian_ksize: size of gaussian filter kernel size
-        normalize: perform min-max normalization
-        grads_x_input: perform element-wise multiplication between gradient and image
-        similarity_threshold: minimum similarity score to compute attribution
+        model (Module): Target model.
+        img (Image): Raw input image.
+        img_tensor (tensor): Input image tensor.
+        proto_idx (int): Prototype index.
+        device (str): Target hardware device.
+        location (tuple[int,int], optional): Location inside the similarity map. Default: None.
+        single_location (bool, optional): Focus on the location of maximum similarity only. Default: False.
+        polarity (str, optional): Polarity filter (None, "absolute", "positive", or "negative"). Default: absolute.
+        gaussian_ksize (int, optional): Size of gaussian filter kernel size. Default: 5.
+        normalize (bool, optional): If True, performs min-max normalization. Default: False.
+        grads_x_input (bool, optional): If True, performs element-wise multiplication between gradient and image.
+            Default: False.
+        similarity_threshold (float, optional): Ignore locations in the similarity map with a score lower than this
+            threshold. Default: 0.1.
 
     Returns:
-        similarity map
+        Similarity map.
     """
     return _captum_attribution(
         model=model,
@@ -290,18 +335,19 @@ def randgrad(
     grads_x_input: bool = False,
     **kwargs,
 ) -> np.array:
-    """
-    Return random patch visualization (used as a baseline for evaluating properties of other retracing functions)
+    r"""Returns random patch visualization (used as a baseline for evaluating properties of other retracing functions).
+
     Args:
-        img: raw input image
-        img_tensor: input image tensor
-        polarity: polarity filter (either None, "absolute", "positive", or "negative")
-        gaussian_ksize: size of gaussian filter kernel size
-        normalize: perform min-max normalization
-        grads_x_input: perform element-wise multiplication between gradient and image
+        img (Image): Raw input image.
+        img_tensor (tensor): Input image tensor.
+        polarity (str, optional): Polarity filter (None, "absolute", "positive", or "negative"). Default: absolute.
+        gaussian_ksize (int, optional): Size of gaussian filter kernel size. Default: 5.
+        normalize (bool, optional): If True, performs min-max normalization. Default: False.
+        grads_x_input (bool, optional): If True, performs element-wise multiplication between gradient and image.
+            Default: False.
 
     Returns:
-        similarity map
+        Similarity map.
     """
     img_tensor = _check_tensor_dims(img_tensor)
 
@@ -333,27 +379,29 @@ def prp(
     grads_x_input: bool = False,
     similarity_threshold: float = 0.1,
 ) -> np.array:
-    """Perform patch visualization using Prototype Relevance Propagation
-        (https://www.sciencedirect.com/science/article/pii/S0031320322006513#bib0030)
+    r"""Performs patch visualization using Prototype Relevance Propagation
+        (https://www.sciencedirect.com/science/article/pii/S0031320322006513#bib0030).
+
     Args:
-        model: target model
-        img: raw input image
-        img_tensor: input image tensor
-        proto_idx: prototype index
-        device: target hardware device
-        location: coordinates of feature vector
-        single_location: keep only a single location
-        stability_factor: LRP stability factor (epsilon)
-        polarity: polarity filter (either None, "absolute", "positive", or "negative")
-        gaussian_ksize: size of gaussian filter kernel size
-        normalize: perform min-max normalization
-        grads_x_input: perform element-wise multiplication between gradient and image
-        similarity_threshold: minimum similarity score to compute attribution
+        model (Module): Target model.
+        img (Image): Raw input image.
+        img_tensor (tensor): Input image tensor.
+        proto_idx (int): Prototype index.
+        device (str): Target hardware device.
+        location (tuple[int,int], optional): Location inside the similarity map. Default: None.
+        single_location (bool, optional): Focus on the location of maximum similarity only. Default: False.
+        stability_factor (float, optional): LRP stability factor (epsilon). Default: 1e-6.
+        polarity (str, optional): Polarity filter (None, "absolute", "positive", or "negative"). Default: absolute.
+        gaussian_ksize (int, optional): Size of gaussian filter kernel size. Default: 5.
+        normalize (bool, optional): If True, performs min-max normalization. Default: False.
+        grads_x_input (bool, optional): If True, performs element-wise multiplication between gradient and image.
+            Default: False.
+        similarity_threshold (float, optional): Ignore locations in the similarity map with a score lower than this
+            threshold. Default: 0.1.
 
     Returns:
-        similarity map
+        Similarity map.
     """
-
     if not hasattr(model, "lrp_ready"):
         logger.warning(
             "Canonizing model on-the-fly for PRP. For multiple explanations, "

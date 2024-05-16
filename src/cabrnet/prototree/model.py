@@ -9,6 +9,7 @@ from PIL import Image
 from typing import Any, Mapping, Callable
 from tqdm import tqdm
 from cabrnet.generic.model import CaBRNet
+from cabrnet.generic.decision import CaBRNetGenericClassifier
 from cabrnet.utils.optimizers import OptimizerManager
 from cabrnet.utils.tree import TreeNode, MappingMode
 from cabrnet.prototree.decision import SamplingStrategy, ProtoTreeClassifier
@@ -22,12 +23,19 @@ import csv
 
 
 class ProtoTree(CaBRNet):
-    def __init__(self, extractor: nn.Module, classifier: nn.Module, **kwargs):
-        """Build a ProtoTree
+    r"""CaBRNet model implementing the ProtoTree architecture.
+
+    Attributes:
+        extractor: Model used to extract convolutional features from the input image.
+        classifier: Model used to compute the classification, based on similarity scores with a set of prototypes.
+    """
+
+    def __init__(self, extractor: nn.Module, classifier: CaBRNetGenericClassifier, **kwargs):
+        r"""Initializes a ProtoTree.
 
         Args:
-            extractor: Feature extractor
-            classifier: Classification based on extracted features
+            extractor (Module): Feature extractor.
+            classifier (CaBRNetGenericClassifier): Classification based on extracted features.
         """
         super(ProtoTree, self).__init__(extractor, classifier, **kwargs)
 
@@ -35,19 +43,19 @@ class ProtoTree(CaBRNet):
         self.register_buffer("_eye", torch.eye(self.classifier.num_classes))
 
     def get_extra_state(self) -> Mapping[str, Any] | None:
-        """Decision tree architecture to be saved in state_dict.
-        This is automatically called by state_dict()"""
+        r"""Returns the decision tree architecture to be saved in state_dict.
+        This is automatically called by state_dict()."""
         if isinstance(self.classifier, ProtoTreeClassifier):
             return self.classifier.tree.export_arch()
         # When using PRP visualization with Captum, classifier is no longer a ProtoTreeClassifier
         return None
 
     def set_extra_state(self, state: Mapping[str, Any]) -> None:  # type: ignore
-        """Rebuild decision tree from architecture information
-        This is automatically called by load_state_dict()
+        r"""Rebuilds a decision tree from the architecture information.
+        This is automatically called by load_state_dict().
 
         Args:
-            state: information returned by get_extra_state()
+            state (state dictionary): Information returned by get_extra_state().
         """
         if isinstance(self.classifier, ProtoTreeClassifier):
             # When using PRP visualization with Captum, classifier is no longer a ProtoTreeClassifier
@@ -56,10 +64,10 @@ class ProtoTree(CaBRNet):
             self.classifier._active_prototypes = self.classifier.tree.active_prototypes
 
     def _load_legacy_state_dict(self, legacy_state: Mapping[str, Any]) -> None:
-        """Load state dictionary from legacy format
+        r"""Loads a state dictionary in legacy format.
 
         Args:
-            legacy_state: Legacy state dictionary
+            legacy_state (state dictionary): Legacy state dictionary.
 
         Raises:
             ValueError when keys or tensor sizes mismatch.
@@ -122,7 +130,11 @@ class ProtoTree(CaBRNet):
         super().load_state_dict(final_state, strict=False)
 
     def load_state_dict(self, state_dict: Mapping[str, Any], **kwargs):
-        """Overloads nn.Module load_state_dict to take legacy state dictionaries into account"""
+        r"""Overloads nn.Module load_state_dict to take legacy state dictionaries into account.
+
+        Args:
+            state_dict (state dictionary): State dictionary.
+        """
         legacy_state = any([key.startswith("_net") for key in state_dict.keys()])
         if legacy_state:
             logger.info("Legacy state dictionary detected, performing import.")
@@ -131,10 +143,10 @@ class ProtoTree(CaBRNet):
             super().load_state_dict(state_dict, **kwargs)
 
     def analyse_leafs(self, pruning_threshold: float = 0.01) -> None:
-        """
-        Analyse leaf distributions.
+        r"""Analyses the leaf distributions.
+
         Args:
-            pruning_threshold: Expected pruning threshold.
+            pruning_threshold (float, optional): Expected pruning threshold. Default: 0.01.
         """
         logger.info("Starting leaf analysis.")
 
@@ -154,14 +166,14 @@ class ProtoTree(CaBRNet):
         )
 
     def loss(self, model_output: Any, label: torch.Tensor) -> tuple[torch.Tensor, dict[str, float]]:
-        """
-        Loss function
+        r"""Loss function.
+
         Args:
-            model_output: Model output, in this case a tuple containing the prediction and the leaf probabilities
-            label: Batch labels
+            model_output (Any): Model output, in this case a tuple containing the prediction and the leaf probabilities.
+            label (tensor): Batch labels.
 
         Returns:
-            loss tensor and batch accuracy
+            Loss tensor and batch accuracy.
         """
         ys_pred, info = model_output
         if self.classifier.log_probabilities:
@@ -177,24 +189,25 @@ class ProtoTree(CaBRNet):
         dataloaders: dict[str, DataLoader],
         optimizer_mngr: OptimizerManager,
         device: str = "cuda:0",
-        progress_bar_position: int = 0,
+        tqdm_position: int = 0,
         epoch_idx: int = 0,
         verbose: bool = False,
         max_batches: int | None = None,
     ) -> dict[str, float]:
-        """
-        Train the model for one epoch.
+        r"""Trains the model for one epoch.
+
         Args:
-            dataloaders: Dictionary of dataloaders
-            optimizer_mngr: Optimizer manager
-            device: Target device
-            progress_bar_position: Position of the progress bar.
-            epoch_idx: Epoch index
-            max_batches: Max number of batches (early stop for small compatibility tests)
-            verbose: Display progress bar
+            dataloaders (dictionary): Dictionary of dataloaders.
+            optimizer_mngr (OptimizerManager): Optimizer manager.
+            device (str, optional): Target device. Default: cuda:0.
+            tqdm_position (int, optional): Position of the progress bar. Default: 0.
+            epoch_idx (int, optional): Epoch index. Default: 0.
+            verbose (bool, optional): Display progress bar. Default: False.
+            max_batches (int, optional): Max number of batches (early stop for small compatibility tests).
+                Default: None.
 
         Returns:
-            dictionary containing learning statistics
+            Dictionary containing learning statistics.
         """
         self.train()
         self.to(device)
@@ -222,7 +235,7 @@ class ProtoTree(CaBRNet):
             desc=f"Training epoch {epoch_idx}",
             total=len(train_loader),
             leave=False,
-            position=progress_bar_position,
+            position=tqdm_position,
             disable=not verbose,
         )
         batch_num, batch_idx = len(train_loader), 0
@@ -308,22 +321,22 @@ class ProtoTree(CaBRNet):
         projection_file: str = "projection_info.csv",
         **kwargs: Any,
     ) -> None:
-        """Function called after training, using information from the epilogue
-        field in the training configuration
+        r"""Function called after training, using information from the epilogue field in the training configuration.
 
         Args:
-            dataloaders: dataloader containing projection data
-            visualizer: patch visualizer
-            output_dir: output directory
-            model_config: path to YML model configuration
-            training_config: path to YML training configuration
-            dataset_config: path to YML dataset configuration
-            seed: initial random seed
-            device: target device
-            verbose: display progress bar
-            pruning_threshold: pruning threshold
-            merge_same_decision: whether branches leading to same top decision should be merged
-            projection_file: output file containing all projection information
+            dataloaders (dictionary): Dictionary of dataloaders.
+            visualizer (SimilarityVisualizer): Similarity visualizer.
+            output_dir (str): Path to output directory.
+            model_config (str): Path to model configuration.
+            training_config (str): Path to model training configuration.
+            dataset_config (str): Path to dataset configuration.
+            seed (int): Random seed.
+            device (str, optional): Target device. Default: cuda:0.
+            verbose (bool, optional): Display progress bar. Default: False.
+            pruning_threshold (float, optional): Pruning threshold. Default: 0.0 (no pruning).
+            merge_same_decision (bool, optional): If True, merges branches leading to same top decision. Default: False.
+            projection_file (str, optional): Path to output file containing all projection information.
+                Default: projection_info.csv.
         """
         # Perform projection
         projection_info = self.project(
@@ -379,11 +392,11 @@ class ProtoTree(CaBRNet):
                     writer.writerow(projection_info[proto_idx] | {"proto_idx": proto_idx})
 
     def prune(self, pruning_threshold: float = 0.01, merge_same_decision: bool = False) -> None:
-        """
-        Prune decision tree based on threshold.
+        r"""Prunes the decision tree based on a threshold.
+
         Args:
-            pruning_threshold: Pruning threshold
-            merge_same_decision: whether branches leading to same top decision should be merged
+            pruning_threshold (float, optional): Pruning threshold. Default: 0.01.
+            merge_same_decision (bool, optional): If True, merges branches leading to same top decision. Default: False.
         """
         logger.info(f"Pruning tree. Threshold: {pruning_threshold}")
         num_prototypes_before = self.classifier.tree.num_prototypes
@@ -410,17 +423,18 @@ class ProtoTree(CaBRNet):
         dataloader: DataLoader,
         device: str = "cuda:0",
         verbose: bool = False,
-        progress_bar_position: int = 0,
+        tqdm_position: int = 0,
     ) -> dict[int, dict]:
-        """
-        Perform prototype projection after training
+        r"""Performs prototype projection after training.
+
         Args:
-            dataloader: Dataloader containing projection data. WARNING: This dataloader must not be shuffled!
-            device: Target device
-            verbose: Display progress bar
-            progress_bar_position: Position of the progress bar.
+            dataloader (DataLoader): Dataloader containing projection data.
+            device (str, optional): Target device. Default: cuda:0.
+            verbose (bool, optional): Display progress bar. Default: False.
+            tqdm_position (int, optional): Position of the progress bar. Default: 0.
+
         Returns:
-            dictionary containing projection information for each prototype
+            Dictionary containing projection information for each prototype.
         """
         logger.info("Performing prototype projection")
         self.eval()
@@ -439,7 +453,7 @@ class ProtoTree(CaBRNet):
             desc="Prototype projection",
             total=len(dataloader),
             leave=False,
-            position=progress_bar_position,
+            position=tqdm_position,
             disable=not verbose,
         )
 
@@ -503,31 +517,32 @@ class ProtoTree(CaBRNet):
         img: str | Image.Image,
         preprocess: Callable,
         visualizer: SimilarityVisualizer | None,
-        prototype_dir_path: str = "",
-        output_dir_path: str = "",
+        prototype_dir: str = "",
+        output_dir: str = "",
         device: str = "cuda:0",
         exist_ok: bool = False,
         disable_rendering: bool = False,
         strategy: SamplingStrategy = SamplingStrategy.GREEDY,
         **kwargs,
     ) -> list[tuple[int, float, bool]]:
-        """Explain the decision for a particular image
+        r"""Explains the decision for a particular image.
 
         Args:
-            img: path to image or image itself
-            preprocess: preprocessing function
-            visualizer: prototype visualizer
-            prototype_dir_path: path to directory containing prototype visualizations
-            output_dir_path: path to output directory containing the explanation
-            device: target hardware device
-            exist_ok: silently overwrite existing explanation if any
-            disable_rendering: when True, no visual explanation is generated
-            strategy: tree sampling strategy
+            img (str or Image): Path to image or image itself.
+            preprocess (Callable): Preprocessing function.
+            visualizer (SimilarityVisualizer): Similarity visualizer.
+            prototype_dir (str, optional): Path to directory containing prototype visualizations. Default: "".
+            output_dir (str, optional): Path to output directory. Default: "".
+            device (str, optional): Target hardware device. Default: cuda:0.
+            exist_ok (bool, optional): Silently overwrites existing explanation (if any). Default: False.
+            disable_rendering (bool, optional): When True, no visual explanation is generated. Default: False.
+            strategy (SamplingStrategy, optional): Tree sampling strategy. Default: Greedy.
+
 
         Returns:
-            list of most relevant prototypes for the decision, where each entry is in the form
+            List of most relevant prototypes for the decision, where each entry is in the form
                 (<prototype index>, <similarity score>, <similar>)
-            and <similar> indicates whether the prototype is considered similar or dissimilar
+            and <similar> indicates whether the prototype is considered similar or dissimilar.
         """
         self.eval()
 
@@ -551,12 +566,12 @@ class ProtoTree(CaBRNet):
         leaf_path = self.classifier.tree.get_mapping(mode=MappingMode.NODE_PATHS)[leaf_id]
 
         # Build explanation
-        img_path = os.path.join(output_dir_path, f"original.png")
+        img_path = os.path.join(output_dir, f"original.png")
         if not disable_rendering:
-            os.makedirs(os.path.join(output_dir_path, "test_patches"), exist_ok=exist_ok)
+            os.makedirs(os.path.join(output_dir, "test_patches"), exist_ok=exist_ok)
             # Copy source image
             img.save(img_path)
-        explanation = ExplanationGraph(output_dir=output_dir_path)
+        explanation = ExplanationGraph(output_dir=output_dir)
         explanation.set_test_image(img_path=img_path)
         prototype_mapping = self.classifier.tree.get_mapping(mode=MappingMode.NODE_TO_PROTOTYPE)
         node_mapping = self.classifier.tree.get_mapping(mode=MappingMode.ID_TO_NODE)
@@ -565,7 +580,7 @@ class ProtoTree(CaBRNet):
         most_relevant_prototypes = []  # Keep track of most relevant prototypes
         for node_id in leaf_path[1:]:
             # Recover path to prototype image
-            prototype_image_path = os.path.join(prototype_dir_path, f"prototype_{proto_idx}.png")
+            prototype_image_path = os.path.join(prototype_dir, f"prototype_{proto_idx}.png")
             score = tree_info[node_id]["conditional_probability"].item()
             if node_id == node_mapping[parent_id].get_submodule(f"{parent_id}_child_nsim").node_id:
                 # No similarity
@@ -579,7 +594,7 @@ class ProtoTree(CaBRNet):
             else:
                 # Similarity
                 most_relevant_prototypes.append((proto_idx, score, True))
-                patch_image_path = os.path.join(output_dir_path, "test_patches", f"proto_similarity_{proto_idx}.png")
+                patch_image_path = os.path.join(output_dir, "test_patches", f"proto_similarity_{proto_idx}.png")
                 if not disable_rendering:
                     patch_image = visualizer.forward(img=img, img_tensor=img_tensor, proto_idx=proto_idx, device=device)
                     patch_image.save(patch_image_path)
@@ -599,26 +614,26 @@ class ProtoTree(CaBRNet):
 
     def explain_global(
         self,
-        prototype_dir_path: str,
-        output_dir_path: str,
+        prototype_dir: str,
+        output_dir: str,
         **kwargs,
     ) -> None:
-        """Explain the global decision-making process
+        r"""Explains the global decision-making process of a CaBRNet model.
 
         Args:
-            prototype_dir_path: path to directory containing prototype visualizations
-            output_dir_path: path to output directory containing the explanations
+            prototype_dir (str): Path to directory containing prototype visualizations.
+            output_dir (str): Path to output directory.
         """
 
         def build_tree_explanation(node: TreeNode, graph: graphviz.Digraph) -> graphviz.Digraph:
-            """Builds tree explanation recursively
+            r"""Builds tree explanation recursively.
 
             Args:
-                node: current node
-                graph: current graph
+                node (TreeNode): current node
+                graph (Digraph): current graph
 
             Returns:
-                updated graph
+                Updated graph
             """
             if node.proto_idxs is None:
                 # Leaf
@@ -626,9 +641,7 @@ class ProtoTree(CaBRNet):
                 graph.node(name=f"node_{node.node_id}", label=f"Class {class_idx}", fontsize="25", height="0.5")
             else:
                 proto_idx = node.proto_idxs[0]
-                img_path = os.path.relpath(
-                    os.path.join(prototype_dir_path, f"prototype_{proto_idx}.png"), output_dir_path
-                )
+                img_path = os.path.relpath(os.path.join(prototype_dir, f"prototype_{proto_idx}.png"), output_dir)
                 graph.node(name=f"node_{node.node_id}", image=img_path, imagescale="True")
                 for child_name, similarity in zip(["nsim", "sim"], ["not similar", "similar"]):
                     child = node.get_submodule(f"{node.node_id}_child_{child_name}")
@@ -646,4 +659,4 @@ class ProtoTree(CaBRNet):
         explanation_graph.attr("node", shape="plaintext", label="", fixedsize="True", width="2", height="2")
         explanation_graph = build_tree_explanation(node, explanation_graph)
         logger.debug(explanation_graph.source)
-        explanation_graph.render(filename=os.path.join(output_dir_path, "global_explanation"))
+        explanation_graph.render(filename=os.path.join(output_dir, "global_explanation"))

@@ -10,10 +10,19 @@ from cabrnet.utils.exceptions import ArgumentError
 from argparse import ArgumentParser, Namespace
 
 
-description = "convert an existing legacy model into a CaBRNet version"
+description = "converts an existing legacy model into a CaBRNet model"
 
 
 def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
+    r"""Creates the argument parser for importing a legacy model into a CaBRNet model.
+
+    Args:
+        parser (ArgumentParser, optional): Parent parser (if any).
+            Default: None
+
+    Returns:
+        The parser itself.
+    """
     if parser is None:
         parser = ArgumentParser(description)
     parser = CaBRNet.create_parser(parser)
@@ -41,6 +50,14 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
 
 
 def check_args(args: Namespace) -> Namespace:
+    r"""Checks the validity of the arguments and updates the namespace if necessary.
+
+    Args:
+        args (Namespace): Parsed arguments.
+
+    Returns:
+        Modified argument namespace.
+    """
     if args.config_dir is not None:
         # Fetch all files from directory
         for param, name in zip(
@@ -72,10 +89,10 @@ def check_args(args: Namespace) -> Namespace:
 
 
 def execute(args: Namespace) -> None:
-    """Create CaBRNet model, then load a state dictionary in legacy form.
+    r"""Creates a CaBRNet model, loads a state dictionary in legacy form, then performs the epilogue.
 
     Args:
-        args: Parsed arguments.
+        args (Namespace): Parsed arguments.
 
     """
     # Check and post-process options

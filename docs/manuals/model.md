@@ -115,19 +115,19 @@ from cabrnet.utils.similarities import L2Similarities
 from cabrnet.generic.decision import CaBRNetGenericClassifier
 
 class ArchNameClassifier(CaBRNetGenericClassifier):
-  
+    r"""Classification pipeline for ArchName architecture."""
     def __init__(
         self,
         num_classes: int,
         num_features: int,
         proto_init_mode: str = "SHIFTED_NORMAL",
     ) -> None:
-        """
-        Create a ArchName classifier
+        r"""Initializes a ArchName classifier.
+        
         Args:
-            num_features: Number of features (size of each prototype)
-            num_classes: Number of classes
-            proto_init_mode: Init mode for prototypes
+            num_features (int): Number of features (size of each prototype).
+            num_classes (int): Number of classes.
+            proto_init_mode (str, optional): Init mode for prototypes. Default: Shifted normal distribution.
             ...
         """
         super().__init__(
@@ -152,18 +152,21 @@ class ArchNameClassifier(CaBRNetGenericClassifier):
 
 
     def prototype_is_active(self, proto_idx: int) -> bool:
-        """Is the prototype active or disabled?"""
+        r"""Is the prototype *proto_idx* active or disabled?
+        Args:
+            proto_idx (int): Prototype index.
+        """
         ...
 
 
     def forward(self, features: torch.Tensor) -> ...:
-        """
-        Perform classification using decision tree
+        r"""Performs classification.
+        
         Args:
-            features: Convolutional features from extractor. Shape (N, D, H, W)
+            features (tensor): Convolutional features from extractor. Shape (N, D, H, W).
 
         Returns:
-            Vector of logits
+            Vector of logits.
         """
         similarities = self.similarity_layer(features, self.prototypes)
         
@@ -190,15 +193,14 @@ from cabrnet.visualization.visualizer import SimilarityVisualizer
 class ArchName(CaBRNet):
       
     def loss(self, model_output: Any, label: torch.Tensor) -> tuple[torch.Tensor, dict[str, float]]:
-        """
-        Loss function
+        r"""Loss function.
+        
         Args:
-            model_output: Model output, in this case a tuple containing the prediction 
-                and the leaf probabilities
-            label: Batch labels
+            model_output (Any): Model output.
+            label (tensor): Batch labels.
 
         Returns:
-            loss tensor and batch statistics
+            Loss tensor and batch statistics.
         """
         loss = ...
         batch_stats = {"accuracy": ...} 
@@ -210,24 +212,25 @@ class ArchName(CaBRNet):
         dataloaders: dict[str, DataLoader],
         optimizer_mngr: OptimizerManager,
         device: str = "cuda:0",
-        progress_bar_position: int = 0,
+        tqdm_position: int = 0,
         epoch_idx: int = 0,
         verbose: bool = False,
         max_batches: int | None = None,
     ) -> dict[str, float]:
-        """
-        Train the model for one epoch.
+        r"""Trains the model for one epoch.
+
         Args:
-            dataloaders: Dictionary of dataloaders
-            optimizer_mngr: Optimizer manager
-            device: Target device
-            progress_bar_position: Position of the progress bar.
-            epoch_idx: Epoch index
-            max_batches: Max number of batches (early stop for small compatibility tests)
-            verbose: Display progress bar
+            dataloaders (dictionary): Dictionary of dataloaders.
+            optimizer_mngr (OptimizerManager): Optimizer manager.
+            device (str, optional): Target device. Default: cuda:0.
+            tqdm_position (int, optional): Position of the progress bar. Default: 0.
+            epoch_idx (int, optional): Epoch index. Default: 0.
+            verbose (bool, optional): Display progress bar. Default: False.
+            max_batches (int, optional): Max number of batches (early stop for small compatibility tests).
+                Default: None.
 
         Returns:
-            dictionary containing learning statistics
+            Dictionary containing learning statistics.
         """
         self.train()
         self.to(device)
@@ -244,7 +247,7 @@ class ArchName(CaBRNet):
             enumerate(train_loader),
             total=len(train_loader),
             leave=False,
-            position=progress_bar_position,
+            position=tqdm_position,
             disable=not verbose,
         )
         batch_num = len(train_loader)
@@ -283,18 +286,19 @@ class ArchName(CaBRNet):
         dataloader: DataLoader,
         device: str = "cuda:0",
         verbose: bool = False,
-        progress_bar_position: int = 0,
+        tqdm_position: int = 0,
     ) -> dict[int, dict]:
-        """
-        Perform prototype projection after training
+        r"""Performs prototype projection after training.
+
         Args:
-            dataloader: Dataloader containing projection data. 
+            dataloader (DataLoader): Dataloader containing projection data. 
                 WARNING: This dataloader must not be shuffled!
-            device: Target device
-            verbose: Display progress bar
-            progress_bar_position: Position of the progress bar.
+            device (str, optional): Target device. Default: cuda:0.
+            verbose (bool, optional): Display progress bar. Default: False.
+            tqdm_position (int, optional): Position of the progress bar. Default: 0.
+
         Returns:
-            dictionary containing projection information for each prototype
+            Dictionary containing projection information for each prototype.
         """
         # Number of prototypes
         num_prototypes = self.num_prototypes
@@ -321,6 +325,7 @@ class ArchName(CaBRNet):
         self,
         dataloaders: dict[str, DataLoader],
         visualizer: SimilarityVisualizer,
+        optimizer_mngr: OptimizerManager,
         output_dir: str,
         model_config: str,
         training_config: str,
@@ -330,9 +335,20 @@ class ArchName(CaBRNet):
         verbose: bool = False,
         **kwargs,
     ) -> None:
-        """OPTIONAL Function called after training, using information from the epilogue
-        field in the training configuration. 
-        This usually contains prototype pruning, projection and extraction.
+        r"""Function called after training, using information from the epilogue field in the training configuration.
+            This usually contains prototype pruning, projection and extraction.
+
+        Args:
+            dataloaders (dictionary): Dictionary of dataloaders.
+            visualizer (SimilarityVisualizer): Similarity visualizer.
+            optimizer_mngr (OptimizerManager): Optimizer manager.
+            output_dir (str): Path to output directory.
+            model_config (str): Path to model configuration.
+            training_config (str): Path to model training configuration.
+            dataset_config (str): Path to dataset configuration.
+            seed (int): Random seed.
+            device (str, optional): Target device. Default: cuda:0.
+            verbose (bool, optional): Display progress bar. Default: False.
         """
         ...
     
@@ -341,43 +357,43 @@ class ArchName(CaBRNet):
         img: str | Image.Image,
         preprocess: Callable,
         visualizer: SimilarityVisualizer | None,
-        prototype_dir_path: str = "",
-        output_dir_path: str = "",
+        prototype_dir: str = "",
+        output_dir: str = "",
         device: str = "cuda:0",
         exist_ok: bool = False,
         disable_rendering: bool = False,
         **kwargs,
     ) -> list[tuple[int, float, bool]]:
-        """Explain the decision for a particular image
+        r"""Explains the decision for a particular image.
 
         Args:
-            img: path to image or image itself
-            preprocess: preprocessing function
-            visualizer: prototype visualizer
-            prototype_dir_path: path to directory containing prototype visualizations
-            output_dir_path: path to output directory containing the explanation
-            device: target hardware device
-            exist_ok: silently overwrite existing explanation if any
-            disable_rendering: when True, no visual explanation is generated
+            img (str or Image): Path to image or image itself.
+            preprocess (Callable): Preprocessing function.
+            visualizer (SimilarityVisualizer): Similarity visualizer.
+            prototype_dir (str): Path to directory containing prototype visualizations.
+            output_dir (str): Path to output directory.
+            device (str, optional): Target hardware device. Default: cuda:0.
+            exist_ok (bool, optional): Silently overwrites existing explanation (if any). Default: False.
+            disable_rendering (bool, optional): When True, no visual explanation is generated. Default: False.
 
         Returns:
-            list of most relevant prototypes for the decision, where each entry is in the form
+            List of most relevant prototypes for the decision, where each entry is in the form
                 (<prototype index>, <similarity score>, <similar>)
-            and <similar> indicates whether the prototype is considered similar or dissimilar
+            and <similar> indicates whether the prototype is considered similar or dissimilar.
         """
         ...
     
     def explain_global(
         self,
-        prototype_dir_path: str,
-        output_dir_path: str,
+        prototype_dir: str,
+        output_dir: str,
         **kwargs,
     ) -> None:
-        """Explain the global decision-making process
+        r"""Explains the global decision-making process of a CaBRNet model.
 
         Args:
-            prototype_dir_path: path to directory containing prototype visualizations
-            output_dir_path: path to output directory containing the explanations
+            prototype_dir (str): Path to directory containing prototype visualizations.
+            output_dir (str): Path to output directory.
         """
         ...
 ```

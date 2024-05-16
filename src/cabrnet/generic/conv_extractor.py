@@ -14,12 +14,12 @@ warnings.filterwarnings("ignore")
 
 
 class ConvExtractor(nn.Module):
-    """Class representing the feature extractor.
+    r"""Class representing the feature extractor.
 
     Attributes:
         arch_name: Architecture name.
-        weights: Weights for the network.
-        layer: Layer to inspect.
+        weights: Weights of the neural network.
+        layer: Layer to extract.
         convnet: Graph module that represents the intermediate nodes from the given model.
         add_on: Add-on layers configuration.
         output_channels: Number of output channels of the feature extractor
@@ -34,15 +34,17 @@ class ConvExtractor(nn.Module):
         seed: int | None = None,
         disable_weight_logs: bool = False,
     ) -> None:
-        """Initialize ConvExtractor.
+        r"""Initializes a ConvExtractor.
 
         Args:
-            arch: Architecture name.
-            weights: Weights for the network.
-            layer: Layer to inspect.
-            add_on: Add-on layers configuration.
-            seed: Random seed (used only to resynchronise random number generators in compatibility tests)
-            disable_weight_logs: Disable logger messages regarding model weights (they will be overwritten later on)
+            arch (str): Architecture name.
+            weights (str): Weights of the neural network.
+            layer (str): Layer to extract.
+            add_on (dictionary): Add-on layers configuration.
+            seed (int, optional): Random seed (used only to resynchronise random number generators in
+                compatibility tests). Default: None.
+            disable_weight_logs (bool, optional): Disable logger messages regarding model weights
+                (they will be overwritten later on). Default: False.
         """
         super(ConvExtractor, self).__init__()
         assert arch.lower() in torch_models.list_models(), f"Unsupported model architecture: {arch}"
@@ -90,13 +92,13 @@ class ConvExtractor(nn.Module):
         self.add_on, self.output_channels = self.create_add_on(config=add_on, in_channels=in_channels)
 
     def forward(self, x: torch.Tensor, **kwargs) -> torch.Tensor:
-        """Define the computation performed at every call.
+        r"""Computes convolutional features.
 
         Args:
-            x: Tensor to run the model on.
+            x (tensor): Input tensor.
 
         Returns:
-            The tensor resulting from the inference of the model.
+            Tensor of convolutional features.
         """
         x = self.convnet(x)
         if isinstance(x, dict):
@@ -108,17 +110,17 @@ class ConvExtractor(nn.Module):
 
     @staticmethod
     def create_add_on(config: dict[str, dict], in_channels: int) -> Tuple[nn.Sequential | None, int]:
-        """Build add-on layers based on configuration.
+        r"""Builds add-on layers based on configuration.
 
         Args:
-            config: Add-on layers configuration.
-            in_channels: Number of input channels (as given by feature extractor).
+            config (dictionary): Add-on layers configuration.
+            in_channels (int): Number of input channels (as given by the feature extractor).
 
         Returns:
-            Module containing all add-on layers
+            Module containing all add-on layers.
 
         Raises:
-            ValueError when configuration is invalid
+            ValueError when the configuration is invalid.
         """
         if config is None:
             # No add-on layers
@@ -165,18 +167,20 @@ class ConvExtractor(nn.Module):
         seed: int | None = None,
         disable_weight_logs: bool = False,
     ) -> nn.Module:
-        """
-        Builds a ConvExtractor from a configuration dictionary.
+        r"""Builds a ConvExtractor from a configuration dictionary.
+
         Args:
-            config: Configuration dictionary
-            seed: Random seed (used only to resynchronise random number generators in compatibility tests)
-            disable_weight_logs: Disable logger messages regarding model weights (they will be overwritten later on)
+            config (dictionary): Configuration dictionary.
+            seed (int, optional): Random seed (used only to resynchronise random number generators
+                in compatibility tests). Default: None.
+            disable_weight_logs (bool, optional): Disable logger messages regarding model weights
+                (they will be overwritten later on). Default: False.
 
         Returns:
-            ConvExtractor
+            ConvExtractor object.
 
         Raises:
-            ValueError when configuration is invalid
+            ValueError when configuration is invalid.
         """
         for mandatory_key in ["backbone"]:
             if mandatory_key not in config:

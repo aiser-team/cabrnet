@@ -11,19 +11,25 @@ from torch import Tensor
 
 
 class ProtoPNetSimilarityScore(L2Similarities):
+    r"""Class for computing similarity scores based on L2 distance in the convolutional space.
+
+    Attributes:
+        protopnet_compatibility: If True, uses the order of operations of ProtoPNet to compute the L2 distance.
+    """
+
     def forward(
         self, features: Tensor, prototypes: Tensor, output_distances: bool = False
     ) -> tensor | tuple[Tensor, Tensor]:  # type: ignore
-        """
-        Compute similarity based on L2 distance using ||x - y||² = ||x||² + ||y||² - 2 x.y
+        r"""Computes similarity based on L2 distance using ||x - y||² = ||x||² + ||y||² - 2 x.y.
+
         Args:
-            features: Input tensor. Shape (N, D, H, W)
-            prototypes: Tensor of prototypes. Shape (P, D, 1, 1)
-            output_distances: Also output raw distances
+            features (tensor): Input tensor. Shape (N, D, H, W).
+            prototypes (tensor): Tensor of prototypes. Shape (P, D, 1, 1).
+            output_distances (bool, optional): If True, also outputs raw distances. Default: False.
 
         Returns:
-            Tensor of similarities. Shape (N, P, H, W)
-            Tensor of distances. Shape (N, P, H, W) (only if output_distances is enabled)
+            Tensor of similarities. Shape (N, P, H, W).
+            Tensor of distances. Shape (N, P, H, W) (only if output_distances is enabled).
         """
         distances = torch.relu(self.L2_square_distance(features=features, prototypes=prototypes))
         similarities = torch.log((distances + 1) / (distances + 1e-4))
@@ -33,6 +39,18 @@ class ProtoPNetSimilarityScore(L2Similarities):
 
 
 class ProtoPNetClassifier(CaBRNetGenericClassifier):
+    r"""Classification pipeline for ProtoPNet architecture.
+
+    Attributes:
+        num_classes: Number of output classes.
+        num_features: Size of the features extracted by the convolutional extractor.
+        num_proto_per_class: Initial number of prototypes per class.
+        prototypes: Tensor of prototypes.
+        prototypes_init_mode: Initialization mode for the tensor of prototypes.
+        similarity_layer: Layer used to compute similarity scores between the prototypes and the convolutional features.
+        last_layer: Linear layer in charge of weighting similarity scores and computing the final logit vector.
+    """
+
     def __init__(
         self,
         num_classes: int,
@@ -42,14 +60,17 @@ class ProtoPNetClassifier(CaBRNetGenericClassifier):
         incorrect_class_penalty: float = -0.5,
         compatibility_mode: bool = False,
     ) -> None:
-        """Create a ProtoPNet classifier.
+        r"""Initializes a ProtoPNet classifier.
 
         Args:
-            num_classes: Number of classes
-            num_features: Number of features (size of each prototype)
-            num_proto_per_class: Number of prototypes per class
-            proto_init_mode: Init mode for prototypes
-            compatibility_mode: Compatibility mode with legacy ProtoPNet
+            num_classes (int): Number of classes.
+            num_features (int): Number of features (size of each prototype).
+            num_proto_per_class (int): Number of prototypes per class.
+            proto_init_mode (str, optional): Init mode for prototypes. Default: Shifted normal distribution.
+            incorrect_class_penalty (float, optional): Initial penalty for incorrect classes in the linear layer.
+                Default: 0.5.
+            compatibility_mode (bool, optional): If True, enables compatibility mode with legacy ProtoPNet.
+                Default: False.
         """
         super().__init__(num_classes=num_classes, num_features=num_features, proto_init_mode=proto_init_mode)
 
@@ -84,18 +105,21 @@ class ProtoPNetClassifier(CaBRNetGenericClassifier):
         self.last_layer.weight.data.copy_(correct_locations + incorrect_class_penalty * incorrect_locations)
 
     def prototype_is_active(self, proto_idx: int) -> bool:
-        """Is the prototype active or disabled?"""
+        r"""Is the prototype *proto_idx* active or disabled?
+        Args:
+            proto_idx (int): Prototype index.
+        """
         return not (int(torch.max(self.proto_class_map[proto_idx])) == 0)
 
     def forward(self, features: Tensor) -> tuple[Tensor, Tensor]:
-        """Perform classification using decision tree.
+        r"""Performs classification using a linear layer.
 
         Args:
-            features: Convolutional features from extractor. Shape (N, D, H, W)
+            features (tensor): Convolutional features from extractor. Shape (N, D, H, W).
 
         Returns:
-            Vector of logits. Shape (N, C)
-            Tensor of min distances. Shape (N, P)
+            Vector of logits. Shape (N, C).
+            Tensor of min distances. Shape (N, P).
         """
         similarities, distances = self.similarity_layer(
             features, self.prototypes, output_distances=True
@@ -115,13 +139,13 @@ class ProtoPNetClassifier(CaBRNetGenericClassifier):
 
     @staticmethod
     def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
-        """Add arguments for creating a ProtoPNetClassifier.
+        r"""Adds arguments for creating a ProtoPNetClassifier.
 
         Args:
-            parser: Existing argument parser (if any)
+            parser (ArgumentParser, optional): Existing argument parser (if any). Default: None.
 
         Returns:
-            Parser with arguments
+            Parser with arguments.
         """
         if parser is None:
             parser = ArgumentParser(description="builds a ProtoPNetClassifier object.")
@@ -137,13 +161,13 @@ class ProtoPNetClassifier(CaBRNetGenericClassifier):
 
     @staticmethod
     def build_from_parser(args: Namespace) -> ProtoPNetClassifier:
-        """Builds a classifier from the command line
+        r"""Builds a classifier from the command line.
 
         Args:
-            args: Parsed command line
+            args (Namespace): Parsed command line.
 
         Returns:
-            ProtoPNet classifier
+            ProtoPNet classifier.
         """
         return ProtoPNetClassifier(
             num_classes=args.num_classes,

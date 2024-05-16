@@ -11,6 +11,7 @@ leaf_init_modes = ["NORMAL", "ZEROS"]
 
 
 class MappingMode(Enum):
+    r"""Mapping selection between nodes, prototypes and class indices. Used in the get_mapping function of a TreeNode."""
     CLASS_TO_PROTOTYPE = 1
     PROTOTYPE_TO_CLASS = 2
     NODE_TO_PROTOTYPE = 3
@@ -19,49 +20,58 @@ class MappingMode(Enum):
 
 
 def log1mexp(x: Tensor) -> Tensor:
-    """Numerically accurate evaluation of log(1 - exp(-|x|))
+    r"""Returns a numerically accurate evaluation of log(1 - exp(-|x|)).
     See https://cran.r-project.org/web/packages/Rmpfr/vignettes/log1mexp-note.pdf for details.
+
+    Args:
+        x (tensor): Input tensor.
+
+    Returns:
+        log(1 - exp(-|x|)).
     """
     return torch.where(x < np.log(2), torch.log(-torch.expm1(-x)), torch.log1p(-torch.exp(-x)))
 
 
 class TreeNode(nn.Module):
+    r"""Generic class for managing decision trees based on similarity scores with prototypes.
+
+    Attributes:
+        node_id: Node identifier.
+        proto_idxs: List of prototypes associated with this node.
+        log_probabilities: If True, similarity scores are treated as log of probabilities.
+    """
+
     proto_idxs: list | None = None
     log_probabilities: bool = False
 
     def __init__(self, node_id: str) -> None:
-        """
-        Init TreeNode
+        r"""Initializes a TreeNode.
+
         Args:
-            node_id: Node ID
+            node_id (str): Node ID.
         """
         super().__init__()
         self.node_id = node_id
 
     def forward(self, **kwargs) -> None:
+        r"""Forward function (not implemented)."""
         raise NotImplementedError
 
     @property
     def num_prototypes(self) -> int:
-        """
-        Returns:
-            Total number of prototypes pointed by this node and all its children
-        """
+        r"""Returns the total number of prototypes pointed by this node and all its children."""
         raise NotImplementedError
 
     @property
     def num_nodes(self) -> int:
-        """
-        Returns:
-            Total size of the subtree, including this node
-        """
+        r"""Returns the total size of the subtree, including this node."""
         raise NotImplementedError
 
     def prune_children(self, threshold: float = 0.01) -> None:
-        """
-        Prune children based on threshold.
+        r"""Prunes children based on a threshold.
+
         Args:
-            threshold: Pruning threshold
+            threshold (float, optional): Pruning threshold. Default: 0.01.
         """
         prune_list = []
         for name, child in self.named_children():
@@ -87,9 +97,7 @@ class TreeNode(nn.Module):
             self.add_module(child_name, grand_child)
 
     def prune_similar_children(self) -> None:
-        """
-        Prune nodes that have the same decision on all children.
-        """
+        r"""Prunes nodes that have the same decision on all children."""
         if self.proto_idxs is None:  # Leaf
             return
 
@@ -126,34 +134,40 @@ class TreeNode(nn.Module):
             self.add_module(childfullname, grandchild)
 
     def size(self) -> int:
-        """Alias for self.num_nodes"""
+        r"""Returns self.num_nodes."""
         return self.num_nodes
 
     @property
     def leaves(self) -> Iterator[nn.Module]:
-        """
-        Returns:
-            Iterator on all leaves
-        """
+        r"""Returns iterator on all leaves."""
         for child in self.children():
             for leaf in child.leaves:
                 yield leaf
 
     @property
     def active_prototypes(self) -> list[int] | None:
+        r"""Returns list of active prototypes."""
         res = self.proto_idxs.copy() if self.proto_idxs is not None else []
         res += [proto_idx for child in self.children() for proto_idx in child.active_prototypes]
         return res
 
     @property
     def num_leaves(self) -> int:
-        """
-        Returns:
-            Total number of leaves
-        """
+        r"""Returns the total number of leaves."""
         return sum([child.num_leaves for child in self.children()])
 
     def get_mapping(self, mode: MappingMode) -> dict | None:
+        r"""Returns mapping between nodes, prototypes and classes.
+
+        Args:
+            mode (MappingMode): Mapping mode.
+
+                - PROTOTYPE_TO_CLASS: Returns the list of class indexes associated with each prototype index.
+                - CLASS_TO_PROTOTYPE: Returns the list of prototype indexes associated to each class index.
+                - NODE_TO_PROTOTYPE: Returns the list of prototype indexes associated to each node ID.
+                - NODE_PATHS: Returns the path (list of node IDs) for each node ID.
+                - ID_TO_NODE: Returns the TreeNode for each node ID.
+        """
         mapping = dict()
         mapped_classes = set([torch.argmax(leaf.distribution).item() for leaf in self.leaves])
         if mode == MappingMode.PROTOTYPE_TO_CLASS:
@@ -191,11 +205,7 @@ class TreeNode(nn.Module):
         return mapping
 
     def export_arch(self) -> Mapping[str, Any]:
-        """Export tree architecture (useful after pruning)
-
-        Returns:
-            tree architecture
-        """
+        r"""Returns the tree architecture (useful after pruning)."""
         arch = {
             "module": self.__class__.__name__,
             "node_id": self.node_id,
@@ -213,13 +223,13 @@ class TreeNode(nn.Module):
 
     @staticmethod
     def build_from_arch(arch: Mapping[str, Any]) -> TreeNode:
-        """Builds a decision tree from a configuration mapping
+        r"""Builds a decision tree from a configuration mapping.
 
         Args:
-            arch: architecture mapping
+            arch (mapping): Architecture mapping.
 
         Returns:
-            decision tree
+            Decision tree.
         """
         if arch["module"] == "BinaryNode":
             child_nsim = TreeNode.build_from_arch(arch["children"][0])
@@ -237,22 +247,27 @@ class TreeNode(nn.Module):
             )
 
     def extra_repr(self) -> str:
-        """
-        Overwrite extra_repr from torch.nn.Module.
-        Returns:
-            Node ID
-        """
+        r"""Overwrites extra_repr from torch.nn.Module to return the node ID."""
         return self.node_id
 
 
 class ComparativeNode(TreeNode):
+    r"""Comparative node associated with multiple prototypes. The probability of reaching a children branch is given
+    by the similarity score with the associated prototype, relative to all other similarity scores.
+
+    Attributes:
+        node_id: Node identifier.
+        proto_idxs: List of prototypes associated with this node.
+        log_probabilities: If True, similarity scores are treated as log of probabilities.
+    """
+
     def __init__(self, node_id: str, children: List[TreeNode], proto_idxs: List[int]) -> None:
-        """
-        Create comparative node
+        r"""Creates a comparative node.
+
         Args:
-            node_id: Node ID
-            children: Node children
-            proto_idxs: List of prototype indexes
+            node_id (str): Node ID.
+            children (list): Node children.
+            proto_idxs (list): List of prototype indexes.
         """
         super().__init__(node_id)
         assert len(children) == len(proto_idxs), "Number of children should match number of prototypes"
@@ -263,17 +278,18 @@ class ComparativeNode(TreeNode):
     def forward(
         self, similarities: Tensor, parent_probs: Tensor, conditional_probs: Tensor, greedy_path: Tensor
     ) -> Tuple[Tensor, Dict]:
-        """Node forward pass using the probability of arriving at this node,
-        and the similarities to all prototypes.
+        r"""Performs a forward pass using the probability of arriving at this node,
+            and the similarities to all prototypes.
 
         Args:
-            similarities: Tensor of similarities to all prototypes. Shape (N, P)
-            parent_probs: Absolute (log) probability of reaching this node parent. Shape (N, )
-            conditional_probs: (Log) probability of reach this node knowing that it reached its parent. Shape (N, )
-            greedy_path: Keep track of greedy path. Shape (N, )
+            similarities (tensor): Tensor of similarities to all prototypes. Shape (N, P).
+            parent_probs (tensor): Absolute (log) probability of reaching this node parent. Shape (N, ).
+            conditional_probs (tensor): Probability (or log probability) of reaching this node,
+                knowing that it reached its parent. Shape (N, ).
+            greedy_path (tensor): Keep track of greedy path. Shape (N, ).
 
         Returns:
-            Node prediction (shape (N,C)), dictionary of self and children probabilities
+            Node prediction (shape (N,C)), dictionary of self and children probabilities.
         """
         # Focus only on relevant prototypes
         selected_similarities = similarities[:, self.proto_idxs]  # Shape (N, p)
@@ -324,33 +340,37 @@ class ComparativeNode(TreeNode):
 
     @property
     def num_prototypes(self) -> int:
-        """
-        Returns:
-            Total number of prototypes pointed by this node and all its children
-        """
+        r"""Returns the total number of prototypes pointed by this node and all its children."""
         return sum([child.num_prototypes for child in self.children()])
 
     @property
     def num_nodes(self) -> int:
-        """
-        Returns:
-            Total size of the subtree, including this node
-        """
+        r"""Returns the total size of the subtree, including this node."""
         return 1 + sum([child.size() for child in self.children()])
 
 
 class BinaryNode(TreeNode):
+    r"""Binary decision node, associated with a single prototype. This node manages two branches
+    (similar and dissimilar) whose respective probability is computed from the similarity score
+    with the associated prototype.
+
+    Attributes:
+        node_id: Node identifier.
+        proto_idxs: List of prototypes associated with this node.
+        log_probabilities: If True, similarity scores are treated as log of probabilities.
+    """
+
     def __init__(
         self, node_id: str, child_sim: TreeNode, child_nsim: TreeNode, proto_idx: int, log_probabilities: bool = False
     ) -> None:
-        """
-        Create binary node
+        r"""Creates a binary node.
+
         Args:
-            node_id: Node ID
-            child_sim: Similarity child
-            child_nsim: Non-similarity child
-            proto_idx: Single prototype index
-            log_probabilities: Use log of probabilities
+            node_id (str): Node ID.
+            child_sim (TreeNode): Similarity child.
+            child_nsim (TreeNode): Non-similarity child.
+            proto_idx (int): Single prototype index.
+            log_probabilities (bool, optional): If True, use log of probabilities. Default: False.
         """
         super().__init__(node_id)
         # Add children, keeping track of who is who
@@ -362,17 +382,18 @@ class BinaryNode(TreeNode):
     def forward(
         self, similarities: Tensor, parent_probs: Tensor, conditional_probs: Tensor, greedy_path: Tensor
     ) -> Tuple[Tensor, Dict]:
-        """Node forward pass using the probability of arriving at this node,
+        r"""Performs a forward pass using the probability of arriving at this node,
         and the similarities to all prototypes.
 
         Args:
-            similarities: Tensor of similarities to all prototypes. Shape (N, P)
-            parent_probs: Absolute (log) probability of reaching this node parent. Shape (N, )
-            conditional_probs: (Log) probability of reach this node knowing that it reached its parent. Shape (N, )
-            greedy_path: Keep track of greedy path. Shape (N, )
+            similarities (tensor): Tensor of similarities to all prototypes. Shape (N, P).
+            parent_probs (tensor): Absolute (log) probability of reaching this node parent. Shape (N, ).
+            conditional_probs (tensor): Probability (or log probability) of reaching this node knowing that it
+                reached its parent. Shape (N, ).
+            greedy_path (tensor): Keep track of greedy path. Shape (N, ).
 
         Returns:
-            Node prediction (shape (N,C)), dictionary of self and children probabilities
+            Node prediction (shape (N,C)), dictionary of self and children probabilities.
         """
         # Focus only on relevant prototype
         similarity = similarities[:, [self.proto_idxs[0]]]  # Shape (N, 1)
@@ -431,18 +452,12 @@ class BinaryNode(TreeNode):
 
     @property
     def num_prototypes(self) -> int:
-        """
-        Returns:
-            Total number of prototypes pointed by this node and all its children
-        """
+        r"""Returns the total number of prototypes pointed by this node and all its children."""
         return 1 + sum([child.num_prototypes for child in self.children()])
 
     @property
     def num_nodes(self) -> int:
-        """
-        Returns:
-            Total size of the subtree, including this node
-        """
+        r"""Returns the total size of the subtree, including this node."""
         return 1 + sum([child.size() for child in self.children()])
 
     @staticmethod
@@ -455,18 +470,19 @@ class BinaryNode(TreeNode):
         depth_offset: int = 0,
         proto_offset: int = 0,
     ) -> TreeNode:
-        """
-        Create binary tree of a given depth (Prototree)
+        r"""Creates a binary tree of a given depth (Prototree).
+
         Args:
-            depth: Target depth
-            num_classes: Number of classes
-            leaves_init_mode: Init mode for leaves distributions
-            log_probabilities: Use log of probabilities
-            node_offset: Index of root node
-            depth_offset: Current depth
-            proto_offset: Index of first prototype
+            depth (int): Target depth.
+            num_classes (int): Number of classes.
+            leaves_init_mode (str, optional): Init mode for leaves distributions. Default: Distribution of zeros.
+            log_probabilities (bool, optional): If True, use log of probabilities. Default: False.
+            node_offset (int, optional): Index of root node. Default: 0.
+            depth_offset (int, optional): Current depth. Default: 0.
+            proto_offset (int, optional): Index of first prototype. Default: 0.
+
         Returns:
-            Binary tree
+            Binary tree.
         """
 
         def _create_node(node_depth: int, node_idx: int, proto_idx: int) -> TreeNode:
@@ -494,15 +510,25 @@ class BinaryNode(TreeNode):
 
 
 class LeafNode(TreeNode):
+    r"""Leaf node, not associated to any prototype but rather to a probability distribution among all classes.
+
+    Attributes:
+        node_id: Node identifier.
+        num_classes: Number of classes.
+        proto_idxs: List of prototypes associated with this node.
+        log_probabilities: If True, similarity scores are treated as log of probabilities.
+    """
+
     def __init__(
         self, node_id: str, num_classes: int, init_mode: str = "ZEROS", log_probabilities: bool = False
     ) -> None:
-        """
-        Create leaf
+        r"""Creates a leaf.
+
         Args:
-            node_id: Node ID
-            num_classes: Number of classes
-            log_probabilities: Use log of probabilities
+            node_id (str): Node ID.
+            num_classes (int): Number of classes.
+            init_mode (str, optional): Initialization mode for the class distribution. Default: "ZEROS".
+            log_probabilities (bool, optional): If True, use log of probabilities. Default: False.
         """
         super().__init__(node_id)
         if init_mode not in leaf_init_modes:
@@ -516,10 +542,7 @@ class LeafNode(TreeNode):
 
     @property
     def distribution(self) -> Tensor:
-        """
-        Returns:
-            Normalised leaf distribution. Shape (1, C)
-        """
+        r"""Returns normalized leaf distribution. Shape (1, C)."""
 
         def stable_softmax(x: Tensor) -> Tensor:
             return torch.softmax(x - torch.max(x, dim=1)[0], dim=1)
@@ -532,17 +555,18 @@ class LeafNode(TreeNode):
     def forward(
         self, similarities: Tensor, parent_probs: Tensor, conditional_probs: Tensor, greedy_path: Tensor
     ) -> Tuple[Tensor, Dict]:
-        """Node forward pass using the probability of arriving at this node,
+        r"""Performs a forward pass using the probability of arriving at this node,
         and the similarities to all prototypes.
 
         Args:
-            similarities: Tensor of similarities to all prototypes. Shape (N, P)
-            parent_probs: Absolute (log) probability of reaching this node parent. Shape (N, )
-            conditional_probs: (Log) probability of reach this node knowing that it reached its parent. Shape (N, )
-            greedy_path: Keep track of greedy path. Shape (N, )
+            similarities (tensor): Tensor of similarities to all prototypes. Shape (N, P).
+            parent_probs (tensor): Absolute (log) probability of reaching this node parent. Shape (N, ).
+            conditional_probs (tensor): Probability (or log probability) of reaching this node knowing that
+                it reached its parent. Shape (N, ).
+            greedy_path (tensor): Keep track of greedy path. Shape (N, ).
 
         Returns:
-            Node prediction (shape (N,C)), dictionary of self and children probabilities
+            Node prediction (shape (N,C)), dictionary of self and children probabilities.
         """
         absolute_probs = (
             parent_probs + conditional_probs if self.log_probabilities else parent_probs * conditional_probs
@@ -557,33 +581,26 @@ class LeafNode(TreeNode):
 
     @property
     def num_prototypes(self) -> int:
-        """
-        Returns:
-            Total number of prototypes pointed by this node and all its children
-        """
+        r"""Returns the total number of prototypes pointed by this node and all its children."""
         return 0
 
     @property
     def num_nodes(self) -> int:
-        """
-        Returns:
-            Total size of the subtree, including this node
-        """
+        r"""Returns the total size of the subtree, including this node."""
         return 1
 
     @property
     def leaves(self) -> Iterator[nn.Module]:
-        """
-        Returns:
-            Self
-        """
+        r"""Returns self."""
         yield self
 
     @property
     def num_leaves(self) -> int:
+        r"""Returns the total number of leaves (here: 1)."""
         return 1
 
     def export_arch(self) -> Mapping[str, Any]:
+        r"""Returns the tree architecture (useful after pruning)."""
         arch = {
             "module": self.__class__.__name__,
             "node_id": self.node_id,

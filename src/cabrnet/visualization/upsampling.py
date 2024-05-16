@@ -17,20 +17,20 @@ def cubic_upsampling(
     single_location: bool = True,
     normalize: bool = False,
 ) -> np.array:
-    """
-    Perform patch visualization using cubic interpolation
+    r"""Performs patch visualization using upsampling with cubic interpolation.
+
     Args:
-        model: target model
-        img: raw input image
-        img_tensor: input image tensor
-        proto_idx: prototype index
-        device: target hardware device
-        location: coordinates of feature vector
-        single_location: keep only a single location
-        normalize: perform min-max normalization
+        model (Module): Target model.
+        img (Image): Raw input image.
+        img_tensor (tensor): Input image tensor.
+        proto_idx (int): Prototype index.
+        device (str): Target hardware device.
+        location (tuple[int,int], optional): Location inside the similarity map. Default: None.
+        single_location (bool, optional): Focus on the location of maximum similarity only. Default: False.
+        normalize (bool, optional): If True, performs min-max normalization. Default: False.
 
     Returns:
-        upsampled similarity map
+        Upsampled similarity map.
     """
     if img_tensor.dim() != 4:
         # Fix number of dimensions if necessary

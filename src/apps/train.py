@@ -1,5 +1,3 @@
-"""Declare the necessary functions to create an app to train a CaBRNet classifier."""
-
 import os
 from pathlib import Path
 from argparse import ArgumentParser, Namespace
@@ -13,11 +11,15 @@ from cabrnet.utils.save import save_checkpoint, load_checkpoint
 from cabrnet.visualization.visualizer import SimilarityVisualizer
 from cabrnet.utils.exceptions import ArgumentError
 
-description = "train a CaBRNet classifier"
+description = "trains a CaBRNet model"
 
 
 def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
-    """Create the argument parser for training a CaBRNet classifier.
+    r"""Creates the argument parser for training a CaBRNet model.
+
+    Args:
+        parser (ArgumentParser, optional): Parent parser (if any).
+            Default: None.
 
     Returns:
         The parser itself.
@@ -90,22 +92,25 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
 
 
 def get_parent_directory(dir_path: str):
-    """
+    r"""Returns the parent directory of *dir_path*.
+
     Args:
-        dir_path: path to directory
+        dir_path (str): Path to directory.
 
     Returns:
-        absolute path to parent directory
+        Absolute path to parent directory.
     """
     return Path(dir_path).parent.absolute()
 
 
 def check_args(args: Namespace) -> Namespace:
-    """Checks for three possible modes:
+    r"""Checks the validity of the arguments and updates the namespace if necessary.
 
-    - "--resume-from": in this case, ignore options --model-config, --dataset, --training and --visualization
-    - "--config-dir": in this case, ignore options --model-config, --dataset, --training and --visualization
-    - "--model-config", "--dataset", "--training" and "--visualization": in this case, all options are mandatory
+    Args:
+        args (Namespace): Parsed arguments.
+
+    Returns:
+        Modified argument namespace.
     """
     for dir_path, option_name in zip([args.resume_from, args.config_dir], ["--resume-from", "--config-dir"]):
         if dir_path is not None:
@@ -167,15 +172,22 @@ def check_args(args: Namespace) -> Namespace:
 
 
 def metrics_to_str(metrics: dict[str, float]) -> str:
-    """Controls number of digits when showing batch statistics"""
+    r"""Converts a dictionary of metrics into a readable string.
+
+    Args:
+        metrics (dictionary): Dictionary of batch metrics.
+
+    Returns:
+        Readable string representing batch statistics.
+    """
     return ", ".join([f"{key}: {value:.3f}" for key, value in metrics.items()])
 
 
 def execute(args: Namespace) -> None:
-    """Create a CaBRNet classifier, then train it.
+    r"""Creates a CaBRNet model, then trains it.
 
     Args:
-        args: Parsed arguments.
+        args (Namespace): Parsed arguments.
 
     """
     # Check and post-process options
@@ -251,7 +263,7 @@ def execute(args: Namespace) -> None:
             dataloaders=dataloaders,
             optimizer_mngr=optimizer_mngr,
             device=device,
-            progress_bar_position=1,
+            tqdm_position=1,
             epoch_idx=epoch,
             max_batches=max_batches,
             verbose=verbose,

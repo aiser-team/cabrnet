@@ -21,6 +21,17 @@ supported_attribution_functions = {
 
 
 class SimilarityVisualizer(nn.Module):
+    r"""Object used to extract patch visualizations from a model.
+
+    Attributes:
+        attribution: Function used to compute the relative importance of each pixel w.r.t. a given similarity score.
+        attribution_params: Parameters of the attribution function.
+        view: Function used to generate an image from the attribution map.
+        view_params: Parameters of the viewing function.
+        config_file: Path to the configuration file used to create this object.
+        model: Target CaBRNet model.
+    """
+
     def __init__(
         self,
         model: nn.Module,
@@ -32,15 +43,15 @@ class SimilarityVisualizer(nn.Module):
         *args,
         **kwargs,
     ):
-        """
-        Init a patch visualizer
+        r"""Initializes a patch visualizer.
+
         Args:
-            model: attach visualizer to a specific model
-            attribution_fn: attribution function
-            view_fn: viewing function
-            attribution_params: optional parameters to attribution function
-            view_params: optional parameters to viewing function
-            config_file: optional path to the file used to configure the visualizer
+            model (Module): Attach visualizer to a specific model.
+            attribution_fn (Callable): Attribution function.
+            view_fn (Callable): Viewing function.
+            attribution_params (dictionary, optional): Parameters to attribution function. Default: None.
+            view_params (dictionary, optional): Parameters to viewing function. Default: None.
+            config_file (str, optional): Path to the file used to configure the visualizer. Default: None.
         """
         super().__init__(*args, **kwargs)
         self.attribution = attribution_fn
@@ -67,17 +78,17 @@ class SimilarityVisualizer(nn.Module):
         device: str,
         location: tuple[int, int] | None = None,
     ) -> Image.Image:
-        """
-        Generates a visualization of the most similar patch to a given prototype
+        r"""Generates a visualization of the most similar patch to a given prototype.
+
         Args:
-            img: original image
-            img_tensor: image tensor
-            proto_idx: prototype index
-            device: target hardware device
-            location: location inside the similarity map
+            img (Image): Original image.
+            img_tensor (tensor): Image tensor.
+            proto_idx (int): Prototype index.
+            device (str): Target hardware device.
+            location (tuple[int,int], optional): Location inside the similarity map. Default: None.
 
         Returns:
-            patch visualization
+            Patch visualization.
         """
         sim_map = self.attribution(
             model=self.model,
@@ -98,17 +109,17 @@ class SimilarityVisualizer(nn.Module):
         device: str,
         location: tuple[int, int] | None = None,
     ) -> np.ndarray:
-        """
-        Identify the most similar pixels to a given prototype
+        r"""Identifies the most similar pixels to a given prototype.
+
         Args:
-            img: original image
-            img_tensor: image tensor
-            proto_idx: prototype index
-            device: target hardware device
-            location: location inside the similarity map
+            img (Image): Original image.
+            img_tensor (tensor): Image tensor.
+            proto_idx (int): Prototype index.
+            device (str): Target hardware device.
+            location (tuple[int,int], optional): Location inside the similarity map. Default: None.
 
         Returns:
-            importance map
+            Importance map.
         """
         return self.attribution(
             model=self.model,
@@ -127,10 +138,11 @@ class SimilarityVisualizer(nn.Module):
         parser: argparse.ArgumentParser | None = None,
         mandatory_config: bool = False,
     ) -> argparse.ArgumentParser:
-        """Create the argument parser for a ProtoVisualizer.
+        r"""Creates the argument parser for a ProtoVisualizer.
+
         Args:
-            parser: Existing parser (if any)
-            mandatory_config: Make configuration mandatory
+            parser (ArgumentParser, optional): Existing parser (if any). Default: None.
+            mandatory_config (bool, optional): If True, makes the configuration mandatory. Default: False.
 
         Returns:
             The parser itself.
@@ -148,14 +160,14 @@ class SimilarityVisualizer(nn.Module):
 
     @staticmethod
     def build_from_config(config_file: str, model: nn.Module) -> SimilarityVisualizer:
-        """
-        Builds a ProtoVisualizer from a YAML configuration file
+        r"""Builds a ProtoVisualizer from a configuration file.
+
         Args:
-            config_file: path to configuration file
-            model: target model
+            config_file (str): Path to configuration file.
+            model (Module): Target model.
 
         Returns:
-            ProtoVisualizer
+            ProtoVisualizer.
         """
         logger.info(f"Loading patch visualizer from {config_file}.")
         config_dict = load_config(config_file)

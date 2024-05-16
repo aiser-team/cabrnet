@@ -22,14 +22,14 @@ def get_version() -> str:
 
 class ParserWithHelper(ArgumentParser):
     def error(self, message: str):
-        """Overrides default error message in argparse to print help menu"""
+        r"""Overrides default error message in argparse to print help menu"""
         self._print_message(f"Error: {message}\n", sys.stderr)
         self.print_help(sys.stderr)
         self.exit(2)
 
 
 def main():
-    """Load the applications and run CaBRNet with them."""
+    r"""Front-end to all applications located in src/apps."""
     # Enumerate applications from apps directory
     apps_dir = os.path.join(os.path.dirname(__file__), "apps")
     apps = [os.path.splitext(file)[0] for file in os.listdir(apps_dir) if file.endswith(".py")]
@@ -81,9 +81,6 @@ def main():
     np.random.seed(seed)
     random.seed(seed)
 
-    # Set device
-    device = args.device
-    
     # Set logger level
     logger.configure(handlers=[{"sink": sys.stderr, "level": args.logger_level}])
     if args.logger_file is not None:

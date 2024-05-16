@@ -249,7 +249,7 @@ class TestProtoPNetCompatibility(unittest.TestCase):
                 dataloaders=dataloaders,
                 optimizer_mngr=optimizer_mngr,
                 device=self.device,
-                progress_bar_position=1,
+                tqdm_position=1,
                 max_batches=max_batches,
                 verbose=self.verbose,
             )

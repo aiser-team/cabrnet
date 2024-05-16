@@ -1,18 +1,20 @@
-"""Declare the necessary functions to create an app to explain a classification result."""
 import os.path
 from pathlib import Path
 from argparse import ArgumentParser, Namespace
-from loguru import logger
 from cabrnet.generic.model import CaBRNet
 from cabrnet.utils.data import DatasetManager
 from cabrnet.visualization.visualizer import SimilarityVisualizer
 from cabrnet.utils.exceptions import ArgumentError
 
-description = "explain the decision of a CaBRNet classifier"
+description = "explains the decision of a CaBRNet model"
 
 
 def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
-    """Create the argument parser for explaining the decision of a CaBRNet classifier.
+    r"""Creates the argument parser for explaining the decision of a CaBRNet model.
+
+    Args:
+        parser (ArgumentParser, optional): Parent parser (if any).
+            Default: None
 
     Returns:
         The parser itself.
@@ -66,6 +68,14 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
 
 
 def check_args(args: Namespace) -> Namespace:
+    r"""Checks the validity of the arguments and updates the namespace if necessary.
+
+    Args:
+        args (Namespace): Parsed arguments.
+
+    Returns:
+        Modified argument namespace.
+    """
     if args.checkpoint_dir is not None:
         # Fetch all files from directory
         for param, name in zip(
@@ -91,10 +101,10 @@ def check_args(args: Namespace) -> Namespace:
 
 
 def execute(args: Namespace) -> None:
-    """Explain the decision of a cabrnet model.
+    r"""Explains the decision of a CaBRNet model.
 
     Args:
-        args: Parsed arguments.
+        args (Namespace): Parsed arguments.
 
     """
     # Check and post-process options
