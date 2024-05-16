@@ -11,31 +11,35 @@ from torch.utils.data import DataLoader, Dataset, Subset
 
 
 class VisionDatasetSubset(Subset):
-    """Overwrites the Subset class so that it exposes all properties of a VisionDataset"""
+    r"""Overwrites the Subset class so that it exposes all properties of a VisionDataset."""
 
     @property
     def transform(self) -> Any:
+        r"""Returns the 'transform' function of the original dataset."""
         return getattr(self.dataset, "transform", None)
 
     def target_transform(self) -> Any:
+        r"""Returns the 'target_transform' function of the original dataset."""
         return getattr(self.dataset, "target_transform", None)
 
     def transforms(self) -> Any:
+        r"""Returns the 'transforms' function of the original dataset."""
         return getattr(self.dataset, "transforms", None)
 
 
 class DatasetManager:
+    r"""Class for handling datasets in CaBRNet."""
     DEFAULT_DATASET_CONFIG: str = "dataset.yml"
 
     @staticmethod
     def create_parser(
         parser: argparse.ArgumentParser | None = None, mandatory_config: bool = False
     ) -> argparse.ArgumentParser:
-        """Create the argument parser for CaBRNet datasets.
+        r"""Creates the argument parser for CaBRNet datasets.
 
         Args:
-            parser: Existing parser (if any)
-            mandatory_config: Make dataset configuration mandatory
+            parser (ArgumentParser, optional): Existing parser (if any). Default: None.
+            mandatory_config (bool, optional): If True, makes the configuration mandatory. Default: False.
 
         Returns:
             The parser itself.
@@ -59,12 +63,14 @@ class DatasetManager:
 
     @staticmethod
     def get_transform(trans_config: dict[str, Any]) -> Callable:
-        """Build a data transformation from a dictionary.
+        r"""Builds a data transformation from a dictionary.
 
         Args:
-            trans_config: Transformation configuration
+            trans_config (dictionary): Transformation configuration.
+
         Returns:
-            transformation
+            Transformation.
+
         Raises:
             ValueError whenever the configuration is incorrect.
         """
@@ -90,18 +96,18 @@ class DatasetManager:
     def get_datasets(
         config_file: str, sampling_ratio: int = 1, load_segmentation: bool = False
     ) -> dict[str, dict[str, Dataset | int | bool]]:
-        """Load datasets from yaml configuration file.
+        r"""Loads datasets from a configuration file.
 
         Args:
-            config_file: path to configuration file
-            sampling_ratio: sampling ratio (e.g. 5 means only one image in five is used)
-            load_segmentation: load segmentation datasets if available
+            config_file (str): Path to configuration file.
+            sampling_ratio (int, optional): Sampling ratio (e.g. 5 means only one image in five is used). Default: 1.
+            load_segmentation (bool, optional): If True, loads segmentation datasets if available. Default: False.
 
         Returns:
-            dictionary of datasets with their respective batch size and shuffle property
+            Dictionary of datasets with their respective batch size and shuffle property.
 
         Raises:
-            ValueError whenever a dataset could not be loaded
+            ValueError whenever a dataset could not be loaded.
         """
         config = load_config(config_file)
         datasets: dict[str, dict[str, Dataset | int | bool]] = {}
@@ -169,18 +175,18 @@ class DatasetManager:
     def get_dataloaders(
         config_file: str, sampling_ratio: int = 1, load_segmentation: bool = False
     ) -> dict[str, DataLoader]:
-        """Create dataloaders from yaml configuration file.
+        r"""Creates dataloaders from a configuration file.
 
         Args:
-            config_file: path to configuration file
-            sampling_ratio: sampling ratio (e.g. 5 means only one image in five is used)
-            load_segmentation: load segmentation datasets if available
+            config_file (str): Path to configuration file.
+            sampling_ratio (int, optional): Sampling ratio (e.g. 5 means only one image in five is used). Default: 1.
+            load_segmentation (bool, optional): If True, loads segmentation datasets if available. Default: False.
 
         Returns:
-            dictionary of dataloaders
+            Dictionary of dataloaders.
 
         Raises:
-            ValueError whenever a dataset could not be loaded or a parameter is invalid
+            ValueError whenever a dataset could not be loaded or a parameter is invalid.
         """
         datasets = DatasetManager.get_datasets(
             config_file=config_file, sampling_ratio=sampling_ratio, load_segmentation=load_segmentation
@@ -210,14 +216,14 @@ class DatasetManager:
 
     @staticmethod
     def get_dataset_transform(config_file: str, dataset: str = "test_set") -> Callable | None:
-        """Return transform function associated with a given dataset
+        r"""Returns the transform function associated with a given dataset.
 
         Args:
-            config_file: path to configuration file
-            dataset: name of target dataset
+            config_file (str): Path to configuration file.
+            dataset (str, optional): Name of target dataset. Default: test_set.
 
         Returns:
-            transform function if any
+            Transform function (if any).
 
         Raises:
             ValueError whenever the configuration is incorrect.

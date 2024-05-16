@@ -18,13 +18,13 @@ import pickle
 
 
 def get_config(config_file: str) -> dict[str, Any] | None:
-    """Recover configuration for YML file
+    r"""Recovers configuration from YML file.
 
     Args:
-        config_file: path to configuration file
+        config_file (str): Path to configuration file.
 
     Returns:
-        benchmark parameters
+        Benchmark parameters.
     """
     config = load_config(config_file)
     bench_config = config.get("relevance_analysis", None)
@@ -44,13 +44,12 @@ def get_config(config_file: str) -> dict[str, Any] | None:
 
 
 def pg_mask_relevance(attribution: np.ndarray, object_seg: np.ndarray, area_percentage: float) -> float:
-    """Compute the pointing game relevance of an attribution w.r.t the corresponding segmentation.
+    r"""Computes the pointing game relevance of an attribution w.r.t the corresponding segmentation.
 
     Args:
-        attribution: attribution map.
-        object_seg: segmentation of the object.
-        area_percentage: compute the intersection between the object segmentation and this percentage of the most
-            relevant pixels wrt the attribution map.
+        attribution (Numpy array): Attribution map.
+        object_seg (Numpy array): Segmentation of the object.
+        area_percentage (float): Percentage of the most relevant pixels to intersect with segmentation mask.
 
     Returns:
         Relevance of the attribution w.r.t its size.
@@ -67,11 +66,12 @@ def pg_mask_relevance(attribution: np.ndarray, object_seg: np.ndarray, area_perc
 
 
 def pg_energy_relevance(attribution: np.ndarray, object_seg: np.ndarray) -> float:
-    """Compute the energy-based pointing game relevance of an attribution w.r.t the corresponding segmentation.
+    r"""Computes the energy-based pointing game relevance of an attribution w.r.t the corresponding segmentation.
         See https://arxiv.org/abs/1910.01279.
+
     Args:
-        attribution: attribution map.
-        object_seg: segmentation of the object.
+        attribution (Numpy array): Attribution map.
+        object_seg (Numpy array): Segmentation of the object.
 
     Returns:
         Relevance of the attribution w.r.t its energy.
@@ -95,23 +95,24 @@ def patches_relevance_analysis(
     percentage: float,
     sampling_ratio: int = 1,
     debug_mode: bool = False,
-    progress_bar_position: int = 0,
+    tqdm_position: int = 0,
     **kwargs,
 ) -> None:
-    """Perform relevance analysis on test patches.
+    r"""Performs relevance analysis on test patches.
 
     Args:
-        model: CaBRNet model
-        dataset_config: path to dataset configuration file
-        visualization_config: path to visualization configuration file
-        output_dir: path to output directory
-        device: target device
-        verbose: verbose mode
-        patch_info_db: path to raw output analysis file
-        percentage: area percentage for pointing game mask relevance.
-        sampling_ratio: ratio of test images to use during evaluation (e.g. 10 means only one image in ten is used)
-        debug_mode: debug mode, save visualizations
-        progress_bar_position: Position of the progress bar.
+        model (Module): CaBRNet model.
+        dataset_config (str): Path to dataset configuration file.
+        visualization_config (str): Path to visualization configuration file.
+        output_dir (str): Path to output directory.
+        device (str): Target device.
+        verbose (bool): Verbose mode.
+        patch_info_db (str): Path to raw output analysis file.
+        percentage (float): Area percentage for pointing game mask relevance.
+        sampling_ratio (int, optional): Ratio of test images to use during evaluation (e.g. 10 means only
+            one image in ten is used). Default: 1.
+        debug_mode (bool, optional): Debug mode. When true, saves visualizations. Default: False.
+        tqdm_position (int, optional): Position of the progress bar. Default: 0.
     """
     logger.info("Starting test patch relevance benchmark")
 
@@ -132,7 +133,7 @@ def patches_relevance_analysis(
         desc="Benchmark on test patches",
         total=len(test_set),  # type: ignore
         leave=False,
-        position=progress_bar_position,
+        position=tqdm_position,
         disable=not verbose,
     )
 
@@ -229,22 +230,23 @@ def proto_relevance_analysis(
     prototype_info_db: str,
     percentage: float,
     projection_info: str = "projection_info.csv",
-    progress_bar_position: int = 0,
+    tqdm_position: int = 0,
     **kwargs,
 ) -> None:
-    """Perform relevance analysis on prototypes.
+    r"""Performs relevance analysis on prototypes.
 
     Args:
-        model: CaBRNet model
-        dataset_config: path to dataset configuration file
-        visualization_config: path to visualization configuration file
-        output_dir: path to output directory
-        device: target device
-        verbose: verbose mode
-        prototype_info_db: path to raw output analysis file
-        percentage: area percentage for pointing game mask relevance.
-        projection_info: path to the projection info produced during training.
-        progress_bar_position: Position of the progress bar.
+        model (Module): CaBRNet model.
+        dataset_config (str): Path to dataset configuration file.
+        visualization_config (str): Path to visualization configuration file.
+        output_dir (str): Path to output directory.
+        device (str): Target device.
+        verbose (bool): Verbose mode.
+        prototype_info_db (str): Path to raw output analysis file.
+        percentage (float): Area percentage for pointing game mask relevance.
+        projection_info (str, optional): Path to the projection info produced during training.
+            Default: projection_info.csv.
+        tqdm_position (int, optional): Position of the progress bar. Default: 0.
     """
     logger.info("Starting prototype relevance benchmark")
 
@@ -278,7 +280,7 @@ def proto_relevance_analysis(
         desc="Benchmark on prototypes",
         total=len(projection_db),
         leave=False,
-        position=progress_bar_position,
+        position=tqdm_position,
         disable=not verbose,
     )
 
@@ -318,6 +320,11 @@ def proto_relevance_analysis(
 
 
 def execute(root_dir: str, **kwargs) -> None:
+    r"""Performs relevance analysis on prototypes and test patches.
+
+    Args:
+        root_dir (str): Path to root output directory.
+    """
     output_dir = os.path.join(root_dir, "relevance_analysis")
     os.makedirs(output_dir, exist_ok=True)
     proto_relevance_analysis(output_dir=output_dir, **kwargs)

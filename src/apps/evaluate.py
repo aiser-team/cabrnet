@@ -1,4 +1,3 @@
-"""Declare the necessary functions to create an app to evaluate a CABRNet classifier."""
 import os
 from argparse import ArgumentParser, Namespace
 
@@ -8,11 +7,15 @@ from cabrnet.generic.model import CaBRNet
 from cabrnet.utils.data import DatasetManager
 from cabrnet.utils.exceptions import ArgumentError
 
-description = "evaluate a CaBRNet classifier"
+description = "evaluates the accuracy of a CaBRNet model"
 
 
 def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
-    """Create the argument parser for evaluating a CaBRNet classifier.
+    r"""Creates the argument parser for evaluating a CaBRNet model.
+
+    Args:
+        parser (ArgumentParser, optional): Parent parser (if any).
+            Default: None
 
     Returns:
         The parser itself.
@@ -33,6 +36,14 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
 
 
 def check_args(args: Namespace) -> Namespace:
+    r"""Checks the validity of the arguments and updates the namespace if necessary.
+
+    Args:
+        args (Namespace): Parsed arguments.
+
+    Returns:
+        Modified argument namespace.
+    """
     if args.checkpoint_dir is not None:
         # Fetch all files from directory
         for param, name in zip(
@@ -56,10 +67,10 @@ def check_args(args: Namespace) -> Namespace:
 
 
 def execute(args: Namespace) -> None:
-    """Evaluate a CaBRNet classifier.
+    r"""Evaluates the accuracy of a CaBRNet model.
 
     Args:
-        args: Parsed arguments.
+        args (Namespace): Parsed arguments.
 
     """
     # Check and post-process options
@@ -73,7 +84,7 @@ def execute(args: Namespace) -> None:
     model.to(args.device)
 
     stats = model.evaluate(
-        dataloader=dataloaders["test_set"], device=args.device, progress_bar_position=0, verbose=args.verbose
+        dataloader=dataloaders["test_set"], device=args.device, tqdm_position=0, verbose=args.verbose
     )
     for name, value in stats.items():
         logger.info(f"{name}: {value:.2f}")

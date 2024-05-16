@@ -20,14 +20,21 @@ import csv
 
 
 class ProtoPNet(CaBRNet):
-    """Class representing a ProtoPNet."""
+    r"""CaBRNet model implementing the ProtoPNet architecture.
+
+    Attributes:
+        extractor: Model used to extract convolutional features from the input image.
+        classifier: Model used to compute the classification, based on similarity scores with a set of prototypes.
+        loss_coefficients: Parameters of the loss function used during training.
+        projection_config: Parameters of the projection function used during training.
+    """
 
     def __init__(self, extractor: nn.Module, classifier: nn.Module, **kwargs):
-        """Build a ProtoPNet.
+        r"""Builds a ProtoPNet.
 
         Args:
-            extractor: Feature extractor
-            classifier: Classification based on extracted features
+            extractor (Module): Feature extractor.
+            classifier (CaBRNetGenericClassifier): Classification based on extracted features.
         """
         super(ProtoPNet, self).__init__(extractor, classifier, **kwargs)
 
@@ -44,10 +51,10 @@ class ProtoPNet(CaBRNet):
         }
 
     def _load_legacy_state_dict(self, legacy_state: Mapping[str, any]) -> None:
-        """Load state dictionary from legacy format.
+        r"""Loads a state dictionary in legacy format.
 
         Args:
-            legacy_state: Legacy state dictionary
+            legacy_state (state dictionary): Legacy state dictionary.
 
         Raises:
             ValueError when keys or tensor sizes mismatch.
@@ -96,7 +103,11 @@ class ProtoPNet(CaBRNet):
         super().load_state_dict(final_state, strict=False)
 
     def load_state_dict(self, state_dict: Mapping[str, Any], **kwargs):
-        """Overloads nn.Module load_state_dict to take legacy state dictionaries into account"""
+        r"""Overloads nn.Module load_state_dict to take legacy state dictionaries into account.
+
+        Args:
+            state_dict (state dictionary): State dictionary.
+        """
         legacy_state = any([key.startswith("features") for key in state_dict.keys()])
         if legacy_state:
             logger.info("Legacy state dictionary detected, performing import.")
@@ -126,10 +137,10 @@ class ProtoPNet(CaBRNet):
             super().load_state_dict(state_dict, **kwargs)
 
     def register_training_params(self, training_config: dict[str, Any]) -> None:
-        """Save additional information from the training configuration directly into the model
+        r"""Saves additional information from the training configuration directly into the model.
 
         Args:
-            training_config: dictionary containing training configuration
+            training_config (dictionary): Dictionary containing training configuration.
         """
         if training_config.get("auxiliary_info") is None:
             logger.warning("Empty auxiliary training configuration. Using default values")
@@ -142,14 +153,14 @@ class ProtoPNet(CaBRNet):
             self.projection_config = aux_training_params["projection_config"]
 
     def loss(self, model_output: Any, label: torch.Tensor) -> tuple[torch.Tensor, dict[str, float]]:
-        """Loss function.
+        r"""Loss function.
 
         Args:
-            model_output: Model output, in this case a tuple containing the prediction and the minimum distances.
-            label: Batch labels
+            model_output (Any): Model output, in this case a tuple containing the prediction and the minimum distances.
+            label (tensor): Batch labels.
 
         Returns:
-            loss tensor and batch statistics
+            Loss tensor and batch statistics.
         """
         output, min_distances = model_output
 
@@ -212,26 +223,27 @@ class ProtoPNet(CaBRNet):
         dataloaders: dict[str, DataLoader],
         optimizer_mngr: OptimizerManager | torch.optim.Optimizer,
         device: str = "cuda:0",
-        progress_bar_position: int = 0,
-        progress_bar_title: str = "",
+        tqdm_position: int = 0,
+        tqdm_title: str = "",
         epoch_idx: int = 0,
         verbose: bool = False,
         max_batches: int | None = None,
     ) -> dict[str, float]:
-        """Internal function: train the model for exactly one epoch.
+        r"""Internal function: trains the model for exactly one epoch.
 
         Args:
-            dataloaders: Dictionary of dataloaders
-            optimizer_mngr: Optimizer manager
-            device: Target device
-            progress_bar_position: Position of the progress bar.
-            progress_bar_title: Progress bar title
-            epoch_idx: Epoch index
-            max_batches: Max number of batches (early stop for small compatibility tests)
-            verbose: Display progress bar
+            dataloaders (dictionary): Dictionary of dataloaders.
+            optimizer_mngr (OptimizerManager): Optimizer manager.
+            device (str, optional): Target device. Default: cuda:0.
+            tqdm_position (int, optional): Position of the progress bar. Default: 0.
+            tqdm_title (str, optional): Progress bar title. Default: "".
+            epoch_idx (int, optional): Epoch index. Default: 0.
+            verbose (bool, optional): Display progress bar. Default: False.
+            max_batches (int, optional): Max number of batches (early stop for small compatibility tests).
+                Default: None.
 
         Returns:
-            dictionary containing learning statistics
+            Dictionary containing learning statistics.
         """
         self.train()
         self.to(device)
@@ -246,10 +258,10 @@ class ProtoPNet(CaBRNet):
         # Show progress on progress bar if needed
         train_iter = tqdm(
             enumerate(train_loader),
-            desc=progress_bar_title,
+            desc=tqdm_title,
             total=len(train_loader),
             leave=False,
-            position=progress_bar_position,
+            position=tqdm_position,
             disable=not verbose,
         )
         batch_num = len(train_loader)
@@ -302,32 +314,33 @@ class ProtoPNet(CaBRNet):
         dataloaders: dict[str, DataLoader],
         optimizer_mngr: OptimizerManager,
         device: str = "cuda:0",
-        progress_bar_position: int = 0,
+        tqdm_position: int = 0,
         epoch_idx: int = 0,
         verbose: bool = False,
         max_batches: int | None = None,
     ) -> dict[str, float]:
-        """Train a ProtoPNet model for one epoch, performing prototype projection and fine-tuning if necessary.
+        r"""Trains a ProtoPNet model for one epoch, performing prototype projection and fine-tuning if necessary.
 
         Args:
-            dataloaders: Dictionary of dataloaders
-            optimizer_mngr: Optimizer manager
-            device: Target device
-            progress_bar_position: Position of the progress bar.
-            epoch_idx: Epoch index
-            max_batches: Max number of batches (early stop for small compatibility tests)
-            verbose: Display progress bar
+            dataloaders (dictionary): Dictionary of dataloaders.
+            optimizer_mngr (OptimizerManager): Optimizer manager.
+            device (str, optional): Target device. Default: cuda:0.
+            tqdm_position (int, optional): Position of the progress bar. Default: 0.
+            epoch_idx (int, optional): Epoch index. Default: 0.
+            verbose (bool, optional): Display progress bar. Default: False.
+            max_batches (int, optional): Max number of batches (early stop for small compatibility tests).
+                Default: None.
 
         Returns:
-            dictionary containing learning statistics
+            Dictionary containing learning statistics.
         """
         # Train for exactly one epoch using the OptimizerManager
         train_info = self._train_epoch(
             dataloaders=dataloaders,
             optimizer_mngr=optimizer_mngr,
             device=device,
-            progress_bar_position=progress_bar_position,
-            progress_bar_title=f"Training epoch {epoch_idx}",
+            tqdm_position=tqdm_position,
+            tqdm_title=f"Training epoch {epoch_idx}",
             epoch_idx=epoch_idx,
             verbose=verbose,
             max_batches=max_batches,
@@ -341,7 +354,7 @@ class ProtoPNet(CaBRNet):
                 dataloader=dataloaders["projection_set"],
                 device=device,
                 verbose=verbose,
-                progress_bar_position=progress_bar_position,
+                tqdm_position=tqdm_position,
             )
             # Freeze all parameters except last layer
             for group in optimizer_mngr.param_groups:
@@ -351,7 +364,7 @@ class ProtoPNet(CaBRNet):
                 range(self.projection_config["num_ft_epochs"]),
                 desc="Fine-tuning last layer",
                 leave=False,
-                position=progress_bar_position,
+                position=tqdm_position,
                 disable=not verbose,
             )
             for ft_epoch_idx in fine_tuning_progress:
@@ -359,8 +372,8 @@ class ProtoPNet(CaBRNet):
                     dataloaders=dataloaders,
                     optimizer_mngr=optimizer_mngr.optimizers["last_layer_optimizer"],  # type: ignore
                     device=device,
-                    progress_bar_position=progress_bar_position + 1,
-                    progress_bar_title=f"Fine-tuning epoch {ft_epoch_idx}",
+                    tqdm_position=tqdm_position + 1,
+                    tqdm_title=f"Fine-tuning epoch {ft_epoch_idx}",
                     epoch_idx=epoch_idx,
                     verbose=verbose,
                     max_batches=max_batches,
@@ -385,28 +398,31 @@ class ProtoPNet(CaBRNet):
         num_fine_tuning_epochs: int = 20,
         disable_pruned_prototypes: bool = False,
         projection_file: str = "projection_info.csv",
-        progress_bar_position: int = 0,
+        tqdm_position: int = 0,
         **kwargs,
     ) -> None:
-        """Function called after training, using information from the epilogue field in the training configuration.
+        r"""Function called after training, using information from the epilogue field in the training configuration.
 
         Args:
-            dataloaders: dataloader containing projection data
-            visualizer: patch visualizer
-            optimizer_mngr: optimizer manager
-            output_dir: output directory
-            model_config: path to YML model configuration
-            training_config: path to YML training configuration
-            dataset_config: path to YML dataset configuration
-            seed: initial random seed
-            pruning_threshold: Pruning threshold
-            num_nearest_patches: Number of patches near the prototype to look at
-            num_fine_tuning_epochs: number of fine-tuning epochs to perform after pruning
-            disable_pruned_prototypes: Only disable prototypes instead of deleting them during pruning
-            projection_file: output file containing all projection information
-            progress_bar_position: position of the progress bar.
-            device: target device
-            verbose: display progress bar
+            dataloaders (dictionary): Dictionary of dataloaders.
+            visualizer (SimilarityVisualizer): Similarity visualizer.
+            optimizer_mngr (OptimizerManager): Optimizer manager.
+            output_dir (str): Path to output directory.
+            model_config (str): Path to model configuration.
+            training_config (str): Path to model training configuration.
+            dataset_config (str): Path to dataset configuration.
+            seed (int): Random seed.
+            device (str, optional): Target device. Default: cuda:0.
+            verbose (bool, optional): Display progress bar. Default: False.
+            pruning_threshold (int, optional): Pruning threshold. Default: 3.
+            num_nearest_patches (int, optional): Number of patches near the prototype to look at.
+                Default: 0 (pruning disabled).
+            num_fine_tuning_epochs (int, optional): Number of fine-tuning epochs to perform after pruning. Default: 20.
+            disable_pruned_prototypes (bool, optional): If True, only disables prototypes instead of deleting them
+                during pruning. Default: False.
+            projection_file (str, optional): Path to output file containing all projection information.
+                Default: projection_info.csv.
+            tqdm_position (int, optional): Position of the progress bar. Default: 0.
         """
         # Perform projection
         projection_info = self.project(
@@ -444,7 +460,7 @@ class ProtoPNet(CaBRNet):
                 disable_pruned_prototypes=disable_pruned_prototypes,
                 device=device,
                 verbose=verbose,
-                progress_bar_position=0,
+                tqdm_position=0,
             )
 
             if self._compatibility_mode or not disable_pruned_prototypes:
@@ -461,7 +477,7 @@ class ProtoPNet(CaBRNet):
                 range(num_fine_tuning_epochs),
                 desc="Fine-tuning last layer after pruning",
                 leave=False,
-                position=progress_bar_position,
+                position=tqdm_position,
                 disable=not verbose,
             )
             for ft_epoch_idx in fine_tuning_progress:
@@ -469,8 +485,8 @@ class ProtoPNet(CaBRNet):
                     dataloaders=dataloaders,
                     optimizer_mngr=optimizer_mngr.optimizers["last_layer_optimizer"],  # type: ignore
                     device=device,
-                    progress_bar_position=progress_bar_position + 1,
-                    progress_bar_title=f"Fine-tuning epoch {ft_epoch_idx}",
+                    tqdm_position=tqdm_position + 1,
+                    tqdm_title=f"Fine-tuning epoch {ft_epoch_idx}",
                     verbose=verbose,
                 )
 
@@ -506,18 +522,19 @@ class ProtoPNet(CaBRNet):
         disable_pruned_prototypes: bool = False,
         device: str = "cuda:0",
         verbose: bool = False,
-        progress_bar_position: int = 0,
+        tqdm_position: int = 0,
     ) -> None:
-        """Prune prototypes based on threshold.
+        r"""Prunes prototypes based on a threshold.
 
         Args:
-            dataloader: dataloader containing projection data
-            pruning_threshold: Pruning threshold
-            num_nearest_patches: Number of patches near the prototype to look at
-            disable_pruned_prototypes: Only disable prototypes instead of deleting them
-            device: target device
-            verbose: display progress bar
-            progress_bar_position: position of the progress bar.
+            dataloader (DataLoader): Dataloader containing projection images.
+            pruning_threshold (int, optional): Pruning threshold. Default: 3.
+            num_nearest_patches (int, optional): Number of patches near the prototype to look at. Default: 6.
+            disable_pruned_prototypes (bool, optional): If True, only disables prototypes instead of deleting them
+                during pruning. Default: False.
+            device (str, optional): Target device. Default: cuda:0.
+            verbose (bool, optional): Display progress bar. Default: False.
+            tqdm_position (int, optional): Position of the progress bar. Default: 0.
         """
         logger.info("Performing prototypes pruning")
         self.eval()
@@ -530,7 +547,7 @@ class ProtoPNet(CaBRNet):
             dataloader,
             total=len(dataloader),
             leave=False,
-            position=progress_bar_position,
+            position=tqdm_position,
             disable=not verbose,
             desc="Prototypes pruning",
         )
@@ -616,18 +633,18 @@ class ProtoPNet(CaBRNet):
         dataloader: DataLoader,
         device: str = "cuda:0",
         verbose: bool = False,
-        progress_bar_position: int = 0,
+        tqdm_position: int = 0,
     ) -> dict[int, dict]:
-        """
-        Perform prototype projection after training
-        Args:
-            dataloader: dataloader containing projection data
-            device: target device
-            verbose: display progress bar
-            progress_bar_position: position of the progress bar.
-        Returns:
-            dictionary containing projection information for each prototype
+        r"""Performs prototype projection after training.
 
+        Args:
+            dataloader (DataLoader): Dataloader containing projection data.
+            device (str, optional): Target device. Default: cuda:0.
+            verbose (bool, optional): Display progress bar. Default: False.
+            tqdm_position (int, optional): Position of the progress bar. Default: 0.
+
+        Returns:
+            Dictionary containing projection information for each prototype.
         """
         logger.info("Performing prototype projection")
         self.eval()
@@ -647,7 +664,7 @@ class ProtoPNet(CaBRNet):
             desc="Prototype projection",
             total=len(dataloader),
             leave=False,
-            position=progress_bar_position,
+            position=tqdm_position,
             disable=not verbose,
         )
 
@@ -710,31 +727,32 @@ class ProtoPNet(CaBRNet):
         img: str | Image.Image,
         preprocess: Callable,
         visualizer: SimilarityVisualizer | None,
-        prototype_dir_path: str = "",
-        output_dir_path: str = "",
+        prototype_dir: str = "",
+        output_dir: str = "",
         device: str = "cuda:0",
         exist_ok: bool = False,
         disable_rendering: bool = False,
         num_closest: int = 10,
         **kwargs,
     ) -> list[tuple[int, float, bool]]:
-        """Explain the decision for a particular image
+        r"""Explains the decision for a particular image.
 
         Args:
-            img: path to image or image itself
-            preprocess: preprocessing function
-            visualizer: prototype visualizer
-            prototype_dir_path: path to directory containing prototype visualizations
-            output_dir_path: path to output directory containing the explanation
-            device: target hardware device
-            exist_ok: silently overwrite existing explanation if any
-            disable_rendering: when True, no visual explanation is generated
-            num_closest: number of closest prototypes to display
+            img (str or Image): Path to image or image itself.
+            preprocess (Callable): Preprocessing function.
+            visualizer (SimilarityVisualizer): Similarity visualizer.
+            prototype_dir (str, optional): Path to directory containing prototype visualizations. Default: "".
+            output_dir (str, optional): Path to output directory. Default: "".
+            device (str, optional): Target hardware device. Default: cuda:0.
+            exist_ok (bool, optional): Silently overwrites existing explanation (if any). Default: False.
+            disable_rendering (bool, optional): When True, no visual explanation is generated. Default: False.
+            num_closest (int, optional): Number of closest prototypes to display. Default: 10.
+
 
         Returns:
-            list of most relevant prototypes for the decision, where each entry is in the form
+            List of most relevant prototypes for the decision, where each entry is in the form
                 (<prototype index>, <similarity score>, <similar>)
-            and <similar> indicates whether the prototype is considered similar or dissimilar
+            and <similar> indicates whether the prototype is considered similar or dissimilar.
         """
         self.eval()
 
@@ -761,12 +779,12 @@ class ProtoPNet(CaBRNet):
                 min_distances[proto_idx] = float("inf")
 
         # Build explanation
-        img_path = os.path.join(output_dir_path, f"original.png")
+        img_path = os.path.join(output_dir, f"original.png")
         if not disable_rendering:
-            os.makedirs(os.path.join(output_dir_path, "test_patches"), exist_ok=exist_ok)
+            os.makedirs(os.path.join(output_dir, "test_patches"), exist_ok=exist_ok)
             # Copy source image
             img.save(img_path)
-        explanation = ExplanationGraph(output_dir=output_dir_path)
+        explanation = ExplanationGraph(output_dir=output_dir)
         explanation.set_test_image(img_path=img_path)
         most_relevant_prototypes = []  # Keep track of most relevant prototypes
 
@@ -776,10 +794,10 @@ class ProtoPNet(CaBRNet):
             score = torch.log((min_distance + 1) / (min_distance + 1e-4)).item()
             most_relevant_prototypes.append((proto_idx, score, True))  # ProtoPNet only considers positive similarities
             # Recover path to prototype image
-            prototype_image_path = os.path.join(prototype_dir_path, f"prototype_{proto_idx}.png")
+            prototype_image_path = os.path.join(prototype_dir, f"prototype_{proto_idx}.png")
             prototype_class_idx = int(torch.argmax(self.classifier.proto_class_map[proto_idx]))
             # Generate test image patch
-            patch_image_path = os.path.join(output_dir_path, "test_patches", f"proto_similarity_{proto_idx}.png")
+            patch_image_path = os.path.join(output_dir, "test_patches", f"proto_similarity_{proto_idx}.png")
             if not disable_rendering:
                 patch_image = visualizer.forward(img=img, img_tensor=img_tensor, proto_idx=proto_idx, device=device)
                 patch_image.save(patch_image_path)
@@ -796,12 +814,12 @@ class ProtoPNet(CaBRNet):
             explanation.render()
         return most_relevant_prototypes
 
-    def explain_global(self, prototype_dir_path: str, output_dir_path: str, **kwargs) -> None:
-        """Build global explanation_graph.
+    def explain_global(self, prototype_dir: str, output_dir: str, **kwargs) -> None:
+        r"""Explains the global decision-making process of a CaBRNet model.
 
         Args:
-            prototype_dir_path: Path where the prototypes are stored on the system.
-            output_dir_path: Path where the result graph will be saved.
+            prototype_dir (str): Path to directory containing prototype visualizations.
+            output_dir (str): Path to output directory.
         """
         proto_class_map = self.classifier.proto_class_map.detach().cpu().numpy()
         class_mapping = {c: list(np.nonzero(proto_class_map[:, c])[0]) for c in range(self.classifier.num_classes)}
@@ -819,9 +837,7 @@ class ProtoPNet(CaBRNet):
                 root="True",
             )
             for prototype in class_mapping[class_idx]:
-                img_path = os.path.relpath(
-                    os.path.join(prototype_dir_path, f"prototype_{prototype}.png"), output_dir_path
-                )
+                img_path = os.path.relpath(os.path.join(prototype_dir, f"prototype_{prototype}.png"), output_dir)
                 graph.node(
                     name=f"P{prototype}",
                     shape="plaintext",
@@ -836,4 +852,4 @@ class ProtoPNet(CaBRNet):
             _build_class_node(explanation_graph, class_idx)
 
         logger.debug(explanation_graph.source)
-        explanation_graph.render(filename=os.path.join(output_dir_path, "global_explanation"))
+        explanation_graph.render(filename=os.path.join(output_dir, "global_explanation"))

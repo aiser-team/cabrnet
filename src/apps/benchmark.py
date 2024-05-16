@@ -10,10 +10,19 @@ from cabrnet.utils.exceptions import ArgumentError
 from argparse import ArgumentParser, Namespace
 
 
-description = "benchmark a CaBRNet model"
+description = "computes a set of evaluation metrics on a CaBRNet model"
 
 
 def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
+    r"""Creates the argument parser for evaluating a CaBRNet model using specific metrics.
+
+    Args:
+        parser (ArgumentParser, optional): Parent parser (if any).
+            Default: None.
+
+    Returns:
+        The parser itself.
+    """
     if parser is None:
         parser = ArgumentParser(description)
     parser = CaBRNet.create_parser(parser)
@@ -49,6 +58,14 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
 
 
 def check_args(args: Namespace) -> Namespace:
+    r"""Checks the validity of the arguments and updates the namespace if necessary.
+
+    Args:
+        args (Namespace): Parsed arguments.
+
+    Returns:
+        Modified argument namespace.
+    """
     if args.checkpoint_dir is not None:
         # Fetch all files from directory
         for param, name in zip(
@@ -80,10 +97,10 @@ def check_args(args: Namespace) -> Namespace:
 
 
 def execute(args: Namespace) -> None:
-    """Create CaBRNet model, then load a state dictionary in legacy form.
+    r"""Computes a set of evaluation metrics on a CaBRNet model, based on a configuration file.
 
     Args:
-        args: Parsed arguments.
+        args (Namespace): Parsed arguments.
 
     """
     # Check and post-process options

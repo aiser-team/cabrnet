@@ -13,21 +13,34 @@ from captum.attr._utils.lrp_rules import PropagationRule, IdentityRule
 
 
 class L2SimilaritiesLRPWrapper(L2Similarities):
-    """Replacement for the L2 similarity layer
+    r"""Replacement for the L2 similarity layer.
 
-    Args:
-        num_prototypes: Number of prototypes
-        num_features: Size of each prototype
-        stability_factor (float): epsilon value used for numerical stability
+    Attributes:
+        stability_factor: Epsilon value used for numerical stability.
+        rule: LRP propagation rule.
+        autograd_func: Internal autograd function.
     """
 
     def __init__(self, num_prototypes: int, num_features: int, stability_factor: float = 1e-12) -> None:
+        r"""Initializes a L2SimilaritiesLRPWrapper layer.
+
+        Args:
+            num_prototypes (int): Number of prototypes.
+            num_features (int): Size of each prototype.
+            stability_factor (float, optional): Epsilon value used for numerical stability. Default: 1e-12.
+        """
         super().__init__(num_prototypes=num_prototypes, num_features=num_features)
         self.stability_factor = stability_factor
         self.rule = GradientRule()
         self.autograd_func = self._autograd_func()
 
     def _autograd_func(self) -> torch.autograd.Function:
+        r"""Internal autograd function.
+
+        Returns:
+            Autograd function.
+        """
+
         class SimilarityAutoGradFunc(torch.autograd.Function):
             def forward(ctx: Any, features: Tensor, prototypes: Tensor) -> Tensor:
                 # Compute raw L2 distances
@@ -59,18 +72,33 @@ class L2SimilaritiesLRPWrapper(L2Similarities):
         return SimilarityAutoGradFunc()
 
     def forward(self, features: Tensor, prototypes: Tensor) -> Tensor:
+        r"""Applies the autograd function.
+
+        Args:
+            features (tensor): Tensor of convolutional features.
+            prototypes (tensor): Tensor of prototypes.
+
+        Returns:
+            Tensor of similarity scores.
+        """
         return self.autograd_func.apply(features, prototypes)
 
 
 class DecisionLRPWrapper(nn.Module):
-    """Replacement for the decision layer of a CaBRNet model
+    r"""Replacement for the decision layer of a CaBRNet model.
 
-    Args:
-        classifier (nn.Module): source decision layer
-        stability_factor (float): epsilon value used for numerical stability
+    Attributes:
+        prototypes: Tensor of prototypes.
+        similarity_layer: Layer used to compute similarity scores between the prototypes and the convolutional features.
     """
 
     def __init__(self, classifier: nn.Module, stability_factor: float = 1e-12) -> None:
+        r"""Initializes a DecisionLRPWrapper layer.
+
+        Args:
+            classifier (Module): Source decision layer.
+            stability_factor (float, optional): Epsilon value used for numerical stability. Default: 1e-12.
+        """
         super().__init__()
         for attr in ["prototypes", "num_prototypes", "num_features"]:
             if not hasattr(classifier, attr):
@@ -86,32 +114,54 @@ class DecisionLRPWrapper(nn.Module):
         )
 
     def forward(self, x: Tensor) -> Tensor:
+        r"""Computes a similarity score based on preset prototypes.
+
+        Args:
+            x (tensor): Input tensor.
+
+        Returns:
+            Tensor of similarity scores.
+        """
         return self.similarity_layer(x, self.prototypes)
 
 
 class GradientRule(PropagationRule):
-    """Dummy propagation rule used when ignoring LRP and using gradients directly"""
+    r"""Dummy propagation rule used when ignoring LRP and using gradients directly."""
 
     def forward_hook(self, module, inputs, outputs):
+        r"""Dummy hook.
+
+        Args:
+            module (Module): Target layer.
+            inputs (tensor): Tensor of layer inputs.
+            outputs (tensor): Tensor of layer outputs.
+        """
         pass
 
     def _manipulate_weights(self, module, inputs, outputs):
+        r"""Dummy functions.
+
+        Args:
+            module (Module): Target layer.
+            inputs (tensor): Tensor of layer inputs.
+            outputs (tensor): Tensor of layer outputs.
+        """
         pass
 
 
 class ZBetaLayer(ABC):
-    """Abstract layer for applying Z^Beta rule during relevance backpropagation.
-    For more information, see https://arxiv.org/pdf/1512.02479.pdf
+    r"""Abstract layer for applying Z^Beta rule during relevance backpropagation.
 
+    For more information, see https://arxiv.org/pdf/1512.02479.pdf
     Use for first (pixel) layer.
 
-    Args:
-        set_bias_to_zero (bool): ignore bias during backpropagation
-        lower_bound (float): smallest admissible pixel value
-        upper_bound (float): largest admissible pixel value
-        stability_factor (float): epsilon value used for numerical stability
-
-    Note: admissible range for pixel values must take into account input normalization
+    Attributes:
+        stability_factor: Epsilon value used for numerical stability.
+        rule: LRP propagation rule.
+        autograd_func: Internal autograd function.
+        set_bias_to_zero: If True, ignore bias during backpropagation.
+        lower_bound: Smallest admissible pixel value.
+        upper_bound: Largest admissible pixel value.
     """
 
     def __init__(
@@ -123,6 +173,17 @@ class ZBetaLayer(ABC):
         ),  # from imagenet normalization
         stability_factor: float = 1e-6,
     ) -> None:
+        r"""Initializes a ZBetaLayer layer.
+
+        Args:
+            set_bias_to_zero (bool, optional): If True, ignore bias during backpropagation. Default: True.
+            lower_bound (float, optional): Smallest admissible pixel value. Default: given by ImageNet normalization.
+            upper_bound (float, optional): Largest admissible pixel value. Default: given by ImageNet normalization.
+            stability_factor (float, optional): Epsilon value used for numerical stability. Default: 1e-6.
+
+        Note: admissible range for pixel values must take into account input normalization.
+
+        """
         self.set_bias_to_zero = set_bias_to_zero
         self.lower_bound = lower_bound
         self.upper_bound = upper_bound
@@ -132,15 +193,37 @@ class ZBetaLayer(ABC):
 
     @abstractmethod
     def _legacy_forward(self, x: Tensor) -> Tensor:
-        """Legacy forward function for this layer"""
+        r"""Original (legacy) forward function for this layer.
+
+        Args:
+            x (tensor): Input tensor.
+
+        Returns:
+            Layer output tensor.
+        """
         raise NotImplementedError
 
     @abstractmethod
-    def _modified_forward(self, x: Tensor, lower_bound: Tensor, upper_bound: Tensor) -> Tensor:
-        """Modified forward function"""
+    def _modified_forward(self, x: Tensor, l_bound_tensor: Tensor, u_bound_tensor: Tensor) -> Tensor:
+        r"""Modified forward function.
+
+        Args:
+            x (tensor): Input tensor.
+            l_bound_tensor (tensor): Tensor of lower bound values.
+            u_bound_tensor (tensor): Tensor of upper bound values.
+
+        Returns:
+            Modified layer output.
+        """
         raise NotImplementedError
 
     def _autograd_func(self) -> torch.autograd.Function:
+        r"""Custom autograd function for relevance computation.
+
+        Returns:
+            Autograd function.
+        """
+
         class ZBetaAutoGradFunc(torch.autograd.Function):
             @staticmethod
             def forward(ctx: Any, *args, **kwargs) -> Tensor:
@@ -172,23 +255,30 @@ class ZBetaLayer(ABC):
         return ZBetaAutoGradFunc()
 
     def forward(self, x: Tensor) -> Tensor:
+        r"""Applies the autograd function.
+
+        Args:
+            x (tensor): Input tensor.
+
+        Returns:
+            Layer output.
+        """
         return self.autograd_func.apply(x)
 
 
 class ZBetaLinear(ZBetaLayer, nn.Linear):  # ZBetaLayer takes precedence to supersede "forward" function from nn.Module
-    """Replacement layer for applying Z^Beta rule on a nn.Linear operator during relevance backpropagation.
-    For more information, see https://arxiv.org/pdf/1512.02479.pdf
+    r"""Replacement layer for applying Z^Beta rule on a nn.Linear operator during relevance backpropagation.
 
+    For more information, see https://arxiv.org/pdf/1512.02479.pdf
     Use for first (pixel) layer.
 
-    Args:
-        module (nn.Module): layer to be replaced
-        set_bias_to_zero (bool): ignore bias during backpropagation
-        lower_bound (float): smallest admissible pixel value
-        upper_bound (float): largest admissible pixel value
-        stability_factor (float): epsilon value used for numerical stability
-
-    Note: admissible range for pixel values must take into account input normalization
+    Attributes:
+        stability_factor: Epsilon value used for numerical stability.
+        rule: LRP propagation rule.
+        autograd_func: Internal autograd function.
+        set_bias_to_zero: If True, ignore bias during backpropagation.
+        lower_bound: Smallest admissible pixel value.
+        upper_bound: Largest admissible pixel value.
     """
 
     def __init__(
@@ -201,7 +291,16 @@ class ZBetaLinear(ZBetaLayer, nn.Linear):  # ZBetaLayer takes precedence to supe
         ),  # from imagenet normalization
         stability_factor: float = 1e-6,
     ) -> None:
-        # Init ZBetaLayer
+        r"""Initializes a ZBetaLinear layer.
+
+        Args:
+            module (Module): Layer to be replaced.
+            set_bias_to_zero (bool, optional): If True, ignore bias during backpropagation. Default: True.
+            lower_bound (float, optional): Smallest admissible pixel value. Default: given by ImageNet normalization.
+            upper_bound (float, optional): Largest admissible pixel value. Default: given by ImageNet normalization.
+            stability_factor (float, optional): Epsilon value used for numerical stability. Default: 1e-6.
+        Note: admissible range for pixel values must take into account input normalization.
+        """
         ZBetaLayer.__init__(
             self,
             set_bias_to_zero=set_bias_to_zero,
@@ -217,10 +316,27 @@ class ZBetaLinear(ZBetaLayer, nn.Linear):  # ZBetaLayer takes precedence to supe
         self.load_state_dict(module.state_dict())
 
     def _legacy_forward(self, x: Tensor) -> Tensor:
-        """Legacy forward function for this layer"""
+        r"""Original (legacy) forward function for this layer.
+
+        Args:
+            x (tensor): Input tensor.
+
+        Returns:
+            Layer output tensor.
+        """
         return F.linear(x, self.weight, self.bias)
 
     def _modified_forward(self, x: Tensor, l_bound_tensor: Tensor, u_bound_tensor: Tensor) -> Tensor:
+        r"""Modified forward function.
+
+        Args:
+            x (tensor): Input tensor.
+            l_bound_tensor (tensor): Tensor of lower bound values.
+            u_bound_tensor (tensor): Tensor of upper bound values.
+
+        Returns:
+            Modified layer output.
+        """
         return (
             F.linear(x, self.weight, self.bias if not self.set_bias_to_zero else None)
             - F.linear(
@@ -237,19 +353,18 @@ class ZBetaLinear(ZBetaLayer, nn.Linear):  # ZBetaLayer takes precedence to supe
 
 
 class ZBetaConv2d(ZBetaLayer, nn.Conv2d):  # ZBetaLayer takes precedence to supersede "forward" function from nn.Module
-    """Replacement layer for applying Z^Beta rule on a nn.Conv2d operator during relevance backpropagation.
-    For more information, see https://arxiv.org/pdf/1512.02479.pdf
+    r"""Replacement layer for applying Z^Beta rule on a nn.Conv2d operator during relevance backpropagation.
 
+    For more information, see https://arxiv.org/pdf/1512.02479.pdf
     Use for first (pixel) layer.
 
-    Args:
-        module (nn.Module): layer to be replaced
-        set_bias_to_zero (bool): ignore bias during backpropagation
-        lower_bound (float): smallest admissible pixel value
-        upper_bound (float): largest admissible pixel value
-        stability_factor (float): epsilon value used for numerical stability
-
-    Note: admissible range for pixel values must take into account input normalization
+    Attributes:
+        stability_factor: Epsilon value used for numerical stability.
+        rule: LRP propagation rule.
+        autograd_func: Internal autograd function.
+        set_bias_to_zero: If True, ignore bias during backpropagation.
+        lower_bound: Smallest admissible pixel value.
+        upper_bound: Largest admissible pixel value.
     """
 
     def __init__(
@@ -262,7 +377,17 @@ class ZBetaConv2d(ZBetaLayer, nn.Conv2d):  # ZBetaLayer takes precedence to supe
         ),  # from imagenet normalization
         stability_factor: float = 1e-6,
     ) -> None:
-        # Init ZBetaLayer
+        r"""Initializes a ZBetaConv2d layer.
+
+        Args:
+            module (Module): Layer to be replaced.
+            set_bias_to_zero (bool, optional): If True, ignore bias during backpropagation. Default: True.
+            lower_bound (float, optional): Smallest admissible pixel value. Default: given by ImageNet normalization.
+            upper_bound (float, optional): Largest admissible pixel value. Default: given by ImageNet normalization.
+            stability_factor (float, optional): Epsilon value used for numerical stability. Default: 1e-6.
+
+        Note: admissible range for pixel values must take into account input normalization.
+        """
         ZBetaLayer.__init__(
             self,
             set_bias_to_zero=set_bias_to_zero,
@@ -287,10 +412,27 @@ class ZBetaConv2d(ZBetaLayer, nn.Conv2d):  # ZBetaLayer takes precedence to supe
         self.load_state_dict(module.state_dict())
 
     def _legacy_forward(self, x: Tensor) -> Tensor:
-        """Legacy forward function for this layer"""
+        r"""Original (legacy) forward function for this layer.
+
+        Args:
+            x (tensor): Input tensor.
+
+        Returns:
+            Layer output tensor.
+        """
         return self._conv_forward(x, self.weight, self.bias)
 
     def _modified_forward(self, x: Tensor, l_bound_tensor: Tensor, u_bound_tensor: Tensor) -> Tensor:
+        r"""Modified forward function.
+
+        Args:
+            x (tensor): Input tensor.
+            l_bound_tensor (tensor): Tensor of lower bound values.
+            u_bound_tensor (tensor): Tensor of upper bound values.
+
+        Returns:
+            Modified layer output.
+        """
         return (
             self._conv_forward(x, self.weight, self.bias if not self.set_bias_to_zero else None)
             - self._conv_forward(
@@ -307,14 +449,16 @@ class ZBetaConv2d(ZBetaLayer, nn.Conv2d):  # ZBetaLayer takes precedence to supe
 
 
 class Alpha1Beta0Layer(ABC):
-    """Abstract layer for applying Alpha1-Beta0 rule during relevance backpropagation.
-    For more information, see https://arxiv.org/pdf/1512.02479.pdf
+    r"""Abstract layer for applying Alpha1-Beta0 rule during relevance backpropagation.
 
+    For more information, see https://arxiv.org/pdf/1512.02479.pdf
     Use for convolution layers.
 
-    Args:
-        set_bias_to_zero (bool): ignore bias during backpropagation
-        stability_factor (float): epsilon value used for numerical stability
+    Attributes:
+        stability_factor: Epsilon value used for numerical stability.
+        rule: LRP propagation rule.
+        autograd_func: Internal autograd function.
+        set_bias_to_zero: If True, ignore bias during backpropagation.
     """
 
     def __init__(
@@ -322,6 +466,12 @@ class Alpha1Beta0Layer(ABC):
         set_bias_to_zero: bool = True,
         stability_factor: float = 1e-6,
     ) -> None:
+        r"""Initializes a Alpha1Beta0Layer layer.
+
+        Args:
+            set_bias_to_zero (bool, optional): If True, ignore bias during backpropagation. Default: True.
+            stability_factor (float, optional): Epsilon value used for numerical stability. Default: 1e-6.
+        """
         self.set_bias_to_zero = set_bias_to_zero
         self.stability_factor = stability_factor
         self.autograd_func = self._autograd_func()
@@ -329,15 +479,35 @@ class Alpha1Beta0Layer(ABC):
 
     @abstractmethod
     def _legacy_forward(self, x: Tensor) -> Tensor:
-        """Legacy forward function for this layer"""
+        r"""Original (legacy) forward function for this layer.
+
+        Args:
+            x (tensor): Input tensor.
+
+        Returns:
+            Layer output tensor.
+        """
         raise NotImplementedError
 
     @abstractmethod
     def _modified_forward(self, x: Tensor) -> Tensor:
-        """Modified forward function"""
+        r"""Modified forward function.
+
+        Args:
+            x (tensor): Input tensor.
+
+        Returns:
+            Modified layer output.
+        """
         raise NotImplementedError
 
     def _autograd_func(self) -> torch.autograd.Function:
+        r"""Custom autograd function for relevance computation.
+
+        Returns:
+            Autograd function.
+        """
+
         class ZBetaAutoGradFunc(torch.autograd.Function):
             @staticmethod
             def forward(ctx: Any, *args, **kwargs) -> Tensor:
@@ -366,20 +536,29 @@ class Alpha1Beta0Layer(ABC):
         return ZBetaAutoGradFunc()
 
     def forward(self, x: Tensor) -> Tensor:
+        r"""Applies the autograd function.
+
+        Args:
+            x (tensor): Input tensor.
+
+        Returns:
+            Layer output.
+        """
         return self.autograd_func.apply(x)
 
 
 class Alpha1Beta0Linear(Alpha1Beta0Layer, nn.Linear):
     # Alpha1Beta0Layer takes precedence to supersede "forward" function from nn.Module
-    """Replacement layer for applying Alpha1-Beta0 rule on a nn.Linear operator during relevance backpropagation.
-    For more information, see https://arxiv.org/pdf/1512.02479.pdf
+    r"""Replacement layer for applying Alpha1-Beta0 rule on a nn.Linear operator during relevance backpropagation.
 
+    For more information, see https://arxiv.org/pdf/1512.02479.pdf
     Use for convolution layers.
 
-    Args:
-        module (nn.Module): layer to be replaced
-        set_bias_to_zero (bool): ignore bias during backpropagation
-        stability_factor (float): epsilon value used for numerical stability
+    Attributes:
+        stability_factor: Epsilon value used for numerical stability.
+        rule: LRP propagation rule.
+        autograd_func: Internal autograd function.
+        set_bias_to_zero: If True, ignore bias during backpropagation.
     """
 
     def __init__(
@@ -388,7 +567,13 @@ class Alpha1Beta0Linear(Alpha1Beta0Layer, nn.Linear):
         set_bias_to_zero: bool = True,
         stability_factor: float = 1e-6,
     ) -> None:
-        # Init Alpha1Beta0Layer
+        r"""Initializes a Alpha1Beta0Linear layer.
+
+        Args:
+            module (Module): Layer to be replaced.
+            set_bias_to_zero (bool, optional): If True, ignore bias during backpropagation. Default: True.
+            stability_factor (float, optional): Epsilon value used for numerical stability. Default: 1e-6.
+        """
         Alpha1Beta0Layer.__init__(
             self,
             set_bias_to_zero=set_bias_to_zero,
@@ -402,10 +587,25 @@ class Alpha1Beta0Linear(Alpha1Beta0Layer, nn.Linear):
         self.load_state_dict(module.state_dict())
 
     def _legacy_forward(self, x: Tensor) -> Tensor:
-        """Legacy forward function for this layer"""
+        r"""Original (legacy) forward function for this layer.
+
+        Args:
+            x (tensor): Input tensor.
+
+        Returns:
+            Layer output tensor.
+        """
         return F.linear(x, self.weight, self.bias)
 
     def _modified_forward(self, x: Tensor) -> Tensor:
+        r"""Modified forward function.
+
+        Args:
+            x (tensor): Input tensor.
+
+        Returns:
+            Modified layer output.
+        """
         return F.linear(
             x.clamp(min=0),
             self.weight.data.clamp(min=0),
@@ -415,15 +615,16 @@ class Alpha1Beta0Linear(Alpha1Beta0Layer, nn.Linear):
 
 class Alpha1Beta0Conv2d(Alpha1Beta0Layer, nn.Conv2d):
     # Alpha1Beta0Layer takes precedence to supersede "forward" function from nn.Module
-    """Replacement layer for applying Alpha1-Beta0 rule on a nn.Conv2d operator during relevance backpropagation.
-    For more information, see https://arxiv.org/pdf/1512.02479.pdf
+    r"""Replacement layer for applying Alpha1-Beta0 rule on a nn.Conv2d operator during relevance backpropagation.
 
+    For more information, see https://arxiv.org/pdf/1512.02479.pdf
     Use for convolution layers.
 
-    Args:
-        module (nn.Module): layer to be replaced
-        set_bias_to_zero (bool): ignore bias during backpropagation
-        stability_factor (float): epsilon value used for numerical stability
+    Attributes:
+        stability_factor: Epsilon value used for numerical stability.
+        rule: LRP propagation rule.
+        autograd_func: Internal autograd function.
+        set_bias_to_zero: If True, ignore bias during backpropagation.
     """
 
     def __init__(
@@ -432,7 +633,13 @@ class Alpha1Beta0Conv2d(Alpha1Beta0Layer, nn.Conv2d):
         set_bias_to_zero: bool = True,
         stability_factor: float = 1e-6,
     ) -> None:
-        # Init ZBetaLayer
+        r"""Initializes a Alpha1Beta0Conv2d layer.
+
+        Args:
+            module (Module): Layer to be replaced.
+            set_bias_to_zero (bool, optional): If True, ignore bias during backpropagation. Default: True.
+            stability_factor (float, optional): Epsilon value used for numerical stability. Default: 1e-6.
+        """
         Alpha1Beta0Layer.__init__(
             self,
             set_bias_to_zero=set_bias_to_zero,
@@ -455,10 +662,25 @@ class Alpha1Beta0Conv2d(Alpha1Beta0Layer, nn.Conv2d):
         self.load_state_dict(module.state_dict())
 
     def _legacy_forward(self, x: Tensor) -> Tensor:
-        """Legacy forward function for this layer"""
+        r"""Original (legacy) forward function for this layer.
+
+        Args:
+            x (tensor): Input tensor.
+
+        Returns:
+            Layer output tensor.
+        """
         return self._conv_forward(x, self.weight, self.bias)
 
     def _modified_forward(self, x: Tensor) -> Tensor:
+        r"""Modified forward function.
+
+        Args:
+            x (tensor): Input tensor.
+
+        Returns:
+            Modified layer output.
+        """
         return self._conv_forward(
             x.clamp(min=0),
             self.weight.data.clamp(min=0),
@@ -467,30 +689,51 @@ class Alpha1Beta0Conv2d(Alpha1Beta0Layer, nn.Conv2d):
 
 
 class StackedSum(nn.Module):
-    """Replacement layer used in order to enforce Epsilon-rule through the addition operator inside residual blocks.
+    r"""Replacement layer used in order to enforce Epsilon-rule through the addition operator inside residual blocks.
+
     For more information, see https://github.com/AlexBinder/LRP_Pytorch_Resnets_Densenet/blob/master/lrp_general6.py
+    Use for residual blocks (e.g. ResNet).
 
-    Use for residual blocks (eg. ResNet).
-
-    Args:
-        stability_factor (float): epsilon value used for numerical stability
-
+    Attributes:
+        stability_factor: Epsilon value used for numerical stability.
+        rule: LRP propagation rule.
+        autograd_func: Internal autograd function.
     """
 
     def __init__(self, stability_factor: float = 1e-6):
+        r"""Initializes a StackedSum layer.
+
+        Args:
+            stability_factor (float, optional): Epsilon value used for numerical stability. Default: 1e-6.
+        """
         super().__init__()
         self.stability_factor = stability_factor
         self.autograd_func = self._autograd_func()
         self.rule = GradientRule()
 
     def forward(self, a: Tensor, b: Tensor) -> Tensor:
+        r"""Applies the autograd function.
+
+        Args:
+            a (tensor): First input tensor.
+            b (tensor): Second input tensor.
+
+        Returns:
+            Layer output.
+        """
         return self.autograd_func.apply(a, b)
 
     def _autograd_func(self) -> torch.autograd.Function:
+        r"""Custom autograd function for relevance computation.
+
+        Returns:
+            Autograd function.
+        """
+
         class StackedSumAutoGradFunc(torch.autograd.Function):
             @staticmethod
             def forward(ctx: Any, a: Tensor, b: Tensor) -> Tensor:
-                """Replacement operator for the addition of residual blocks"""
+                r"""Replacement operator for the addition of residual blocks"""
                 stacked = torch.stack([a, b], dim=0)
                 ctx.save_for_backward(stacked)
                 return torch.sum(stacked, dim=0)
@@ -516,6 +759,12 @@ class StackedSum(nn.Module):
 
 
 def attach_lrp_comp_rules(module: nn.Module, module_path: str = "") -> None:
+    r"""Attach LRP propagation rules to a given module.
+
+    Args:
+        module (str): Target module.
+        module_path (str, optional): Module path. Default: "".
+    """
     # Custom rule policy (overrules Captum default behaviour)
     policy = {
         torch.nn.MaxPool2d: GradientRule,
@@ -541,18 +790,20 @@ def get_extractor_lrp_composite_model(
     zbeta_lower_bound: float = min([-0.485 / 0.229, -0.456 / 0.224, -0.406 / 0.225]),
     zbeta_upper_bound: float = max([(1 - 0.485) / 0.229, (1 - 0.456) / 0.224, (1 - 0.406) / 0.225]),
 ) -> nn.Module:
-    """Prepare a feature extractor for composite LRP
+    r"""Prepares a feature extractor for composite LRP.
 
     Args:
-        model: target model
-        set_bias_to_zero: ignore bias in linear layers
-        stability_factor (float): epsilon value used for numerical stability
-        use_zbeta: use z-beta rule on first convolution
-        zbeta_lower_bound (float): smallest admissible pixel value (used in z-beta rule)
-        zbeta_upper_bound (float): largest admissible pixel value (used in z-beta rule)
+        model (Module): Target model.
+        set_bias_to_zero (bool): If True, ignore bias in linear layers.
+        stability_factor (float, optional): Epsilon value used for numerical stability. Default: 1e-6.
+        use_zbeta (bool, optional): If True, use z-beta rule on first convolution. Default: True.
+        zbeta_lower_bound (float, optional): Smallest admissible pixel value (used in z-beta rule).
+            Default: given by ImageNet normalization.
+        zbeta_upper_bound (float, optional): Largest admissible pixel value (used in z-beta rule).
+            Default: given by ImageNet normalization.
 
     Returns:
-        copy of the model, ready for running Captum LRP
+        Copy of the model, ready for running Captum LRP.
     """
     lrp_model = copy.deepcopy(model)
 
@@ -578,13 +829,13 @@ def get_extractor_lrp_composite_model(
     lrp_model = _search_and_replace_addition(lrp_model)
 
     def _find_batch_normalization_and_convolution_attribute_names(module: nn.Module):
-        """Find the name and location of all convolutions that are followed by batch normalization inside a module
+        r"""Finds the name and location of all convolutions that are followed by batch normalization inside a module
 
         Args:
-            module: current top module
+            module (Module): Current top module
 
         Returns:
-            the top module and the name of each convolution/batch normalization inside that module
+            The top module and the name of each convolution/batch normalization inside that module
         """
         target_conv_name = None
         for name, child in module.named_children():
@@ -618,13 +869,13 @@ def get_extractor_lrp_composite_model(
         bn_layer.reset_parameters()
 
     def _find_convolution_attribute_names(module: nn.Module):
-        """Find the name and location of all convolutions inside a module
+        r"""Finds the name and location of all convolutions inside a module
 
         Args:
-            module: current top module
+            module (Module): Current top module
 
         Returns:
-            the top module and the name of each convolution inside that module
+            The top module and the name of each convolution inside that module
         """
         for name, child in module.named_children():
             if isinstance(child, nn.Conv2d):
@@ -668,18 +919,20 @@ def get_cabrnet_lrp_composite_model(
     zbeta_lower_bound: float = min([-0.485 / 0.229, -0.456 / 0.224, -0.406 / 0.225]),
     zbeta_upper_bound: float = max([(1 - 0.485) / 0.229, (1 - 0.456) / 0.224, (1 - 0.406) / 0.225]),
 ) -> nn.Module:
-    """Prepare a CaBRNet model for composite LRP
+    r"""Prepares a CaBRNet model for composite LRP.
 
     Args:
-        model: target model
-        set_bias_to_zero: ignore bias in linear layers
-        stability_factor (float): epsilon value used for numerical stability
-        use_zbeta: use z-beta rule on first convolution
-        zbeta_lower_bound (float): smallest admissible pixel value (used in z-beta rule)
-        zbeta_upper_bound (float): largest admissible pixel value (used in z-beta rule)
+        model (Module): Target model.
+        set_bias_to_zero (bool, optional): If True, ignore bias in linear layers. Default: True.
+        stability_factor (float, optional): Epsilon value used for numerical stability. Default: 1e-6.
+        use_zbeta (bool, optional): If True, use z-beta rule on first convolution. Default: True.
+        zbeta_lower_bound (float, optional): Smallest admissible pixel value (used in z-beta rule).
+            Default: given by ImageNet normalization.
+        zbeta_upper_bound (float, optional): Largest admissible pixel value (used in z-beta rule).
+            Default: given by ImageNet normalization.
 
     Returns:
-        copy of the model, ready for running Captum LRP
+        Copy of the model, ready for running Captum LRP.
     """
     if not hasattr(model, "extractor"):
         # Check attribute presence rather than using isinstance(model, CaBRNet) to avoid circular dependencies

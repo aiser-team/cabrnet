@@ -285,7 +285,6 @@ class TestProtoTreeCompatibility(unittest.TestCase):
             cabrnet_model.train_epoch(
                 dataloaders=dataloaders,
                 optimizer_mngr=optimizer_mngr,
-                output_dir=self.output_dir,
                 epoch_idx=epoch,
                 device=self.device,
                 max_batches=5,
