@@ -132,7 +132,6 @@ def execute(args: Namespace) -> None:
         optimizer_mngr=None,
         training_config=training_config,
         dataset_config=dataset_config,
-        visualization_config=None,
         epoch="imported",
         seed=seed,
         device=device,

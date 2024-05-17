@@ -445,7 +445,6 @@ class ProtoPNet(CaBRNet):
             optimizer_mngr=None,
             training_config=training_config,
             dataset_config=dataset_config,
-            visualization_config=None,
             epoch="projected",
             seed=seed,
             device=device,
