@@ -6,12 +6,12 @@ variables:
 
 default:
   interruptible: true
-  tags: [ pub-nix ] 
+  tags: [ pub-nix ]
 
 stages:
   - dependencies # in charge of downloading the correct set of dependencies
   - build # in charge of running the proper setup tool to build the archive
-#  - typing # in charge of typechecking using mypy
+  - typing # in charge of typechecking using mypy
 #  - test # in charge of running unit tests
 #  - docstrings # in charge of ensuring the correct style of docstrings
 #  - doc # in charge of building the doc
@@ -26,6 +26,9 @@ dependencies:
 build:
   stage : build
   script:
-    - nix --extra-experimental-features "nix-command flakes" develop
-    - python3 -m pip install build
-    - python3 -m build
+    - nix --extra-experimental-features "nix-command flakes" develop --command ci/install_and_build.sh
+
+typing:
+  stage : typing
+  script:
+    - nix --extra-experimental-features "nix-command flakes" develop --command ci/typecheck.sh

@@ -49,14 +49,53 @@
             pyproject = true;
             src = sources.python;
             build-system = with pythonPkgs; [ setuptools wheel ];
-            dependencies = with pythonPkgs;[ setuptools ];
-            nativeCheckInputs = with pythonPkgs;[ mypy ];
+            buildInputs = with pythonPkgs; [
+              torch
+              torchvision
+              numpy
+              pillow
+              tqdm
+              gdown
+              pyyaml
+              matplotlib
+              scipy
+              loguru
+              graphviz
+              opencv4
+              mkdocs
+              pydocstyle
+              captum.packages.${system}.default
+              pandas
+            ];
+            buildInputs = with pythonPkgs; [
+              torch
+              torchvision
+              numpy
+              pillow
+              tqdm
+              gdown
+              pyyaml
+              matplotlib
+              scipy
+              loguru
+              graphviz
+              opencv4
+              mkdocs
+              pydocstyle
+              captum.packages.${system}.default
+              pandas
+            ];
+            nativeCheckInputs = [ pkgs.pyright pythonPkgs.black ];
+            importCheck = with pythonPkgs; [ scipy torch ];
           };
       };
-      devShells = rec {
-        default =
-          let venvDir = "./.cabrnet-venv-nix"; in
-          pkgs.mkShell {
+      devShells =
+        let venvDir = "./.cabrnet-venv-nix"; in
+        rec {
+          default = self.devShells.${system}.install;
+          buildInputs = with pythonPkgs; [ python3 ];
+          packages = with pythonPkgs; [ mypy ];
+          install = pkgs.mkShell {
             name = "CaBRNet development shell environment.";
             shellHook = ''
               echo "Welcome in the development shell for CaBRNet."
@@ -73,11 +112,9 @@
               # environment to PYTHONPATH, which you can do here too;
               PYTHONPATH=$PWD/${venvDir}/${pythonPkgs.python.sitePackages}/:$PYTHONPATH
               source "${venvDir}/bin/activate"
-
-              pip install -r requirements.txt
             '';
           };
-      };
+        };
     });
 }
 
