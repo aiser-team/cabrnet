@@ -1,3 +1,5 @@
+# A Nix flake to serve as the CI environment for CaBRNet. Not expected to be
+# used for packaging 
 {
   description = "CaBRNet Nix flake.";
   inputs = {
@@ -38,7 +40,8 @@
     rec {
       packages = rec {
         default = self.packages.${system}.cabrnet;
-        # CaBRNet package: include binary in src/apps and documentation
+        # Dummy CaBRNet package, as we are only interested into having a
+        # development shell with necessary dependencies
         cabrnet = pythonPkgs.buildPythonPackage
           {
             pname = "cabrnet";
@@ -50,24 +53,34 @@
             nativeCheckInputs = with pythonPkgs;[ mypy ];
           };
       };
-
-      apps = rec {
-        default = {
-          type = "app";
-          program =
-            "${self.packages.${system}.default}/src/main.py";
-        };
-      };
       devShells = rec {
-        default = pkgs.mkShell {
-          name = "CaBRNet development shell environment.";
-          inputsFrom = [ self.packages.${system}.cabrnet ];
-          packages = with pythonPkgs; [ torch torchvision numpy pillow tqdm ];
-          shellHook = ''
-            echo "Welcome in the development shell for CaBRNet."
-          '';
-        };
+        default =
+          let venvDir = "./.cabrnet-venv-nix"; in
+          pkgs.mkShell {
+            name = "CaBRNet development shell environment.";
+            shellHook = ''
+              echo "Welcome in the development shell for CaBRNet."
+              SOURCE_DATE_EPOCH=$(date +%s)
+              if [ -d "${venvDir}" ];
+              then
+              echo "Skipping venv creation, '${venvDir}' already exists"
+              else
+              echo "Creating new venv environment in path: '${venvDir}'"
+              ${pythonPkgs.python.interpreter} -m venv "${venvDir}"
+              fi
+
+              # Under some circumstances it might be necessary to add your virtual
+              # environment to PYTHONPATH, which you can do here too;
+              PYTHONPATH=$PWD/${venvDir}/${pythonPkgs.python.sitePackages}/:$PYTHONPATH
+              source "${venvDir}/bin/activate"
+
+              pip install -r requirements.txt
+            '';
+          };
       };
     });
 }
+
+
+
 
