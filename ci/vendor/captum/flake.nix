@@ -22,7 +22,6 @@
     rec {
       packages = rec {
         default = self.packages.${system}.captum;
-        # CaBRNet package: include binary in src/apps and documentation
         captum = pythonPkgs.buildPythonPackage
           rec {
             pname = "captum";
@@ -32,15 +31,14 @@
               hash = "sha256-fKh9DcZ7O3WJpzC5cLlTYXKlRo4OMb+GV/3XOrxWijM=";
             };
             build-system = with pythonPkgs; [ setuptools wheel ];
-	    doCheck = false;
+            doCheck = false;
           };
       };
-
       apps = rec {
         default = {
           type = "app";
           program =
-            "${self.packages.${system}.default}/src/main.py";
+            "${self.packages.${system}.default}/main.py";
         };
       };
     });

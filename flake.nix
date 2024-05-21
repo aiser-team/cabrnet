@@ -6,12 +6,14 @@
     flake-utils.url = "github:numtide/flake-utils";
     nix-filter.url = "github:numtide/nix-filter";
     nixpkgs.url = "nixpkgs";
+    captum.url = "./ci/vendor/captum/"; # relative path for flake is a best effort, see https://github.com/NixOS/nix/issues/9339
   };
   outputs =
     { self
     , flake-utils
     , nixpkgs
     , nix-filter
+    , captum
     , ...
     }:
     flake-utils.lib.eachDefaultSystem (system:
@@ -33,6 +35,7 @@
             (nix-filter.lib.inDirectory "src")
             (nix-filter.lib.inDirectory "tools")
             (nix-filter.lib.inDirectory "website")
+            (nix-filter.lib.inDirectory "utils")
           ];
         };
       };
@@ -67,34 +70,45 @@
               captum.packages.${system}.default
               pandas
             ];
-            buildInputs = with pythonPkgs; [
-              torch
-              torchvision
-              numpy
-              pillow
-              tqdm
-              gdown
-              pyyaml
-              matplotlib
-              scipy
-              loguru
-              graphviz
-              opencv4
-              mkdocs
-              pydocstyle
-              captum.packages.${system}.default
-              pandas
-            ];
             nativeCheckInputs = [ pkgs.pyright pythonPkgs.black ];
             importCheck = with pythonPkgs; [ scipy torch ];
           };
+      };
+      checks = {
+        formattingCode =
+          self.packages.${system}.default.overrideAttrs
+            (oldAttrs: {
+              doCheck = true;
+              name = "check-${oldAttrs.name}-code";
+              checkPhase = ''
+                black --check src/ tools/ utils/
+              '';
+            });
+        formattingDocstring =
+          self.packages.${system}.default.overrideAttrs
+            (oldAttrs: {
+              doCheck = true;
+              name = "check-${oldAttrs.name}-docstring";
+              checkPhase = ''
+                python utils/check_docstrings.py -d src/
+              '';
+            });
+        typing =
+          self.packages.${system}.default.overrideAttrs
+            (oldAttrs: {
+              doCheck = true;
+              name = "check-${oldAttrs.name}-typing";
+              checkPhase = ''
+                mypy src/cabrnet
+              '';
+            });
+
       };
       devShells =
         let venvDir = "./.cabrnet-venv-nix"; in
         rec {
           default = self.devShells.${system}.install;
-          buildInputs = with pythonPkgs; [ python3 ];
-          packages = with pythonPkgs; [ mypy ];
+          inputsFrom = self.packages.${system}.default;
           install = pkgs.mkShell {
             name = "CaBRNet development shell environment.";
             shellHook = ''

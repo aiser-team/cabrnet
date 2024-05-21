@@ -26,21 +26,23 @@ dependencies:
 build:
   stage : build
   script:
-    - nix --extra-experimental-features "nix-command flakes" develop --command ci/install_and_build.sh
+    - nix --extra-experimental-features "nix-command flakes" build
 
 code:
   stage : formatting
   allow_failure: true
   script:
-    - nix --extra-experimental-features "nix-command flakes" develop --command ci/formatting.sh
+    # only focusing on x86_64 linux systems as of now it is not possible to run
+    # checks on multiple systems
+    - nix --extra-experimental-features "nix-command flakes" build .#checks.x86_64-linux.formattingCode
 
 docstrings:
   stage : formatting
   allow_failure: true
   script:
-    - nix --extra-experimental-features "nix-command flakes" develop --command ci/docstring_check.sh
+    - nix --extra-experimental-features "nix-command flakes" build .#checks.x86_64-linux.formattingDocstring
 
 typing:
   stage : typing
   script:
-    - nix --extra-experimental-features "nix-command flakes" develop --command ci/typecheck.sh
+    - nix --extra-experimental-features "nix-command flakes" build .#checks.x86_64-linux.typing
