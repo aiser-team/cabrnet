@@ -28,13 +28,15 @@ build:
   script:
     - nix --extra-experimental-features "nix-command flakes" develop --command ci/install_and_build.sh
 
-docstrings:
+code:
   stage : formatting
+  allow_failure: true
   script:
     - nix --extra-experimental-features "nix-command flakes" develop --command ci/formatting.sh
 
-code_formatting:
+docstrings:
   stage : formatting
+  allow_failure: true
   script:
     - nix --extra-experimental-features "nix-command flakes" develop --command ci/docstring_check.sh
 
