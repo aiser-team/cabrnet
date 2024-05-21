@@ -11,9 +11,9 @@ default:
 stages:
   - dependencies # in charge of downloading the correct set of dependencies
   - build # in charge of running the proper setup tool to build the archive
+  - formatting # in charge of ensuring the correct style of docstrings and code
   - typing # in charge of typechecking using mypy
 #  - test # in charge of running unit tests
-  - docstrings # in charge of ensuring the correct style of docstrings
 #  - doc # in charge of building the doc
 #  - install # in charge of checking that the soft can be released proper
 #  - mirror # in charge of replicating the state of this repo on others
@@ -28,12 +28,17 @@ build:
   script:
     - nix --extra-experimental-features "nix-command flakes" develop --command ci/install_and_build.sh
 
+docstrings:
+  stage : formatting
+  script:
+    - nix --extra-experimental-features "nix-command flakes" develop --command ci/formatting.sh
+
+code_formatting:
+  stage : formatting
+  script:
+    - nix --extra-experimental-features "nix-command flakes" develop --command ci/docstring_check.sh
+
 typing:
   stage : typing
   script:
     - nix --extra-experimental-features "nix-command flakes" develop --command ci/typecheck.sh
-
-docstrings:
-  stage : docstrings
-  script:
-    - nix --extra-experimental-features "nix-command flakes" develop --command ci/docstring_check.sh
