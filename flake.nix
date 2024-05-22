@@ -1,5 +1,6 @@
 # A Nix flake to serve as the CI environment for CaBRNet. Not expected to be
 # used for packaging 
+# TODO: use only one nixpkgs for all the provided dependencies
 {
   description = "CaBRNet Nix flake.";
   inputs = {
@@ -7,6 +8,10 @@
     nix-filter.url = "github:numtide/nix-filter";
     nixpkgs.url = "nixpkgs";
     captum.url = "./ci/vendor/captum/"; # relative path for flake is a best effort, see https://github.com/NixOS/nix/issues/9339
+    # relative path for flake is a best effort, see https://github.com/NixOS/nix/issues/9339
+    # pydoc-markdown.url = "./ci/vendor/pydoc-markdown/";
+    # disabled for now as more work is needed for the generation of
+    # documentation in pure nix
   };
   outputs =
     { self
@@ -14,6 +19,7 @@
     , nixpkgs
     , nix-filter
     , captum
+      #, pydoc-markdown
     , ...
     }:
     flake-utils.lib.eachDefaultSystem (system:
@@ -42,13 +48,14 @@
     in
     rec {
       packages = rec {
+        pname = "cabrnet";
+        version = "0.2";
         default = self.packages.${system}.cabrnet;
         # Dummy CaBRNet package, as we are only interested into having a
         # development shell with necessary dependencies
         cabrnet = pythonPkgs.buildPythonPackage
           {
-            pname = "cabrnet";
-            version = "0.2";
+            inherit pname version;
             pyproject = true;
             src = sources.python;
             build-system = with pythonPkgs; [ setuptools wheel ];
@@ -69,10 +76,23 @@
               pydocstyle
               captum.packages.${system}.default
               pandas
+              # Documentation generation
+              pkgs.pandoc
             ];
             nativeCheckInputs = [ pkgs.pyright pythonPkgs.black ];
             importCheck = with pythonPkgs; [ scipy torch ];
           };
+        cabrnet-doc = pkgs.stdenv.mkDerivation {
+          inherit version;
+          pname = "cabrnet-doc";
+          src = sources.python;
+          #nativeBuildInputs = [pydoc-markdown.packages.${system}.default];
+          nativeBuildInputs = [ ];
+          buildPhase = ''echo "did the doc"'';
+          installPhase = ''
+            mkdir -p $out/bin
+            touch $out/bin/out'';
+        };
       };
       checks = {
         formattingCode =

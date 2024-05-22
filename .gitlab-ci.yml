@@ -13,8 +13,8 @@ stages:
   - build # in charge of running the proper setup tool to build the archive
   - formatting # in charge of ensuring the correct style of docstrings and code
   - typing # in charge of typechecking using mypy
+  - doc # in charge of building the doc
 #  - test # in charge of running unit tests
-#  - doc # in charge of building the doc
 #  - install # in charge of checking that the soft can be released proper
 #  - mirror # in charge of replicating the state of this repo on others
 
@@ -46,3 +46,8 @@ typing:
   stage : typing
   script:
     - nix --extra-experimental-features "nix-command flakes" build .#checks.x86_64-linux.typing
+
+doc:
+  stage : doc
+  script:
+    - nix --extra-experimental-features "nix-command flakes" develop --command ci/generate_doc.sh

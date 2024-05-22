@@ -22,3 +22,4 @@ docs/API/reference/
 website
 *.log
 trained_models/
+result/
