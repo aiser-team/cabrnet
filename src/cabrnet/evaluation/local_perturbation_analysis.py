@@ -212,7 +212,7 @@ def _compute_perturbations(
                 mask=1 - attribution,  # Perturb image outside the attribution mask
                 name="hue_dual",
             ),
-            "description": "Hue reduction",
+            "description": "Hue shift",
         },
         "blur": {
             "focus": _merge(
@@ -326,6 +326,23 @@ def execute(
         for dir_name in ["images", "perturbations"]:
             os.makedirs(os.path.join(output_dir, dir_name), exist_ok=True)
 
+        # Get dataloaders and projection info, then build prototypes
+        dataloaders = DatasetManager.get_dataloaders(config_file=dataset_config)
+        projection_info = load_projection_info(projection_file)
+        prototype_dir = os.path.join(output_dir, "prototypes")
+
+        # Avoid generating prototypes if the directory already exists
+        if not os.path.isdir(prototype_dir):
+            model.extract_prototypes(
+                dataloader_raw=dataloaders["projection_set_raw"],
+                dataloader=dataloaders["projection_set"],
+                projection_info=projection_info,
+                visualizer=visualizer,
+                dir_path=prototype_dir,
+                device=device,
+                verbose=verbose,
+            )
+
     for img_idx, (img, label) in test_iter:  # type: ignore
         img_array = np.array(img)
         img_tensor = preprocess(img)
@@ -371,12 +388,12 @@ def execute(
         explanation = DebugGraph(output_dir=output_dir)
         if debug_mode:
             # In debug mode, generate explanation graphs
-            explanation.set_test_image(img_path=img_path)
+            explanation.set_test_image(img_path=img_path, label="Original image\n\n\n")
             patch_img = visualizer.view(img=img, sim_map=attribution[..., 0], **visualizer.view_params)
             patch_img_path = os.path.join(output_dir, "images", f"img{img_idx}_p{proto_idx}_patch.png")
             square_resize(patch_img).save(patch_img_path)
             explanation.set_test_image(
-                img_path=patch_img_path, label=f"Similarity patch\nOriginal score: {score:.2f}\n", draw_arrows=False
+                img_path=patch_img_path, label=f"Similarity patch\nOriginal score: {score:.2f}\n\n", draw_arrows=False
             )
 
         for pert_name in perturbed_imgs:
@@ -397,15 +414,7 @@ def execute(
                     pert_img_path = os.path.join(
                         output_dir, "images", f"img{img_idx}_p{proto_idx}_{pert_name}_{target}.png"
                     )
-                    pert_img.save(pert_img_path)
-
-                    explanation.add_similarity(
-                        prototype_img_path=os.path.join(prototype_dir, f"prototype_{proto_idx}.png"),
-                        test_patch_img_path=pert_img_path,
-                        label=f"{perturbed_imgs[pert_name]['description']} ({target})\n"
-                        f"Similarity drop\n (from {score:.2f} to {pert_score:.2f})",
-                        font_color="blue" if drop_percentage > 0.1 else "red",
-                    )
+                    square_resize(pert_img).save(pert_img_path)
 
                 logger.debug(
                     f"Similarity between image {img_idx} and prototype {proto_idx} "
