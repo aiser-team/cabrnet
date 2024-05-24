@@ -110,7 +110,7 @@ class MyClass:
 
 To check the compliance of a code to the docstring policy, use:
 ```
-python utils/check_docstrings.py -d <path_to_source_directory>
+python tools/check_docstrings.py -d <path_to_source_directory>
 ```
 
 ## License
