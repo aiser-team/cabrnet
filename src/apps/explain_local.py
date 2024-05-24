@@ -5,6 +5,7 @@ from cabrnet.generic.model import CaBRNet
 from cabrnet.utils.data import DatasetManager
 from cabrnet.visualization.visualizer import SimilarityVisualizer
 from cabrnet.utils.exceptions import ArgumentError
+from cabrnet.utils.save import load_projection_info, safe_copy
 
 description = "explains the decision of a CaBRNet model"
 
@@ -52,6 +53,13 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         help="path to output directory",
     )
     parser.add_argument(
+        "-p",
+        "--projection-info",
+        type=str,
+        metavar="/path/to/projection/info",
+        help="path to the CSV file containing the projection informations",
+    )
+    parser.add_argument(
         "--overwrite",
         action="store_true",
         help="overwrite existing explanation (if any)",
@@ -71,8 +79,8 @@ def check_args(args: Namespace) -> Namespace:
     if args.checkpoint_dir is not None:
         # Fetch all files from directory
         for param, name in zip(
-            [args.model_config, args.model_state_dict, args.dataset, args.visualization],
-            ["--model-config", "--model-state-dict", "--dataset", "--visualization"],
+            [args.model_config, args.model_state_dict, args.dataset, args.visualization, args.projection_info],
+            ["--model-config", "--model-state-dict", "--dataset", "--visualization", "--projection-info"],
         ):
             if param is not None:
                 raise ArgumentError(f"Cannot specify both options {name} and --checkpoint-dir")
@@ -80,12 +88,19 @@ def check_args(args: Namespace) -> Namespace:
         args.model_state_dict = os.path.join(args.checkpoint_dir, CaBRNet.DEFAULT_MODEL_STATE)
         args.dataset = os.path.join(args.checkpoint_dir, DatasetManager.DEFAULT_DATASET_CONFIG)
         args.visualization = os.path.join(args.checkpoint_dir, SimilarityVisualizer.DEFAULT_VISUALIZATION_CONFIG)
+        args.projection_info = os.path.join(args.checkpoint_dir, CaBRNet.DEFAULT_PROJECTION_INFO)
 
     # Check configuration completeness
     for param, name, option in zip(
         [args.model_config, args.model_state_dict, args.dataset, args.visualization],
-        ["model configuration", "state dictionary", "dataset configuration", "visualization configuration"],
-        ["-m", "-s", "-d", "-z"],
+        [
+            "model configuration",
+            "state dictionary",
+            "dataset configuration",
+            "visualization configuration",
+            "projection informations",
+        ],
+        ["-m", "-s", "-d", "-z", "-p"],
     ):
         if param is None:
             raise ArgumentError(f"Missing {name} file (option {option}).")
@@ -113,7 +128,7 @@ def execute(args: Namespace) -> None:
 
     # Build prototypes
     dataloaders = DatasetManager.get_dataloaders(config_file=args.dataset)
-    projection_info = model.project(dataloaders["projection_set"])
+    projection_info = load_projection_info(args.projection_info)
     model.extract_prototypes(
         dataloader_raw=dataloaders["projection_set_raw"],
         dataloader=dataloaders["projection_set"],

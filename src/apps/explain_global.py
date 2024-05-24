@@ -4,6 +4,7 @@ from loguru import logger
 from cabrnet.generic.model import CaBRNet
 from cabrnet.utils.data import DatasetManager
 from cabrnet.utils.exceptions import ArgumentError
+from cabrnet.utils.save import load_projection_info, safe_copy
 from cabrnet.visualization.visualizer import SimilarityVisualizer
 
 description = "explains the global behaviour of a CaBRNet model"
@@ -33,6 +34,13 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         help="path to a checkpoint directory (alternative to --model-config, --model-state-dict)",
     )
     parser.add_argument(
+        "-p",
+        "--projection-info",
+        type=str,
+        metavar="/path/to/projection/info",
+        help="path to the CSV file containing the projection informations",
+    )
+    parser.add_argument(
         "-o",
         "--output-dir",
         type=str,
@@ -55,13 +63,15 @@ def check_args(args: Namespace) -> Namespace:
     if args.checkpoint_dir is not None:
         # Fetch all files from directory
         for param, name in zip(
-            [args.model_config, args.model_state_dict, args.dataset],
-            ["--model-config", "--model-state-dict", "--dataset"],
+            [args.model_config, args.model_state_dict, args.dataset, args.projection_info],
+            ["--model-config", "--model-state-dict", "--dataset", "--projection-info"],
         ):
             if param is not None:
                 raise ArgumentError(f"Cannot specify both options {name} and --checkpoint-dir")
         args.model_config = os.path.join(args.checkpoint_dir, CaBRNet.DEFAULT_MODEL_CONFIG)
         args.model_state_dict = os.path.join(args.checkpoint_dir, CaBRNet.DEFAULT_MODEL_STATE)
+        args.dataset = os.path.join(args.checkpoint_dir, DatasetManager.DEFAULT_DATASET_CONFIG)
+        args.projection_info = os.path.join(args.checkpoint_dir, CaBRNet.DEFAULT_PROJECTION_INFO)
 
     # Check configuration completeness
     for param, name, option in zip(
@@ -92,7 +102,7 @@ def execute(args: Namespace) -> None:
 
     # Build prototypes
     dataloaders = DatasetManager.get_dataloaders(config_file=args.dataset)
-    projection_info = model.project(dataloaders["projection_set"])
+    projection_info = load_projection_info(args.projection_info)
     model.extract_prototypes(
         dataloader_raw=dataloaders["projection_set_raw"],
         dataloader=dataloaders["projection_set"],
