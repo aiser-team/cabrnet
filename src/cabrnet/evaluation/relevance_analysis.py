@@ -1,7 +1,7 @@
 from cabrnet.generic.model import CaBRNet
 from cabrnet.utils.data import DatasetManager
 from cabrnet.visualization.visualizer import SimilarityVisualizer
-from cabrnet.visualization.explainer import ExplanationGraph
+from cabrnet.evaluation.debug_explainer import DebugGraph
 from cabrnet.visualization.view import heatmap
 from cabrnet.utils.parser import load_config
 from cabrnet.utils.exceptions import ArgumentError
@@ -92,7 +92,7 @@ def patches_relevance_analysis(
     device: str,
     verbose: bool,
     patch_info_db: str,
-    percentage: float,
+    area_percentage: float,
     sampling_ratio: int = 1,
     debug_mode: bool = False,
     tqdm_position: int = 0,
@@ -108,7 +108,7 @@ def patches_relevance_analysis(
         device (str): Target device.
         verbose (bool): Verbose mode.
         patch_info_db (str): Path to raw output analysis file.
-        percentage (float): Area percentage for pointing game mask relevance.
+        area_percentage (float): Area percentage for pointing game mask relevance.
         sampling_ratio (int, optional): Ratio of test images to use during evaluation (e.g. 10 means only
             one image in ten is used). Default: 1.
         debug_mode (bool, optional): Debug mode. When true, saves visualizations. Default: False.
@@ -163,7 +163,7 @@ def patches_relevance_analysis(
             img=img, img_tensor=img_tensor, proto_idx=proto_idx, device=device  # type: ignore
         )
 
-        mask_relevance = pg_mask_relevance(attribution, np.asarray(seg), percentage)
+        mask_relevance = pg_mask_relevance(attribution, np.asarray(seg), area_percentage)
         energy_relevance = pg_energy_relevance(attribution, np.asarray(seg))
         stats.append(
             {
@@ -175,35 +175,66 @@ def patches_relevance_analysis(
         )
         if debug_mode:
             # In debug mode, generate visualization graphs
-            explanation = ExplanationGraph(output_dir=output_dir)
+            explanation = DebugGraph(output_dir=output_dir)
             img_dir = os.path.join(output_dir, "visualizations")
             os.makedirs(img_dir, exist_ok=True)
 
+            def square_resize(img: Image.Image) -> Image.Image:
+                # Resize image to square
+                final_size = min(img.width, img.height)
+                return img.resize((final_size, final_size))
+
             def save_img(src_img: Image.Image, img_path: str, label: str):
-                # Reshape image to square
-                final_size = min(src_img.width, src_img.height)
-                resized_img = src_img.resize((final_size, final_size))
-                resized_img.save(img_path)
-                explanation.set_test_image(img_path=img_path, label=label)
+                square_resize(src_img).save(img_path)
+                explanation.set_test_image(img_path=img_path, label=label, draw_arrows=False)
+
+            def add_pairs(
+                top_img: Image.Image,
+                top_img_path: str,
+                top_img_label: str,
+                bot_img: Image.Image,
+                bot_img_path: str,
+                bot_img_label: str,
+            ):
+                square_resize(top_img).save(top_img_path)
+                square_resize(bot_img).save(bot_img_path)
+                explanation.add_pairs(
+                    top_img_path=top_img_path,
+                    top_img_label=top_img_label,
+                    bot_img_path=bot_img_path,
+                    bot_img_label=bot_img_label,
+                )
 
             # Save the original image, the segmentation, the heatmap and their intersection
             save_img(src_img=img, img_path=os.path.join(img_dir, f"img_{img_idx}_src.png"), label="Original image")
             save_img(src_img=seg, img_path=os.path.join(img_dir, f"img_{img_idx}_seg.png"), label="Segmentation")
-            save_img(
-                src_img=heatmap(img=img, sim_map=attribution),
-                img_path=os.path.join(img_dir, f"img_{img_idx}_heatmap.png"),
-                label="Heatmap",
+
+            sorted_attribution = np.sort(np.reshape(attribution, (-1)))
+            threshold = sorted_attribution[int(len(sorted_attribution) * (1 - area_percentage))]
+            add_pairs(
+                top_img=heatmap(img=img, sim_map=attribution),
+                top_img_path=os.path.join(img_dir, f"img_{img_idx}_heatmap.png"),
+                top_img_label="Heatmap",
+                bot_img=heatmap(img=img, sim_map=attribution > threshold),
+                bot_img_path=os.path.join(img_dir, f"img_{img_idx}_heatmap_mask.png"),
+                bot_img_label=f"Heatmap ({int(area_percentage*100)}% area)",
             )
             seg_array = np.array(seg)[..., 0]
-            save_img(
-                src_img=heatmap(img=img, sim_map=attribution * (seg_array > 0)),
-                img_path=os.path.join(img_dir, f"img_{img_idx}_intersect.png"),
-                label=f"Energy score: {energy_relevance:.2f}",
+            add_pairs(
+                top_img=heatmap(img=img, sim_map=attribution * (seg_array > 0)),
+                top_img_path=os.path.join(img_dir, f"img_{img_idx}_intersect.png"),
+                top_img_label=f"{int(energy_relevance*100)} % inside",
+                bot_img=heatmap(img=img, sim_map=(attribution > threshold) * (seg_array > 0)),
+                bot_img_path=os.path.join(img_dir, f"img_{img_idx}_intersect_mask.png"),
+                bot_img_label=f"{int(mask_relevance*100)} % inside",
             )
-            save_img(
-                src_img=heatmap(img=img, sim_map=attribution * (seg_array == 0.0)),
-                img_path=os.path.join(img_dir, f"img_{img_idx}_wasted.png"),
-                label=f"Wasted energy: {1.0-energy_relevance:.2f}",
+            add_pairs(
+                top_img=heatmap(img=img, sim_map=attribution * (seg_array == 0)),
+                top_img_path=os.path.join(img_dir, f"img_{img_idx}_wasted.png"),
+                top_img_label=f"{100-int(energy_relevance*100)} % outside",
+                bot_img=heatmap(img=img, sim_map=(attribution > threshold) * (seg_array == 0)),
+                bot_img_path=os.path.join(img_dir, f"img_{img_idx}_wasted_mask.png"),
+                bot_img_label=f"{100-int(mask_relevance*100)} % outside",
             )
             explanation.render(os.path.join(output_dir, f"img_{img_idx}_energy_score"))
 
@@ -228,7 +259,7 @@ def proto_relevance_analysis(
     device: str,
     verbose: bool,
     prototype_info_db: str,
-    percentage: float,
+    area_percentage: float,
     projection_info: str = "projection_info.csv",
     tqdm_position: int = 0,
     **kwargs,
@@ -243,7 +274,7 @@ def proto_relevance_analysis(
         device (str): Target device.
         verbose (bool): Verbose mode.
         prototype_info_db (str): Path to raw output analysis file.
-        percentage (float): Area percentage for pointing game mask relevance.
+        area_percentage (float): Area percentage for pointing game mask relevance.
         projection_info (str, optional): Path to the projection info produced during training.
             Default: projection_info.csv.
         tqdm_position (int, optional): Position of the progress bar. Default: 0.
@@ -292,7 +323,7 @@ def proto_relevance_analysis(
         img_tensor = preprocess(img)  # type: ignore
         attribution = visualizer.get_attribution(img=img, img_tensor=img_tensor, proto_idx=proto_idx, device=device)
         mask_relevance = pg_mask_relevance(
-            attribution, np.asarray(segmentation_set[projection_db[proto_idx]["img_idx"]][0]), percentage
+            attribution, np.asarray(segmentation_set[projection_db[proto_idx]["img_idx"]][0]), area_percentage
         )
         energy_relevance = pg_energy_relevance(
             attribution, np.asarray(segmentation_set[projection_db[proto_idx]["img_idx"]][0])

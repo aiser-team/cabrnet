@@ -21,6 +21,7 @@ Recognition](https://openaccess.thecvf.com/content/CVPR2021/papers/Nauta_Neural_
     - [Training configuration](training.md)
     - [Visualization configuration](visualize.md)
 - [Example: MNIST](mnist.md)
+- [Benchmark](evaluation.md)
 - [Compatibility with legacy codes](legacy.md)
 - [Downloading pre-trained models](download.md)
 
