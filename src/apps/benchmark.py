@@ -27,15 +27,14 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         parser = ArgumentParser(description)
     parser = CaBRNet.create_parser(parser)
     parser = DatasetManager.create_parser(parser)
-    parser = SimilarityVisualizer.create_parser(parser)
+    parser = SimilarityVisualizer.create_parser(parser, mandatory_config=True)
     parser.add_argument(
         "-c",
         "--checkpoint-dir",
         type=str,
         required=False,
         metavar="/path/to/checkpoint/dir",
-        help="path to a checkpoint directory "
-        "(alternative to --model-config, --model-state-dict, --dataset and --visualization)",
+        help="path to a checkpoint directory " "(alternative to --model-config, --model-state-dict and --dataset)",
     )
     parser.add_argument(
         "-b",
@@ -69,25 +68,19 @@ def check_args(args: Namespace) -> Namespace:
     if args.checkpoint_dir is not None:
         # Fetch all files from directory
         for param, name in zip(
-            [args.model_config, args.model_state_dict, args.dataset, args.visualization],
-            ["--model-config", "--model-state-dict", "--dataset", "--visualization"],
+            [args.model_config, args.model_state_dict, args.dataset],
+            ["--model-config", "--model-state-dict", "--dataset"],
         ):
             if param is not None:
                 logger.warning(f"Ignoring option {name}: using content pointed by --checkpoint-dir instead")
         args.model_config = os.path.join(args.checkpoint_dir, CaBRNet.DEFAULT_MODEL_CONFIG)
         args.model_state_dict = os.path.join(args.checkpoint_dir, CaBRNet.DEFAULT_MODEL_STATE)
         args.dataset = os.path.join(args.checkpoint_dir, DatasetManager.DEFAULT_DATASET_CONFIG)
-        args.visualization = os.path.join(args.checkpoint_dir, SimilarityVisualizer.DEFAULT_VISUALIZATION_CONFIG)
 
     # Check configuration completeness
     for param, name in zip(
-        [args.model_config, args.model_state_dict, args.dataset, args.visualization],
-        [
-            "model configuration",
-            "model state",
-            "dataset configuration",
-            "visualization configuration",
-        ],
+        [args.model_config, args.model_state_dict, args.dataset],
+        ["model configuration", "model state", "dataset configuration"],
     ):
         if param is None:
             raise ArgumentError(f"Missing {name} file.")

@@ -23,7 +23,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         parser = ArgumentParser(description)
     parser = CaBRNet.create_parser(parser)
     parser = DatasetManager.create_parser(parser)
-    parser = SimilarityVisualizer.create_parser(parser)
+    parser = SimilarityVisualizer.create_parser(parser, mandatory_config=True)
     parser.add_argument(
         "-c",
         "--checkpoint-dir",
@@ -55,8 +55,8 @@ def check_args(args: Namespace) -> Namespace:
     if args.checkpoint_dir is not None:
         # Fetch all files from directory
         for param, name in zip(
-            [args.model_config, args.model_state_dict],
-            ["--model-config", "--model-state-dict"],
+            [args.model_config, args.model_state_dict, args.dataset],
+            ["--model-config", "--model-state-dict", "--dataset"],
         ):
             if param is not None:
                 raise ArgumentError(f"Cannot specify both options {name} and --checkpoint-dir")
@@ -65,9 +65,9 @@ def check_args(args: Namespace) -> Namespace:
 
     # Check configuration completeness
     for param, name, option in zip(
-        [args.model_config, args.model_state_dict],
-        ["model configuration", "state dictionary"],
-        ["-m", "-s"],
+        [args.model_config, args.model_state_dict, args.dataset],
+        ["model configuration", "state dictionary", "dataset configuration"],
+        ["-m", "-s", "-d"],
     ):
         if param is None:
             raise ArgumentError(f"Missing {name} file (option {option}).")
