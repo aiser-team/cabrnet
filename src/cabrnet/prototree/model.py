@@ -15,11 +15,9 @@ from cabrnet.utils.tree import TreeNode, MappingMode
 from cabrnet.prototree.decision import SamplingStrategy, ProtoTreeClassifier
 from cabrnet.visualization.visualizer import SimilarityVisualizer
 from cabrnet.visualization.explainer import ExplanationGraph
-from cabrnet.utils.save import save_checkpoint
+from cabrnet.utils.save import save_checkpoint, save_projection_info
 import copy
 from loguru import logger
-import pickle
-import csv
 
 
 class ProtoTree(CaBRNet):
@@ -318,7 +316,7 @@ class ProtoTree(CaBRNet):
         verbose: bool = False,
         pruning_threshold: float = 0.0,
         merge_same_decision: bool = False,
-        projection_file: str = "projection_info.csv",
+        projection_file: str = CaBRNet.DEFAULT_PROJECTION_INFO,
         **kwargs: Any,
     ) -> dict[int, dict[str, int | float]]:
         r"""Function called after training, using information from the epilogue field in the training configuration.
@@ -370,17 +368,7 @@ class ProtoTree(CaBRNet):
         self.prune(pruning_threshold=pruning_threshold, merge_same_decision=merge_same_decision)
 
         # Save projection information
-        projection_file = os.path.join(output_dir, projection_file)
-        if projection_file.lower().endswith(("pickle", "pkl")):
-            with open(projection_file, "wb") as f:
-                pickle.dump(projection_info, f)
-        else:
-            # CSV format
-            with open(projection_file, "w") as f:
-                writer = csv.DictWriter(f, fieldnames=["proto_idx"] + list(projection_info[0].keys()))
-                writer.writeheader()
-                for proto_idx in projection_info.keys():
-                    writer.writerow(projection_info[proto_idx] | {"proto_idx": proto_idx})
+        save_projection_info(projection_info, os.path.join(output_dir, projection_file))
 
         return projection_info
 

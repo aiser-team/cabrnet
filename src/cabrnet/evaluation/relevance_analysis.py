@@ -1,12 +1,12 @@
 from cabrnet.generic.model import CaBRNet
 from cabrnet.utils.data import DatasetManager
+from cabrnet.utils.save import load_projection_info
 from cabrnet.visualization.visualizer import SimilarityVisualizer
 from cabrnet.evaluation.debug_explainer import DebugGraph
 from cabrnet.visualization.view import heatmap
 from cabrnet.utils.parser import load_config
 from cabrnet.utils.exceptions import ArgumentError
 import torch
-import pandas as pd
 from PIL import Image
 import csv
 import numpy as np
@@ -258,7 +258,7 @@ def proto_relevance_analysis(
     verbose: bool,
     prototype_info_db: str,
     area_percentage: float,
-    projection_info: str = "projection_info.csv",
+    projection_info: str = CaBRNet.DEFAULT_PROJECTION_INFO,
     tqdm_position: int = 0,
     **kwargs,
 ) -> None:
@@ -294,15 +294,7 @@ def proto_relevance_analysis(
     # Seek projection information inside directory of prototypes
     prototype_dir = os.path.join(os.path.dirname(dataset_config), "..", "prototypes")
     projection_info_path = os.path.join(prototype_dir, projection_info)
-    if not os.path.isfile(projection_info_path):
-        raise FileNotFoundError(f"Could not find projection information file {projection_info_path}")
-    if projection_info_path.lower().endswith(tuple(["pickle", "pkl"])):
-        with open(projection_info_path, "rb") as file:
-            projection_db = pickle.load(file)
-    else:
-        # CSV format
-        projection_list = pd.read_csv(projection_info_path).to_dict(orient="records")
-        projection_db = {entry["proto_idx"]: entry for entry in projection_list}
+    projection_db = load_projection_info(projection_info_path)
 
     proto_iter = tqdm(
         projection_db,

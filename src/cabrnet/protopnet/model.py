@@ -11,12 +11,10 @@ from cabrnet.generic.model import CaBRNet
 from cabrnet.utils.optimizers import OptimizerManager
 from cabrnet.visualization.visualizer import SimilarityVisualizer
 from cabrnet.visualization.explainer import ExplanationGraph
-from cabrnet.utils.save import save_checkpoint
+from cabrnet.utils.save import save_checkpoint, save_projection_info
 from loguru import logger
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-import pickle
-import csv
 
 
 class ProtoPNet(CaBRNet):
@@ -396,7 +394,7 @@ class ProtoPNet(CaBRNet):
         num_nearest_patches: int = 0,
         num_fine_tuning_epochs: int = 20,
         disable_pruned_prototypes: bool = False,
-        projection_file: str = "projection_info.csv",
+        projection_file: str = CaBRNet.DEFAULT_PROJECTION_INFO,
         tqdm_position: int = 0,
         **kwargs,
     ) -> dict[int, dict[str, int | float]]:
@@ -491,17 +489,7 @@ class ProtoPNet(CaBRNet):
                 )
 
         # Save projection information
-        projection_file = os.path.join(output_dir, projection_file)
-        if projection_file.lower().endswith(("pickle", "pkl")):
-            with open(projection_file, "wb") as f:
-                pickle.dump(projection_info, f)
-        else:
-            # CSV format
-            with open(projection_file, "w") as f:
-                writer = csv.DictWriter(f, fieldnames=["proto_idx"] + list(projection_info[0].keys()))
-                writer.writeheader()
-                for proto_idx in projection_info.keys():
-                    writer.writerow(projection_info[proto_idx] | {"proto_idx": proto_idx})
+        save_projection_info(projection_info, os.path.join(output_dir, projection_file))
 
         return projection_info
 
