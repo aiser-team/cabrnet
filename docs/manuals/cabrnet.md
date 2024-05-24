@@ -4,19 +4,19 @@ All CaBRNet applications are accessible through a single front-end script. To li
 cabrnet --help
 ```
 ```
-usage: cabrnet [-h] [--version] {download_examples,evaluate,train,import,explain,explain_global} ...
+usage: cabrnet [-h] [--version] {evaluate,train,import,explain_local,explain_global,benchmark} ...
 
 CaBRNet front-end
 
 positional arguments:
-  {download_examples,evaluate,train,import,explain,explain_global}
+  {evaluate,train,import,explain,explain_global}
                         sub-command help
-    download_examples   download example models
-    evaluate            evaluate a CaBRNet classifier
-    train               train a CaBRNet classifier
-    import              convert an existing legacy model into a CaBRNet version
-    explain_local       explain the decision of a CaBRNet classifier
-    explain_global      explain the global behaviour of a CaBRNet classifier
+    evaluate            evaluates a CaBRNet classifier
+    train               trains a CaBRNet classifier
+    import              converts an existing legacy model into a CaBRNet version
+    explain_local       explains the decision of a CaBRNet classifier
+    explain_global      explains the global behaviour of a CaBRNet classifier
+    benchmark           computes a set of evaluation metrics on a CaBRNet model
 
 options:
   -h, --help            show this help message and exit
@@ -37,8 +37,8 @@ Some options are present in all applications:
 experiments (by default, it is set to 42, as it should be ;)).
 - `--logger-level <level>` indicates the level of debug messages that should be displayed. 
 CaBRNet uses [loguru](https://loguru.readthedocs.io/en/stable/) for logging messages.
-- `--logger-file <path/to/file>` indicates where the debug messages should be displayed. By default, it is set to the 
-standard error output. 
+- `--logger-file <path/to/file>` indicates where the debug messages should be saved (in addition to the 
+standard error output). 
 - `-v, --verbose` enables [tqdm](https://tqdm.github.io/) progression bars during long operations.
 
 ## Training 
@@ -171,6 +171,16 @@ To evaluate a model, the tool uses the following options:
 the location of a CaBRNet or legacy state dictionary that should be used to initialize the model.
 - `--dataset|-d </path/to/file.yml>` indicates how to [load and prepare the test data for the evaluation](data.md).
 
+To compute dedicated metrics for case-based reasoning models, the `cabrnet benchmark` tool uses the following options:
+
+- `--model-config </path/to/file.yml>` indicates how to [build the model](model.md).
+- `--model-state-dict </path/to/model/state.pth>` indicates
+the location of a CaBRNet or legacy state dictionary that should be used to initialize the model.
+- `--dataset|-d </path/to/file.yml>` indicates how to [load and prepare the test data for the evaluation](data.md).
+- `--visualization </path/to/file.yml>` indicates how to [visualize the prototypes](visualize.md).
+- `--benchmark-configuration <path_to_file>` indicates how to [configure the metrics](evaluation.md).
+- `--output-dir <path/to/output/directory>` indicates where to store the evaluation reports.
+
 Similar to the `--config-dir` option in `cabrnet train`, the `--checkpoint-dir <dir>` option is equivalent to:
 
 - `--model-config <dir>/model_arch.yml`
@@ -200,7 +210,7 @@ Similar to `cabrnet evaluate`, the `--checkpoint-dir <dir>` option is equivalent
 - `--model-state-dict <dir>/model_state.pth`
 
 ### Local explanations
-A local explanation is generated using the `explain` method of the CaBRNet model (see the 
+A local explanation is generated using the `explain_local` method of the CaBRNet model (see the 
 [MNIST example](mnist.md)). To generate such an explanation, the tool uses the following options:
 
 - `--model-config </path/to/file.yml>` and `--model-state-dict </path/to/model/state.pth>` indicate how to 

@@ -24,12 +24,20 @@ class ExplanationGraph:
         self.output_dir = output_dir
         self._num_nodes = 0
 
-    def set_test_image(self, img_path: str, label: str = "") -> None:
+    def set_test_image(
+        self,
+        img_path: str,
+        label: str = "",
+        font_color: str = "black",
+        draw_arrows: bool = True,
+    ) -> None:
         r"""Sets the test image.
 
         Args:
             img_path (str): Path to image.
             label (str, optional): Image label. Default: "".
+            font_color (str, optional): Font color. Default: black.
+            draw_arrows (bool, optional): If True, draw arrows connecting all images. Default: True.
         """
         # Relative path between the image and the final directory where rendering will occur
         rel_path = os.path.relpath(img_path, self.output_dir)
@@ -38,9 +46,10 @@ class ExplanationGraph:
         else:
             self._dot.node(
                 name=f"node_{self._num_nodes}_test",
-                height="2.3",
+                height=str(2.3 + 0.2 * label.count("\n")),
                 imagepos="tc",
                 label=label,
+                fontcolor=font_color,
                 labelloc="b",
                 image=rel_path,
                 imagescale="True",
@@ -50,10 +59,18 @@ class ExplanationGraph:
                 tail_name=f"node_{self._num_nodes - 1}_test",
                 head_name=f"node_{self._num_nodes}_test",
                 label="",
+                style="invis" if not draw_arrows else "",
             )
         self._num_nodes += 1
 
-    def add_similarity(self, prototype_img_path: str, test_patch_img_path: str, label: str, font_color: str = "black"):
+    def add_similarity(
+        self,
+        prototype_img_path: str,
+        test_patch_img_path: str,
+        label: str,
+        font_color: str = "black",
+        draw_arrows: bool = True,
+    ):
         r"""Adds a similarity comparison to the explanation graph.
 
         Args:
@@ -61,6 +78,7 @@ class ExplanationGraph:
             test_patch_img_path (str): Path to test image patch visualization.
             label (str): Description of the similarity (e.g. similarity score).
             font_color (str, optional): Font color. Default: black.
+            draw_arrows (bool, optional): If True, draw arrows connecting all images. Default: True.
         """
         rel_test_patch_img_path = os.path.relpath(test_patch_img_path, self.output_dir)
         rel_prototype_img_path = os.path.relpath(prototype_img_path, self.output_dir)
@@ -77,16 +95,19 @@ class ExplanationGraph:
         subgraph.edge(
             tail_name=f"node_{self._num_nodes}_test",
             head_name=f"node_{self._num_nodes}_label",
+            style="invis" if not draw_arrows else "",
         )
         subgraph.edge(
             tail_name=f"node_{self._num_nodes}_label",
             head_name=f"node_{self._num_nodes}_proto",
+            style="invis" if not draw_arrows else "",
         )
         self._dot.subgraph(subgraph)
         self._dot.edge(
             tail_name=f"node_{self._num_nodes-1}_test",
             head_name=f"node_{self._num_nodes}_test",
             label="",
+            style="invis" if not draw_arrows else "",
         )
         self._num_nodes += 1
 

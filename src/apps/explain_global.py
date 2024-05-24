@@ -94,8 +94,8 @@ def execute(args: Namespace) -> None:
     # Generate explanation
     try:
         model.explain_global(
-            prototype_dir_path=args.prototype_dir,
-            output_dir_path=args.output_dir,
+            prototype_dir=args.prototype_dir,
+            output_dir=args.output_dir,
         )
     except NotImplementedError:
         logger.error("Global explanation not available for this model.")

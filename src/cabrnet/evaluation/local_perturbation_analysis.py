@@ -1,7 +1,7 @@
 from cabrnet.generic.model import CaBRNet
 from cabrnet.utils.data import DatasetManager
 from cabrnet.visualization.visualizer import SimilarityVisualizer
-from cabrnet.visualization.explainer import ExplanationGraph
+from cabrnet.evaluation.debug_explainer import DebugGraph
 from cabrnet.visualization.view import compute_bbox
 from cabrnet.utils.parser import load_config
 from cabrnet.utils.exceptions import ArgumentError
@@ -33,7 +33,7 @@ def get_config(config_file: str) -> dict[str, Any] | None:
     if bench_config is None:
         return bench_config
     # Check mandatory keys
-    for mandatory_key in ["info_db", "distribution_img", "prototype_stats"]:
+    for mandatory_key in ["info_db", "distribution_img", "global_stats"]:
         if bench_config.get(mandatory_key) is None:
             raise ArgumentError(f"Missing mandatory parameter {mandatory_key} in bench configuration.")
     supported_extensions = ["pickle", "pkl", "csv"]
@@ -248,6 +248,19 @@ def _compute_perturbations(
     return perturbed_img_arrays
 
 
+def square_resize(img: Image.Image) -> Image.Image:
+    r"""Resizes image to a square aspect ratio.
+
+    Args:
+        img (image): Source image.
+
+    Returns:
+        Squared image.
+    """
+    final_size = min(img.width, img.height)
+    return img.resize((final_size, final_size))
+
+
 def execute(
     model: CaBRNet,
     dataset_config: str,
@@ -320,7 +333,7 @@ def execute(
         if debug_mode:
             # In debug mode, save original image
             img_path = os.path.join(output_dir, "images", f"img{img_idx}_original.png")
-            img.save(img_path)
+            square_resize(img).save(img_path)
 
         if img_tensor.dim() != 4:
             # Fix number of dimensions if necessary
@@ -357,12 +370,14 @@ def execute(
 
         if debug_mode:
             # In debug mode, generate explanation graphs
-            explanation = ExplanationGraph(output_dir=output_dir)
-            explanation.set_test_image(img_path=img_path)
+            explanation = DebugGraph(output_dir=output_dir)
+            explanation.set_test_image(img_path=img_path, label="Original image\n\n")
             patch_img = visualizer.view(img=img, sim_map=attribution[..., 0], **visualizer.view_params)
             patch_img_path = os.path.join(output_dir, "images", f"img{img_idx}_p{proto_idx}_patch.png")
-            patch_img.save(patch_img_path)
-            explanation.set_test_image(img_path=patch_img_path)
+            square_resize(patch_img).save(patch_img_path)
+            explanation.set_test_image(
+                img_path=patch_img_path, label=f"Similarity patch\nOriginal score: {score:.2f}\n", draw_arrows=False
+            )
 
         for pert_name in perturbed_imgs:
             perturbation_scores = []
@@ -382,21 +397,37 @@ def execute(
                     pert_img_path = os.path.join(
                         output_dir, "images", f"img{img_idx}_p{proto_idx}_{pert_name}_{target}.png"
                     )
-                    pert_img.save(pert_img_path)
-
-                    explanation.add_similarity(
-                        prototype_img_path=os.path.join(prototype_dir, f"prototype_{proto_idx}.png"),
-                        test_patch_img_path=pert_img_path,
-                        label=f"{perturbed_imgs[pert_name]['description']} ({target})\n"
-                        f"Similarity drop\n (from {score:.2f} to {pert_score:.2f})",
-                        font_color="blue" if drop_percentage > 0.1 else "red",
-                    )
+                    square_resize(pert_img).save(pert_img_path)
 
                 logger.debug(
                     f"Similarity between image {img_idx} and prototype {proto_idx} "
                     f"sensitivity to {perturbed_imgs[pert_name]['description']}: "
                     f"Score went from {score} to {pert_score} in {target} (drop: {drop_percentage})"
                 )
+            if debug_mode:
+                focus_img_path = os.path.join(output_dir, "images", f"img{img_idx}_p{proto_idx}_{pert_name}_focus.png")
+                if enable_dual_mode:
+                    dual_img_path = os.path.join(
+                        output_dir, "images", f"img{img_idx}_p{proto_idx}_{pert_name}_dual.png"
+                    )
+                    focus_pert_score, dual_pert_score = tuple(perturbation_scores)
+                    focus_drop, dual_drop = (score - focus_pert_score) / score, (score - dual_pert_score) / score
+                    explanation.add_pairs(
+                        bot_img_path=focus_img_path,
+                        bot_img_label=f"{perturbed_imgs[pert_name]['description']}\n(focus)\n"
+                        f"New score: {focus_pert_score:.2f}",
+                        bot_img_font_color="blue" if focus_drop > 0.1 else "red",
+                        top_img_path=dual_img_path,
+                        top_img_label=f"{perturbed_imgs[pert_name]['description']}\n(dual)\n"
+                        f"New score: {dual_pert_score:.2f}",
+                        top_img_font_color="blue" if dual_drop > 0.1 else "red",
+                    )
+                else:
+                    explanation.set_test_image(
+                        img_path=focus_img_path,
+                        label=f"{perturbed_imgs[pert_name]['description']}\n(focus)\n" f"New score: {pert_score:.2f}",
+                        font_color="blue" if drop_percentage > 0.1 else "red",
+                    )
 
             # Record drop in similarity
             stats.append(
@@ -432,7 +463,7 @@ def show_results(
     model: CaBRNet,
     src_path: str,
     output_dir: str,
-    prototype_stats: str,
+    global_stats: str,
     distribution_img: str,
     quiet: bool = False,
     **kwargs,
@@ -443,7 +474,7 @@ def show_results(
         model (Module): Target model.
         src_path (str): Path to input file containing statistics per test image.
         output_dir (str): Output directory.
-        prototype_stats (str): Name of output CSV file containing prototype statistics.
+        global_stats (str): Name of output CSV file containing global statistics.
         distribution_img (str): Mame of output distribution graph.
         quiet (bool, optional): If True, does not display analysis results. Default: False.
     """
@@ -481,7 +512,7 @@ def show_results(
     num_active_prototypes = len(
         [proto_idx for proto_idx in range(model.num_prototypes) if model.prototype_is_active(proto_idx)]
     )
-    with open(os.path.join(output_dir, prototype_stats), "w") as fout:
+    with open(os.path.join(output_dir, global_stats), "w") as fout:
         writer = csv.writer(fout)
         writer.writerow(["Number of active prototypes", num_active_prototypes])
         writer.writerow(["Number of analyzed prototypes", num_analyzed_prototypes])

@@ -124,3 +124,4 @@ to the heatmap.
 Finally, using the `overlay` option, the heatmap is overlaid onto the original image.
 
 ![heatmap with overlay and bbox view](imgs/view_heatmap_overlay.png)
+
