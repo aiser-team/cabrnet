@@ -29,6 +29,7 @@ class CaBRNet(nn.Module):
     # Regroups common default file names in a single location
     DEFAULT_MODEL_CONFIG: str = "model_arch.yml"
     DEFAULT_MODEL_STATE: str = "model_state.pth"
+    DEFAULT_PROJECTION_INFO: str = "projection_info.csv"
 
     def __init__(self, extractor: nn.Module, classifier: CaBRNetGenericClassifier, compatibility_mode: bool = False):
         r"""Builds a CaBRNet prototype-based model.
