@@ -103,6 +103,12 @@ def execute(args: Namespace) -> None:
         verbose=args.verbose,
     )
 
+    # Save visualization config
+    safe_copy(
+        args.visualization,
+        os.path.join(args.output_dir, "prototypes", SimilarityVisualizer.DEFAULT_VISUALIZATION_CONFIG),
+    )
+
     # Generate explanation
     try:
         model.explain_global(prototype_dir=os.path.join(args.output_dir, "prototypes"), output_dir=args.output_dir)

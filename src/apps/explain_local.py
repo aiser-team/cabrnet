@@ -124,6 +124,12 @@ def execute(args: Namespace) -> None:
         verbose=args.verbose,
     )
 
+    # Save visualization config
+    safe_copy(
+        args.visualization,
+        os.path.join(args.output_dir, "prototypes", SimilarityVisualizer.DEFAULT_VISUALIZATION_CONFIG),
+    )
+
     # Generate explanation
     model.explain(
         img=args.image,
