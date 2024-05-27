@@ -53,3 +53,6 @@ doc:
   allow_failure: true
   script:
     - nix --extra-experimental-features "nix-command flakes" develop --command ci/generate_doc.sh
+  artifacts:
+   paths:
+     - docs/manuals/user_manual.pdf
