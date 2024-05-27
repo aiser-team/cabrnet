@@ -1,5 +1,6 @@
 from argparse import ArgumentParser, RawTextHelpFormatter
 from zenodo_get import zenodo_get
+import zipfile
 import os
 
 file_list = [
@@ -8,8 +9,17 @@ file_list = [
         "description": "ResNet50 pretrained on INaturalist dataset",
         "type": "zenodo",
         "record": "10066893",
-        "dir": "pretrained_conv_extractors",
-    }
+        "dir": "examples/pretrained_conv_extractors",
+        "file": "resnet50_inat.pth",
+    },
+    {
+        "identifier": "legacy_models",
+        "description": "Legacy models trained using ProtoPNet and ProtoTree on CUB200",
+        "type": "zenodo",
+        "record": "11284813",
+        "dir": "src/legacy/compatibility_tests",
+        "file": "cabrnet_legacy_models.zip",
+    },
 ]
 
 
@@ -33,15 +43,6 @@ def create_parser() -> ArgumentParser:
         choices=["all"] + [entry["identifier"] for entry in file_list],
         help=f"Select target(s) to download\n{show_file_list()}",
     )
-    parser.add_argument(
-        "--output-dir",
-        "-o",
-        type=str,
-        default="examples",
-        required=False,
-        metavar="path/to/root/output/directory",
-        help="path to root output directory (default: ./examples)",
-    )
     return parser
 
 
@@ -57,9 +58,13 @@ def main() -> None:
     )
 
     for entry in files_to_download:
-        target_path = os.path.join(args.output_dir, entry["dir"])
+        target_path = entry["dir"]
         if entry["type"] == "zenodo":
             zenodo_get(["-o", target_path, "-r", entry["record"]])
+            if entry["file"].endswith(".zip"):
+                filepath = os.path.join(target_path, entry["file"])
+                with zipfile.ZipFile(filepath, "r") as zip_ref:
+                    zip_ref.extractall(target_path)
 
 
 if __name__ == "__main__":
