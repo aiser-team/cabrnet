@@ -34,25 +34,25 @@ code:
   script:
     # only focusing on x86_64 linux systems as of now it is not possible to run
     # checks on multiple systems
-    - nix --extra-experimental-features "nix-command flakes" build .#checks.x86_64-linux.formattingCode
+    - nix --extra-experimental-features "nix-command flakes" build -L .#checks.x86_64-linux.formattingCode
 
 docstrings:
   stage : formatting
   allow_failure: true
   script:
-    - nix --extra-experimental-features "nix-command flakes" build .#checks.x86_64-linux.formattingDocstring
+    - nix --extra-experimental-features "nix-command flakes" build -L .#checks.x86_64-linux.formattingDocstring
 
 typing:
   stage : typing
   allow_failure: true
   script:
-    - nix --extra-experimental-features "nix-command flakes" build .#checks.x86_64-linux.typing
+    - nix --extra-experimental-features "nix-command flakes" build -L .#checks.x86_64-linux.typing
 
-doc:
+user_manual:
   stage : doc
   allow_failure: true
   script:
-    - nix --extra-experimental-features "nix-command flakes" develop --command ci/generate_doc.sh
+    - nix --extra-experimental-features "nix-command flakes" build -L .#cabrnet-doc
   artifacts:
    paths:
      - docs/manuals/user_manual.pdf

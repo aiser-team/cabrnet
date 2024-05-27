@@ -1,5 +1,5 @@
-# A Nix flake to serve as the CI environment for CaBRNet. Not expected to be
-# used for packaging 
+# A Nix flake to serve as the CI environment for CaBRNet.
+# Not expected to be used for actual deployment of the library.
 # TODO: use only one nixpkgs for all the provided dependencies
 {
   description = "CaBRNet Nix flake.";
@@ -8,7 +8,6 @@
     nix-filter.url = "github:numtide/nix-filter";
     nixpkgs.url = "nixpkgs";
     captum.url = "./ci/vendor/captum/"; # relative path for flake is a best effort, see https://github.com/NixOS/nix/issues/9339
-    # relative path for flake is a best effort, see https://github.com/NixOS/nix/issues/9339
     # pydoc-markdown.url = "./ci/vendor/pydoc-markdown/";
     # disabled for now as more work is needed for the generation of
     # documentation in pure nix
@@ -75,23 +74,33 @@
               pydocstyle
               captum.packages.${system}.default
               pandas
-              # Documentation generation
-              pkgs.pandoc
             ];
             nativeCheckInputs = [ pkgs.pyright pythonPkgs.black ];
-            importCheck = with pythonPkgs; [ scipy torch ];
+            importCheck = with pythonPkgs; [ scipy torch numpy ];
           };
-        cabrnet-doc = pkgs.stdenv.mkDerivation {
-          inherit version;
-          pname = "cabrnet-doc";
-          src = sources.python;
-          #nativeBuildInputs = [pydoc-markdown.packages.${system}.default];
-          nativeBuildInputs = [ ];
-          buildPhase = ''echo "did the doc"'';
-          installPhase = ''
-            mkdir -p $out/bin
-            touch $out/bin/out'';
-        };
+        cabrnet-doc = pkgs.stdenv.mkDerivation
+          {
+            # TODO: this derivation only evaluates to the user manual.
+            # More work is needed for website generation
+            inherit version;
+            pname = "cabrnet-doc";
+            src = sources.python;
+            #nativeBuildInputs = [pydoc-markdown.packages.${system}.default];
+            nativeBuildInputs = with pkgs; [
+              pandoc
+              python3Minimal
+              texliveFull
+            ];
+            buildPhase = ''
+              cd docs/manuals/
+              make clean
+              make
+            '';
+            installPhase = ''
+              mkdir -p $out/docs/manuals
+              cp user_manual.pdf $out/docs/manuals
+            '';
+          };
       };
       checks = {
         formattingCode =
