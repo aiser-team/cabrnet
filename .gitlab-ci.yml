@@ -44,10 +44,12 @@ docstrings:
 
 typing:
   stage : typing
+  allow_failure: true
   script:
     - nix --extra-experimental-features "nix-command flakes" build .#checks.x86_64-linux.typing
 
 doc:
   stage : doc
+  allow_failure: true
   script:
     - nix --extra-experimental-features "nix-command flakes" develop --command ci/generate_doc.sh

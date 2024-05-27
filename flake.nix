@@ -41,7 +41,6 @@
             (nix-filter.lib.inDirectory "src")
             (nix-filter.lib.inDirectory "tools")
             (nix-filter.lib.inDirectory "website")
-            (nix-filter.lib.inDirectory "utils")
           ];
         };
       };
@@ -101,7 +100,7 @@
               doCheck = true;
               name = "check-${oldAttrs.name}-code";
               checkPhase = ''
-                black --check src/ tools/ utils/
+                black --check src/ tools/
               '';
             });
         formattingDocstring =
@@ -110,7 +109,7 @@
               doCheck = true;
               name = "check-${oldAttrs.name}-docstring";
               checkPhase = ''
-                python utils/check_docstrings.py -d src/
+                python tools/check_docstrings.py -d src/
               '';
             });
         typing =
@@ -119,7 +118,7 @@
               doCheck = true;
               name = "check-${oldAttrs.name}-typing";
               checkPhase = ''
-                mypy src/cabrnet
+                pyright src/cabrnet
               '';
             });
 
