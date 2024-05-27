@@ -21,12 +21,12 @@ stages:
 dependencies:
   stage : dependencies
   script:
-    - nix --extra-experimental-features "nix-command flakes" develop --command python3 -m pip install -r requirements.txt
+    - nix --extra-experimental-features "nix-command flakes" develop -L --command python3 -m pip install -r requirements.txt
 
 build:
   stage : build
   script:
-    - nix --extra-experimental-features "nix-command flakes" build
+    - nix --extra-experimental-features "nix-command flakes" build -L
 
 code:
   stage : formatting
@@ -55,4 +55,4 @@ user_manual:
     - nix --extra-experimental-features "nix-command flakes" build -L .#cabrnet-doc
   artifacts:
    paths:
-     - docs/manuals/user_manual.pdf
+     - result/docs/manuals/user_manual.pdf
