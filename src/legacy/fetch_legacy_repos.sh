@@ -25,3 +25,5 @@ if [ ! -d src/legacy/protopnet ]; then
   # Apply minor patch to improve reproducibility and ensure compatibility
   patch -p1 -d src/legacy/protopnet < src/legacy/patches/protopnet.patch
 fi
+
+python3 tools/download_examples.py -t legacy_models
