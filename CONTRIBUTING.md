@@ -30,11 +30,29 @@ To install everything necessary for developing new CaBRNet features, run
 ```bash
 git clone https://git.frama-c.com/pub/cabrnet.git
 ```
-Then, follow the [installation guide](docs/manuals/install.md) to install all dependencies.
+Then, follow the [installation guide](docs/manuals/install.md) to install running dependencies.
+
+Once installed, you can proceed the development dependencies:
+```
+unittest
+build
+black
+pyright
+pydoc-markdown
+```
+
+The configuration for the development dependencies are described in
+`pyproject.toml`.
+Please make sure to respect the following guidelines for your contributions:
+1. [Coding style consistency](#code-style)
+1. [Type checking compliance](#type-hints)
+1. [Documentation generation](#documentation)
+
+Those steps are checked automatically with a continuous integration, described in `.gitlab-ci.yml`.
 
 ### Code Style
 
-CaBRNet uses [black](https://pypi.org/project/black/ to ensure a common code style across the entire code base.
+CaBRNet uses [black](https://pypi.org/project/black/) to ensure a common code style across the entire code base.
 Black can be installed locally using:  
 ```bash
 python3 -m pip install black
@@ -44,7 +62,7 @@ automatically taken into account when using a development environment such as [P
 
 ### Type Hints
 
-CaBRNet is (almost) fully typed using Python 3.6+ [type hints](https://www.python.org/dev/peps/pep-0484/).
+CaBRNet is (almost) fully typed using Python 3.6+ [type hints](https://www.python.org/dev/peps/pep-0484/). To ensure typing compliance, use `pyright src/ tools/`.
 
 ### Unit Tests
 
