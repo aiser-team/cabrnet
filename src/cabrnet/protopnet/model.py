@@ -11,7 +11,7 @@ from cabrnet.generic.model import CaBRNet
 from cabrnet.utils.optimizers import OptimizerManager
 from cabrnet.visualization.visualizer import SimilarityVisualizer
 from cabrnet.visualization.explainer import ExplanationGraph
-from cabrnet.utils.save import save_checkpoint, save_projection_info
+from cabrnet.utils.save import save_checkpoint
 from loguru import logger
 from torch.utils.data import DataLoader
 from tqdm import tqdm
@@ -394,7 +394,6 @@ class ProtoPNet(CaBRNet):
         num_nearest_patches: int = 0,
         num_fine_tuning_epochs: int = 20,
         disable_pruned_prototypes: bool = False,
-        projection_file: str = CaBRNet.DEFAULT_PROJECTION_INFO,
         tqdm_position: int = 0,
         **kwargs,
     ) -> dict[int, dict[str, int | float]]:
@@ -416,8 +415,6 @@ class ProtoPNet(CaBRNet):
             num_fine_tuning_epochs (int, optional): Number of fine-tuning epochs to perform after pruning. Default: 20.
             disable_pruned_prototypes (bool, optional): If True, only disables prototypes instead of deleting them
                 during pruning. Default: False.
-            projection_file (str, optional): Path to output file containing all projection information.
-                Default: projection_info.csv.
             tqdm_position (int, optional): Position of the progress bar. Default: 0.
 
         Returns:
@@ -487,9 +484,6 @@ class ProtoPNet(CaBRNet):
                     tqdm_title=f"Fine-tuning epoch {ft_epoch_idx}",
                     verbose=verbose,
                 )
-
-        # Save projection information
-        save_projection_info(projection_info, os.path.join(output_dir, projection_file))
 
         return projection_info
 

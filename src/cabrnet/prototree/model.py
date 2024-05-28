@@ -15,7 +15,7 @@ from cabrnet.utils.tree import TreeNode, MappingMode
 from cabrnet.prototree.decision import SamplingStrategy, ProtoTreeClassifier
 from cabrnet.visualization.visualizer import SimilarityVisualizer
 from cabrnet.visualization.explainer import ExplanationGraph
-from cabrnet.utils.save import save_checkpoint, save_projection_info
+from cabrnet.utils.save import save_checkpoint
 import copy
 from loguru import logger
 
@@ -316,7 +316,6 @@ class ProtoTree(CaBRNet):
         verbose: bool = False,
         pruning_threshold: float = 0.0,
         merge_same_decision: bool = False,
-        projection_file: str = CaBRNet.DEFAULT_PROJECTION_INFO,
         **kwargs: Any,
     ) -> dict[int, dict[str, int | float]]:
         r"""Function called after training, using information from the epilogue field in the training configuration.
@@ -333,8 +332,6 @@ class ProtoTree(CaBRNet):
             verbose (bool, optional): Display progress bar. Default: False.
             pruning_threshold (float, optional): Pruning threshold. Default: 0.0 (no pruning).
             merge_same_decision (bool, optional): If True, merges branches leading to same top decision. Default: False.
-            projection_file (str, optional): Path to output file containing all projection information.
-                Default: projection_info.csv.
 
         Returns:
             Projection information.
@@ -366,9 +363,6 @@ class ProtoTree(CaBRNet):
         if pruning_threshold <= 0.0:
             logger.warning(f"Leaf pruning disabled (threshold is {pruning_threshold})")
         self.prune(pruning_threshold=pruning_threshold, merge_same_decision=merge_same_decision)
-
-        # Save projection information
-        save_projection_info(projection_info, os.path.join(output_dir, projection_file))
 
         return projection_info
 

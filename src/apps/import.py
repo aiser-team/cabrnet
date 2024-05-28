@@ -4,7 +4,7 @@ from cabrnet.generic.model import CaBRNet
 from cabrnet.utils.parser import load_config
 from cabrnet.utils.optimizers import OptimizerManager
 from cabrnet.utils.data import DatasetManager
-from cabrnet.utils.save import save_checkpoint
+from cabrnet.utils.save import save_checkpoint, save_projection_info
 from cabrnet.utils.exceptions import ArgumentError
 from argparse import ArgumentParser, Namespace
 
@@ -109,7 +109,7 @@ def execute(args: Namespace) -> None:
 
     # Call epilogue
     trainer = load_config(training_config)
-    model.epilogue(
+    projection_info = model.epilogue(
         dataloaders=dataloaders,
         optimizer_mngr=optimizer_mngr,
         output_dir=root_dir,
@@ -137,3 +137,6 @@ def execute(args: Namespace) -> None:
         device=device,
         stats=eval_info,
     )
+
+    # Save projection information
+    save_projection_info(projection_info, os.path.join(root_dir, "imported", CaBRNet.DEFAULT_PROJECTION_INFO))
