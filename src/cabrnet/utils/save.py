@@ -36,6 +36,7 @@ def save_checkpoint(
     optimizer_mngr: OptimizerManager | None,
     training_config: str | None,
     dataset_config: str,
+    projection_info: dict[int, dict[str, int | float]] | None,
     epoch: int | str,
     seed: int | None,
     device: str,
@@ -50,6 +51,7 @@ def save_checkpoint(
         optimizer_mngr (OptimizerManager): Optimizer manager.
         training_config (str): Path to the training configuration file.
         dataset_config (str): Path to the dataset configuration file.
+        projection_info (dictionary, optional): Projection dictionary, generated during training epilogue.
         epoch (int or str): Current epoch.
         seed (int): Initial random seed (recorded for reproducibility).
         device (str): Target hardware device (recorded for reproducibility).
@@ -67,10 +69,6 @@ def save_checkpoint(
     if training_config is not None:
         safe_copy(src=training_config, dst=os.path.join(directory_path, OptimizerManager.DEFAULT_TRAINING_CONFIG))
     safe_copy(src=dataset_config, dst=os.path.join(directory_path, DatasetManager.DEFAULT_DATASET_CONFIG))
-    if os.path.exists(CaBRNet.DEFAULT_PROJECTION_INFO):
-        safe_copy(
-            src=CaBRNet.DEFAULT_PROJECTION_INFO, dst=os.path.join(directory_path, CaBRNet.DEFAULT_PROJECTION_INFO)
-        )
 
     state = {
         "random_generators": {
@@ -86,6 +84,10 @@ def save_checkpoint(
 
     with open(os.path.join(directory_path, "state.pickle"), "wb") as file:
         pickle.dump(state, file)
+
+    # Save projection information if it exists
+    if projection_info is not None:
+        save_projection_info(projection_info, os.path.join(directory_path, CaBRNet.DEFAULT_PROJECTION_INFO))
 
     logger.info(f"Successfully saved checkpoint at epoch {epoch}.")
 

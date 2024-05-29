@@ -284,6 +284,7 @@ def execute(args: Namespace) -> None:
                 optimizer_mngr=optimizer_mngr,
                 training_config=training_config,
                 dataset_config=dataset_config,
+                projection_info=None,
                 epoch=epoch,
                 seed=seed,
                 device=device,
@@ -297,6 +298,7 @@ def execute(args: Namespace) -> None:
                 optimizer_mngr=optimizer_mngr,
                 training_config=training_config,
                 dataset_config=dataset_config,
+                projection_info=None,
                 epoch=epoch,
                 seed=seed,
                 device=device,
@@ -339,11 +341,9 @@ def execute(args: Namespace) -> None:
         optimizer_mngr=None,
         training_config=training_config,
         dataset_config=dataset_config,
+        projection_info=projection_info,
         epoch=num_epochs,
         seed=seed,
         device=device,
         stats=eval_info,
     )
-
-    # Save projection information
-    save_projection_info(projection_info, os.path.join(root_dir, "final", CaBRNet.DEFAULT_PROJECTION_INFO))
