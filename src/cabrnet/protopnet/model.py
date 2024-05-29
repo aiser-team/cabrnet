@@ -11,7 +11,6 @@ from cabrnet.generic.model import CaBRNet
 from cabrnet.utils.optimizers import OptimizerManager
 from cabrnet.visualization.visualizer import SimilarityVisualizer
 from cabrnet.visualization.explainer import ExplanationGraph
-from cabrnet.utils.save import save_checkpoint
 from loguru import logger
 from torch.utils.data import DataLoader
 from tqdm import tqdm
@@ -431,19 +430,6 @@ class ProtoPNet(CaBRNet):
         logger.info(
             f"After projection. Average loss: {eval_info['avg_loss']:.2f}. "
             f"Average accuracy: {eval_info['avg_eval_accuracy']:.2f}."
-        )
-
-        save_checkpoint(
-            directory_path=os.path.join(output_dir, "projected"),
-            model=self,
-            model_config=model_config,
-            optimizer_mngr=None,
-            training_config=training_config,
-            dataset_config=dataset_config,
-            epoch="projected",
-            seed=seed,
-            device=device,
-            stats=eval_info,
         )
 
         if num_nearest_patches > 0:

@@ -15,7 +15,6 @@ from cabrnet.utils.tree import TreeNode, MappingMode
 from cabrnet.prototree.decision import SamplingStrategy, ProtoTreeClassifier
 from cabrnet.visualization.visualizer import SimilarityVisualizer
 from cabrnet.visualization.explainer import ExplanationGraph
-from cabrnet.utils.save import save_checkpoint
 import copy
 from loguru import logger
 
@@ -346,18 +345,6 @@ class ProtoTree(CaBRNet):
         logger.info(
             f"After projection. Average loss: {eval_info['avg_loss']:.2f}. "
             f"Average accuracy: {eval_info['avg_eval_accuracy']:.2f}."
-        )
-        save_checkpoint(
-            directory_path=os.path.join(output_dir, "projected"),
-            model=self,
-            model_config=model_config,
-            optimizer_mngr=None,
-            training_config=training_config,
-            dataset_config=dataset_config,
-            epoch="projected",
-            seed=seed,
-            device=device,
-            stats=eval_info,
         )
 
         if pruning_threshold <= 0.0:
