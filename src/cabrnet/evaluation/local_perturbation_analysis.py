@@ -1,5 +1,6 @@
 from cabrnet.generic.model import CaBRNet
 from cabrnet.utils.data import DatasetManager
+from cabrnet.utils.save import load_projection_info
 from cabrnet.visualization.visualizer import SimilarityVisualizer
 from cabrnet.evaluation.debug_explainer import DebugGraph
 from cabrnet.visualization.view import compute_bbox
@@ -265,6 +266,7 @@ def execute(
     model: CaBRNet,
     dataset_config: str,
     visualization_config: str,
+    projection_file: str,
     root_dir: str,
     device: str,
     verbose: bool,
@@ -281,6 +283,7 @@ def execute(
             model (Module): CaBRNet model.
             dataset_config (str): Path to dataset configuration file.
             visualization_config (str): Path to visualization configuration file.
+            projection_file (str): Path to projection information file.
             root_dir (str): Path to root output directory.
             device (str): Target device.
             verbose (bool): Verbose mode.
@@ -299,9 +302,6 @@ def execute(
     # Create dataloaders and visualizer
     datasets = DatasetManager.get_datasets(dataset_config, sampling_ratio=sampling_ratio)
     visualizer = SimilarityVisualizer.build_from_config(config_file=visualization_config, model=model)
-
-    # Infer possible location for prototype directory
-    prototype_dir = os.path.join(os.path.dirname(dataset_config), "..", "prototypes")
 
     # Recover preprocessing function
     preprocess = getattr(datasets["test_set"]["dataset"], "transform", ToTensor())
