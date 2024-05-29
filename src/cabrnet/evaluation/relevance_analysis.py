@@ -2,7 +2,7 @@ from cabrnet.generic.model import CaBRNet
 from cabrnet.utils.data import DatasetManager
 from cabrnet.utils.save import load_projection_info
 from cabrnet.visualization.visualizer import SimilarityVisualizer
-from cabrnet.evaluation.debug_explainer import DebugGraph
+from cabrnet.visualization.explainer import DebugGraph
 from cabrnet.visualization.view import heatmap
 from cabrnet.utils.parser import load_config
 from cabrnet.utils.exceptions import ArgumentError
