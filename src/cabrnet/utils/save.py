@@ -15,7 +15,13 @@ import csv
 import pandas as pd
 
 
-def safe_copy(src: str, dst: str):
+def safe_copy(src: str, dst: str) -> None:
+    r"""Copies a file to a given destination, ignoring copies of a file onto itself.
+
+    Args:
+        src (str): Path to source file.
+        dst (str): Path to destination file.
+    """
     try:
         shutil.copyfile(src=src, dst=dst)
     except shutil.SameFileError:
@@ -137,6 +143,13 @@ def load_checkpoint(
 
 
 def save_projection_info(projection_info: dict[int, dict[str, int | float]], filename: str) -> None:
+    r"""Saves projection information, either in pickle or CSV format.
+
+    Args:
+        projection_info (dictionary): Projection dictionary, generated during training epilogue.
+        filename (str): Path to output file. Based on the file extension, the file is stored in
+          pickle format (pickle or pkl extension) or CSV format (any other extension).
+    """
     if filename.lower().endswith(("pickle", "pkl")):
         with open(filename, "wb") as f:
             pickle.dump(projection_info, f)
@@ -150,6 +163,15 @@ def save_projection_info(projection_info: dict[int, dict[str, int | float]], fil
 
 
 def load_projection_info(filename: str) -> dict[int, dict[str, int | float]]:
+    r"""Loads projection information, either in pickle or CSV format.
+
+    Args:
+        filename (str): Path to input file. Based on the file extension, the file is loaded in
+          pickle format (pickle or pkl extension) or CSV format (any other extension).
+
+    Returns:
+        Projection dictionary, generated during training epilogue.
+    """
     if not os.path.isfile(filename):
         raise FileNotFoundError(f"Could not find projection information file {filename}")
     if filename.lower().endswith(tuple(["pickle", "pkl"])):

@@ -305,7 +305,7 @@ class CaBRNet(nn.Module):
             verbose (bool, optional): Display progress bar. Default: False.
 
         Returns:
-            Projection informations.
+            Projection information.
         """
         return {}
 

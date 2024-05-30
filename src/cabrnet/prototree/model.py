@@ -337,7 +337,7 @@ class ProtoTree(CaBRNet):
                 Default: projection_info.csv.
 
         Returns:
-            Projection informations.
+            Projection information.
         """
         # Perform projection
         projection_info = self.project(

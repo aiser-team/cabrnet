@@ -421,7 +421,7 @@ class ProtoPNet(CaBRNet):
             tqdm_position (int, optional): Position of the progress bar. Default: 0.
 
         Returns:
-            Projection informations.
+            Projection information.
         """
         # Perform projection
         projection_info = self.project(
