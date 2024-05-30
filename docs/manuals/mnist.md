@@ -8,10 +8,17 @@ cabrnet train --device cpu --seed 42 --verbose --logger-level INFO  \
   --dataset configs/prototree/mnist/dataset.yml \
   --training configs/prototree/mnist/training.yml \
   --output-dir runs/mnist_prototree \
-  --visualization configs/prototree/mnist/visualization.yml \
   --logger-file runs/mnist_prototree/log.txt
 ```
-This command trains a ProtoTree during one epoch, and stores the resulting checkpoint in 
+or simply
+```bash
+cd ../../ # Go back to root directory
+cabrnet train --device cpu --seed 42 --verbose --logger-level INFO  \
+  -c configs/prototree/mnist/ \
+  --output-dir runs/mnist_prototree \
+  --logger-file runs/mnist_prototree/log.txt
+```
+These commands train a ProtoTree during one epoch, and store the resulting checkpoint in 
 `runs/mnist_prototree/final`.
 
 ### Global explanation
@@ -20,10 +27,23 @@ cd ../../ # Go back to root directory
 cabrnet explain_global --verbose \
   --model-config runs/mnist_prototree/final/model_arch.yml \
   --model-state-dict runs/mnist_prototree/final/model_state.pth \
-  --output-dir runs/mnist_prototree/global_explanation --prototype-dir runs/mnist_prototree/prototypes/
+  --dataset runs/mnist_prototree/final/dataset.yml \
+  --projection-info runs/mnist_prototree/final/projection_info.csv \
+  --visualization configs/explanation/mnist_visualization.yml \
+  --output-dir runs/mnist_prototree/global_explanation 
 ```
-This command generates a global explanation for the ProtoTree model in 
-`runs/mnist_prototree/global_explanation`.
+or simply
+```bash
+cd ../../ # Go back to root directory
+cabrnet explain_global --verbose \
+  --checkpoint-dir runs/mnist_prototree/final \
+  --visualization configs/explanation/mnist_visualization.yml \
+  --output-dir runs/mnist_prototree/global_explanation 
+```
+These commands generate a global explanation for the ProtoTree model in 
+`runs/mnist_prototree/global_explanation`. 
+In particular, the visualization of each prototype is stored in 
+`runs/mnist_prototree/global_explanation/prototypes`.
 
 ![prototree mnist global explanation](imgs/prototree_mnist_global_explanation.png)
 
@@ -33,14 +53,26 @@ cd ../../ # Go back to root directory
 cabrnet explain_local --verbose \
   --model-config runs/mnist_prototree/final/model_arch.yml  \
   --model-state-dict runs/mnist_prototree/final/model_state.pth \
-  --dataset configs/prototree/mnist/dataset.yml \
-  --visualization configs/prototree/mnist/visualization.yml \
-  --prototype-dir runs/mnist_prototree/prototypes/ \
+  --dataset runs/mnist_prototree/final/dataset.yml \
+  --visualization configs/explanation/mnist_visualization.yml \
+  --prototype-dir runs/mnist_prototree/global_explanation/prototypes \
   --output-dir runs/mnist_prototree/local_explanations/  \
   --image examples/images/mnist_sample.png
 ```
-This command generates a local explanation for the image stored in `examples/images/mnist_sample.png` and stores the result in 
-`runs/mnist_prototree/local_explanation`.
+or simply
+```bash
+cd ../../ # Go back to root directory
+cabrnet explain_local --verbose \
+  -c runs/mnist_prototree/final  \
+  --visualization configs/explanation/mnist_visualization.yml \
+  --prototype-dir runs/mnist_prototree/global_explanation/prototypes \
+  --output-dir runs/mnist_prototree/local_explanations/  \
+  --image examples/images/mnist_sample.png
+```
+These commands generate a local explanation for the image stored in `examples/images/mnist_sample.png` and store the result in 
+`runs/mnist_prototree/local_explanation`. 
+In particular, producing local explanations requires 
+prototype visualizations, which can be generated using the `cabrnet explain_global` application described above.
 
 ![prototree mnist local explanation](imgs/prototree_mnist_local_explanation.png)
 
@@ -53,10 +85,17 @@ cabrnet train --device cpu --seed 42 --verbose --logger-level INFO  \
   --dataset configs/protopnet/mnist/dataset.yml \
   --training configs/protopnet/mnist/training.yml \
   --output-dir runs/mnist_protopnet \
-  --visualization configs/protopnet/mnist/visualization.yml \
   --logger-file runs/mnist_prototree/log.txt
 ```
-This command trains a ProtoPNet during one epoch, and stores the resulting checkpoint in 
+or simply
+```bash
+cd ../../ # Go back to root directory
+cabrnet train --device cpu --seed 42 --verbose --logger-level INFO  \
+  -c configs/protopnet/mnist/ \
+  --output-dir runs/mnist_protopnet \
+  --logger-file runs/mnist_prototree/log.txt
+```
+These commands train a ProtoPNet during one epoch, and store the resulting checkpoint in 
 `runs/mnist_protopnet/final`.
 
 ### Global explanation
@@ -65,10 +104,23 @@ cd ../../ # Go back to root directory
 cabrnet explain_global --verbose \
   --model-config runs/mnist_protopnet/final/model_arch.yml \
   --model-state-dict runs/mnist_protopnet/final/model_state.pth \
-  --output-dir runs/mnist_protopnet/global_explanation --prototype-dir runs/mnist_protopnet/prototypes/
+  --dataset runs/mnist_protopnet/final/dataset.yml \
+  --projection-info runs/mnist_protopnet/final/projection_info.csv \
+  --visualization configs/explanation/mnist_visualization.yml \
+  --output-dir runs/mnist_protopnet/global_explanation 
 ```
-This command generates a global explanation for the ProtoPNet model in 
+or simply
+```bash
+cd ../../ # Go back to root directory
+cabrnet explain_global --verbose \
+  --checkpoint-dir runs/mnist_protopnet/final \
+  --visualization configs/explanation/mnist_visualization.yml \
+  --output-dir runs/mnist_protopnet/global_explanation
+``` 
+These commands generate a global explanation for the ProtoPNet model in 
 `runs/mnist_protopnet/global_explanation`.
+In particular, the visualization of each prototype is stored in 
+`runs/mnist_protopnet/global_explanation/prototypes`.
 
 ![protopnet mnist global explanation](imgs/protopnet_mnist_global_explanation.png)
 
@@ -78,14 +130,27 @@ cd ../../ # Go back to root directory
 cabrnet explain_local --verbose \
   --model-config runs/mnist_protopnet/final/model_arch.yml  \
   --model-state-dict runs/mnist_protopnet/final/model_state.pth \
-  --dataset configs/protopnet/mnist/dataset.yml \
-  --visualization configs/protopnet/mnist/visualization.yml \
-  --prototype-dir runs/mnist_protopnet/prototypes/ \
+  --dataset runs/mnist_protopnet/final/dataset.yml \
+  --visualization configs/explanation/mnist_visualization.yml \
+  --prototype-dir runs/mnist_protopnet/global_explanation/prototypes/ \
   --output-dir runs/mnist_protopnet/local_explanations/  \
   --image examples/images/mnist_sample.png
 ```
+or simply
+```bash
+cd ../../ # Go back to root directory
+cabrnet explain_local --verbose \
+  -c runs/mnist_protopnet/final/ \
+  --visualization configs/explanation/mnist_visualization.yml \
+  --prototype-dir runs/mnist_protopnet/global_explanation/prototypes/ \
+  --output-dir runs/mnist_protopnet/local_explanations/  \
+  --image examples/images/mnist_sample.png
+```
+
 This command generates a local explanation for the image `examples/images/mnist_sample.png` and stores the result in 
 `runs/mnist_protopnet/local_explanation`.
+In particular, producing local explanations requires 
+prototype visualizations, which can be generated using the `cabrnet explain_global` application described above.
 
 ![protopnet mnist local explanation](imgs/protopnet_mnist_local_explanation.png)
 
