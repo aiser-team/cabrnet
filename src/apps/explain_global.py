@@ -26,19 +26,21 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     parser = DatasetManager.create_parser(parser)
     parser = SimilarityVisualizer.create_parser(parser, mandatory_config=True)
     parser.add_argument(
+        "-p",
+        "--projection-info",
+        type=str,
+        required=False,
+        metavar="/path/to/projection/info",
+        help="path to the CSV file containing the projection information",
+    )
+    parser.add_argument(
         "-c",
         "--checkpoint-dir",
         type=str,
         required=False,
         metavar="/path/to/checkpoint/dir",
-        help="path to a checkpoint directory (alternative to --model-config, --model-state-dict)",
-    )
-    parser.add_argument(
-        "-p",
-        "--projection-info",
-        type=str,
-        metavar="/path/to/projection/info",
-        help="path to the CSV file containing the projection informations",
+        help="path to a checkpoint directory (alternative to --model-config, --model-state-dict, --dataset "
+             "and --projection-info)",
     )
     parser.add_argument(
         "-o",
@@ -75,9 +77,9 @@ def check_args(args: Namespace) -> Namespace:
 
     # Check configuration completeness
     for param, name, option in zip(
-        [args.model_config, args.model_state_dict, args.dataset],
-        ["model configuration", "state dictionary", "dataset configuration"],
-        ["-m", "-s", "-d"],
+        [args.model_config, args.model_state_dict, args.dataset, args.projection_info],
+        ["model configuration", "state dictionary", "dataset configuration", "projection information"],
+        ["-m", "-s", "-d", "-p"],
     ):
         if param is None:
             raise ArgumentError(f"Missing {name} file (option {option}).")

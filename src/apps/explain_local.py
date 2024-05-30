@@ -26,15 +26,14 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     # Relies on dataset configuration of the test to deduce the type of preprocessing
     # that needs to be applied on the source image
     parser = DatasetManager.create_parser(parser)
-    parser = SimilarityVisualizer.create_parser(parser)
+    parser = SimilarityVisualizer.create_parser(parser, mandatory_config=True)
     parser.add_argument(
         "-c",
         "--checkpoint-dir",
         type=str,
         required=False,
         metavar="/path/to/checkpoint/dir",
-        help="path to a checkpoint directory "
-        "(alternative to --model-config, --model-state-dict, --dataset and --visualization)",
+        help="path to a checkpoint directory (alternative to --model-config, --model-state-dict, --dataset)",
     )
     parser.add_argument(
         "-i",
@@ -79,31 +78,30 @@ def check_args(args: Namespace) -> Namespace:
     if args.checkpoint_dir is not None:
         # Fetch all files from directory
         for param, name in zip(
-            [args.model_config, args.model_state_dict, args.dataset, args.visualization, args.projection_info],
-            ["--model-config", "--model-state-dict", "--dataset", "--visualization", "--projection-info"],
+            [args.model_config, args.model_state_dict, args.dataset, args.projection_info],
+            ["--model-config", "--model-state-dict", "--dataset", "--projection-info"],
         ):
             if param is not None:
                 raise ArgumentError(f"Cannot specify both options {name} and --checkpoint-dir")
         args.model_config = os.path.join(args.checkpoint_dir, CaBRNet.DEFAULT_MODEL_CONFIG)
         args.model_state_dict = os.path.join(args.checkpoint_dir, CaBRNet.DEFAULT_MODEL_STATE)
         args.dataset = os.path.join(args.checkpoint_dir, DatasetManager.DEFAULT_DATASET_CONFIG)
-        args.visualization = os.path.join(args.checkpoint_dir, SimilarityVisualizer.DEFAULT_VISUALIZATION_CONFIG)
-        args.projection_info = os.path.join(args.checkpoint_dir, CaBRNet.DEFAULT_PROJECTION_INFO)
 
     # Check configuration completeness
     for param, name, option in zip(
-        [args.model_config, args.model_state_dict, args.dataset, args.visualization],
-        [
-            "model configuration",
-            "state dictionary",
-            "dataset configuration",
-            "visualization configuration",
-            "projection informations",
-        ],
-        ["-m", "-s", "-d", "-z", "-p"],
+        [args.model_config, args.model_state_dict, args.dataset, args.projection_info],
+        ["model configuration", "state dictionary", "dataset configuration", "projection informations"],
+        ["-m", "-s", "-d", "-p"],
     ):
         if param is None:
             raise ArgumentError(f"Missing {name} file (option {option}).")
+
+    output_dir = os.path.join(args.output_dir, Path(args.image).stem)
+    if os.path.exists(output_dir) and not args.overwrite:
+        raise ArgumentError(
+            f"Output directory {output_dir} is not empty. " f"To overwrite existing results, use --overwrite option."
+        )
+
     return args
 
 
