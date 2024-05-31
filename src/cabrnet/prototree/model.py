@@ -305,12 +305,6 @@ class ProtoTree(CaBRNet):
     def epilogue(
         self,
         dataloaders: dict[str, DataLoader],
-        optimizer_mngr: OptimizerManager,
-        output_dir: str,
-        model_config: str,
-        training_config: str,
-        dataset_config: str,
-        seed: int,
         device: str = "cuda:0",
         verbose: bool = False,
         pruning_threshold: float = 0.0,
@@ -321,12 +315,6 @@ class ProtoTree(CaBRNet):
 
         Args:
             dataloaders (dictionary): Dictionary of dataloaders.
-            optimizer_mngr (OptimizerManager): Optimizer manager.
-            output_dir (str): Path to output directory.
-            model_config (str): Path to model configuration.
-            training_config (str): Path to model training configuration.
-            dataset_config (str): Path to dataset configuration.
-            seed (int): Random seed.
             device (str, optional): Target device. Default: cuda:0.
             verbose (bool, optional): Display progress bar. Default: False.
             pruning_threshold (float, optional): Pruning threshold. Default: 0.0 (no pruning).
