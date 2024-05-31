@@ -29,6 +29,7 @@ class CaBRNet(nn.Module):
     # Regroups common default file names in a single location
     DEFAULT_MODEL_CONFIG: str = "model_arch.yml"
     DEFAULT_MODEL_STATE: str = "model_state.pth"
+    DEFAULT_PROJECTION_INFO: str = "projection_info.csv"
 
     def __init__(self, extractor: nn.Module, classifier: CaBRNetGenericClassifier, compatibility_mode: bool = False):
         r"""Builds a CaBRNet prototype-based model.
@@ -74,7 +75,7 @@ class CaBRNet(nn.Module):
             Tensor of similarity scores.
         """
         x = self.extractor(x, **kwargs)
-        return self.classifier.similarity_layer(x, self.classifier.prototypes)
+        return self.classifier.similarity_layer(x, self.classifier.prototypes)  # type: ignore
 
     def l2_distances(self, x: Tensor, **kwargs) -> Tensor:
         r"""Returns L2 distances to each prototype.
@@ -86,7 +87,7 @@ class CaBRNet(nn.Module):
             Tensor of L2 distances.
         """
         x = self.extractor(x, **kwargs)
-        return self.classifier.similarity_layer.L2_square_distance(x, self.classifier.prototypes)
+        return self.classifier.similarity_layer.L2_square_distance(x, self.classifier.prototypes)  # type: ignore
 
     @property
     def num_prototypes(self) -> int:
@@ -280,32 +281,25 @@ class CaBRNet(nn.Module):
     def epilogue(
         self,
         dataloaders: dict[str, DataLoader],
-        visualizer: SimilarityVisualizer,
         optimizer_mngr: OptimizerManager,
         output_dir: str,
-        model_config: str,
-        training_config: str,
-        dataset_config: str,
-        seed: int,
         device: str = "cuda:0",
         verbose: bool = False,
         **kwargs,
-    ) -> None:
+    ) -> dict[int, dict[str, int | float]]:
         r"""Function called after training, using information from the epilogue field in the training configuration.
 
         Args:
             dataloaders (dictionary): Dictionary of dataloaders.
-            visualizer (SimilarityVisualizer): Similarity visualizer.
             optimizer_mngr (OptimizerManager): Optimizer manager.
             output_dir (str): Path to output directory.
-            model_config (str): Path to model configuration.
-            training_config (str): Path to model training configuration.
-            dataset_config (str): Path to dataset configuration.
-            seed (int): Random seed.
             device (str, optional): Target device. Default: cuda:0.
             verbose (bool, optional): Display progress bar. Default: False.
+
+        Returns:
+            Projection information.
         """
-        pass
+        return {}
 
     def evaluate(
         self,
@@ -388,7 +382,7 @@ class CaBRNet(nn.Module):
         device: str = "cuda:0",
         verbose: bool = False,
         tqdm_position: int = 0,
-    ) -> dict[int, dict]:
+    ) -> dict[int, dict[str, int | float]]:
         r"""Performs prototype projection after training.
 
         Args:
@@ -432,7 +426,7 @@ class CaBRNet(nn.Module):
         if os.path.isfile(visualizer.config_file):  # type: ignore
             try:
                 shutil.copyfile(
-                    src=visualizer.config_file,
+                    src=visualizer.config_file,  # type: ignore
                     dst=os.path.join(dir_path, SimilarityVisualizer.DEFAULT_VISUALIZATION_CONFIG),
                 )  # type: ignore
             except shutil.SameFileError:

@@ -46,4 +46,3 @@ periods:
 # After training
 epilogue:
   pruning_threshold: 0.01
-  projection_file: projection_info.csv

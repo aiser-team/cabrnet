@@ -1,12 +1,13 @@
 from cabrnet.generic.model import CaBRNet
 from cabrnet.utils.data import DatasetManager
+from cabrnet.utils.save import load_projection_info
 from cabrnet.visualization.visualizer import SimilarityVisualizer
-from cabrnet.evaluation.debug_explainer import DebugGraph
+from cabrnet.visualization.explainer import DebugGraph
 from cabrnet.visualization.view import compute_bbox
 from cabrnet.utils.parser import load_config
 from cabrnet.utils.exceptions import ArgumentError
 import torch
-from torchvision.transforms import ColorJitter, GaussianBlur
+from torchvision.transforms import ColorJitter, GaussianBlur, ToTensor
 import pandas as pd
 import csv
 import matplotlib.pyplot as plt
@@ -116,9 +117,9 @@ def _compute_perturbations(
     def _merge(a: np.ndarray, b: np.ndarray, mask: np.ndarray, name: str):
         mask = mask if a.ndim == b.ndim == 3 else np.squeeze(mask)  # Handle grayscale images
         if debug:
-            Image.fromarray(a).save(prefix + name + ".png")
-            Image.fromarray(np.round(mask * a).astype(np.uint8)).save(prefix + name + "_pos.png")
-            Image.fromarray(np.round((1 - mask) * b).astype(np.uint8)).save(prefix + name + "_neg.png")
+            Image.fromarray(a).save(prefix + name + ".png")  # type: ignore
+            Image.fromarray(np.round(mask * a).astype(np.uint8)).save(prefix + name + "_pos.png")  # type: ignore
+            Image.fromarray(np.round((1 - mask) * b).astype(np.uint8)).save(prefix + name + "_neg.png")  # type: ignore
         return np.round(mask * a + (1 - mask) * b).astype(np.uint8)
 
     perturbed_img_arrays = {
@@ -212,7 +213,7 @@ def _compute_perturbations(
                 mask=1 - attribution,  # Perturb image outside the attribution mask
                 name="hue_dual",
             ),
-            "description": "Hue reduction",
+            "description": "Hue shift",
         },
         "blur": {
             "focus": _merge(
@@ -265,6 +266,7 @@ def execute(
     model: CaBRNet,
     dataset_config: str,
     visualization_config: str,
+    projection_file: str,
     root_dir: str,
     device: str,
     verbose: bool,
@@ -281,6 +283,7 @@ def execute(
             model (Module): CaBRNet model.
             dataset_config (str): Path to dataset configuration file.
             visualization_config (str): Path to visualization configuration file.
+            projection_file (str): Path to projection information file.
             root_dir (str): Path to root output directory.
             device (str): Target device.
             verbose (bool): Verbose mode.
@@ -300,23 +303,20 @@ def execute(
     datasets = DatasetManager.get_datasets(dataset_config, sampling_ratio=sampling_ratio)
     visualizer = SimilarityVisualizer.build_from_config(config_file=visualization_config, model=model)
 
-    # Infer possible location for prototype directory
-    prototype_dir = os.path.join(os.path.dirname(dataset_config), "..", "prototypes")
-
     # Recover preprocessing function
-    preprocess = getattr(datasets["test_set"]["dataset"], "transform", None)
+    preprocess = getattr(datasets["test_set"]["dataset"], "transform", ToTensor())
     dataset = datasets["test_set"]["raw_dataset"]
 
     test_iter = tqdm(
         enumerate(dataset),  # type: ignore
-        desc=f"Benchmark on test set",
+        desc="Benchmark on test set",
         total=len(dataset),  # type: ignore
         leave=False,
         position=tqdm_position,
         disable=not verbose,
     )
 
-    """Init statistics. For each image in the training set, and the active prototype most similar to that image, 
+    """Init statistics. For each image in the training set, and the active prototype most similar to that image,
     record the original similarity score and the score after each perturbation
     """
     stats = []
@@ -326,13 +326,30 @@ def execute(
         for dir_name in ["images", "perturbations"]:
             os.makedirs(os.path.join(output_dir, dir_name), exist_ok=True)
 
-    for img_idx, (img, label) in test_iter:
+        # Get dataloaders and projection info, then build prototypes
+        dataloaders = DatasetManager.get_dataloaders(config_file=dataset_config)
+        projection_info = load_projection_info(projection_file)
+        prototype_dir = os.path.join(output_dir, "prototypes")
+
+        # Avoid generating prototypes if the directory already exists
+        if not os.path.isdir(prototype_dir):
+            model.extract_prototypes(
+                dataloader_raw=dataloaders["projection_set_raw"],
+                dataloader=dataloaders["projection_set"],
+                projection_info=projection_info,
+                visualizer=visualizer,
+                dir_path=prototype_dir,
+                device=device,
+                verbose=verbose,
+            )
+
+    for img_idx, (img, label) in test_iter:  # type: ignore
         img_array = np.array(img)
         img_tensor = preprocess(img)
 
+        img_path = os.path.join(output_dir, "images", f"img{img_idx}_original.png")
         if debug_mode:
             # In debug mode, save original image
-            img_path = os.path.join(output_dir, "images", f"img{img_idx}_original.png")
             square_resize(img).save(img_path)
 
         if img_tensor.dim() != 4:
@@ -355,7 +372,7 @@ def execute(
             original_sim_map[proto_idx] = 0
 
         # Compute attribution map and expand to (H x W x 1)
-        attribution = visualizer.get_attribution(img=img, img_tensor=img_tensor, proto_idx=proto_idx, device=device)  # type: ignore
+        attribution = visualizer.get_attribution(img=img, img_tensor=img_tensor, proto_idx=proto_idx, device=device)
         attribution = np.expand_dims(attribution, axis=-1)
 
         # Compute perturbed images
@@ -368,15 +385,15 @@ def execute(
             **kwargs,  # Pass on perturbation factors
         )
 
+        explanation = DebugGraph(output_dir=output_dir)
         if debug_mode:
             # In debug mode, generate explanation graphs
-            explanation = DebugGraph(output_dir=output_dir)
-            explanation.set_test_image(img_path=img_path, label="Original image\n\n")
+            explanation.set_test_image(img_path=img_path, label="Original image\n\n\n")
             patch_img = visualizer.view(img=img, sim_map=attribution[..., 0], **visualizer.view_params)
             patch_img_path = os.path.join(output_dir, "images", f"img{img_idx}_p{proto_idx}_patch.png")
             square_resize(patch_img).save(patch_img_path)
             explanation.set_test_image(
-                img_path=patch_img_path, label=f"Similarity patch\nOriginal score: {score:.2f}\n", draw_arrows=False
+                img_path=patch_img_path, label=f"Similarity patch\nOriginal score: {score:.2f}\n\n", draw_arrows=False
             )
 
         for pert_name in perturbed_imgs:
@@ -425,8 +442,8 @@ def execute(
                 else:
                     explanation.set_test_image(
                         img_path=focus_img_path,
-                        label=f"{perturbed_imgs[pert_name]['description']}\n(focus)\n" f"New score: {pert_score:.2f}",
-                        font_color="blue" if drop_percentage > 0.1 else "red",
+                        label=f"{perturbed_imgs[pert_name]['description']}\n(focus)\n" f"New score: {pert_score:.2f}",  # type: ignore
+                        font_color="blue" if drop_percentage > 0.1 else "red",  # type: ignore
                     )
 
             # Record drop in similarity
@@ -442,7 +459,7 @@ def execute(
                 }
             )
         if debug_mode:
-            explanation.render(os.path.join(output_dir, f"img{img_idx}_p{proto_idx}_sensitivity"))
+            explanation.render(os.path.join(output_dir, f"img{img_idx}_p{proto_idx}_sensitivity"))  # type: ignore
 
     output_path = os.path.join(output_dir, info_db)
     if output_path.lower().endswith(("pickle", "pkl")):
@@ -480,7 +497,7 @@ def show_results(
     """
     if src_path.lower().endswith(tuple(["pickle", "pkl"])):
         # Open pickle and convert to pandas dataframe
-        df = pd.DataFrame.from_dict(pd.read_pickle(src_path))
+        df = pd.DataFrame.from_dict(pd.read_pickle(src_path))  # type: ignore
     else:
         # CSV format
         df = pd.read_csv(src_path)

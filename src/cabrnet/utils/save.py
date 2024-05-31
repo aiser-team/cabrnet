@@ -10,8 +10,23 @@ import torch
 from loguru import logger
 from cabrnet.utils.optimizers import OptimizerManager
 from cabrnet.utils.data import DatasetManager
-from cabrnet.visualization.visualizer import SimilarityVisualizer
 from cabrnet.generic.model import CaBRNet
+import csv
+import pandas as pd
+
+
+def safe_copy(src: str, dst: str) -> None:
+    r"""Copies a file to a given destination, ignoring copies of a file onto itself.
+
+    Args:
+        src (str): Path to source file.
+        dst (str): Path to destination file.
+    """
+    try:
+        shutil.copyfile(src=src, dst=dst)
+    except shutil.SameFileError:
+        logger.warning(f"Ignoring file copy from {src} to itself.")
+        pass
 
 
 def save_checkpoint(
@@ -21,7 +36,7 @@ def save_checkpoint(
     optimizer_mngr: OptimizerManager | None,
     training_config: str | None,
     dataset_config: str,
-    visualization_config: str,
+    projection_info: dict[int, dict[str, int | float]] | None,
     epoch: int | str,
     seed: int | None,
     device: str,
@@ -36,19 +51,12 @@ def save_checkpoint(
         optimizer_mngr (OptimizerManager): Optimizer manager.
         training_config (str): Path to the training configuration file.
         dataset_config (str): Path to the dataset configuration file.
-        visualization_config (str): Path to the visualization configuration file.
+        projection_info (dictionary, optional): Projection dictionary, generated during training epilogue.
         epoch (int or str): Current epoch.
         seed (int): Initial random seed (recorded for reproducibility).
         device (str): Target hardware device (recorded for reproducibility).
         stats (dictionary, optional): Other optional statistics. Default: None.
     """
-
-    def safe_copy(src: str, dst: str):
-        try:
-            shutil.copyfile(src=src, dst=dst)
-        except shutil.SameFileError:
-            logger.warning(f"Ignoring file copy from {src} to itself.")
-            pass
 
     os.makedirs(directory_path, exist_ok=True)
 
@@ -61,9 +69,6 @@ def save_checkpoint(
     if training_config is not None:
         safe_copy(src=training_config, dst=os.path.join(directory_path, OptimizerManager.DEFAULT_TRAINING_CONFIG))
     safe_copy(src=dataset_config, dst=os.path.join(directory_path, DatasetManager.DEFAULT_DATASET_CONFIG))
-    safe_copy(
-        src=visualization_config, dst=os.path.join(directory_path, SimilarityVisualizer.DEFAULT_VISUALIZATION_CONFIG)
-    )
 
     state = {
         "random_generators": {
@@ -79,6 +84,10 @@ def save_checkpoint(
 
     with open(os.path.join(directory_path, "state.pickle"), "wb") as file:
         pickle.dump(state, file)
+
+    # Save projection information if it exists
+    if projection_info is not None:
+        save_projection_info(projection_info, os.path.join(directory_path, CaBRNet.DEFAULT_PROJECTION_INFO))
 
     logger.info(f"Successfully saved checkpoint at epoch {epoch}.")
 
@@ -133,3 +142,44 @@ def load_checkpoint(
         "device": device,
         "stats": stats,
     }
+
+
+def save_projection_info(projection_info: dict[int, dict[str, int | float]], filename: str) -> None:
+    r"""Saves projection information, either in pickle or CSV format.
+
+    Args:
+        projection_info (dictionary): Projection dictionary, generated during training epilogue.
+        filename (str): Path to output file. Based on the file extension, the file is stored in
+          pickle format (pickle or pkl extension) or CSV format (any other extension).
+    """
+    if filename.lower().endswith(("pickle", "pkl")):
+        with open(filename, "wb") as f:
+            pickle.dump(projection_info, f)
+    else:
+        # CSV format
+        with open(filename, "w") as f:
+            writer = csv.DictWriter(f, fieldnames=["proto_idx"] + list(projection_info[0].keys()))
+            writer.writeheader()
+            for proto_idx in projection_info.keys():
+                writer.writerow(projection_info[proto_idx] | {"proto_idx": proto_idx})
+
+
+def load_projection_info(filename: str) -> dict[int, dict[str, int | float]]:
+    r"""Loads projection information, either in pickle or CSV format.
+
+    Args:
+        filename (str): Path to input file. Based on the file extension, the file is loaded in
+          pickle format (pickle or pkl extension) or CSV format (any other extension).
+
+    Returns:
+        Projection dictionary, generated during training epilogue.
+    """
+    if not os.path.isfile(filename):
+        raise FileNotFoundError(f"Could not find projection information file {filename}")
+    if filename.lower().endswith(tuple(["pickle", "pkl"])):
+        with open(filename, "rb") as file:
+            projection_info = pickle.load(file)
+    else:
+        projection_list = pd.read_csv(filename).to_dict(orient="records")
+        projection_info = {entry["proto_idx"]: entry for entry in projection_list}
+    return projection_info

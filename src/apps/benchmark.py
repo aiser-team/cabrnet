@@ -27,15 +27,22 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         parser = ArgumentParser(description)
     parser = CaBRNet.create_parser(parser)
     parser = DatasetManager.create_parser(parser)
-    parser = SimilarityVisualizer.create_parser(parser)
+    parser = SimilarityVisualizer.create_parser(parser, mandatory_config=True)
+    parser.add_argument(
+        "-p",
+        "--projection-info",
+        type=str,
+        required=False,
+        metavar="/path/to/projection/info",
+        help="path to the CSV file containing the projection information",
+    )
     parser.add_argument(
         "-c",
         "--checkpoint-dir",
         type=str,
         required=False,
         metavar="/path/to/checkpoint/dir",
-        help="path to a checkpoint directory "
-        "(alternative to --model-config, --model-state-dict, --dataset and --visualization)",
+        help="path to a checkpoint directory " "(alternative to --model-config, --model-state-dict and --dataset)",
     )
     parser.add_argument(
         "-b",
@@ -69,28 +76,24 @@ def check_args(args: Namespace) -> Namespace:
     if args.checkpoint_dir is not None:
         # Fetch all files from directory
         for param, name in zip(
-            [args.model_config, args.model_state_dict, args.dataset, args.visualization],
-            ["--model-config", "--model-state-dict", "--dataset", "--visualization"],
+            [args.model_config, args.model_state_dict, args.dataset, args.projection_info],
+            ["--model-config", "--model-state-dict", "--dataset", "--projection-info"],
         ):
             if param is not None:
                 logger.warning(f"Ignoring option {name}: using content pointed by --checkpoint-dir instead")
         args.model_config = os.path.join(args.checkpoint_dir, CaBRNet.DEFAULT_MODEL_CONFIG)
         args.model_state_dict = os.path.join(args.checkpoint_dir, CaBRNet.DEFAULT_MODEL_STATE)
         args.dataset = os.path.join(args.checkpoint_dir, DatasetManager.DEFAULT_DATASET_CONFIG)
-        args.visualization = os.path.join(args.checkpoint_dir, SimilarityVisualizer.DEFAULT_VISUALIZATION_CONFIG)
+        args.projection_info = os.path.join(args.checkpoint_dir, CaBRNet.DEFAULT_PROJECTION_INFO)
 
     # Check configuration completeness
-    for param, name in zip(
-        [args.model_config, args.model_state_dict, args.dataset, args.visualization],
-        [
-            "model configuration",
-            "model state",
-            "dataset configuration",
-            "visualization configuration",
-        ],
+    for param, name, option in zip(
+        [args.model_config, args.model_state_dict, args.dataset, args.projection_info],
+        ["model configuration", "state dictionary", "dataset configuration", "projection information"],
+        ["-m", "-s", "-d", "-p"],
     ):
         if param is None:
-            raise ArgumentError(f"Missing {name} file.")
+            raise ArgumentError(f"Missing {name} file (option {option}).")
     if os.path.isdir(args.output_dir) and not args.overwrite:
         raise ArgumentError("Output directory already exists. Use --overwrite option to override.")
     return args
@@ -110,6 +113,7 @@ def execute(args: Namespace) -> None:
     model_state_dict = args.model_state_dict
     dataset_config = args.dataset
     visualizer_config = args.visualization
+    projection_file = args.projection_info
     bench_config = args.benchmark_configuration
     verbose = args.verbose
     device = args.device
@@ -152,6 +156,7 @@ def execute(args: Namespace) -> None:
             model=model,
             dataset_config=dataset_config,
             visualization_config=visualizer_config,
+            projection_file=projection_file,
             root_dir=output_dir,
             device=device,
             verbose=verbose,

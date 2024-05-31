@@ -1,9 +1,0 @@
-attribution:
-  type: prp
-  params:
-    normalize: True
-    single_location: True
-view:
-  type: bbox_to_percentile
-  params:
-    percentile: 0.7

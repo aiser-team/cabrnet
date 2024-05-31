@@ -1,12 +1,12 @@
 from cabrnet.generic.model import CaBRNet
 from cabrnet.utils.data import DatasetManager
+from cabrnet.utils.save import load_projection_info
 from cabrnet.visualization.visualizer import SimilarityVisualizer
-from cabrnet.evaluation.debug_explainer import DebugGraph
+from cabrnet.visualization.explainer import DebugGraph
 from cabrnet.visualization.view import heatmap
 from cabrnet.utils.parser import load_config
 from cabrnet.utils.exceptions import ArgumentError
 import torch
-import pandas as pd
 from PIL import Image
 import csv
 import numpy as np
@@ -159,9 +159,7 @@ def patches_relevance_analysis(
             # Discard inactive prototype and try again
             original_sim_map[proto_idx] = 0
 
-        attribution = visualizer.get_attribution(
-            img=img, img_tensor=img_tensor, proto_idx=proto_idx, device=device  # type: ignore
-        )
+        attribution = visualizer.get_attribution(img=img, img_tensor=img_tensor, proto_idx=proto_idx, device=device)
 
         mask_relevance = pg_mask_relevance(attribution, np.asarray(seg), area_percentage)
         energy_relevance = pg_energy_relevance(attribution, np.asarray(seg))
@@ -260,7 +258,7 @@ def proto_relevance_analysis(
     verbose: bool,
     prototype_info_db: str,
     area_percentage: float,
-    projection_info: str = "projection_info.csv",
+    projection_file: str,
     tqdm_position: int = 0,
     **kwargs,
 ) -> None:
@@ -275,8 +273,7 @@ def proto_relevance_analysis(
         verbose (bool): Verbose mode.
         prototype_info_db (str): Path to raw output analysis file.
         area_percentage (float): Area percentage for pointing game mask relevance.
-        projection_info (str, optional): Path to the projection info produced during training.
-            Default: projection_info.csv.
+        projection_file (str): Path to the projection info produced during training.
         tqdm_position (int, optional): Position of the progress bar. Default: 0.
     """
     logger.info("Starting prototype relevance benchmark")
@@ -293,23 +290,12 @@ def proto_relevance_analysis(
     projection_set = datasets["projection_set"]["raw_dataset"]
     segmentation_set = datasets["projection_set"]["seg_dataset"]
 
-    # Seek projection information inside directory of prototypes
-    prototype_dir = os.path.join(os.path.dirname(dataset_config), "..", "prototypes")
-    projection_info_path = os.path.join(prototype_dir, projection_info)
-    if not os.path.isfile(projection_info_path):
-        raise FileNotFoundError(f"Could not find projection information file {projection_info_path}")
-    if projection_info_path.lower().endswith(tuple(["pickle", "pkl"])):
-        with open(projection_info_path, "rb") as file:
-            projection_db = pickle.load(file)
-    else:
-        # CSV format
-        projection_list = pd.read_csv(projection_info_path).to_dict(orient="records")
-        projection_db = {entry["proto_idx"]: entry for entry in projection_list}
+    projection_info = load_projection_info(projection_file)
 
     proto_iter = tqdm(
-        projection_db,
+        projection_info,
         desc="Benchmark on prototypes",
-        total=len(projection_db),
+        total=len(projection_info),
         leave=False,
         position=tqdm_position,
         disable=not verbose,
@@ -319,18 +305,18 @@ def proto_relevance_analysis(
 
     for proto_idx in proto_iter:
         # Recover source image for the prototype
-        img = projection_set[projection_db[proto_idx]["img_idx"]][0]
+        img = projection_set[projection_info[proto_idx]["img_idx"]][0]  # type: ignore
         img_tensor = preprocess(img)  # type: ignore
         attribution = visualizer.get_attribution(img=img, img_tensor=img_tensor, proto_idx=proto_idx, device=device)
         mask_relevance = pg_mask_relevance(
-            attribution, np.asarray(segmentation_set[projection_db[proto_idx]["img_idx"]][0]), area_percentage
+            attribution, np.asarray(segmentation_set[projection_info[proto_idx]["img_idx"]][0]), area_percentage  # type: ignore
         )
         energy_relevance = pg_energy_relevance(
-            attribution, np.asarray(segmentation_set[projection_db[proto_idx]["img_idx"]][0])
+            attribution, np.asarray(segmentation_set[projection_info[proto_idx]["img_idx"]][0])  # type: ignore
         )
         stats.append(
             {
-                "img_idx": projection_db[proto_idx]["img_idx"],
+                "img_idx": projection_info[proto_idx]["img_idx"],
                 "proto_idx": proto_idx,
                 "mask_relevance": mask_relevance,
                 "energy_relevance": energy_relevance,

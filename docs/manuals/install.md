@@ -30,9 +30,9 @@ python3 -m pip install -e .
 ```
 
 NOTE: As maintaining different requirements files is not trivial, the current
-process is to use `pip` even when creating a `micromamba/mamba/conda`
-environment. This implies that you should NOT install anything with
-`micromamba/mamba/conda` afterward, as this could break your environment.
+process is to use `pip` even when creating a `micromamba/conda` environment.
+This implies that you should NOT install anything with `micromamba/conda`
+afterward, as this could break your environment.
 
 ## Building the package
 
