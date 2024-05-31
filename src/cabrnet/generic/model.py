@@ -75,7 +75,7 @@ class CaBRNet(nn.Module):
             Tensor of similarity scores.
         """
         x = self.extractor(x, **kwargs)
-        return self.classifier.similarity_layer(x, self.classifier.prototypes)  # type: ignore
+        return self.classifier.similarity_layer(x, self.classifier.prototypes)
 
     def l2_distances(self, x: Tensor, **kwargs) -> Tensor:
         r"""Returns L2 distances to each prototype.
@@ -87,7 +87,7 @@ class CaBRNet(nn.Module):
             Tensor of L2 distances.
         """
         x = self.extractor(x, **kwargs)
-        return self.classifier.similarity_layer.L2_square_distance(x, self.classifier.prototypes)  # type: ignore
+        return self.classifier.similarity_layer.L2_square_distance(x, self.classifier.prototypes)
 
     @property
     def num_prototypes(self) -> int:
@@ -348,11 +348,11 @@ class CaBRNet(nn.Module):
 
                 # Update global metrics
                 total_loss += batch_loss.item()
-                total_acc += batch_accuracy  # type: ignore
+                total_acc += batch_accuracy
 
                 # Update progress bar
                 postfix_str = f"Batch loss: {batch_loss.item():.3f}, Acc: {batch_accuracy:.3f}"
-                data_iter.set_postfix_str(postfix_str)  # type: ignore
+                data_iter.set_postfix_str(postfix_str)
 
         return {"avg_loss": total_loss / batch_num, "avg_eval_accuracy": total_acc / batch_num}
 
@@ -423,12 +423,12 @@ class CaBRNet(nn.Module):
         # Create destination directory if necessary
         os.makedirs(dir_path, exist_ok=True)
         # Copy visualizer configuration file
-        if os.path.isfile(visualizer.config_file):  # type: ignore
+        if visualizer.config_file is not None and os.path.isfile(visualizer.config_file):
             try:
                 shutil.copyfile(
-                    src=visualizer.config_file,  # type: ignore
+                    src=visualizer.config_file,
                     dst=os.path.join(dir_path, SimilarityVisualizer.DEFAULT_VISUALIZATION_CONFIG),
-                )  # type: ignore
+                )
             except shutil.SameFileError:
                 logger.warning(f"Ignoring file copy from {visualizer.config_file} to itself.")
                 pass

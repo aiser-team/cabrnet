@@ -113,13 +113,15 @@ def _compute_perturbations(
     Returns:
         Dictionary of perturbed images, where the key corresponds to the name of the perturbation.
     """
+    if prefix is None:
+        prefix = ""
 
     def _merge(a: np.ndarray, b: np.ndarray, mask: np.ndarray, name: str):
         mask = mask if a.ndim == b.ndim == 3 else np.squeeze(mask)  # Handle grayscale images
         if debug:
-            Image.fromarray(a).save(prefix + name + ".png")  # type: ignore
-            Image.fromarray(np.round(mask * a).astype(np.uint8)).save(prefix + name + "_pos.png")  # type: ignore
-            Image.fromarray(np.round((1 - mask) * b).astype(np.uint8)).save(prefix + name + "_neg.png")  # type: ignore
+            Image.fromarray(a).save(prefix + name + ".png")
+            Image.fromarray(np.round(mask * a).astype(np.uint8)).save(prefix + name + "_pos.png")
+            Image.fromarray(np.round((1 - mask) * b).astype(np.uint8)).save(prefix + name + "_neg.png")
         return np.round(mask * a + (1 - mask) * b).astype(np.uint8)
 
     perturbed_img_arrays = {
@@ -365,8 +367,8 @@ def execute(
         while True:
             score = np.max(original_sim_map)
             proto_idx, h_max, w_max = np.where(original_sim_map == score)
-            proto_idx, h_max, w_max = proto_idx[0], h_max[0], w_max[0]
-            if model.prototype_is_active(proto_idx):  # type:ignore
+            proto_idx, h_max, w_max = int(proto_idx[0]), h_max[0], w_max[0]
+            if model.prototype_is_active(proto_idx):
                 break
             # Discard inactive prototype and try again
             original_sim_map[proto_idx] = 0
@@ -399,6 +401,7 @@ def execute(
         for pert_name in perturbed_imgs:
             perturbation_scores = []
             targets = ["focus"] if not enable_dual_mode else ["focus", "dual"]
+            drop_percentage = 0.0
             for target in targets:
                 pert_img = Image.fromarray(perturbed_imgs[pert_name][target])
 
@@ -442,8 +445,8 @@ def execute(
                 else:
                     explanation.set_test_image(
                         img_path=focus_img_path,
-                        label=f"{perturbed_imgs[pert_name]['description']}\n(focus)\n" f"New score: {pert_score:.2f}",  # type: ignore
-                        font_color="blue" if drop_percentage > 0.1 else "red",  # type: ignore
+                        label=f"{perturbed_imgs[pert_name]['description']}\n(focus)\n" f"New score: {pert_score:.2f}",
+                        font_color="blue" if drop_percentage > 0.1 else "red",
                     )
 
             # Record drop in similarity
@@ -459,7 +462,7 @@ def execute(
                 }
             )
         if debug_mode:
-            explanation.render(os.path.join(output_dir, f"img{img_idx}_p{proto_idx}_sensitivity"))  # type: ignore
+            explanation.render(os.path.join(output_dir, f"img{img_idx}_p{proto_idx}_sensitivity"))
 
     output_path = os.path.join(output_dir, info_db)
     if output_path.lower().endswith(("pickle", "pkl")):
@@ -497,10 +500,10 @@ def show_results(
     """
     if src_path.lower().endswith(tuple(["pickle", "pkl"])):
         # Open pickle and convert to pandas dataframe
-        df = pd.DataFrame.from_dict(pd.read_pickle(src_path))  # type: ignore
+        df = pd.DataFrame(pd.read_pickle(src_path))
     else:
         # CSV format
-        df = pd.read_csv(src_path)
+        df = pd.DataFrame(pd.read_csv(src_path))
 
     # Recover list of image indexes, prototype indexes and perturbations
     img_indices = df["img_idx"].unique()
