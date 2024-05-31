@@ -133,7 +133,7 @@ def execute(args: Namespace) -> None:
     for bench_module in bench_list:
         try:
             module = importlib.import_module(f"cabrnet.evaluation.{bench_module}")
-        except Exception as e:
+        except Exception as _:
             logger.warning(f"Skipping benchmark {bench_module}: could not load module. {traceback.format_exc()}")
             continue
         skip_module = False

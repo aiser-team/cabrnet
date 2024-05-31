@@ -16,7 +16,7 @@ def cubic_upsampling(
     location: tuple[int, int] | None = None,
     single_location: bool = True,
     normalize: bool = False,
-) -> np.array:
+) -> np.ndarray:
     r"""Performs patch visualization using upsampling with cubic interpolation.
 
     Args:

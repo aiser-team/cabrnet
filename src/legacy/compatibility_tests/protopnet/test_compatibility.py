@@ -33,7 +33,7 @@ def setup_rng(seed: int):
 
 
 class DummyLogger:
-    def __call__(self, message: str):
+    def __call__(self, _: str):
         pass
 
 
@@ -223,13 +223,13 @@ class TestProtoPNetCompatibility(unittest.TestCase):
         warm_optimizer, joint_optimizer, last_layer_optimizer, joint_lr_scheduler = legacy_get_optimizers(legacy_model)
 
         # Compare
-        self.assertGenericEqual(warm_optimizer.state_dict(), optimizer_mngr.optimizers["warmup_optimizer"].state_dict())  # type: ignore
-        self.assertGenericEqual(joint_optimizer.state_dict(), optimizer_mngr.optimizers["joint_optimizer"].state_dict())  # type: ignore
+        self.assertGenericEqual(warm_optimizer.state_dict(), optimizer_mngr.optimizers["warmup_optimizer"].state_dict())
+        self.assertGenericEqual(joint_optimizer.state_dict(), optimizer_mngr.optimizers["joint_optimizer"].state_dict())
         self.assertGenericEqual(
-            last_layer_optimizer.state_dict(), optimizer_mngr.optimizers["last_layer_optimizer"].state_dict()  # type: ignore
+            last_layer_optimizer.state_dict(), optimizer_mngr.optimizers["last_layer_optimizer"].state_dict()
         )
         self.assertGenericEqual(
-            joint_lr_scheduler.state_dict(), optimizer_mngr.schedulers["joint_optimizer"].state_dict()  # type: ignore
+            joint_lr_scheduler.state_dict(), optimizer_mngr.schedulers["joint_optimizer"].state_dict()
         )
 
     def test_train(self):
@@ -259,7 +259,7 @@ class TestProtoPNetCompatibility(unittest.TestCase):
         setup_rng(self.seed)
         legacy_model = legacy_get_model(self.seed)
         warm_optimizer, joint_optimizer, last_layer_optimizer, joint_lr_scheduler = legacy_get_optimizers(legacy_model)
-        train_loader, test_loader, train_push_loader = legacy_get_dataloaders(self.dataset_config_file)
+        train_loader, _, train_push_loader = legacy_get_dataloaders(self.dataset_config_file)
         legacy_model_multi = nn.DataParallel(legacy_model)
         push_start = cabrnet_model.projection_config["start_epoch"]
         push_frequency = cabrnet_model.projection_config["frequency"]
@@ -304,7 +304,7 @@ class TestProtoPNetCompatibility(unittest.TestCase):
                         log=DummyLogger(),
                     )
                     legacy_tnt.last_only(model=legacy_model_multi, log=DummyLogger())
-                    for i in range(cabrnet_model.projection_config["num_ft_epochs"]):
+                    for _ in range(cabrnet_model.projection_config["num_ft_epochs"]):
                         _ = legacy_tnt.train(
                             model=legacy_model_multi,
                             dataloader=train_loader,
@@ -316,13 +316,13 @@ class TestProtoPNetCompatibility(unittest.TestCase):
                         )
 
         # Compare
-        self.assertGenericEqual(warm_optimizer.state_dict(), optimizer_mngr.optimizers["warmup_optimizer"].state_dict())  # type: ignore
-        self.assertGenericEqual(joint_optimizer.state_dict(), optimizer_mngr.optimizers["joint_optimizer"].state_dict())  # type: ignore
+        self.assertGenericEqual(warm_optimizer.state_dict(), optimizer_mngr.optimizers["warmup_optimizer"].state_dict())
+        self.assertGenericEqual(joint_optimizer.state_dict(), optimizer_mngr.optimizers["joint_optimizer"].state_dict())
         self.assertGenericEqual(
-            last_layer_optimizer.state_dict(), optimizer_mngr.optimizers["last_layer_optimizer"].state_dict()  # type: ignore
+            last_layer_optimizer.state_dict(), optimizer_mngr.optimizers["last_layer_optimizer"].state_dict()
         )
         self.assertGenericEqual(
-            joint_lr_scheduler.state_dict(), optimizer_mngr.schedulers["joint_optimizer"].state_dict()  # type: ignore
+            joint_lr_scheduler.state_dict(), optimizer_mngr.schedulers["joint_optimizer"].state_dict()
         )
         self.assertModelEqual(legacy_model, cabrnet_model)
 
@@ -330,12 +330,12 @@ class TestProtoPNetCompatibility(unittest.TestCase):
         # CaBRNet
         setup_rng(self.seed)
         cabrnet_model = CaBRNet.build_from_config(self.model_config_file, seed=self.seed, compatibility_mode=True)
-        cabrnet_model.load_state_dict(torch.load(self.legacy_state_dict, map_location="cpu"))  # type: ignore
+        cabrnet_model.load_state_dict(torch.load(self.legacy_state_dict, map_location="cpu"))
 
         # Legacy
         setup_rng(self.seed)
         legacy_model = legacy_get_model(seed=self.seed)
-        legacy_model.load_state_dict(torch.load(self.legacy_state_dict, map_location="cpu"))  # type: ignore
+        legacy_model.load_state_dict(torch.load(self.legacy_state_dict, map_location="cpu"))
 
         self.assertModelEqual(legacy_model, cabrnet_model)
 
@@ -374,10 +374,10 @@ class TestProtoPNetCompatibility(unittest.TestCase):
     def test_compatibility_mode(self):
         # Model with compatibility mode
         compatible_model = CaBRNet.build_from_config(self.model_config_file, seed=self.seed, compatibility_mode=True)
-        compatible_model.load_state_dict(torch.load(self.legacy_state_dict, map_location="cpu"))  # type: ignore
+        compatible_model.load_state_dict(torch.load(self.legacy_state_dict, map_location="cpu"))
 
         cabrnet_model = CaBRNet.build_from_config(self.model_config_file, seed=self.seed, compatibility_mode=False)
-        cabrnet_model.load_state_dict(torch.load(self.legacy_state_dict, map_location="cpu"))  # type: ignore
+        cabrnet_model.load_state_dict(torch.load(self.legacy_state_dict, map_location="cpu"))
 
         # Get batch of images
         dataloaders = DatasetManager.get_dataloaders(config_file=self.dataset_config_file)
@@ -399,7 +399,7 @@ class TestProtoPNetCompatibility(unittest.TestCase):
         # CaBRNet
         setup_rng(self.seed)
         cabrnet_model = CaBRNet.build_from_config(self.model_config_file, seed=self.seed, compatibility_mode=True)
-        cabrnet_model.load_state_dict(torch.load(self.legacy_state_dict, map_location=self.device))  # type: ignore
+        cabrnet_model.load_state_dict(torch.load(self.legacy_state_dict, map_location=self.device))
         dataloaders = DatasetManager.get_dataloaders(config_file=self.dataset_config_file)
         training_config = load_config(self.training_config_file)
         cabrnet_model.prune(
@@ -412,7 +412,7 @@ class TestProtoPNetCompatibility(unittest.TestCase):
         # Legacy
         setup_rng(self.seed)
         legacy_model = legacy_get_model(seed=self.seed)
-        legacy_model.load_state_dict(torch.load(self.legacy_state_dict, map_location=self.device))  # type: ignore
+        legacy_model.load_state_dict(torch.load(self.legacy_state_dict, map_location=self.device))
         legacy_model_multi = nn.DataParallel(legacy_model)
         _, _, push_loader = legacy_get_dataloaders(self.dataset_config_file)
         legacy_prune.prune_prototypes(

@@ -30,7 +30,7 @@ class ConvExtractor(nn.Module):
         arch: str,
         weights: str | None,
         layer: str,
-        add_on: dict[str, dict],
+        add_on: dict[str, dict] | None,
         seed: int | None = None,
         disable_weight_logs: bool = False,
     ) -> None:
@@ -103,13 +103,14 @@ class ConvExtractor(nn.Module):
         x = self.convnet(x)
         if isinstance(x, dict):
             # Output of a create_feature_extractor
+            # NOTE: this looks correct
             x = x["convnet"]  # type: ignore
         if self.add_on is not None:
             x = self.add_on(x)
         return x
 
     @staticmethod
-    def create_add_on(config: dict[str, dict], in_channels: int) -> Tuple[nn.Sequential | None, int]:
+    def create_add_on(config: dict[str, dict] | None, in_channels: int) -> Tuple[nn.Sequential | None, int]:
         r"""Builds add-on layers based on configuration.
 
         Args:
@@ -128,7 +129,7 @@ class ConvExtractor(nn.Module):
 
         layers: OrderedDict[str, nn.Module] = OrderedDict()
         init_mode = None
-        for idx, (key, val) in enumerate(config.items()):
+        for key, val in config.items():
             if key == "init_mode":
                 # Extract initialisation mode
                 if val not in layer_init_functions:

@@ -126,7 +126,7 @@ def _captum_attribution(
     grads_x_input: bool = False,
     similarity_threshold: float = 0.1,
     **kwargs,
-) -> np.array:
+) -> np.ndarray:
     r"""Computes attributions using a post-hoc explanation method from Captum.
 
     Args:
@@ -232,7 +232,7 @@ def smoothgrad(
     noise_ratio: float = 0.2,
     grads_x_input: bool = False,
     similarity_threshold: float = 0.1,
-) -> np.array:
+) -> np.ndarray:
     r"""Performs patch visualization using SmoothGrad (https://arxiv.org/abs/1706.03825).
 
     Args:
@@ -287,7 +287,7 @@ def saliency(
     normalize: bool = False,
     grads_x_input: bool = False,
     similarity_threshold: float = 0.1,
-) -> np.array:
+) -> np.ndarray:
     r"""Performs patch visualization using saliency (https://arxiv.org/abs/1312.6034).
 
     Args:
@@ -334,7 +334,7 @@ def randgrad(
     normalize: bool = False,
     grads_x_input: bool = False,
     **kwargs,
-) -> np.array:
+) -> np.ndarray:
     r"""Returns random patch visualization (used as a baseline for evaluating properties of other retracing functions).
 
     Args:
@@ -378,7 +378,7 @@ def prp(
     normalize: bool = False,
     grads_x_input: bool = False,
     similarity_threshold: float = 0.1,
-) -> np.array:
+) -> np.ndarray:
     r"""Performs patch visualization using Prototype Relevance Propagation
         (https://www.sciencedirect.com/science/article/pii/S0031320322006513#bib0030).
 

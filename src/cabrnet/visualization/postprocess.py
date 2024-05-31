@@ -62,7 +62,7 @@ def post_process(
     gaussian_ksize: int = 5,
     normalize: bool = False,
     grads_x_input: bool = False,
-) -> np.array:
+) -> np.ndarray:
     r"""Applies post-processing on numpy array.
 
     Args:

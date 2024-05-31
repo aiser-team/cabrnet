@@ -309,6 +309,7 @@ def execute(
     preprocess = getattr(datasets["test_set"]["dataset"], "transform", ToTensor())
     dataset = datasets["test_set"]["raw_dataset"]
 
+    # NOTE: This looks like it can be fixed smartly, but I haven't figured it out yet
     test_iter = tqdm(
         enumerate(dataset),  # type: ignore
         desc="Benchmark on test set",
@@ -345,7 +346,8 @@ def execute(
                 verbose=verbose,
             )
 
-    for img_idx, (img, label) in test_iter:  # type: ignore
+    # NOTE: Same fix as previous comment
+    for img_idx, (img, _) in test_iter:  # type: ignore
         img_array = np.array(img)
         img_tensor = preprocess(img)
 
@@ -445,7 +447,8 @@ def execute(
                 else:
                     explanation.set_test_image(
                         img_path=focus_img_path,
-                        label=f"{perturbed_imgs[pert_name]['description']}\n(focus)\n" f"New score: {pert_score:.2f}",
+                        # NOTE: this looks fixable
+                        label=f"{perturbed_imgs[pert_name]['description']}\n(focus)\n" f"New score: {pert_score:.2f}",  # type: ignore
                         font_color="blue" if drop_percentage > 0.1 else "red",
                     )
 

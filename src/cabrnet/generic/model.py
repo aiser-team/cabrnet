@@ -4,7 +4,7 @@ import argparse
 import importlib
 import shutil
 import os.path
-from typing import Any, Callable, Mapping
+from typing import Any, Callable
 from PIL import Image
 import torch
 import torch.nn as nn
@@ -26,6 +26,7 @@ class CaBRNet(nn.Module):
         extractor: Model used to extract convolutional features from the input image.
         classifier: Model used to compute the classification, based on similarity scores with a set of prototypes.
     """
+
     # Regroups common default file names in a single location
     DEFAULT_MODEL_CONFIG: str = "model_arch.yml"
     DEFAULT_MODEL_STATE: str = "model_state.pth"
@@ -102,7 +103,7 @@ class CaBRNet(nn.Module):
         """
         return self.classifier.prototype_is_active(proto_idx)
 
-    def _load_legacy_state_dict(self, legacy_state: Mapping[str, Any]) -> None:
+    def _load_legacy_state_dict(self, legacy_state: dict[str, Any]) -> None:
         r"""Loads a state dictionary in legacy format.
 
         Args:
@@ -464,8 +465,8 @@ class CaBRNet(nn.Module):
     def explain(
         self,
         img: str | Image.Image,
-        preprocess: Callable,
-        visualizer: SimilarityVisualizer | None,
+        preprocess: Callable | None,
+        visualizer: SimilarityVisualizer,
         prototype_dir: str,
         output_dir: str,
         device: str = "cuda:0",

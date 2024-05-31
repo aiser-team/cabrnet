@@ -18,11 +18,11 @@ def init_prototypes(
     """
     if init_mode not in prototype_init_modes:
         raise ValueError(f"Unknown prototype initialisation mode {init_mode}.")
-    prototypes = None
     if init_mode == "UNIFORM":
-        prototypes = torch.rand((num_prototypes, num_features, 1, 1), requires_grad=True)
-    elif init_mode in ["NORMAL", "SHIFTED_NORMAL"]:
+        return torch.rand((num_prototypes, num_features, 1, 1), requires_grad=True)
+    elif init_mode == "NORMAL":
+        return torch.randn((num_prototypes, num_features, 1, 1), requires_grad=True)
+    else:
         prototypes = torch.randn((num_prototypes, num_features, 1, 1), requires_grad=True)
-    if init_mode == "SHIFTED_NORMAL":
         torch.nn.init.normal_(prototypes, mean=0.5, std=0.1)
-    return prototypes
+        return prototypes

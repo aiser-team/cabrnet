@@ -12,6 +12,7 @@ leaf_init_modes = ["NORMAL", "ZEROS"]
 
 class MappingMode(Enum):
     r"""Mapping selection between nodes, prototypes and class indices. Used in the get_mapping function of a TreeNode."""
+
     CLASS_TO_PROTOTYPE = 1
     PROTOTYPE_TO_CLASS = 2
     NODE_TO_PROTOTYPE = 3
@@ -101,6 +102,9 @@ class TreeNode(nn.Module):
         if self.proto_idxs is None:  # Leaf
             return
 
+        # NOTE: check that this does not break everything!!!!!
+        grandchild = None
+
         names = ["nsim", "sim"]
         for child_name in names:
             child = self.get_submodule(f"{self.node_id}_child_{child_name}")
@@ -145,9 +149,9 @@ class TreeNode(nn.Module):
                 yield leaf
 
     @property
-    def active_prototypes(self) -> list[int] | None:
+    def active_prototypes(self) -> list[int]:
         r"""Returns list of active prototypes."""
-        res = self.proto_idxs.copy() if self.proto_idxs is not None else []
+        res: list[int] = self.proto_idxs.copy() if self.proto_idxs is not None else []
         res += [proto_idx for child in self.children() for proto_idx in child.active_prototypes]
         return res
 
@@ -245,6 +249,7 @@ class TreeNode(nn.Module):
             return LeafNode(
                 node_id=arch["node_id"], num_classes=arch["num_classes"], log_probabilities=arch["log_probabilities"]
             )
+        raise ValueError
 
     def extra_repr(self) -> str:
         r"""Overwrites extra_repr from torch.nn.Module to return the node ID."""
@@ -275,7 +280,8 @@ class ComparativeNode(TreeNode):
             self.add_module(child.node_id, child)
         self.proto_idxs = proto_idxs
 
-    def forward(
+    # NOTE: This looks ok
+    def forward(  # type: ignore
         self, similarities: Tensor, parent_probs: Tensor, conditional_probs: Tensor, greedy_path: Tensor
     ) -> Tuple[Tensor, Dict]:
         r"""Performs a forward pass using the probability of arriving at this node,
@@ -379,7 +385,8 @@ class BinaryNode(TreeNode):
         self.proto_idxs = [proto_idx]
         self.log_probabilities = log_probabilities
 
-    def forward(
+    # NOTE: This looks ok
+    def forward(  # type: ignore
         self, similarities: Tensor, parent_probs: Tensor, conditional_probs: Tensor, greedy_path: Tensor
     ) -> Tuple[Tensor, Dict]:
         r"""Performs a forward pass using the probability of arriving at this node,
@@ -396,6 +403,10 @@ class BinaryNode(TreeNode):
             Node prediction (shape (N,C)), dictionary of self and children probabilities.
         """
         # Focus only on relevant prototype
+        # NOTE: I'm not sure about how we should handle this...
+        if self.proto_idxs is None:
+            logger.error("No prototype in tree.")
+            return  #  type: ignore
         similarity = similarities[:, [self.proto_idxs[0]]]  # Shape (N, 1)
 
         # Absolute probability of reaching this node
@@ -552,7 +563,8 @@ class LeafNode(TreeNode):
 
         return stable_softmax(self._relative_distribution)
 
-    def forward(
+    # NOTE: This looks ok.
+    def forward(  # type: ignore
         self, similarities: Tensor, parent_probs: Tensor, conditional_probs: Tensor, greedy_path: Tensor
     ) -> Tuple[Tensor, Dict]:
         r"""Performs a forward pass using the probability of arriving at this node,
