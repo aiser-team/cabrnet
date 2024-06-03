@@ -42,7 +42,8 @@ class L2SimilaritiesLRPWrapper(L2Similarities):
         """
 
         class SimilarityAutoGradFunc(torch.autograd.Function):
-            def forward(ctx: Any, features: Tensor, prototypes: Tensor) -> Tensor:
+            # NOTE: I think this is ok
+            def forward(ctx: Any, features: Tensor, prototypes: Tensor) -> Tensor:  # type: ignore
                 # Compute raw L2 distances
                 distances = self.L2_square_distance(features=features, prototypes=prototypes)
                 # Use ReLU to filter out negative values coming from approximations
@@ -53,7 +54,10 @@ class L2SimilaritiesLRPWrapper(L2Similarities):
                 ctx.save_for_backward(features, prototypes)
                 return similarities
 
-            def backward(ctx, grad_output):
+            # NOTE: I am not sure about this at all!!!
+            @staticmethod
+            # NOTE: took this type comment from torch.autograd.Function...
+            def backward(ctx, grad_output):  # type: ignore[override]
                 features, prototypes = ctx.saved_tensors
                 # Compute channel-wise similarities from features (N x C x H x W) and prototypes (P x C x 1 x 1)
                 # the result shape is (N x P x C x H x W)
@@ -81,7 +85,8 @@ class L2SimilaritiesLRPWrapper(L2Similarities):
         Returns:
             Tensor of similarity scores.
         """
-        return self.autograd_func.apply(features, prototypes)
+        # NOTE: this looks ok
+        return self.autograd_func.apply(features, prototypes)  # type: ignore
 
 
 class DecisionLRPWrapper(nn.Module):
@@ -231,7 +236,9 @@ class ZBetaLayer(ABC):
                 # Keep original inference
                 return self._legacy_forward(*args)
 
-            def backward(ctx, grad_output):
+            # NOTE: this looks ok
+            @staticmethod
+            def backward(ctx, grad_output):  # type: ignore[override]
                 (x,) = ctx.saved_tensors
                 x = x.clone().detach().requires_grad_(True)
                 lower_bound_tensor = (self.lower_bound * torch.ones_like(x)).requires_grad_(True)
@@ -263,10 +270,13 @@ class ZBetaLayer(ABC):
         Returns:
             Layer output.
         """
-        return self.autograd_func.apply(x)
+        # NOTE: this looks ok
+        return self.autograd_func.apply(x)  # type: ignore
 
 
-class ZBetaLinear(ZBetaLayer, nn.Linear):  # ZBetaLayer takes precedence to supersede "forward" function from nn.Module
+# NOTE: this looks ok
+class ZBetaLinear(ZBetaLayer, nn.Linear):  # type: ignore
+    # ZBetaLayer takes precedence to supersede "forward" function from nn.Module
     r"""Replacement layer for applying Z^Beta rule on a nn.Linear operator during relevance backpropagation.
 
     For more information, see https://arxiv.org/pdf/1512.02479.pdf
@@ -352,7 +362,9 @@ class ZBetaLinear(ZBetaLayer, nn.Linear):  # ZBetaLayer takes precedence to supe
         )
 
 
-class ZBetaConv2d(ZBetaLayer, nn.Conv2d):  # ZBetaLayer takes precedence to supersede "forward" function from nn.Module
+# ZBetaLayer takes precedence to supersede "forward" function from nn.Module
+# NOTE: this look ok
+class ZBetaConv2d(ZBetaLayer, nn.Conv2d):  # type: ignore
     r"""Replacement layer for applying Z^Beta rule on a nn.Conv2d operator during relevance backpropagation.
 
     For more information, see https://arxiv.org/pdf/1512.02479.pdf
@@ -401,6 +413,8 @@ class ZBetaConv2d(ZBetaLayer, nn.Conv2d):  # ZBetaLayer takes precedence to supe
             self,
             in_channels=module.in_channels,
             out_channels=module.out_channels,
+            # NOTE: this looks ok, but these types are ANNOYING!
+            # see https://pytorch.org/docs/stable/generated/torch.nn.Conv2d.html for more
             kernel_size=module.kernel_size,  # type: ignore
             stride=module.stride,  # type: ignore
             padding=module.padding,  # type: ignore
@@ -515,7 +529,8 @@ class Alpha1Beta0Layer(ABC):
                 # Keep original inference
                 return self._legacy_forward(*args)
 
-            def backward(ctx, grad_output):
+            @staticmethod
+            def backward(ctx, grad_output):  # type: ignore[override]
                 (x,) = ctx.saved_tensors
                 x = x.clone().detach().requires_grad_(True)
                 # Epsilon-rule for LRP propagation
@@ -544,10 +559,12 @@ class Alpha1Beta0Layer(ABC):
         Returns:
             Layer output.
         """
-        return self.autograd_func.apply(x)
+        # NOTE: this look ok
+        return self.autograd_func.apply(x)  # type: ignore
 
 
-class Alpha1Beta0Linear(Alpha1Beta0Layer, nn.Linear):
+# NOTE: this look ok
+class Alpha1Beta0Linear(Alpha1Beta0Layer, nn.Linear):  # type: ignore
     # Alpha1Beta0Layer takes precedence to supersede "forward" function from nn.Module
     r"""Replacement layer for applying Alpha1-Beta0 rule on a nn.Linear operator during relevance backpropagation.
 
@@ -613,7 +630,7 @@ class Alpha1Beta0Linear(Alpha1Beta0Layer, nn.Linear):
         ) + F.linear(x.clamp(max=0), self.weight.data.clamp(max=0), None)
 
 
-class Alpha1Beta0Conv2d(Alpha1Beta0Layer, nn.Conv2d):
+class Alpha1Beta0Conv2d(Alpha1Beta0Layer, nn.Conv2d):  # type: ignore
     # Alpha1Beta0Layer takes precedence to supersede "forward" function from nn.Module
     r"""Replacement layer for applying Alpha1-Beta0 rule on a nn.Conv2d operator during relevance backpropagation.
 
@@ -651,6 +668,8 @@ class Alpha1Beta0Conv2d(Alpha1Beta0Layer, nn.Conv2d):
             self,
             in_channels=module.in_channels,
             out_channels=module.out_channels,
+            # NOTE: this looks ok, but these types are ANNOYING!
+            # see https://pytorch.org/docs/stable/generated/torch.nn.Conv2d.html for more
             kernel_size=module.kernel_size,  # type: ignore
             stride=module.stride,  # type: ignore
             padding=module.padding,  # type: ignore
@@ -721,7 +740,8 @@ class StackedSum(nn.Module):
         Returns:
             Layer output.
         """
-        return self.autograd_func.apply(a, b)
+        # NOTE: this looks ok
+        return self.autograd_func.apply(a, b)  # type: ignore
 
     def _autograd_func(self) -> torch.autograd.Function:
         r"""Custom autograd function for relevance computation.
@@ -739,7 +759,8 @@ class StackedSum(nn.Module):
                 return torch.sum(stacked, dim=0)
 
             @staticmethod
-            def backward(ctx: Any, grad_output: Tensor) -> tuple[Tensor, Tensor]:
+            # NOTE: this looks ok
+            def backward(ctx: Any, grad_output: Tensor) -> tuple[Tensor, Tensor]:  # type: ignore
                 (stacked,) = ctx.saved_tensors
                 stacked = stacked.clone().detach().requires_grad_(True)
                 with torch.enable_grad():
@@ -962,5 +983,6 @@ def get_cabrnet_lrp_composite_model(
     # Replace decision layer
     lrp_model.classifier = DecisionLRPWrapper(classifier=lrp_model.classifier, stability_factor=1e-12)
     # Mark the model as ready for LRP
-    lrp_model.lrp_ready = True
+    # NOTE: I have no clue, but I feel like it works as some sort of kwargs used for logging only
+    lrp_model.lrp_ready = True  # type: ignore
     return lrp_model
