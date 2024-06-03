@@ -141,8 +141,8 @@ def preprocess_cub(path: str) -> None:
 
         if not os.path.isdir(os.path.join(dst_dir, file_name)):
             os.makedirs(os.path.join(dst_dir, file_name))
-        if use_segmentation and not os.path.isdir(os.path.join(dst_seg_dir, file_name)):  # type: ignore
-            os.makedirs(os.path.join(dst_seg_dir, file_name))  # type: ignore
+        if use_segmentation and not os.path.isdir(os.path.join(dst_seg_dir, file_name)):
+            os.makedirs(os.path.join(dst_seg_dir, file_name))
         img = Image.open(os.path.join(os.path.join(path, "images"), images[k][0].split(" ")[1])).convert("RGB")
         x, y, w, h = bboxes[id]
         cropped_img = img.crop((x, y, x + w, y + h))
@@ -153,7 +153,7 @@ def preprocess_cub(path: str) -> None:
             seg_img = Image.open(seg_path).convert("RGB")
             cropped_img = seg_img.crop((x, y, x + w, y + h))
             cropped_img.save(
-                os.path.join(os.path.join(dst_seg_dir, file_name), images[k][0].split(" ")[1].split("/")[1])  # type: ignore
+                os.path.join(os.path.join(dst_seg_dir, file_name), images[k][0].split(" ")[1].split("/")[1])
             )
         logger.info("%s" % images[k][0].split(" ")[1].split("/")[1])
 
@@ -172,8 +172,8 @@ def preprocess_cub(path: str) -> None:
         if int(split[k][0][-1]) == 1:
             if not os.path.isdir(train_full_path + file_name):
                 os.makedirs(os.path.join(train_full_path, file_name))
-            if use_segmentation and not os.path.isdir(os.path.join(train_seg_path, file_name)):  # type: ignore
-                os.makedirs(os.path.join(train_seg_path, file_name))  # type: ignore
+            if use_segmentation and not os.path.isdir(os.path.join(train_seg_path, file_name)):
+                os.makedirs(os.path.join(train_seg_path, file_name))
             shutil.copy(
                 path + "images/" + images[k][0].split(" ")[1],
                 os.path.join(os.path.join(train_full_path, file_name), images[k][0].split(" ")[1].split("/")[1]),
@@ -182,7 +182,7 @@ def preprocess_cub(path: str) -> None:
                 seg_fname = os.path.splitext(images[k][0].split(" ")[1])[0] + ".png"
                 shutil.copy(
                     os.path.join(path, "segmentations", seg_fname),
-                    os.path.join(train_seg_path, file_name, seg_fname.split("/")[1]),  # type: ignore
+                    os.path.join(train_seg_path, file_name, seg_fname.split("/")[1]),
                 )
             if not os.path.isdir(train_corners_path + file_name):
                 os.makedirs(os.path.join(train_corners_path, file_name))
@@ -222,8 +222,8 @@ def preprocess_cub(path: str) -> None:
         else:
             if not os.path.isdir(os.path.join(test_full_path, file_name)):
                 os.makedirs(os.path.join(test_full_path, file_name))
-            if use_segmentation and not os.path.isdir(os.path.join(test_seg_path, file_name)):  # type: ignore
-                os.makedirs(os.path.join(test_seg_path, file_name))  # type: ignore
+            if use_segmentation and not os.path.isdir(os.path.join(test_seg_path, file_name)):
+                os.makedirs(os.path.join(test_seg_path, file_name))
             shutil.copy(
                 path + "images/" + images[k][0].split(" ")[1],
                 os.path.join(test_full_path, file_name, images[k][0].split(" ")[1].split("/")[1]),
@@ -232,7 +232,7 @@ def preprocess_cub(path: str) -> None:
                 seg_fname = os.path.splitext(images[k][0].split(" ")[1])[0] + ".png"
                 shutil.copy(
                     os.path.join(path, "segmentations", seg_fname),
-                    os.path.join(test_seg_path, file_name, seg_fname.split("/")[1]),  # type: ignore
+                    os.path.join(test_seg_path, file_name, seg_fname.split("/")[1]),
                 )
             logger.info("%s" % images[k][0].split(" ")[1].split("/")[1])
 
@@ -254,7 +254,7 @@ def preprocess_cub(path: str) -> None:
         del p
         # skew
         p = Augmentor.Pipeline(source_directory=class_dir, output_directory=class_aug_dir)
-        p.skew(probability=1, magnitude=0.2)  # max 45 degrees  # type: ignore
+        p.skew(probability=1, magnitude=0.2)  # max 45 degrees
         p.flip_left_right(probability=0.5)
         for _ in range(10):
             p.sample(0, multi_threaded=False)  # Use single thread for reproducibility
