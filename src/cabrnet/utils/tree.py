@@ -3,7 +3,7 @@ import torch.nn
 import torch.nn as nn
 import numpy as np
 from torch import Tensor
-from typing import List, Dict, Tuple, Iterator, Mapping, Any
+from typing import List, Dict, Tuple, Iterator, Any
 from enum import Enum
 from loguru import logger
 
@@ -54,8 +54,22 @@ class TreeNode(nn.Module):
         super().__init__()
         self.node_id = node_id
 
-    def forward(self, **kwargs) -> None:
-        r"""Forward function (not implemented)."""
+    def forward(
+        self, similarities: Tensor, parent_probs: Tensor, conditional_probs: Tensor, greedy_path: Tensor
+    ) -> Tuple[Tensor, Dict]:
+        r"""Performs a forward pass using the probability of arriving at this node,
+            and the similarities to all prototypes.
+
+        Args:
+            similarities (tensor): Tensor of similarities to all prototypes. Shape (N, P).
+            parent_probs (tensor): Absolute (log) probability of reaching this node parent. Shape (N, ).
+            conditional_probs (tensor): Probability (or log probability) of reaching this node,
+                knowing that it reached its parent. Shape (N, ).
+            greedy_path (tensor): Keep track of greedy path. Shape (N, ).*args, **kwargs) -> None:
+            
+        Returns:
+            Node prediction (shape (N,C)), dictionary of self and children probabilities.
+        """
         raise NotImplementedError
 
     @property
@@ -102,9 +116,6 @@ class TreeNode(nn.Module):
         if self.proto_idxs is None:  # Leaf
             return
 
-        # NOTE: check that this does not break everything!!!!!
-        grandchild = None
-
         names = ["nsim", "sim"]
         for child_name in names:
             child = self.get_submodule(f"{self.node_id}_child_{child_name}")
@@ -122,6 +133,7 @@ class TreeNode(nn.Module):
 
             has_great_grand_children = False
             decisions = set()
+            grandchild = None
             for grandchild_name in names:
                 grandchild = child.get_submodule(f"{child.node_id}_child_{grandchild_name}")
                 if grandchild.proto_idxs is None:
@@ -208,7 +220,7 @@ class TreeNode(nn.Module):
 
         return mapping
 
-    def export_arch(self) -> Mapping[str, Any]:
+    def export_arch(self) -> dict[str, Any]:
         r"""Returns the tree architecture (useful after pruning)."""
         arch = {
             "module": self.__class__.__name__,
@@ -226,7 +238,7 @@ class TreeNode(nn.Module):
         return arch
 
     @staticmethod
-    def build_from_arch(arch: Mapping[str, Any]) -> TreeNode:
+    def build_from_arch(arch: dict[str, Any]) -> TreeNode:
         r"""Builds a decision tree from a configuration mapping.
 
         Args:
@@ -249,7 +261,7 @@ class TreeNode(nn.Module):
             return LeafNode(
                 node_id=arch["node_id"], num_classes=arch["num_classes"], log_probabilities=arch["log_probabilities"]
             )
-        raise ValueError
+        raise NotImplementedError(f"Unsupported tree module {arch['module']}")
 
     def extra_repr(self) -> str:
         r"""Overwrites extra_repr from torch.nn.Module to return the node ID."""
@@ -280,8 +292,7 @@ class ComparativeNode(TreeNode):
             self.add_module(child.node_id, child)
         self.proto_idxs = proto_idxs
 
-    # NOTE: This looks ok
-    def forward(  # type: ignore
+    def forward(
         self, similarities: Tensor, parent_probs: Tensor, conditional_probs: Tensor, greedy_path: Tensor
     ) -> Tuple[Tensor, Dict]:
         r"""Performs a forward pass using the probability of arriving at this node,
@@ -385,8 +396,7 @@ class BinaryNode(TreeNode):
         self.proto_idxs = [proto_idx]
         self.log_probabilities = log_probabilities
 
-    # NOTE: This looks ok
-    def forward(  # type: ignore
+    def forward(
         self, similarities: Tensor, parent_probs: Tensor, conditional_probs: Tensor, greedy_path: Tensor
     ) -> Tuple[Tensor, Dict]:
         r"""Performs a forward pass using the probability of arriving at this node,
@@ -403,10 +413,9 @@ class BinaryNode(TreeNode):
             Node prediction (shape (N,C)), dictionary of self and children probabilities.
         """
         # Focus only on relevant prototype
-        # NOTE: I'm not sure about how we should handle this...
         if self.proto_idxs is None:
-            logger.error("No prototype in tree.")
-            return  #  type: ignore
+            raise ValueError(f"No prototype associated with node {self.node_id}.")
+
         similarity = similarities[:, [self.proto_idxs[0]]]  # Shape (N, 1)
 
         # Absolute probability of reaching this node
@@ -563,8 +572,7 @@ class LeafNode(TreeNode):
 
         return stable_softmax(self._relative_distribution)
 
-    # NOTE: This looks ok.
-    def forward(  # type: ignore
+    def forward(
         self, similarities: Tensor, parent_probs: Tensor, conditional_probs: Tensor, greedy_path: Tensor
     ) -> Tuple[Tensor, Dict]:
         r"""Performs a forward pass using the probability of arriving at this node,
@@ -611,7 +619,7 @@ class LeafNode(TreeNode):
         r"""Returns the total number of leaves (here: 1)."""
         return 1
 
-    def export_arch(self) -> Mapping[str, Any]:
+    def export_arch(self) -> dict[str, Any]:
         r"""Returns the tree architecture (useful after pruning)."""
         arch = {
             "module": self.__class__.__name__,

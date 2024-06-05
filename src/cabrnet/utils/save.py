@@ -4,7 +4,7 @@ import os
 import pickle
 import random
 import shutil
-from typing import Any, Mapping
+from typing import Any
 import numpy as np
 import torch
 from loguru import logger
@@ -60,7 +60,7 @@ def save_checkpoint(
 
     os.makedirs(directory_path, exist_ok=True)
 
-    model.eval()  # NOTE: do we want this?
+    model.eval()
 
     torch.save(model.state_dict(), os.path.join(directory_path, CaBRNet.DEFAULT_MODEL_STATE))
     if optimizer_mngr is not None:
@@ -96,7 +96,7 @@ def load_checkpoint(
     directory_path: str,
     model: CaBRNet,
     optimizer_mngr: OptimizerManager | None = None,
-) -> Mapping[str, Any]:
+) -> dict[str, Any]:
     r"""Restores training process using checkpoint directory.
 
     Args:

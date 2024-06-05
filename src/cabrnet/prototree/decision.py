@@ -106,7 +106,6 @@ class ProtoTreeClassifier(CaBRNetGenericClassifier):
 
         # Init prototypes
         num_prototypes = self.tree.num_prototypes
-        # NOTE: this looks weird, when is a prototypes NOT a nn.Parameter?
         self.prototypes = nn.Parameter(  # type: ignore
             init_prototypes(num_prototypes=num_prototypes, num_features=self.num_features, init_mode=proto_init_mode)
         )
@@ -170,8 +169,7 @@ class ProtoTreeClassifier(CaBRNetGenericClassifier):
             # leaf_idxs has shape batch_size
             leaf_idxs = torch.argmax(leaf_probabilities, dim=0)
             prediction = torch.index_select(input=leaf_distributions, dim=0, index=leaf_idxs[..., 0])
-            # NOTE: I'm not sure about stuff here, but it looks ok
-            tree_info["decision_leaf"] = [leaf_names[leaf_idx.item()] for leaf_idx in leaf_idxs]  # type: ignore
+            tree_info["decision_leaf"] = [leaf_names[int(leaf_idx.item())] for leaf_idx in leaf_idxs]
         return prediction, tree_info
 
     @staticmethod

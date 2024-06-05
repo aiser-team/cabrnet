@@ -162,9 +162,9 @@ class DatasetManager:
                 # Apply data sub-selection
                 selected_indices = [idx for idx in range(len(dataset["dataset"]))][::sampling_ratio]
                 for key in ["dataset", "raw_dataset", "seg_dataset"]:
-                    if dataset.get(key, None) is not None:
+                    if dataset.get(key) is not None:
                         dset = dataset[key]
-                        if isinstance(dset, int) or isinstance(dset, int):
+                        if not isinstance(dset, Dataset):
                             raise TypeError(f"{dataset[key]} should be a dataset, but is of type {type(dataset[key])}")
                         dataset[key] = VisionDatasetSubset(dset, selected_indices)
 

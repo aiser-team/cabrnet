@@ -109,8 +109,8 @@ def preprocess_cub(path: str) -> None:
 
     use_segmentation = os.path.isdir(os.path.join(path, "segmentations"))
     logger.info("Using segmentation:", use_segmentation)
-    train_seg_path = os.path.join(path, "dataset/train_crop_seg/") if use_segmentation else None
-    test_seg_path = os.path.join(path, "dataset/test_crop_seg/") if use_segmentation else None
+    train_seg_path = os.path.join(path, "dataset/train_crop_seg/") if use_segmentation else ""
+    test_seg_path = os.path.join(path, "dataset/test_crop_seg/") if use_segmentation else ""
 
     images = []
     with open(path_images, "r") as f:
@@ -158,11 +158,11 @@ def preprocess_cub(path: str) -> None:
         logger.info("%s" % images[k][0].split(" ")[1].split("/")[1])
 
     train_full_path = os.path.join(path, "dataset/train_full/")
-    train_seg_path = os.path.join(path, "dataset/train_full_seg/") if use_segmentation else None
+    train_seg_path = os.path.join(path, "dataset/train_full_seg/") if use_segmentation else ""
     train_corners_path = os.path.join(path, "dataset/train_corners/")
     train_seg_corners_path = os.path.join(path, "dataset/train_corners_seg/")
     test_full_path = os.path.join(path, "dataset/test_full/")
-    test_seg_path = os.path.join(path, "dataset/test_full_seg/") if use_segmentation else None
+    test_seg_path = os.path.join(path, "dataset/test_full_seg/") if use_segmentation else ""
 
     num = len(images)
     for k in range(num):
@@ -254,7 +254,7 @@ def preprocess_cub(path: str) -> None:
         del p
         # skew
         p = Augmentor.Pipeline(source_directory=class_dir, output_directory=class_aug_dir)
-        p.skew(probability=1, magnitude=0.2)  # max 45 degrees
+        p.skew(probability=1, magnitude=1)  # max 45 degrees
         p.flip_left_right(probability=0.5)
         for _ in range(10):
             p.sample(0, multi_threaded=False)  # Use single thread for reproducibility

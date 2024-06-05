@@ -17,8 +17,7 @@ class ProtoPNetSimilarityScore(L2Similarities):
         protopnet_compatibility: If True, uses the order of operations of ProtoPNet to compute the L2 distance.
     """
 
-    # NOTE: this looks correct
-    def forward(  # type: ignore
+    def forward(
         self, features: Tensor, prototypes: Tensor, output_distances: bool = False
     ) -> Tensor | tuple[Tensor, Tensor]:
         r"""Computes similarity based on L2 distance using ||x - y||² = ||x||² + ||y||² - 2 x.y.
@@ -82,7 +81,6 @@ class ProtoPNetClassifier(CaBRNetGenericClassifier):
         self._compatibility_mode = compatibility_mode
 
         # Init prototypes
-        # NOTE: are prototypes ever not nn.Parameters?
         self.prototypes = nn.Parameter(  # type: ignore
             init_prototypes(
                 num_prototypes=num_proto_per_class * num_classes,

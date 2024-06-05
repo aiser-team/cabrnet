@@ -94,8 +94,7 @@ def heatmap(
         f"expected ({img.height}, {img.width}) but found {sim_map.shape}"
     )
     assert 0 <= np.amin(sim_map) and np.amax(sim_map) <= 1.0, f"Expected normalized similarity map in {__name__}"
-    # NOTE: this looks ok, but it is all but clear
-    sim_heatmap = applyColorMap(np.uint8(255 * sim_map), COLORMAP_JET)  # type: ignore
+    sim_heatmap = applyColorMap((255 * sim_map).astype(np.uint8), COLORMAP_JET).astype(np.uint8)
     # Convert BGR format returned by OpenCV into RGB
     sim_heatmap = sim_heatmap[..., ::-1]
 

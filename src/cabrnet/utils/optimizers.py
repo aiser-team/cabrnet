@@ -182,8 +182,6 @@ class OptimizerManager:
                 }
             }
         else:
-            if self.config.get("periods") is None:
-                raise ValueError(f'{self.config.get("periods")} is None and it should not be.')
             for epoch_name in self.config["periods"]:
                 epoch_config = self.config["periods"][epoch_name]
                 if epoch_config.get("epoch_range") is None or epoch_config.get("optimizers") is None:

@@ -1,6 +1,6 @@
 import copy
 import os
-from typing import Any, Callable, Mapping
+from typing import Any, Callable
 
 import graphviz
 from PIL import Image
@@ -49,7 +49,7 @@ class ProtoPNet(CaBRNet):
             "num_ft_epochs": 20,
         }
 
-    def _load_legacy_state_dict(self, legacy_state: Mapping[str, Any]) -> None:
+    def _load_legacy_state_dict(self, legacy_state: dict[str, Any]) -> None:
         r"""Loads a state dictionary in legacy format.
 
         Args:
@@ -89,8 +89,7 @@ class ProtoPNet(CaBRNet):
             elif legacy_key == "ones":
                 cbrn_key = "classifier.similarity_layer._summation_kernel"
             else:
-                # NOTE: Mappings vs dicts...
-                final_state[legacy_key] = torch.unsqueeze(final_state[legacy_key], 0)  # type: ignore
+                final_state[legacy_key] = torch.unsqueeze(final_state[legacy_key], 0)
 
             # Update state
             if cbrn_state[cbrn_key].size() != final_state[legacy_key].size():
@@ -98,13 +97,11 @@ class ProtoPNet(CaBRNet):
                     f"Mismatching parameter size for {legacy_key} and {cbrn_key}. "
                     f"Expected {cbrn_state[cbrn_key].size()}, got {final_state[legacy_key].size()}"
                 )
-                # NOTE: Mappings vs dicts...
-            final_state[cbrn_key] = final_state.pop(legacy_key)  # type: ignore
+            final_state[cbrn_key] = final_state.pop(legacy_key)
             cbrn_keys.remove(cbrn_key)
         super().load_state_dict(final_state, strict=False)
 
-    # NOTE: Mappings vs dicts...
-    def load_state_dict(self, state_dict: Mapping[str, Any], **kwargs) -> None:  # type: ignore
+    def load_state_dict(self, state_dict: dict[str, Any], **kwargs) -> None:  # type:ignore
         r"""Overloads nn.Module load_state_dict to take legacy state dictionaries into account.
 
         Args:
@@ -123,7 +120,6 @@ class ProtoPNet(CaBRNet):
                     f"to match model state"
                 )
                 # self.num_prototypes is automatically updated after changing the prototype tensor
-                # NOTE: this looks weird, when is a prototypes NOT a nn.Parameter?
                 self.classifier.prototypes = nn.Parameter(  # type: ignore
                     torch.zeros((updated_num_prototypes, self.classifier.num_features, 1, 1)), requires_grad=True
                 )
@@ -384,11 +380,11 @@ class ProtoPNet(CaBRNet):
 
         return train_info
 
-    # NOTE: This looks ok.
-    def epilogue(  # type: ignore
+    def epilogue(
         self,
         dataloaders: dict[str, DataLoader],
         optimizer_mngr: OptimizerManager,
+        output_dir: str,
         device: str = "cuda:0",
         verbose: bool = False,
         pruning_threshold: int = 3,
@@ -403,6 +399,7 @@ class ProtoPNet(CaBRNet):
         Args:
             dataloaders (dictionary): Dictionary of dataloaders.
             optimizer_mngr (OptimizerManager): Optimizer manager.
+            output_dir (str): Unused.
             device (str, optional): Target device. Default: cuda:0.
             verbose (bool, optional): Display progress bar. Default: False.
             pruning_threshold (int, optional): Pruning threshold. Default: 3.
@@ -548,7 +545,6 @@ class ProtoPNet(CaBRNet):
             index_prototypes_to_keep = torch.tensor(index_prototypes_to_keep).to(device)
 
             # overwrite prototypes with selected subset (self.num_prototypes is updated automatically)
-            # NOTE: this looks weird, when is a prototypes NOT a nn.Parameter?
             self.classifier.prototypes = nn.Parameter(  # type: ignore
                 torch.index_select(input=self.classifier.prototypes, dim=0, index=index_prototypes_to_keep),
                 requires_grad=True,
@@ -760,7 +756,6 @@ class ProtoPNet(CaBRNet):
             # Generate test image patch
             patch_image_path = os.path.join(output_dir, "test_patches", f"proto_similarity_{proto_idx}.png")
             if not disable_rendering:
-                assert visualizer is not None, "Visualizer required for explanation rendering"
                 patch_image = visualizer.forward(img=img, img_tensor=img_tensor, proto_idx=proto_idx, device=device)
                 patch_image.save(patch_image_path)
             explanation.add_similarity(

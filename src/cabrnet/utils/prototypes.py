@@ -22,7 +22,7 @@ def init_prototypes(
         return torch.rand((num_prototypes, num_features, 1, 1), requires_grad=True)
     elif init_mode == "NORMAL":
         return torch.randn((num_prototypes, num_features, 1, 1), requires_grad=True)
-    else:
+    else:  # SHIFTED_NORMAL
         prototypes = torch.randn((num_prototypes, num_features, 1, 1), requires_grad=True)
         torch.nn.init.normal_(prototypes, mean=0.5, std=0.1)
         return prototypes
