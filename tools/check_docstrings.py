@@ -44,7 +44,7 @@ def parse_ast(ast_module: Any, filename: str, ignore_imperative_warnings: bool) 
                 logger.error(f"Missing docstring for class '{class_name}' " f"({filename}:{body_content.lineno})")
                 complies = False
             else:
-                attr_location = re.search("\n[\s]*Attributes:", module_docstring)
+                attr_location = re.search("\n[\s]*Attributes:", module_docstring)  # type: ignore
                 if attr_location is None:
                     logger.warning(
                         f"Missing 'Attributes' field in docstring for class '{class_name}' "
@@ -79,7 +79,7 @@ def parse_ast(ast_module: Any, filename: str, ignore_imperative_warnings: bool) 
             if num_args > 0 and body_content.args.args[0].arg == "self":
                 num_args -= 1
 
-            args_location = re.search("\n[\s]*Args:", function_docstring)
+            args_location = re.search("\n[\s]*Args:", function_docstring)  # type: ignore
             if args_location is None and num_args > 0:
                 logger.error(
                     f"Missing 'Args' keyword in function '{function_name}' description "
@@ -88,13 +88,13 @@ def parse_ast(ast_module: Any, filename: str, ignore_imperative_warnings: bool) 
                 complies = False
                 continue
 
-            return_location = re.search("[\s]*Returns", function_docstring)
+            return_location = re.search("[\s]*Returns", function_docstring)  # type: ignore
 
             if (
                 return_location is None
                 and body_content.returns is not None
                 and hasattr(body_content.returns, "value")
-                and body_content.returns.value is not None
+                and body_content.returns.value is not None  # type: ignore
             ):
                 logger.error(
                     f"Missing docstring for return value in function '{function_name}' "
@@ -112,7 +112,7 @@ def parse_ast(ast_module: Any, filename: str, ignore_imperative_warnings: bool) 
                 else:
                     function_desc = function_docstring[: return_location.start()]
             else:
-                function_desc = function_docstring[: args_location.start()]
+                function_desc = function_docstring[: args_location.start()]  # type: ignore
             function_desc = function_desc.rstrip().lstrip()
 
             # Check usage of 3rd person and uppercase
@@ -162,7 +162,7 @@ def parse_ast(ast_module: Any, filename: str, ignore_imperative_warnings: bool) 
                         complies = False
             if num_args == 0:
                 continue
-            args_docstring = function_docstring[args_location.end() :]
+            args_docstring = function_docstring[args_location.end() :]  # type: ignore
             function_args = body_content.args
             num_default = len(function_args.defaults)
             for arg_index, arg in enumerate(function_args.args):
@@ -236,7 +236,7 @@ def parse_ast(ast_module: Any, filename: str, ignore_imperative_warnings: bool) 
                         )
                         complies = False
                         continue
-                    if re.search("Default: [^\.]+\.", arg_desc) is None:
+                    if re.search("Default: [^\.]+\.", arg_desc) is None:  # type: ignore
                         logger.error(
                             f"Missing default value in argument '{arg_name}' description "
                             f"in function '{function_name}': {arg_desc} ({filename}:{body_content.lineno})"
