@@ -39,8 +39,10 @@ const config = {
       /** @type {import('@docusaurus/preset-classic').Options} */
       ({
         docs: {
-          sidebarPath: './sidebars.js',
-	  exclude: [
+            path: '../API',
+            routeBasePath: 'API',
+            sidebarPath: './sidebars.js',
+            exclude: [
             // '**/_*.{js,jsx,ts,tsx,md,mdx}',
             // '**/_*/**',
             '**/*.test.{js,jsx,ts,tsx}',
@@ -53,8 +55,6 @@ const config = {
           showReadingTime: true,
           // Please change this to your repo.
           // Remove this to remove the "edit this page" links.
-          editUrl:
-            'https://github.com/facebook/docusaurus/tree/main/packages/create-docusaurus/templates/shared/',
         },
         theme: {
           customCss: './src/css/custom.css',
@@ -79,7 +79,7 @@ const config = {
             type: 'docSidebar',
             sidebarId: 'someSidebar',
             position: 'left',
-            label: 'Documentation',
+            label: 'API Documentation',
           },
           {to: '/blog', label: 'Blog', position: 'left'},
           // {
@@ -92,15 +92,6 @@ const config = {
       footer: {
         style: 'dark',
         links: [
-          {
-            title: 'Docs',
-            items: [
-              {
-                label: 'Documentation',
-                to: '/docs/intro',
-              },
-            ],
-          },
           {
             title: 'Community',
             items: [
