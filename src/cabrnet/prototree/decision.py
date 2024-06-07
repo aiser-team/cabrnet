@@ -1,9 +1,11 @@
 from __future__ import annotations
+
 import argparse
 from argparse import ArgumentParser
 from enum import Enum
-import torch.nn as nn
+
 import torch
+import torch.nn as nn
 from cabrnet.generic.decision import CaBRNetGenericClassifier
 from cabrnet.utils.prototypes import init_prototypes
 from cabrnet.utils.similarities import L2Similarities

@@ -1,10 +1,10 @@
-import torch
-from torch import Tensor
-import torch.nn as nn
-import numpy as np
-from PIL import Image
 import cv2
+import numpy as np
+import torch
+import torch.nn as nn
 from cabrnet.visualization.postprocess import normalize_min_max
+from PIL import Image
+from torch import Tensor
 
 
 def cubic_upsampling(

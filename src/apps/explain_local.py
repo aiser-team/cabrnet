@@ -1,11 +1,12 @@
 import os.path
-from pathlib import Path
 from argparse import ArgumentParser, Namespace
+from pathlib import Path
+
 from cabrnet.generic.model import CaBRNet
 from cabrnet.utils.data import DatasetManager
-from cabrnet.visualization.visualizer import SimilarityVisualizer
 from cabrnet.utils.exceptions import ArgumentError
 from cabrnet.utils.save import safe_copy
+from cabrnet.visualization.visualizer import SimilarityVisualizer
 
 description = "explains the decision of a CaBRNet model"
 

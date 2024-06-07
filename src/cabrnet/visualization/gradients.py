@@ -1,13 +1,16 @@
-import torch
-from torch import Tensor
-from PIL import Image
-import torch.nn as nn
 import numpy as np
-from loguru import logger
+import torch
+import torch.nn as nn
 from cabrnet.visualization.postprocess import post_process
-from cabrnet.visualization.prp_utils import get_cabrnet_lrp_composite_model, attach_lrp_comp_rules
-from captum.attr import LRP, NoiseTunnel, Saliency, Attribution
+from cabrnet.visualization.prp_utils import (
+    attach_lrp_comp_rules,
+    get_cabrnet_lrp_composite_model,
+)
 from captum._utils.typing import TargetType
+from captum.attr import LRP, Attribution, NoiseTunnel, Saliency
+from loguru import logger
+from PIL import Image
+from torch import Tensor
 
 
 def _check_tensor_dims(x: Tensor) -> Tensor:

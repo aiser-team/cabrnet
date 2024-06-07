@@ -2,18 +2,19 @@ from __future__ import annotations
 
 import argparse
 import importlib
-import shutil
 import os.path
+import shutil
 from typing import Any, Callable
-from PIL import Image
+
 import torch
 import torch.nn as nn
-from loguru import logger
 from cabrnet.generic.conv_extractor import ConvExtractor, layer_init_functions
 from cabrnet.generic.decision import CaBRNetGenericClassifier
-from cabrnet.utils.parser import load_config
 from cabrnet.utils.optimizers import OptimizerManager
+from cabrnet.utils.parser import load_config
 from cabrnet.visualization.visualizer import SimilarityVisualizer
+from loguru import logger
+from PIL import Image
 from torch import Tensor
 from torch.utils.data import DataLoader
 from tqdm import tqdm

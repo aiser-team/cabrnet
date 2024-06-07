@@ -1,5 +1,5 @@
-from torch import Tensor
 import torch
+from torch import Tensor
 
 prototype_init_modes = ["NORMAL", "SHIFTED_NORMAL", "UNIFORM"]
 

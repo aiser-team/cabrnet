@@ -1,5 +1,5 @@
-from loguru import logger
 import torch
+from loguru import logger
 
 
 class _MemoryLogger:

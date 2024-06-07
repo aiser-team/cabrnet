@@ -3,16 +3,16 @@
 import importlib
 import os
 import pathlib
-import sys
 import random
+import sys
 import traceback
 from argparse import ArgumentParser
-from loguru import logger
-from cabrnet.utils.exceptions import ArgumentError
-from cabrnet.utils.system_info import get_hardware_info
 
 import numpy as np
 import torch
+from cabrnet.utils.exceptions import ArgumentError
+from cabrnet.utils.system_info import get_hardware_info
+from loguru import logger
 
 
 def get_version() -> str:

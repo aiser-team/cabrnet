@@ -1,18 +1,19 @@
 """Implements the saving and loading capabilities for a CaBRNet model."""
 
+import csv
 import os
 import pickle
 import random
 import shutil
 from typing import Any
+
 import numpy as np
-import torch
-from loguru import logger
-from cabrnet.utils.optimizers import OptimizerManager
-from cabrnet.utils.data import DatasetManager
-from cabrnet.generic.model import CaBRNet
-import csv
 import pandas as pd
+import torch
+from cabrnet.generic.model import CaBRNet
+from cabrnet.utils.data import DatasetManager
+from cabrnet.utils.optimizers import OptimizerManager
+from loguru import logger
 
 
 def safe_copy(src: str, dst: str) -> None:

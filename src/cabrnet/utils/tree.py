@@ -1,11 +1,13 @@
 from __future__ import annotations
+
+from enum import Enum
+from typing import Any, Dict, Iterator, List, Tuple
+
+import numpy as np
 import torch.nn
 import torch.nn as nn
-import numpy as np
-from torch import Tensor
-from typing import List, Dict, Tuple, Iterator, Any
-from enum import Enum
 from loguru import logger
+from torch import Tensor
 
 leaf_init_modes = ["NORMAL", "ZEROS"]
 
@@ -66,7 +68,7 @@ class TreeNode(nn.Module):
             conditional_probs (tensor): Probability (or log probability) of reaching this node,
                 knowing that it reached its parent. Shape (N, ).
             greedy_path (tensor): Keep track of greedy path. Shape (N, ).*args, **kwargs) -> None:
-            
+
         Returns:
             Node prediction (shape (N,C)), dictionary of self and children probabilities.
         """

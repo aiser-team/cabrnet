@@ -1,7 +1,8 @@
-from argparse import ArgumentParser, RawTextHelpFormatter
-from zenodo_get import zenodo_get
-import zipfile
 import os
+import zipfile
+from argparse import ArgumentParser, RawTextHelpFormatter
+
+from zenodo_get import zenodo_get
 
 file_list = [
     {

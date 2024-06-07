@@ -1,5 +1,5 @@
-from cv2 import applyColorMap, COLORMAP_JET
 import numpy as np
+from cv2 import COLORMAP_JET, applyColorMap
 from PIL import Image, ImageDraw
 
 

@@ -1,8 +1,8 @@
+import cv2
 import numpy as np
 from PIL import Image
-from torch import Tensor
-import cv2
 from scipy.ndimage import gaussian_filter
+from torch import Tensor
 
 
 def polarity_and_collapse(

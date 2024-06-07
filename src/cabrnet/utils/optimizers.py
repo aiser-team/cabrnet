@@ -1,10 +1,12 @@
 from __future__ import annotations
+
+import argparse
+from typing import Any
+
 import torch
 import torch.nn as nn
-from loguru import logger
-from typing import Any
-import argparse
 from cabrnet.utils.parser import load_config
+from loguru import logger
 
 
 def move_optimizer_to(optim: torch.optim.Optimizer, device: str) -> None:

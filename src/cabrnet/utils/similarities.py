@@ -1,8 +1,9 @@
-import torch.nn as nn
-import torch
-from torch import Tensor
-from loguru import logger
 from typing import Any
+
+import torch
+import torch.nn as nn
+from loguru import logger
+from torch import Tensor
 
 
 class L2Similarities(nn.Module):

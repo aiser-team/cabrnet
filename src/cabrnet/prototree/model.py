@@ -1,23 +1,24 @@
+import copy
 import os
 import time
+from typing import Any, Callable
+
 import graphviz
 import torch
 import torch.nn as nn
 import torch.nn.functional
-from torch.utils.data import DataLoader
+from cabrnet.generic.decision import CaBRNetGenericClassifier
+from cabrnet.generic.model import CaBRNet
+from cabrnet.prototree.decision import ProtoTreeClassifier, SamplingStrategy
+from cabrnet.utils.optimizers import OptimizerManager
+from cabrnet.utils.tree import MappingMode, TreeNode
+from cabrnet.visualization.explainer import ExplanationGraph
+from cabrnet.visualization.visualizer import SimilarityVisualizer
+from loguru import logger
 from PIL import Image
-from typing import Any, Callable
+from torch.utils.data import DataLoader
 from torchvision.transforms import ToTensor
 from tqdm import tqdm
-from cabrnet.generic.model import CaBRNet
-from cabrnet.generic.decision import CaBRNetGenericClassifier
-from cabrnet.utils.optimizers import OptimizerManager
-from cabrnet.utils.tree import TreeNode, MappingMode
-from cabrnet.prototree.decision import SamplingStrategy, ProtoTreeClassifier
-from cabrnet.visualization.visualizer import SimilarityVisualizer
-from cabrnet.visualization.explainer import ExplanationGraph
-import copy
-from loguru import logger
 
 
 class ProtoTree(CaBRNet):

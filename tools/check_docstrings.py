@@ -1,9 +1,10 @@
 import ast
 import os
 import re
-from loguru import logger
 from argparse import ArgumentParser
 from typing import Any
+
+from loguru import logger
 
 
 def create_parser() -> ArgumentParser:

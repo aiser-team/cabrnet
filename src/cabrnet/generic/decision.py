@@ -1,6 +1,7 @@
-from cabrnet.utils.prototypes import prototype_init_modes
 from argparse import ArgumentParser
+
 import torch.nn as nn
+from cabrnet.utils.prototypes import prototype_init_modes
 
 
 class CaBRNetGenericClassifier(nn.Module):

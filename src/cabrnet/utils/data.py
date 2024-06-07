@@ -5,8 +5,8 @@ import importlib
 from typing import Any, Callable
 
 import torchvision.transforms
-from loguru import logger
 from cabrnet.utils.parser import load_config
+from loguru import logger
 from torch.utils.data import DataLoader, Dataset, Subset
 
 

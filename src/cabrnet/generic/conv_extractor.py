@@ -6,9 +6,12 @@ from typing import Tuple
 import torch
 import torch.nn as nn
 import torchvision.models as torch_models
-from loguru import logger
-from torchvision.models.feature_extraction import create_feature_extractor, get_graph_node_names
 from cabrnet.utils.init import layer_init_functions
+from loguru import logger
+from torchvision.models.feature_extraction import (
+    create_feature_extractor,
+    get_graph_node_names,
+)
 
 warnings.filterwarnings("ignore")
 

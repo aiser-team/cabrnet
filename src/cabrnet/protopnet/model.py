@@ -3,18 +3,18 @@ import os
 from typing import Any, Callable
 
 import graphviz
-from PIL import Image
+import numpy as np
 import torch
 import torch.nn as nn
-import numpy as np
-from torchvision.transforms import ToTensor
-from cabrnet.generic.model import CaBRNet
 from cabrnet.generic.decision import CaBRNetGenericClassifier
+from cabrnet.generic.model import CaBRNet
 from cabrnet.utils.optimizers import OptimizerManager
-from cabrnet.visualization.visualizer import SimilarityVisualizer
 from cabrnet.visualization.explainer import ExplanationGraph
+from cabrnet.visualization.visualizer import SimilarityVisualizer
 from loguru import logger
+from PIL import Image
 from torch.utils.data import DataLoader
+from torchvision.transforms import ToTensor
 from tqdm import tqdm
 
 

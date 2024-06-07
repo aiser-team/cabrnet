@@ -1,15 +1,16 @@
-import torch
-import torch.nn as nn
-from torch.nn import functional as F
-from torch.fx import symbolic_trace
-from loguru import logger
 import copy
 import operator
 from abc import ABC, abstractmethod
 from typing import Any
-from torch import Tensor
+
+import torch
+import torch.nn as nn
 from cabrnet.utils.similarities import L2Similarities
-from captum.attr._utils.lrp_rules import PropagationRule, IdentityRule
+from captum.attr._utils.lrp_rules import IdentityRule, PropagationRule
+from loguru import logger
+from torch import Tensor
+from torch.fx import symbolic_trace
+from torch.nn import functional as F
 
 
 class L2SimilaritiesLRPWrapper(L2Similarities):

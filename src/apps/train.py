@@ -1,14 +1,15 @@
 import os
-from pathlib import Path
 from argparse import ArgumentParser, Namespace
+from pathlib import Path
+
+from cabrnet.generic.model import CaBRNet
+from cabrnet.utils.data import DatasetManager
+from cabrnet.utils.exceptions import ArgumentError
+from cabrnet.utils.optimizers import OptimizerManager
+from cabrnet.utils.parser import load_config
+from cabrnet.utils.save import load_checkpoint, save_checkpoint
 from loguru import logger
 from tqdm import tqdm
-from cabrnet.generic.model import CaBRNet
-from cabrnet.utils.optimizers import OptimizerManager
-from cabrnet.utils.data import DatasetManager
-from cabrnet.utils.parser import load_config
-from cabrnet.utils.save import save_checkpoint, load_checkpoint
-from cabrnet.utils.exceptions import ArgumentError
 
 description = "trains a CaBRNet model"
 
