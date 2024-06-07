@@ -41,7 +41,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         required=False,
         metavar="/path/to/checkpoint/dir",
         help="path to a checkpoint directory (alternative to --model-config, --model-state-dict, --dataset "
-             "and --projection-info)",
+        "and --projection-info)",
     )
     parser.add_argument(
         "-o",
