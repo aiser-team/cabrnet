@@ -252,6 +252,7 @@ class OptimizerManager:
 
     def freeze_group(self, name: str, freeze: bool) -> None:
         r"""Freezes all parameters of a given group.
+
         Args:
             name (str): Group name.
             freeze (bool): Whether this parameter should be frozen or unfrozen.

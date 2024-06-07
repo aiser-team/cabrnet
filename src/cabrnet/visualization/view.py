@@ -4,8 +4,9 @@ from PIL import Image, ImageDraw
 
 
 def compute_bbox(array: np.ndarray, threshold: float) -> tuple[int, int, int, int]:
-    r"""Returns the coordinates of the smallest bounding box such that all values outside the box
-        are smaller or equal to threshold.
+    r"""Returns the coordinates of the bounding box.
+
+    It is the smallest bounding box such that all values outside the box are smaller or equal to threshold.
 
     Args:
         array (Numpy array): Target array.

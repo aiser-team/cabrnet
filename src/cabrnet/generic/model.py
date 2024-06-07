@@ -359,7 +359,7 @@ class CaBRNet(nn.Module):
         return {"avg_loss": total_loss / batch_num, "avg_eval_accuracy": total_acc / batch_num}
 
     def train(self, mode: bool = True) -> nn.Module:
-        r"""Overwrites the nn.Module train() function to freeze elements if necessary.
+        r"""Overwrites the nn.Module train function to freeze elements if necessary.
 
         Args:
             mode (bool, optional): Train (True) or eval (False). Default: True.

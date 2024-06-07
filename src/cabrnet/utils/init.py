@@ -4,6 +4,7 @@ import torch.nn as nn
 # Layer initialisation functions
 def init_weights_xavier(module: nn.Module):
     r"""Xavier initialization (used in ProtoTree).
+
     Args:
         module (module): Target module.
     """
@@ -13,6 +14,7 @@ def init_weights_xavier(module: nn.Module):
 
 def init_weights_kaiming_normal(module: nn.Module):
     r"""Kaiming initialization (used in ProtoPNet).
+
     Args:
         module (module): Target module.
     """
@@ -24,6 +26,7 @@ def init_weights_kaiming_normal(module: nn.Module):
 
 def init_weights_batchnorm_identity(module: nn.Module):
     r"""Batch-norm initialization (used in ProtoPNet).
+
     Args:
         module (module): Target module.
     """
@@ -34,6 +37,7 @@ def init_weights_batchnorm_identity(module: nn.Module):
 
 def init_weights_protopnet(module: nn.Module):
     r"""Weight initialization used in ProtoPNet.
+
     Args:
         module (module): Target module.
     """

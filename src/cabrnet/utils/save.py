@@ -58,7 +58,6 @@ def save_checkpoint(
         device (str): Target hardware device (recorded for reproducibility).
         stats (dictionary, optional): Other optional statistics. Default: None.
     """
-
     os.makedirs(directory_path, exist_ok=True)
 
     model.eval()

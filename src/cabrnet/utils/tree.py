@@ -24,6 +24,7 @@ class MappingMode(Enum):
 
 def log1mexp(x: Tensor) -> Tensor:
     r"""Returns a numerically accurate evaluation of log(1 - exp(-|x|)).
+
     See https://cran.r-project.org/web/packages/Rmpfr/vignettes/log1mexp-note.pdf for details.
 
     Args:
@@ -59,8 +60,7 @@ class TreeNode(nn.Module):
     def forward(
         self, similarities: Tensor, parent_probs: Tensor, conditional_probs: Tensor, greedy_path: Tensor
     ) -> Tuple[Tensor, Dict]:
-        r"""Performs a forward pass using the probability of arriving at this node,
-            and the similarities to all prototypes.
+        r"""Performs a forward pass using the probability of arriving at this node, and the similarities to all prototypes.
 
         Args:
             similarities (tensor): Tensor of similarities to all prototypes. Shape (N, P).
@@ -271,8 +271,10 @@ class TreeNode(nn.Module):
 
 
 class ComparativeNode(TreeNode):
-    r"""Comparative node associated with multiple prototypes. The probability of reaching a children branch is given
-    by the similarity score with the associated prototype, relative to all other similarity scores.
+    r"""Comparative node associated with multiple prototypes.
+
+    The probability of reaching a children branch is given by the similarity score with the associated prototype,
+    relative to all other similarity scores.
 
     Attributes:
         node_id: Node identifier.
@@ -297,8 +299,7 @@ class ComparativeNode(TreeNode):
     def forward(
         self, similarities: Tensor, parent_probs: Tensor, conditional_probs: Tensor, greedy_path: Tensor
     ) -> Tuple[Tensor, Dict]:
-        r"""Performs a forward pass using the probability of arriving at this node,
-            and the similarities to all prototypes.
+        r"""Performs a forward pass using the probability of arriving at this node, and the similarities to all prototypes.
 
         Args:
             similarities (tensor): Tensor of similarities to all prototypes. Shape (N, P).
@@ -369,9 +370,10 @@ class ComparativeNode(TreeNode):
 
 
 class BinaryNode(TreeNode):
-    r"""Binary decision node, associated with a single prototype. This node manages two branches
-    (similar and dissimilar) whose respective probability is computed from the similarity score
-    with the associated prototype.
+    r"""Binary decision node, associated with a single prototype.
+
+    This node manages two branches (similar and dissimilar) whose respective probability is computed from the similarity
+    score with the associated prototype.
 
     Attributes:
         node_id: Node identifier.
@@ -401,8 +403,7 @@ class BinaryNode(TreeNode):
     def forward(
         self, similarities: Tensor, parent_probs: Tensor, conditional_probs: Tensor, greedy_path: Tensor
     ) -> Tuple[Tensor, Dict]:
-        r"""Performs a forward pass using the probability of arriving at this node,
-        and the similarities to all prototypes.
+        r"""Performs a forward pass using the probability of arriving at this node, and the similarities to all prototypes.
 
         Args:
             similarities (tensor): Tensor of similarities to all prototypes. Shape (N, P).
@@ -577,8 +578,7 @@ class LeafNode(TreeNode):
     def forward(
         self, similarities: Tensor, parent_probs: Tensor, conditional_probs: Tensor, greedy_path: Tensor
     ) -> Tuple[Tensor, Dict]:
-        r"""Performs a forward pass using the probability of arriving at this node,
-        and the similarities to all prototypes.
+        r"""Performs a forward pass using the probability of arriving at this node, and the similarities to all prototypes.
 
         Args:
             similarities (tensor): Tensor of similarities to all prototypes. Shape (N, P).

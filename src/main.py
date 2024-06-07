@@ -16,13 +16,20 @@ from loguru import logger
 
 
 def get_version() -> str:
+    """Gets the version.
+
+    Returns:
+        The current version of CaBRNet.
+    """
     with open(os.path.join(pathlib.Path(__file__).parent.resolve(), "..", "VERSION"), "r") as fin:
         return fin.readline()
 
 
 class ParserWithHelper(ArgumentParser):
+    """Hepler class for better parser errors."""
+
     def error(self, message: str):
-        r"""Overrides default error message in argparse to print help menu"""
+        r"""Overrides default error message in argparse to print help menu."""
         self._print_message(f"Error: {message}\n", sys.stderr)
         self.print_help(sys.stderr)
         self.exit(2)

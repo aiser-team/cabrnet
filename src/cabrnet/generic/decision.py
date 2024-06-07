@@ -47,7 +47,9 @@ class CaBRNetGenericClassifier(nn.Module):
     @property
     def num_prototypes(self) -> int:
         r"""Returns the maximum number of prototypes, as given by the corresponding tensor.
-        Note: some prototypes might be inactive."""
+
+        Note: some prototypes might be inactive.
+        """
         return self.prototypes.size(0)
 
     def prototype_is_active(self, proto_idx: int) -> bool:

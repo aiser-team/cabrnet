@@ -69,6 +69,7 @@ def pg_mask_relevance(attribution: np.ndarray, object_seg: np.ndarray, area_perc
 
 def pg_energy_relevance(attribution: np.ndarray, object_seg: np.ndarray) -> float:
     r"""Computes the energy-based pointing game relevance of an attribution w.r.t the corresponding segmentation.
+
         See https://arxiv.org/abs/1910.01279.
 
     Args:

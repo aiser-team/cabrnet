@@ -740,7 +740,7 @@ class StackedSum(nn.Module):
         class StackedSumAutoGradFunc(torch.autograd.Function):
             @staticmethod
             def forward(ctx: Any, a: Tensor, b: Tensor) -> Tensor:
-                r"""Replacement operator for the addition of residual blocks"""
+                r"""Replacement operator for the addition of residual blocks."""
                 stacked = torch.stack([a, b], dim=0)
                 ctx.save_for_backward(stacked)
                 return torch.sum(stacked, dim=0)
@@ -836,7 +836,7 @@ def get_extractor_lrp_composite_model(
     lrp_model = _search_and_replace_addition(lrp_model)
 
     def _find_batch_normalization_and_convolution_attribute_names(module: nn.Module):
-        r"""Finds the name and location of all convolutions that are followed by batch normalization inside a module
+        r"""Finds the name and location of all convolutions that are followed by batch normalization inside a module.
 
         Args:
             module (Module): Current top module
@@ -876,7 +876,7 @@ def get_extractor_lrp_composite_model(
         bn_layer.reset_parameters()
 
     def _find_convolution_attribute_names(module: nn.Module):
-        r"""Finds the name and location of all convolutions inside a module
+        r"""Finds the name and location of all convolutions inside a module.
 
         Args:
             module (Module): Current top module

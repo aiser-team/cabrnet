@@ -106,6 +106,7 @@ class ProtoPNetClassifier(CaBRNetGenericClassifier):
 
     def prototype_is_active(self, proto_idx: int) -> bool:
         r"""Is the prototype *proto_idx* active or disabled?
+
         Args:
             proto_idx (int): Prototype index.
         """

@@ -43,7 +43,9 @@ class ProtoTree(CaBRNet):
 
     def get_extra_state(self) -> dict[str, Any] | None:
         r"""Returns the decision tree architecture to be saved in state_dict.
-        This is automatically called by state_dict()."""
+
+        This is automatically called by state_dict().
+        """
         if isinstance(self.classifier, ProtoTreeClassifier):
             return self.classifier.tree.export_arch()
         # When using PRP visualization with Captum, classifier is no longer a ProtoTreeClassifier
@@ -51,6 +53,7 @@ class ProtoTree(CaBRNet):
 
     def set_extra_state(self, state: dict[str, Any]) -> None:  # type: ignore
         r"""Rebuilds a decision tree from the architecture information.
+
         This is automatically called by load_state_dict().
 
         Args:

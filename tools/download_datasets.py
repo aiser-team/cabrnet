@@ -10,6 +10,11 @@ from PIL import Image
 
 
 def show_file_list() -> str:
+    """Shows list of files to download.
+
+    Returns:
+        List of files to download.
+    """
     res = ""
     for entry in file_list:
         res += f"\t{entry['identifier']} --> {entry['description']}, downloaded in <output_dir>/{entry['dir']}\n"
@@ -18,6 +23,11 @@ def show_file_list() -> str:
 
 
 def create_parser() -> ArgumentParser:
+    """Creates parser.
+
+    Returns:
+        Parser containing all the arguments.
+    """
     parser = ArgumentParser(
         description="Download datasets and perform preprocessing for ProtoTree and ProtoPNet",
         formatter_class=RawTextHelpFormatter,
@@ -51,6 +61,12 @@ def create_parser() -> ArgumentParser:
 
 
 def download_cub(path: str, use_segmentation: bool) -> None:
+    """Downloads the CUB200 dataset.
+
+    Args:
+        path (str): Path where to download the dataset to.
+        use_segmentation (bool): Whether to download the segmentation dataset too.
+    """
     ds_url = "https://data.caltech.edu/records/65de6-vp158/files/CUB_200_2011.tgz"
     ds_path = os.path.join(path, "CUB-200-2011.tgz")
 
@@ -100,6 +116,11 @@ def download_cub(path: str, use_segmentation: bool) -> None:
 
 
 def preprocess_cub(path: str) -> None:
+    """Preprocessing function to create proper datasets used by ProtoTree and ProtoPNet.
+
+    Args:
+        path (str): Path where the dataset is located.
+    """
     # ProtoTree
     path_images = os.path.join(path, "images.txt")
     path_split = os.path.join(path, "train_test_split.txt")
@@ -280,6 +301,7 @@ file_list = [
 
 
 def main() -> None:
+    """Main entry point of the tool."""
     parser = create_parser()
     args = parser.parse_args()
 

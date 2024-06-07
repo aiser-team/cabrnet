@@ -25,6 +25,11 @@ file_list = [
 
 
 def show_file_list() -> str:
+    """Shows list of files to download.
+
+    Returns:
+        List of files to download.
+    """
     res = ""
     for entry in file_list:
         res += f"\t{entry['identifier']} --> {entry['description']}, downloaded in <output_dir>/{entry['dir']}\n"
@@ -33,6 +38,11 @@ def show_file_list() -> str:
 
 
 def create_parser() -> ArgumentParser:
+    """Creates parser.
+
+    Returns:
+        Parser containing all the arguments.
+    """
     parser = ArgumentParser(description="Download datasets and pretrained models", formatter_class=RawTextHelpFormatter)
     parser.add_argument(
         "--target",
@@ -48,6 +58,7 @@ def create_parser() -> ArgumentParser:
 
 
 def main() -> None:
+    """Main entry point of the tool."""
     parser = create_parser()
     args = parser.parse_args()
 

@@ -63,6 +63,7 @@ def _captum_attribute(captum_model: Attribution, img_tensor: Tensor, target: Tar
         captum_model (Attribution): Model prepared for Captum.
         img_tensor (tensor): Image tensor.
         target (TargetType): Target in model output (e.g. class index).
+
     Returns:
         Captum attribution.
     """
@@ -85,6 +86,7 @@ def _captum_smoothgrad_attribute(
         target (TargetType): Target in model output (e.g. class index).
         num_samples (int, optional): Number of random samples. Default: 10.
         noise_ratio (float, optional): Noise ratio for random samples. Default: 0.2.
+
     Returns:
         Captum attribution.
     """
@@ -255,6 +257,7 @@ def smoothgrad(
             Default: False.
         similarity_threshold (float, optional): Ignore locations in the similarity map with a score lower than this
             threshold. Default: 0.1.
+
     Returns:
         Similarity map.
     """
@@ -382,8 +385,9 @@ def prp(
     grads_x_input: bool = False,
     similarity_threshold: float = 0.1,
 ) -> np.ndarray:
-    r"""Performs patch visualization using Prototype Relevance Propagation
-        (https://www.sciencedirect.com/science/article/pii/S0031320322006513#bib0030).
+    r"""Performs patch visualization using Prototype Relevance Propagation.
+
+    See (https://www.sciencedirect.com/science/article/pii/S0031320322006513#bib0030).
 
     Args:
         model (Module): Target model.
