@@ -80,7 +80,6 @@ class OptimizerManager:
 
         if param_groups is None:
             # Create a default param group encompassing all model parameters
-            # NOTE: This should be verified again
             self.param_groups["main"] = [param for _, param in module.named_parameters()]
             return
 
