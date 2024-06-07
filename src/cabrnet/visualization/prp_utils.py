@@ -42,6 +42,7 @@ class L2SimilaritiesLRPWrapper(L2Similarities):
         """
 
         class SimilarityAutoGradFunc(torch.autograd.Function):
+            @staticmethod
             def forward(ctx: Any, features: Tensor, prototypes: Tensor) -> Tensor:
                 # Compute raw L2 distances
                 distances = self.L2_square_distance(features=features, prototypes=prototypes)
@@ -53,7 +54,8 @@ class L2SimilaritiesLRPWrapper(L2Similarities):
                 ctx.save_for_backward(features, prototypes)
                 return similarities
 
-            def backward(ctx, grad_output):
+            @staticmethod
+            def backward(ctx, grad_output):  # type: ignore
                 features, prototypes = ctx.saved_tensors
                 # Compute channel-wise similarities from features (N x C x H x W) and prototypes (P x C x 1 x 1)
                 # the result shape is (N x P x C x H x W)
@@ -81,7 +83,7 @@ class L2SimilaritiesLRPWrapper(L2Similarities):
         Returns:
             Tensor of similarity scores.
         """
-        return self.autograd_func.apply(features, prototypes)
+        return self.autograd_func.apply(features, prototypes)  # type: ignore
 
 
 class DecisionLRPWrapper(nn.Module):
@@ -231,7 +233,8 @@ class ZBetaLayer(ABC):
                 # Keep original inference
                 return self._legacy_forward(*args)
 
-            def backward(ctx, grad_output):
+            @staticmethod
+            def backward(ctx, grad_output):  # type: ignore
                 (x,) = ctx.saved_tensors
                 x = x.clone().detach().requires_grad_(True)
                 lower_bound_tensor = (self.lower_bound * torch.ones_like(x)).requires_grad_(True)
@@ -254,19 +257,20 @@ class ZBetaLayer(ABC):
 
         return ZBetaAutoGradFunc()
 
-    def forward(self, x: Tensor) -> Tensor:
+    def forward(self, input: Tensor) -> Tensor:
         r"""Applies the autograd function.
 
         Args:
-            x (tensor): Input tensor.
+            input (tensor): Input tensor.
 
         Returns:
             Layer output.
         """
-        return self.autograd_func.apply(x)
+        return self.autograd_func.apply(input)  # type: ignore
 
 
-class ZBetaLinear(ZBetaLayer, nn.Linear):  # ZBetaLayer takes precedence to supersede "forward" function from nn.Module
+class ZBetaLinear(ZBetaLayer, nn.Linear):
+    # ZBetaLayer takes precedence to supersede "forward" function from nn.Module
     r"""Replacement layer for applying Z^Beta rule on a nn.Linear operator during relevance backpropagation.
 
     For more information, see https://arxiv.org/pdf/1512.02479.pdf
@@ -352,7 +356,8 @@ class ZBetaLinear(ZBetaLayer, nn.Linear):  # ZBetaLayer takes precedence to supe
         )
 
 
-class ZBetaConv2d(ZBetaLayer, nn.Conv2d):  # ZBetaLayer takes precedence to supersede "forward" function from nn.Module
+# ZBetaLayer takes precedence to supersede "forward" function from nn.Module
+class ZBetaConv2d(ZBetaLayer, nn.Conv2d):
     r"""Replacement layer for applying Z^Beta rule on a nn.Conv2d operator during relevance backpropagation.
 
     For more information, see https://arxiv.org/pdf/1512.02479.pdf
@@ -515,7 +520,8 @@ class Alpha1Beta0Layer(ABC):
                 # Keep original inference
                 return self._legacy_forward(*args)
 
-            def backward(ctx, grad_output):
+            @staticmethod
+            def backward(ctx, grad_output):  # type: ignore[override]
                 (x,) = ctx.saved_tensors
                 x = x.clone().detach().requires_grad_(True)
                 # Epsilon-rule for LRP propagation
@@ -535,16 +541,16 @@ class Alpha1Beta0Layer(ABC):
 
         return ZBetaAutoGradFunc()
 
-    def forward(self, x: Tensor) -> Tensor:
+    def forward(self, input: Tensor) -> Tensor:
         r"""Applies the autograd function.
 
         Args:
-            x (tensor): Input tensor.
+            input (tensor): Input tensor.
 
         Returns:
             Layer output.
         """
-        return self.autograd_func.apply(x)
+        return self.autograd_func.apply(input)  # type: ignore
 
 
 class Alpha1Beta0Linear(Alpha1Beta0Layer, nn.Linear):
@@ -613,7 +619,7 @@ class Alpha1Beta0Linear(Alpha1Beta0Layer, nn.Linear):
         ) + F.linear(x.clamp(max=0), self.weight.data.clamp(max=0), None)
 
 
-class Alpha1Beta0Conv2d(Alpha1Beta0Layer, nn.Conv2d):
+class Alpha1Beta0Conv2d(Alpha1Beta0Layer, nn.Conv2d):  # type: ignore
     # Alpha1Beta0Layer takes precedence to supersede "forward" function from nn.Module
     r"""Replacement layer for applying Alpha1-Beta0 rule on a nn.Conv2d operator during relevance backpropagation.
 
@@ -721,7 +727,7 @@ class StackedSum(nn.Module):
         Returns:
             Layer output.
         """
-        return self.autograd_func.apply(a, b)
+        return self.autograd_func.apply(a, b)  # type: ignore
 
     def _autograd_func(self) -> torch.autograd.Function:
         r"""Custom autograd function for relevance computation.
@@ -739,7 +745,7 @@ class StackedSum(nn.Module):
                 return torch.sum(stacked, dim=0)
 
             @staticmethod
-            def backward(ctx: Any, grad_output: Tensor) -> tuple[Tensor, Tensor]:
+            def backward(ctx: Any, grad_output: Tensor) -> tuple[Tensor, Tensor]:  # type: ignore
                 (stacked,) = ctx.saved_tensors
                 stacked = stacked.clone().detach().requires_grad_(True)
                 with torch.enable_grad():
@@ -962,5 +968,5 @@ def get_cabrnet_lrp_composite_model(
     # Replace decision layer
     lrp_model.classifier = DecisionLRPWrapper(classifier=lrp_model.classifier, stability_factor=1e-12)
     # Mark the model as ready for LRP
-    lrp_model.lrp_ready = True
+    lrp_model.lrp_ready = True  # type: ignore
     return lrp_model

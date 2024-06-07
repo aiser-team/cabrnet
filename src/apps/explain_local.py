@@ -136,7 +136,7 @@ def execute(args: Namespace) -> None:
     # Generate explanation
     model.explain(
         img=args.image,
-        preprocess=preprocess,  # type: ignore
+        preprocess=preprocess,
         visualizer=visualizer,
         prototype_dir=args.prototype_dir,
         output_dir=output_dir,

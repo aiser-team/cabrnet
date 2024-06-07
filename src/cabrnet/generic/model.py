@@ -4,7 +4,7 @@ import argparse
 import importlib
 import shutil
 import os.path
-from typing import Any, Callable, Mapping
+from typing import Any, Callable
 from PIL import Image
 import torch
 import torch.nn as nn
@@ -26,6 +26,7 @@ class CaBRNet(nn.Module):
         extractor: Model used to extract convolutional features from the input image.
         classifier: Model used to compute the classification, based on similarity scores with a set of prototypes.
     """
+
     # Regroups common default file names in a single location
     DEFAULT_MODEL_CONFIG: str = "model_arch.yml"
     DEFAULT_MODEL_STATE: str = "model_state.pth"
@@ -75,7 +76,7 @@ class CaBRNet(nn.Module):
             Tensor of similarity scores.
         """
         x = self.extractor(x, **kwargs)
-        return self.classifier.similarity_layer(x, self.classifier.prototypes)  # type: ignore
+        return self.classifier.similarity_layer(x, self.classifier.prototypes)
 
     def l2_distances(self, x: Tensor, **kwargs) -> Tensor:
         r"""Returns L2 distances to each prototype.
@@ -87,7 +88,7 @@ class CaBRNet(nn.Module):
             Tensor of L2 distances.
         """
         x = self.extractor(x, **kwargs)
-        return self.classifier.similarity_layer.L2_square_distance(x, self.classifier.prototypes)  # type: ignore
+        return self.classifier.similarity_layer.L2_square_distance(x, self.classifier.prototypes)
 
     @property
     def num_prototypes(self) -> int:
@@ -102,7 +103,7 @@ class CaBRNet(nn.Module):
         """
         return self.classifier.prototype_is_active(proto_idx)
 
-    def _load_legacy_state_dict(self, legacy_state: Mapping[str, Any]) -> None:
+    def _load_legacy_state_dict(self, legacy_state: dict[str, Any]) -> None:
         r"""Loads a state dictionary in legacy format.
 
         Args:
@@ -348,11 +349,11 @@ class CaBRNet(nn.Module):
 
                 # Update global metrics
                 total_loss += batch_loss.item()
-                total_acc += batch_accuracy  # type: ignore
+                total_acc += batch_accuracy
 
                 # Update progress bar
                 postfix_str = f"Batch loss: {batch_loss.item():.3f}, Acc: {batch_accuracy:.3f}"
-                data_iter.set_postfix_str(postfix_str)  # type: ignore
+                data_iter.set_postfix_str(postfix_str)
 
         return {"avg_loss": total_loss / batch_num, "avg_eval_accuracy": total_acc / batch_num}
 
@@ -423,12 +424,12 @@ class CaBRNet(nn.Module):
         # Create destination directory if necessary
         os.makedirs(dir_path, exist_ok=True)
         # Copy visualizer configuration file
-        if os.path.isfile(visualizer.config_file):  # type: ignore
+        if visualizer.config_file is not None and os.path.isfile(visualizer.config_file):
             try:
                 shutil.copyfile(
-                    src=visualizer.config_file,  # type: ignore
+                    src=visualizer.config_file,
                     dst=os.path.join(dir_path, SimilarityVisualizer.DEFAULT_VISUALIZATION_CONFIG),
-                )  # type: ignore
+                )
             except shutil.SameFileError:
                 logger.warning(f"Ignoring file copy from {visualizer.config_file} to itself.")
                 pass
@@ -464,8 +465,8 @@ class CaBRNet(nn.Module):
     def explain(
         self,
         img: str | Image.Image,
-        preprocess: Callable,
-        visualizer: SimilarityVisualizer | None,
+        preprocess: Callable | None,
+        visualizer: SimilarityVisualizer,
         prototype_dir: str,
         output_dir: str,
         device: str = "cuda:0",

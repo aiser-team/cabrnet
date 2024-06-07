@@ -7,6 +7,7 @@ from cabrnet.visualization.view import heatmap
 from cabrnet.utils.parser import load_config
 from cabrnet.utils.exceptions import ArgumentError
 import torch
+from torchvision.transforms import ToTensor
 from PIL import Image
 import csv
 import numpy as np
@@ -124,7 +125,7 @@ def patches_relevance_analysis(
     visualizer = SimilarityVisualizer.build_from_config(config_file=visualization_config, model=model)
 
     # Recover preprocessing function
-    preprocess = getattr(datasets["test_set"]["dataset"], "transform", None)
+    preprocess = getattr(datasets["test_set"]["dataset"], "transform", ToTensor())
     test_set = datasets["test_set"]["raw_dataset"]
     segmentation_set = datasets["test_set"]["seg_dataset"]
 
@@ -140,7 +141,7 @@ def patches_relevance_analysis(
     stats = []
 
     for img_idx, ((img, _), (seg, _)) in test_iter:  # type: ignore
-        img_tensor = preprocess(img)  # type: ignore
+        img_tensor = preprocess(img)
         if img_tensor.dim() != 4:
             # Fix number of dimensions if necessary
             img_tensor = torch.unsqueeze(img_tensor, dim=0)
@@ -286,7 +287,7 @@ def proto_relevance_analysis(
     visualizer = SimilarityVisualizer.build_from_config(config_file=visualization_config, model=model)
 
     # Recover preprocessing function
-    preprocess = getattr(datasets["projection_set"]["dataset"], "transform", None)
+    preprocess = getattr(datasets["projection_set"]["dataset"], "transform", ToTensor())
     projection_set = datasets["projection_set"]["raw_dataset"]
     segmentation_set = datasets["projection_set"]["seg_dataset"]
 
@@ -306,7 +307,7 @@ def proto_relevance_analysis(
     for proto_idx in proto_iter:
         # Recover source image for the prototype
         img = projection_set[projection_info[proto_idx]["img_idx"]][0]  # type: ignore
-        img_tensor = preprocess(img)  # type: ignore
+        img_tensor = preprocess(img)
         attribution = visualizer.get_attribution(img=img, img_tensor=img_tensor, proto_idx=proto_idx, device=device)
         mask_relevance = pg_mask_relevance(
             attribution, np.asarray(segmentation_set[projection_info[proto_idx]["img_idx"]][0]), area_percentage  # type: ignore

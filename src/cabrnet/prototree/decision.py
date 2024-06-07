@@ -13,6 +13,7 @@ from torch import Tensor
 
 class SamplingStrategy(Enum):
     r"""Sampling strategy inside the decision tree."""
+
     DISTRIBUTED = 1  # The output is the sum of all leaf distributions, weighted by their respective probability
     SAMPLE_MAX = 2  # The output is the distribution of the leaf with the highest probability
     GREEDY = 3  # The output is computed by following the branch with the highest probability at each decision node.
@@ -105,7 +106,7 @@ class ProtoTreeClassifier(CaBRNetGenericClassifier):
 
         # Init prototypes
         num_prototypes = self.tree.num_prototypes
-        self.prototypes = nn.Parameter(
+        self.prototypes = nn.Parameter(  # type: ignore
             init_prototypes(num_prototypes=num_prototypes, num_features=self.num_features, init_mode=proto_init_mode)
         )
         self._active_prototypes = self.tree.active_prototypes
@@ -168,7 +169,7 @@ class ProtoTreeClassifier(CaBRNetGenericClassifier):
             # leaf_idxs has shape batch_size
             leaf_idxs = torch.argmax(leaf_probabilities, dim=0)
             prediction = torch.index_select(input=leaf_distributions, dim=0, index=leaf_idxs[..., 0])
-            tree_info["decision_leaf"] = [leaf_names[leaf_idx.item()] for leaf_idx in leaf_idxs]  # type: ignore
+            tree_info["decision_leaf"] = [leaf_names[int(leaf_idx.item())] for leaf_idx in leaf_idxs]
         return prediction, tree_info
 
     @staticmethod

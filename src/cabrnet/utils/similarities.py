@@ -2,6 +2,7 @@ import torch.nn as nn
 import torch
 from torch import Tensor
 from loguru import logger
+from typing import Any
 
 
 class L2Similarities(nn.Module):
@@ -52,7 +53,7 @@ class L2Similarities(nn.Module):
             return features_l2_squared + intermediate
         return features_l2_squared + prototypes_l2_squared - 2 * features_x_prototypes
 
-    def forward(self, features: Tensor, prototypes: Tensor) -> Tensor:
+    def forward(self, features: Tensor, prototypes: Tensor) -> Any:
         r"""Computes similarity based on L2 distance using ||x - y||² = ||x||² + ||y||² - 2 x.y.
 
         Args:

@@ -49,8 +49,8 @@ class OptimizerManager:
         self.config = config_dict
 
         self.param_groups: dict[str, list[nn.Parameter]] = {}
-        self.optimizers: dict[str, torch.optim.optimizer] = {}
-        self.schedulers: dict[str, torch.optim.lr_scheduler] = {}
+        self.optimizers: dict[str, torch.optim.Optimizer] = {}
+        self.schedulers: dict[str, torch.optim.lr_scheduler.LRScheduler] = {}
         self.periods: dict[str, dict[str, Any]] = {}
 
         self._set_param_groups(module=module)
@@ -80,7 +80,7 @@ class OptimizerManager:
 
         if param_groups is None:
             # Create a default param group encompassing all model parameters
-            self.param_groups = {"main": [param for param in module.named_parameters()]}
+            self.param_groups["main"] = [param for _, param in module.named_parameters()]
             return
 
         covered_names = []
@@ -181,7 +181,7 @@ class OptimizerManager:
                 }
             }
         else:
-            for epoch_name in self.config.get("periods"):
+            for epoch_name in self.config["periods"]:
                 epoch_config = self.config["periods"][epoch_name]
                 if epoch_config.get("epoch_range") is None or epoch_config.get("optimizers") is None:
                     raise ValueError(f"Missing parameters for training period {epoch_name}")

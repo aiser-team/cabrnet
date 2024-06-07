@@ -7,7 +7,7 @@ from cabrnet.generic.model import CaBRNet
 from cabrnet.utils.optimizers import OptimizerManager
 from cabrnet.utils.data import DatasetManager
 from cabrnet.utils.parser import load_config
-from cabrnet.utils.save import save_checkpoint, load_checkpoint, save_projection_info
+from cabrnet.utils.save import save_checkpoint, load_checkpoint
 from cabrnet.utils.exceptions import ArgumentError
 
 description = "trains a CaBRNet model"
@@ -325,7 +325,7 @@ def execute(args: Namespace) -> None:
         device=device,
         verbose=verbose,
         **trainer.get("epilogue", {}),
-    )  # type: ignore
+    )
 
     # Evaluate model
     eval_info = model.evaluate(dataloader=dataloaders["test_set"], device=device, verbose=verbose)

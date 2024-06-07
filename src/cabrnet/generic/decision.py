@@ -14,7 +14,8 @@ class CaBRNetGenericClassifier(nn.Module):
         similarity_layer: Layer used to compute similarity scores between the prototypes and the convolutional features.
     """
 
-    prototypes: nn.Parameter()
+    prototypes: nn.Parameter
+    similarity_layer: nn.Module
 
     def __init__(
         self,
@@ -41,9 +42,6 @@ class CaBRNetGenericClassifier(nn.Module):
         self.num_classes = num_classes
         self.num_features = num_features
         self.prototypes_init_mode = proto_init_mode
-        # Dummy initialisation of prototypes and similarity layer
-        self.prototypes = None
-        self.similarity_layer = None
 
     @property
     def num_prototypes(self) -> int:

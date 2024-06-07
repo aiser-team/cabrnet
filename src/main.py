@@ -41,7 +41,7 @@ def main():
     for app_name in apps:
         try:
             module = importlib.import_module(f"apps.{app_name}")
-        except Exception as e:
+        except Exception as _:
             logger.warning(f"Skipping application {app_name}. Could not load module: {traceback.format_exc()}")
             continue
         description = module.description if hasattr(module, "description") else f"help menu for {app_name}"

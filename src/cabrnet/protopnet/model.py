@@ -1,13 +1,15 @@
 import copy
 import os
-from typing import Any, Callable, Mapping
+from typing import Any, Callable
 
 import graphviz
 from PIL import Image
 import torch
 import torch.nn as nn
 import numpy as np
+from torchvision.transforms import ToTensor
 from cabrnet.generic.model import CaBRNet
+from cabrnet.generic.decision import CaBRNetGenericClassifier
 from cabrnet.utils.optimizers import OptimizerManager
 from cabrnet.visualization.visualizer import SimilarityVisualizer
 from cabrnet.visualization.explainer import ExplanationGraph
@@ -26,14 +28,14 @@ class ProtoPNet(CaBRNet):
         projection_config: Parameters of the projection function used during training.
     """
 
-    def __init__(self, extractor: nn.Module, classifier: nn.Module, **kwargs):
+    def __init__(self, extractor: nn.Module, classifier: CaBRNetGenericClassifier, **kwargs):
         r"""Builds a ProtoPNet.
 
         Args:
             extractor (Module): Feature extractor.
             classifier (CaBRNetGenericClassifier): Classification based on extracted features.
         """
-        super(ProtoPNet, self).__init__(extractor, classifier, **kwargs)  # type: ignore
+        super(ProtoPNet, self).__init__(extractor, classifier, **kwargs)
 
         # Default training configuration
         self.loss_coefficients = {
@@ -47,7 +49,7 @@ class ProtoPNet(CaBRNet):
             "num_ft_epochs": 20,
         }
 
-    def _load_legacy_state_dict(self, legacy_state: Mapping[str, Any]) -> None:
+    def _load_legacy_state_dict(self, legacy_state: dict[str, Any]) -> None:
         r"""Loads a state dictionary in legacy format.
 
         Args:
@@ -87,7 +89,7 @@ class ProtoPNet(CaBRNet):
             elif legacy_key == "ones":
                 cbrn_key = "classifier.similarity_layer._summation_kernel"
             else:
-                final_state[legacy_key] = torch.unsqueeze(final_state[legacy_key], 0)  # type: ignore
+                final_state[legacy_key] = torch.unsqueeze(final_state[legacy_key], 0)
 
             # Update state
             if cbrn_state[cbrn_key].size() != final_state[legacy_key].size():
@@ -95,11 +97,11 @@ class ProtoPNet(CaBRNet):
                     f"Mismatching parameter size for {legacy_key} and {cbrn_key}. "
                     f"Expected {cbrn_state[cbrn_key].size()}, got {final_state[legacy_key].size()}"
                 )
-            final_state[cbrn_key] = final_state.pop(legacy_key)  # type: ignore
+            final_state[cbrn_key] = final_state.pop(legacy_key)
             cbrn_keys.remove(cbrn_key)
         super().load_state_dict(final_state, strict=False)
 
-    def load_state_dict(self, state_dict: Mapping[str, Any], **kwargs):  # type: ignore
+    def load_state_dict(self, state_dict: dict[str, Any], **kwargs) -> None:  # type:ignore
         r"""Overloads nn.Module load_state_dict to take legacy state dictionaries into account.
 
         Args:
@@ -118,12 +120,12 @@ class ProtoPNet(CaBRNet):
                     f"to match model state"
                 )
                 # self.num_prototypes is automatically updated after changing the prototype tensor
-                self.classifier.prototypes = nn.Parameter(
+                self.classifier.prototypes = nn.Parameter(  # type: ignore
                     torch.zeros((updated_num_prototypes, self.classifier.num_features, 1, 1)), requires_grad=True
                 )
                 # Update shape of all other relevant tensors
                 self.classifier.proto_class_map = torch.zeros(self.num_prototypes, self.classifier.num_classes)
-                self.classifier.similarity_layer.register_buffer(  # type: ignore
+                self.classifier.similarity_layer.register_buffer(
                     "_summation_kernel", torch.ones((self.num_prototypes, self.classifier.num_features, 1, 1))
                 )
                 pruned_last_layer = nn.Linear(
@@ -367,7 +369,7 @@ class ProtoPNet(CaBRNet):
             for ft_epoch_idx in fine_tuning_progress:
                 train_info = self._train_epoch(
                     dataloaders=dataloaders,
-                    optimizer_mngr=optimizer_mngr.optimizers["last_layer_optimizer"],  # type: ignore
+                    optimizer_mngr=optimizer_mngr.optimizers["last_layer_optimizer"],
                     device=device,
                     tqdm_position=tqdm_position + 1,
                     tqdm_title=f"Fine-tuning epoch {ft_epoch_idx}",
@@ -382,6 +384,7 @@ class ProtoPNet(CaBRNet):
         self,
         dataloaders: dict[str, DataLoader],
         optimizer_mngr: OptimizerManager,
+        output_dir: str,
         device: str = "cuda:0",
         verbose: bool = False,
         pruning_threshold: int = 3,
@@ -396,6 +399,7 @@ class ProtoPNet(CaBRNet):
         Args:
             dataloaders (dictionary): Dictionary of dataloaders.
             optimizer_mngr (OptimizerManager): Optimizer manager.
+            output_dir (str): Unused.
             device (str, optional): Target device. Default: cuda:0.
             verbose (bool, optional): Display progress bar. Default: False.
             pruning_threshold (int, optional): Pruning threshold. Default: 3.
@@ -454,7 +458,7 @@ class ProtoPNet(CaBRNet):
             for ft_epoch_idx in fine_tuning_progress:
                 self._train_epoch(
                     dataloaders=dataloaders,
-                    optimizer_mngr=optimizer_mngr.optimizers["last_layer_optimizer"],  # type: ignore
+                    optimizer_mngr=optimizer_mngr.optimizers["last_layer_optimizer"],
                     device=device,
                     tqdm_position=tqdm_position + 1,
                     tqdm_title=f"Fine-tuning epoch {ft_epoch_idx}",
@@ -541,7 +545,7 @@ class ProtoPNet(CaBRNet):
             index_prototypes_to_keep = torch.tensor(index_prototypes_to_keep).to(device)
 
             # overwrite prototypes with selected subset (self.num_prototypes is updated automatically)
-            self.classifier.prototypes = nn.Parameter(
+            self.classifier.prototypes = nn.Parameter(  # type: ignore
                 torch.index_select(input=self.classifier.prototypes, dim=0, index=index_prototypes_to_keep),
                 requires_grad=True,
             )
@@ -556,7 +560,7 @@ class ProtoPNet(CaBRNet):
             self.classifier.last_layer = pruned_last_layer
 
             # update shape of similarity layer for computation purposes
-            self.classifier.similarity_layer.register_buffer(  # type: ignore
+            self.classifier.similarity_layer.register_buffer(
                 "_summation_kernel", torch.ones((self.num_prototypes, self.classifier.num_features, 1, 1))
             )
 
@@ -642,12 +646,12 @@ class ProtoPNet(CaBRNet):
                 xs = xs.to(device)
                 feats = self.extractor(xs)  # Shape N x D x H x W
                 _, W = feats.shape[2], feats.shape[3]
-                distances = self.classifier.similarity_layer.L2_square_distance(  # type: ignore
+                distances = self.classifier.similarity_layer.L2_square_distance(
                     feats, self.classifier.prototypes
                 )  # Shape (N, P, H, W)
                 min_dist, min_dist_idxs = torch.min(distances.view(distances.shape[:2] + (-1,)), dim=2)
 
-                for img_idx, (x, y) in enumerate(zip(xs, ys)):
+                for img_idx, (_, y) in enumerate(zip(xs, ys)):
                     if y.item() not in class_mapping:
                         # Class is not associated with any prototype (this is bad...)
                         continue
@@ -658,8 +662,9 @@ class ProtoPNet(CaBRNet):
                                 min_dist_idxs[img_idx, proto_idx].item() // W,
                                 min_dist_idxs[img_idx, proto_idx].item() % W,
                             )
+                            batch_size = 1 if dataloader.batch_size is None else dataloader.batch_size
                             projection_info[proto_idx] = {
-                                "img_idx": batch_idx * dataloader.batch_size + img_idx,  # type: ignore
+                                "img_idx": batch_idx * batch_size + img_idx,
                                 "h": h,
                                 "w": w,
                                 "dist": min_dist[img_idx, proto_idx].item(),
@@ -674,8 +679,8 @@ class ProtoPNet(CaBRNet):
     def explain(
         self,
         img: str | Image.Image,
-        preprocess: Callable,
-        visualizer: SimilarityVisualizer | None,
+        preprocess: Callable | None,
+        visualizer: SimilarityVisualizer,
         prototype_dir: str = "",
         output_dir: str = "",
         device: str = "cuda:0",
@@ -707,6 +712,9 @@ class ProtoPNet(CaBRNet):
 
         if isinstance(img, str):
             img = Image.open(img)
+
+        if preprocess is None:
+            preprocess = ToTensor()
 
         img_tensor = preprocess(img)
         if img_tensor.dim() != 4:
@@ -748,7 +756,7 @@ class ProtoPNet(CaBRNet):
             # Generate test image patch
             patch_image_path = os.path.join(output_dir, "test_patches", f"proto_similarity_{proto_idx}.png")
             if not disable_rendering:
-                patch_image = visualizer.forward(img=img, img_tensor=img_tensor, proto_idx=proto_idx, device=device)  # type: ignore
+                patch_image = visualizer.forward(img=img, img_tensor=img_tensor, proto_idx=proto_idx, device=device)
                 patch_image.save(patch_image_path)
             explanation.add_similarity(
                 prototype_img_path=prototype_image_path,
@@ -758,7 +766,7 @@ class ProtoPNet(CaBRNet):
             )
             # "Disable" prototype from search
             min_distances[proto_idx] = float("inf")
-        explanation.add_prediction(torch.argmax(prediction).item())  # type: ignore
+        explanation.add_prediction(int(torch.argmax(prediction).item()))
         if not disable_rendering:
             explanation.render()
         return most_relevant_prototypes

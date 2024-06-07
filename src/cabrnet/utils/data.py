@@ -29,6 +29,7 @@ class VisionDatasetSubset(Subset):
 
 class DatasetManager:
     r"""Class for handling datasets in CaBRNet."""
+
     DEFAULT_DATASET_CONFIG: str = "dataset.yml"
 
     @staticmethod
@@ -159,10 +160,13 @@ class DatasetManager:
 
             if sampling_ratio > 1:
                 # Apply data sub-selection
-                selected_indices = [idx for idx in range(len(dataset["dataset"]))][::sampling_ratio]  # type: ignore
+                selected_indices = [idx for idx in range(len(dataset["dataset"]))][::sampling_ratio]
                 for key in ["dataset", "raw_dataset", "seg_dataset"]:
-                    if dataset.get(key, None) is not None:
-                        dataset[key] = VisionDatasetSubset(dataset[key], selected_indices)
+                    if dataset.get(key) is not None:
+                        dset = dataset[key]
+                        if not isinstance(dset, Dataset):
+                            raise TypeError(f"{dataset[key]} should be a dataset, but is of type {type(dataset[key])}")
+                        dataset[key] = VisionDatasetSubset(dset, selected_indices)
 
             dataset["batch_size"] = batch_size
             dataset["shuffle"] = shuffle
@@ -192,12 +196,18 @@ class DatasetManager:
             config_file=config_file, sampling_ratio=sampling_ratio, load_segmentation=load_segmentation
         )
         dataloaders: dict[str, DataLoader] = {}
+
+        def _safe_item_load(item, t):
+            if not isinstance(item, t):
+                raise TypeError(f"{item} is of type {type(item)} but should be of type {t}.")
+            return item
+
         for dataset_name in datasets:
-            dataset: Dataset = datasets[dataset_name]["dataset"]  # type: ignore
-            raw_dataset: Dataset = datasets[dataset_name]["raw_dataset"]  # type: ignore
-            batch_size: int = datasets[dataset_name]["batch_size"]  # type: ignore
-            shuffle: bool = datasets[dataset_name]["shuffle"]  # type: ignore
-            num_workers: int = datasets[dataset_name]["num_workers"]  # type: ignore
+            dataset = _safe_item_load(datasets[dataset_name]["dataset"], Dataset)
+            raw_dataset = _safe_item_load(datasets[dataset_name]["raw_dataset"], Dataset)
+            batch_size = _safe_item_load(datasets[dataset_name]["batch_size"], int)
+            shuffle = _safe_item_load(datasets[dataset_name]["shuffle"], bool)
+            num_workers = _safe_item_load(datasets[dataset_name]["num_workers"], int)
             dataloaders[dataset_name] = DataLoader(
                 dataset=dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers
             )
@@ -206,7 +216,7 @@ class DatasetManager:
             )
             if load_segmentation:
                 try:
-                    seg_dataset: Dataset = datasets[dataset_name]["seg_dataset"]  # type: ignore
+                    seg_dataset = _safe_item_load(datasets[dataset_name]["seg_dataset"], Dataset)
                     dataloaders[dataset_name + "_seg"] = DataLoader(
                         dataset=seg_dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers
                     )
