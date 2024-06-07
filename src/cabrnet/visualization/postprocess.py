@@ -1,8 +1,8 @@
+import cv2
 import numpy as np
 from PIL import Image
-from torch import Tensor
-import cv2
 from scipy.ndimage import gaussian_filter
+from torch import Tensor
 
 
 def polarity_and_collapse(
@@ -10,14 +10,15 @@ def polarity_and_collapse(
     polarity: str | None = None,
     dim: int | None = None,
 ) -> np.ndarray:
-    """Apply polarity filter (optional) followed by average over channels (optional)
+    r"""Applies polarity filter (optional) followed by average over channels (optional).
+
     Args:
-        array: target array
-        polarity: polarity (positive, negative, absolute)
-        dim: dimension across which channels are averaged
+        array (Numpy array): Target array.
+        polarity (str, optional): If given, applies a polarity filter (positive, negative, absolute). Default: None.
+        dim (int, optional): If given, dimension across which channels are averaged. Default: None.
 
     Returns:
-        modified array
+        Modified array.
     """
     assert polarity in [None, "positive", "negative", "absolute"], f"Invalid polarity {polarity}"
 
@@ -36,13 +37,13 @@ def polarity_and_collapse(
 
 
 def normalize_min_max(array: np.ndarray) -> np.ndarray:
-    """Perform min-max normalization of a numpy array
+    r"""Performs min-max normalization of a numpy array.
 
     Args:
-        array: target array
+        array (Numpy array): Target array.
 
     Returns:
-        normalized array
+        Normalized array.
     """
     v_min = np.amin(array)
     v_max = np.amax(array)
@@ -61,21 +62,22 @@ def post_process(
     gaussian_ksize: int = 5,
     normalize: bool = False,
     grads_x_input: bool = False,
-) -> np.array:
-    """Apply post-processing on numpy array
+) -> np.ndarray:
+    r"""Applies post-processing on numpy array.
 
     Args:
-        array: source array
-        img: raw input image
-        img_tensor: input image tensor
-        resize: resize array to original image size
-        polarity: polarity filter (either None, "absolute", "positive", or "negative")
-        gaussian_ksize: size of gaussian filter kernel size
-        normalize: perform min-max normalization
-        grads_x_input: perform element-wise multiplication between gradient and image
+        array (Numpy array): Source array.
+        img (Image): Raw input image.
+        img_tensor (tensor): Input image tensor.
+        resize (bool, optional): If True, resizes the array to the original image size. Default: True.
+        polarity (str, optional): Polarity filter (None, "absolute", "positive", or "negative"). Default: absolute.
+        gaussian_ksize (int, optional): Size of gaussian filter kernel size. Default: 5.
+        normalize (bool, optional): If True, performs min-max normalization. Default: False.
+        grads_x_input (bool, optional): If True, performs element-wise multiplication between gradient and image.
+            Default: False.
 
     Returns:
-        result array
+        Result array.
     """
     if img_tensor.dim() > 3:
         img_tensor = img_tensor[0]

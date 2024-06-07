@@ -1,7 +1,7 @@
 # Data configuration
 The data configuration associated with a particular experiment is stored in a YML file, according to the following specification.
-For more examples, see the [CUB200](https://git.frama-c.com/pub/cabrnet/-/tree/master/configs/prototree/cub200.yml) and 
-[Stanford Cars](https://git.frama-c.com/pub/cabrnet/-/tree/master/configs/prototree/stanford_cars.yml) configuration files.
+For more examples, see the [CUB200](https://github.com/aiser-team/cabrnet/blob/master/configs/prototree/cub200/dataset.yml) and 
+[Stanford Cars](https://github.com/aiser-team/cabrnet/blob/master/configs/prototree/stanford_cars/dataset.yml) configuration files.
 
 ## Configuring datasets 
 Each configuration file contains the location of one or several datasets, along with the list of 

@@ -1,24 +1,32 @@
 import os
-from loguru import logger
-from cabrnet.generic.model import CaBRNet
-from cabrnet.utils.parser import load_config
-from cabrnet.utils.optimizers import OptimizerManager
-from cabrnet.utils.data import DatasetManager
-from cabrnet.utils.save import save_checkpoint
-from cabrnet.visualization.visualizer import SimilarityVisualizer
 from argparse import ArgumentParser, Namespace
 
+from cabrnet.generic.model import CaBRNet
+from cabrnet.utils.data import DatasetManager
+from cabrnet.utils.exceptions import ArgumentError
+from cabrnet.utils.optimizers import OptimizerManager
+from cabrnet.utils.parser import load_config
+from cabrnet.utils.save import save_checkpoint
+from loguru import logger
 
-description = "convert an existing legacy model into a CaBRNet version"
+description = "converts an existing legacy model into a CaBRNet model"
 
 
 def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
+    r"""Creates the argument parser for importing a legacy model into a CaBRNet model.
+
+    Args:
+        parser (ArgumentParser, optional): Parent parser (if any).
+            Default: None
+
+    Returns:
+        The parser itself.
+    """
     if parser is None:
         parser = ArgumentParser(description)
     parser = CaBRNet.create_parser(parser)
     parser = OptimizerManager.create_parser(parser)
     parser = DatasetManager.create_parser(parser)
-    parser = SimilarityVisualizer.create_parser(parser)
     parser.add_argument(
         "-c",
         "--config-dir",
@@ -26,7 +34,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         required=False,
         metavar="/path/to/config/dir",
         help="path to directory containing all configuration files "
-        "(alternative to --model-config, --dataset, --training and --visualization)",
+        "(alternative to --model-config, --dataset and --training)",
     )
     parser.add_argument(
         "-o",
@@ -40,40 +48,42 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
 
 
 def check_args(args: Namespace) -> Namespace:
+    r"""Checks the validity of the arguments and updates the namespace if necessary.
+
+    Args:
+        args (Namespace): Parsed arguments.
+
+    Returns:
+        Modified argument namespace.
+    """
     if args.config_dir is not None:
         # Fetch all files from directory
         for param, name in zip(
-            [args.model_config, args.dataset, args.training, args.visualization],
-            ["--model-config", "--dataset", "--training", "--visualization"],
+            [args.model_config, args.dataset, args.training],
+            ["--model-config", "--dataset", "--training"],
         ):
             if param is not None:
-                logger.warning(f"Ignoring option {name}: using content pointed by --config-dir instead")
+                raise ArgumentError(f"Cannot specify both options {name} and --config_dir")
         args.model_config = os.path.join(args.config_dir, CaBRNet.DEFAULT_MODEL_CONFIG)
         args.dataset = os.path.join(args.config_dir, DatasetManager.DEFAULT_DATASET_CONFIG)
         args.training = os.path.join(args.config_dir, OptimizerManager.DEFAULT_TRAINING_CONFIG)
-        args.visualization = os.path.join(args.config_dir, SimilarityVisualizer.DEFAULT_VISUALIZATION_CONFIG)
 
     # Check configuration completeness
-    for param, name in zip(
-        [args.model_config, args.dataset, args.training, args.visualization, args.model_state_dict],
-        [
-            "model configuration",
-            "dataset configuration",
-            "training configuration",
-            "visualization configuration",
-            "model state",
-        ],
+    for param, name, option in zip(
+        [args.model_config, args.dataset, args.training, args.model_state_dict],
+        ["model configuration", "dataset configuration", "training configuration", "model state"],
+        ["-m", "-d", "-t", "-s"],
     ):
         if param is None:
-            raise AttributeError(f"Missing {name} file.")
+            raise ArgumentError(f"Missing {name} file (option {option}).")
     return args
 
 
 def execute(args: Namespace) -> None:
-    """Create CaBRNet model, then load a state dictionary in legacy form.
+    r"""Creates a CaBRNet model, loads a state dictionary in legacy form, then performs the epilogue.
 
     Args:
-        args: Parsed arguments.
+        args (Namespace): Parsed arguments.
 
     """
     # Check and post-process options
@@ -94,33 +104,31 @@ def execute(args: Namespace) -> None:
 
     dataloaders = DatasetManager.get_dataloaders(dataset_config)
 
+    # Build optimizer manager
+    optimizer_mngr = OptimizerManager.build_from_config(config_file=training_config, model=model)
+
     # Call epilogue
     trainer = load_config(training_config)
-    visualizer = SimilarityVisualizer.build_from_config(config_file=args.visualization)
-    model.epilogue(
+    projection_info = model.epilogue(
         dataloaders=dataloaders,
-        visualizer=visualizer,
+        optimizer_mngr=optimizer_mngr,
         output_dir=root_dir,
-        model_config=model_config,
-        training_config=training_config,
-        dataset_config=dataset_config,
-        seed=seed,
         device=device,
         verbose=verbose,
         **trainer.get("epilogue", {}),
-    )  # type: ignore
+    )
 
     # Evaluate model
     eval_info = model.evaluate(dataloader=dataloaders["test_set"], device=device, verbose=verbose)
     logger.info(f"Average loss: {eval_info['avg_loss']:.2f}. Average accuracy: {eval_info['avg_eval_accuracy']:.2f}.")
     save_checkpoint(
-        directory_path=os.path.join(root_dir, f"imported"),
+        directory_path=os.path.join(root_dir, "imported"),
         model=model,
         model_config=model_config,
         optimizer_mngr=None,
         training_config=training_config,
         dataset_config=dataset_config,
-        visualization_config=args.visualization,
+        projection_info=projection_info,
         epoch="imported",
         seed=seed,
         device=device,

@@ -1,10 +1,10 @@
-import torch
-from torch import Tensor
-import torch.nn as nn
-import numpy as np
-from PIL import Image
 import cv2
+import numpy as np
+import torch
+import torch.nn as nn
 from cabrnet.visualization.postprocess import normalize_min_max
+from PIL import Image
+from torch import Tensor
 
 
 def cubic_upsampling(
@@ -16,21 +16,21 @@ def cubic_upsampling(
     location: tuple[int, int] | None = None,
     single_location: bool = True,
     normalize: bool = False,
-) -> np.array:
-    """
-    Perform patch visualization using cubic interpolation
+) -> np.ndarray:
+    r"""Performs patch visualization using upsampling with cubic interpolation.
+
     Args:
-        model: target model
-        img: raw input image
-        img_tensor: input image tensor
-        proto_idx: prototype index
-        device: target hardware device
-        location: coordinates of feature vector
-        single_location: keep only a single location
-        normalize: perform min-max normalization
+        model (Module): Target model.
+        img (Image): Raw input image.
+        img_tensor (tensor): Input image tensor.
+        proto_idx (int): Prototype index.
+        device (str): Target hardware device.
+        location (tuple[int,int], optional): Location inside the similarity map. Default: None.
+        single_location (bool, optional): Focus on the location of maximum similarity only. Default: False.
+        normalize (bool, optional): If True, performs min-max normalization. Default: False.
 
     Returns:
-        upsampled similarity map
+        Upsampled similarity map.
     """
     if img_tensor.dim() != 4:
         # Fix number of dimensions if necessary

@@ -26,30 +26,4 @@ if [ ! -d src/legacy/protopnet ]; then
   patch -p1 -d src/legacy/protopnet < src/legacy/patches/protopnet.patch
 fi
 
-if [ ! -d data/CUB_200_2011 ]; then
-  echo "Downloading CUB-200-2011 dataset"
-  mkdir -p data/CUB_200_2011
-  if ! msg=$(python3 src/legacy/prototree/preprocess_data/download_birds.py 2>&1); then
-    echo "FAILED: ${msg}"
-    exit
-  fi
-  # Remove attribute file
-  rm data/attributes.txt
-fi
-
-if [ ! -d data/CUB_200_2011/dataset/train_corners ]; then
-  echo "Performing ProtoTree augmentation (this may take a while)"
-  if ! msg=$(python3 src/legacy/prototree/preprocess_data/cub.py 1&> /dev/null); then
-    echo "FAILED: ${msg}"
-    exit
-  fi
-fi
-
-if [ ! -d data/CUB_200_2011/dataset/train_crop_augmented ]; then
-  echo "Performing ProtoPNet augmentation (this may take a while)"
-  #if ! msg=$(python3 src/legacy/protopnet/img_aug.py 1&> /dev/null); then
-  if ! msg=$(python3 src/legacy/protopnet/img_aug.py); then
-    echo "FAILED: ${msg}"
-    exit
-  fi
-fi
+python3 tools/download_examples.py -t legacy_models

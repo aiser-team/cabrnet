@@ -3,31 +3,40 @@
 import importlib
 import os
 import pathlib
-import sys
 import random
+import sys
 import traceback
 from argparse import ArgumentParser
-from loguru import logger
 
 import numpy as np
 import torch
+from cabrnet.utils.exceptions import ArgumentError
+from cabrnet.utils.system_info import get_hardware_info
+from loguru import logger
 
 
 def get_version() -> str:
+    """Gets the version.
+
+    Returns:
+        The current version of CaBRNet.
+    """
     with open(os.path.join(pathlib.Path(__file__).parent.resolve(), "..", "VERSION"), "r") as fin:
         return fin.readline()
 
 
 class ParserWithHelper(ArgumentParser):
+    """Hepler class for better parser errors."""
+
     def error(self, message: str):
-        """Overrides default error message in argparse to print help menu"""
+        r"""Overrides default error message in argparse to print help menu."""
         self._print_message(f"Error: {message}\n", sys.stderr)
         self.print_help(sys.stderr)
         self.exit(2)
 
 
 def main():
-    """Load the applications and run CaBRNet with them."""
+    r"""Front-end to all applications located in src/apps."""
     # Enumerate applications from apps directory
     apps_dir = os.path.join(os.path.dirname(__file__), "apps")
     apps = [os.path.splitext(file)[0] for file in os.listdir(apps_dir) if file.endswith(".py")]
@@ -39,7 +48,7 @@ def main():
     for app_name in apps:
         try:
             module = importlib.import_module(f"apps.{app_name}")
-        except Exception as e:
+        except Exception as _:
             logger.warning(f"Skipping application {app_name}. Could not load module: {traceback.format_exc()}")
             continue
         description = module.description if hasattr(module, "description") else f"help menu for {app_name}"
@@ -64,7 +73,6 @@ def main():
             "--logger-file",
             type=str,
             metavar="path/to/file",
-            default=sys.stderr,
             help="Logger file (default: sys.stderr)",
         )
         # print logs and progress bars to the console
@@ -81,7 +89,11 @@ def main():
     random.seed(seed)
 
     # Set logger level
-    logger.configure(handlers=[{"sink": args.logger_file, "level": args.logger_level}])
+    logger.configure(handlers=[{"sink": sys.stderr, "level": args.logger_level}])
+    if args.logger_file is not None:
+        logger.info(f"Using log file: {args.logger_file}")
+        logger.add(sink=args.logger_file, level=args.logger_level)
+    logger.info(f"Hardware information: {get_hardware_info(args.device)}")
 
     if not hasattr(args, "func"):
         # Print help menu when no argument is given
@@ -89,7 +101,7 @@ def main():
     else:
         try:
             args.func(args)
-        except AttributeError as e:
+        except ArgumentError as e:
             print(e)
             parser.parse_args([args.appname, "-h"])
 

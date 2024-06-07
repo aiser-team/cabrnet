@@ -1,21 +1,25 @@
-"""Declare the necessary functions to create an app to train a CaBRNet classifier."""
-
 import os
 from argparse import ArgumentParser, Namespace
+from pathlib import Path
+
+from cabrnet.generic.model import CaBRNet
+from cabrnet.utils.data import DatasetManager
+from cabrnet.utils.exceptions import ArgumentError
+from cabrnet.utils.optimizers import OptimizerManager
+from cabrnet.utils.parser import load_config
+from cabrnet.utils.save import load_checkpoint, save_checkpoint
 from loguru import logger
 from tqdm import tqdm
-from cabrnet.generic.model import CaBRNet
-from cabrnet.utils.optimizers import OptimizerManager
-from cabrnet.utils.data import DatasetManager
-from cabrnet.utils.parser import load_config
-from cabrnet.utils.save import save_checkpoint, load_checkpoint
-from cabrnet.visualization.visualizer import SimilarityVisualizer
 
-description = "train a CaBRNet classifier"
+description = "trains a CaBRNet model"
 
 
 def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
-    """Create the argument parser for training a CaBRNet classifier.
+    r"""Creates the argument parser for training a CaBRNet model.
+
+    Args:
+        parser (ArgumentParser, optional): Parent parser (if any).
+            Default: None.
 
     Returns:
         The parser itself.
@@ -25,7 +29,6 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     parser = CaBRNet.create_parser(parser, skip_state_dict=True)
     parser = DatasetManager.create_parser(parser)
     parser = OptimizerManager.create_parser(parser)
-    parser = SimilarityVisualizer.create_parser(parser)
     parser.add_argument(
         "-b",
         "--save-best",
@@ -40,19 +43,19 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         "-o",
         "--output-dir",
         type=str,
-        required=True,
+        required=False,
         metavar="path/to/output/directory",
         help="path to output directory",
     )
     x_group = parser.add_mutually_exclusive_group(required=False)
     x_group.add_argument(
-        "-f",
-        "--start-from",
+        "-c",
+        "--config-dir",
         type=str,
         required=False,
         metavar="/path/to/config/dir",
         help="path to directory containing all configuration files to start training "
-        "(alternative to --model-config, --dataset, --training and --visualization)",
+        "(alternative to --model-config, --dataset and --training)",
     )
     x_group.add_argument(
         "-r",
@@ -75,61 +78,111 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         "resuming training from a given checkpoint.",
     )
     parser.add_argument(
-        "--sanity-check-only",
+        "--sanity-check",
         action="store_true",
         help="check the training pipeline without performing the entire process.",
+    )
+    parser.add_argument(
+        "--epilogue",
+        action="store_true",
+        help="skip training and go to epilogue.",
     )
     return parser
 
 
-def check_args(args: Namespace) -> Namespace:
-    """Checks for three possible modes:
+def get_parent_directory(dir_path: str):
+    r"""Returns the parent directory of *dir_path*.
 
-    - "--resume-from": in this case, ignore options --model-config, --dataset, --training and --visualization
-    - "--start-from": in this case, ignore options --model-config, --dataset, --training and --visualization
-    - "--model-config", "--dataset", "--training" and "--visualization": in this case, all options are mandatory
+    Args:
+        dir_path (str): Path to directory.
+
+    Returns:
+        Absolute path to parent directory.
     """
-    for dir_path, option_name in zip([args.resume_from, args.start_from], ["--resume-from", "--start-from"]):
+    return Path(dir_path).parent.absolute()
+
+
+def check_args(args: Namespace) -> Namespace:
+    r"""Checks the validity of the arguments and updates the namespace if necessary.
+
+    Args:
+        args (Namespace): Parsed arguments.
+
+    Returns:
+        Modified argument namespace.
+    """
+    for dir_path, option_name in zip([args.resume_from, args.config_dir], ["--resume-from", "--config-dir"]):
         if dir_path is not None:
             for param, name in zip(
-                [args.model_config, args.dataset, args.training, args.visualization],
-                ["--model-config", "--dataset", "--training", "--visualization"],
+                [args.model_config, args.dataset, args.training], ["--model-config", "--dataset", "--training"]
             ):
                 if param is not None:
-                    logger.warning(f"Ignoring option {name}: using content pointed by {option_name} instead")
+                    raise ArgumentError(f"Cannot specify both options {name} and {option_name}")
             args.model_config = os.path.join(dir_path, CaBRNet.DEFAULT_MODEL_CONFIG)
             # Compatibility with v0.1: will be removed in the future
-            if os.path.isfile(os.path.join(dir_path, "model_arch.yml")):
-                args.model_config = os.path.join(dir_path, "model_arch.yml")
+            if not os.path.isfile(args.model_config) and os.path.isfile(os.path.join(dir_path, "model.yml")):
+                args.model_config = os.path.join(dir_path, "model.yml")
                 logger.warning(
-                    f"Using model_arch.yml from {dir_path}: "
+                    f"Using model.yml from {dir_path}: "
                     f"please consider renaming the file to {CaBRNet.DEFAULT_MODEL_CONFIG} to ensure compatibility "
                     f"with future versions"
                 )
             args.dataset = os.path.join(dir_path, DatasetManager.DEFAULT_DATASET_CONFIG)
             args.training = os.path.join(dir_path, OptimizerManager.DEFAULT_TRAINING_CONFIG)
-            args.visualization = os.path.join(dir_path, SimilarityVisualizer.DEFAULT_VISUALIZATION_CONFIG)
 
-    for param, name in zip(
-        [args.model_config, args.dataset, args.training, args.visualization],
-        ["model", "dataset", "training", "visualization"],
+    for param, name, option in zip(
+        [args.model_config, args.dataset, args.training], ["model", "dataset", "training"], ["-m", "-d", "-t"]
     ):
         if param is None:
-            raise AttributeError(f"Missing {name} configuration file.")
+            raise ArgumentError(f"Missing {name} configuration file (option {option}).")
+
+    # In resume mode, specifying the output directory is optional
+    if args.output_dir is None and args.resume_from is not None:
+        args.output_dir = get_parent_directory(args.resume_from)
+        logger.warning(f"Using {args.output_dir} as default output directory based on checkpoint path")
+    if args.output_dir is None:
+        ArgumentError("Missing path to output directory (option --output-dir)")
+
+    # In full training mode (all epochs), or when the output directory is different from the checkpoint parent directory
+    # (resume mode), check that the best model directory is available
+    best_model_path = os.path.join(args.output_dir, "best")
+    if (
+        os.path.exists(best_model_path)
+        and not args.overwrite
+        and not args.epilogue
+        and (args.resume_from is None or get_parent_directory(args.resume_from) != args.output_dir)
+    ):
+        raise ArgumentError(
+            f"Output directory {best_model_path} is not empty. "
+            f"To overwrite existing results, use --overwrite option."
+        )
+    final_model_path = os.path.join(args.output_dir, "final")
+    if args.epilogue and os.path.exists(final_model_path) and not args.overwrite:
+        raise ArgumentError(
+            f"Output directory {final_model_path} is not empty. "
+            f"To overwrite existing results, use --overwrite option."
+        )
 
     return args
 
 
 def metrics_to_str(metrics: dict[str, float]) -> str:
-    """Controls number of digits when showing batch statistics"""
+    r"""Converts a dictionary of metrics into a readable string.
+
+    Args:
+        metrics (dictionary): Dictionary of batch metrics.
+
+    Returns:
+        Readable string representing batch statistics.
+    """
     return ", ".join([f"{key}: {value:.3f}" for key, value in metrics.items()])
 
 
 def execute(args: Namespace) -> None:
-    """Create a CaBRNet classifier, then train it.
+    r"""Creates a CaBRNet model, then trains it.
 
     Args:
-        args: Parsed arguments.
+        args (Namespace): Parsed arguments.
 
     """
     # Check and post-process options
@@ -141,6 +194,9 @@ def execute(args: Namespace) -> None:
     training_config = args.training
     model_config = args.model_config
     dataset_config = args.dataset
+    epilogue_only = args.epilogue
+    sanity_check_only = args.sanity_check
+    resume_dir = args.resume_from
 
     model: CaBRNet = CaBRNet.build_from_config(config_file=model_config, seed=args.seed)
 
@@ -149,64 +205,60 @@ def execute(args: Namespace) -> None:
     model.register_training_params(trainer)  # Register auxiliary training parameters directly into model
     root_dir = args.output_dir
 
-    # Check that output directory is available
-    if not args.overwrite and os.path.exists(os.path.join(root_dir, "best")):
-        raise AttributeError(
-            f"Output directory {os.path.join(root_dir, 'best')} is not empty. "
-            f"To overwrite existing results, use --overwrite option."
-        )
-
     # Build optimizer manager
     optimizer_mngr = OptimizerManager.build_from_config(config_file=training_config, model=model)
     # Dataloaders
     dataloaders = DatasetManager.get_dataloaders(config_file=dataset_config)
 
-    if args.resume_from is not None:
+    # By default, process all data batches and all epochs
+    max_batches = None
+    start_epoch = 0
+    num_epochs = trainer["num_epochs"]
+    best_metric = 0.0 if args.save_best == "acc" else float("inf")
+    seed = args.seed
+
+    if resume_dir is not None:
         # Restore state
-        state = load_checkpoint(args.resume_from, model=model, optimizer_mngr=optimizer_mngr)
+        state = load_checkpoint(resume_dir, model=model, optimizer_mngr=optimizer_mngr)
         start_epoch = state["epoch"] + 1
         seed = state["seed"]
         train_info = state["stats"]
         best_metric = train_info.get(f"best_avg_train_{args.save_best}")
         if best_metric is None:
-            raise AttributeError(f"Could not recover best model {args.save_best}: invalid --save-best option?")
+            raise ArgumentError(f"Could not recover best model {args.save_best}: invalid --save-best option?")
         # Remap optimizer to device if necessary
         optimizer_mngr.to(device)
-    else:
-        # Start from beginning
-        start_epoch = 0
-        best_metric = 0.0 if args.save_best == "acc" else float("inf")
-        seed = args.seed
 
-    if not args.sanity_check_only:
-        max_batches = None  # Process all data batches
-        epoch_select = None
-    else:
+    epoch_select = range(start_epoch, num_epochs)
+    if epilogue_only:
+        logger.warning(f"{'=' * 20} GOING STRAIGHT TO EPILOGUE {'=' * 20}")
+        epoch_select = []
+    elif sanity_check_only:
         logger.warning(f"{'='*20} SANITY CHECK MODE: THE TRAINING WILL NOT BE FULLY PERFORMED {'='*20}")
         max_batches = 5  # Process only a few batches
         # Only perform one epoch per training period
         epoch_select = [optimizer_mngr.periods[p_name]["epoch_range"][0] for p_name in optimizer_mngr.periods]
+        epoch_select = (
+            [epoch for epoch in epoch_select if epoch >= start_epoch]  # Select epochs after start_epoch (if any)
+            if start_epoch <= epoch_select[-1]
+            else [start_epoch]
+        )
 
-    num_epochs = trainer["num_epochs"]
     for epoch in tqdm(
-        range(start_epoch, num_epochs),
+        epoch_select,
         initial=start_epoch,
         total=num_epochs,
         leave=False,
         desc="Training epochs",
         disable=not verbose,
     ):
-        if epoch_select is not None and epoch not in epoch_select:
-            # Quietly skip epoch (sanity check mode)
-            continue
-
         # Freeze parameters if necessary depending on current epoch and parameter group
         optimizer_mngr.freeze(epoch=epoch)
         train_info = model.train_epoch(
             dataloaders=dataloaders,
             optimizer_mngr=optimizer_mngr,
             device=device,
-            progress_bar_position=1,
+            tqdm_position=1,
             epoch_idx=epoch,
             max_batches=max_batches,
             verbose=verbose,
@@ -223,9 +275,9 @@ def execute(args: Namespace) -> None:
             save_best_checkpoint = True
         # Add information regarding current best metric
         train_info[f"best_avg_train_{args.save_best}"] = best_metric
-
+        logger.info(f"Metrics at epoch {epoch}: {metrics_to_str(train_info)}")
         if save_best_checkpoint:
-            logger.info(f"Better model found at epoch {epoch}. Metrics: {metrics_to_str(train_info)}")
+            logger.success(f"Better model found at epoch {epoch}. Saving checkpoint.")
             save_checkpoint(
                 directory_path=os.path.join(root_dir, "best"),
                 model=model,
@@ -233,7 +285,7 @@ def execute(args: Namespace) -> None:
                 optimizer_mngr=optimizer_mngr,
                 training_config=training_config,
                 dataset_config=dataset_config,
-                visualization_config=args.visualization,
+                projection_info=None,
                 epoch=epoch,
                 seed=seed,
                 device=device,
@@ -247,30 +299,34 @@ def execute(args: Namespace) -> None:
                 optimizer_mngr=optimizer_mngr,
                 training_config=training_config,
                 dataset_config=dataset_config,
-                visualization_config=args.visualization,
+                projection_info=None,
                 epoch=epoch,
                 seed=seed,
                 device=device,
                 stats=train_info,
             )
 
-    # Load best model
-    load_checkpoint(directory_path=os.path.join(root_dir, "best"), model=model)
+    if not epilogue_only:
+        # Seek best model (in epilogue mode, keep the existing model state)
+        if os.path.isdir(os.path.join(root_dir, "best")):
+            path_to_best = os.path.join(root_dir, "best")
+        elif resume_dir is not None and os.path.isdir(os.path.join(get_parent_directory(resume_dir), "best")):
+            # Best checkpoint occurred before training was resumed
+            path_to_best = os.path.join(get_parent_directory(resume_dir), "best")
+        else:
+            raise FileNotFoundError("Could not find path to best model. Aborting epilogue.")
+        logger.info(f"Loading best model from checkpoint {path_to_best}")
+        load_checkpoint(directory_path=path_to_best, model=model, optimizer_mngr=optimizer_mngr)
 
     # Call epilogue
-    visualizer = SimilarityVisualizer.build_from_config(config_file=args.visualization)
-    model.epilogue(
+    projection_info = model.epilogue(
         dataloaders=dataloaders,
-        visualizer=visualizer,
+        optimizer_mngr=optimizer_mngr,
         output_dir=root_dir,
-        model_config=model_config,
-        training_config=training_config,
-        dataset_config=dataset_config,
-        seed=seed,
         device=device,
         verbose=verbose,
         **trainer.get("epilogue", {}),
-    )  # type: ignore
+    )
 
     # Evaluate model
     eval_info = model.evaluate(dataloader=dataloaders["test_set"], device=device, verbose=verbose)
@@ -282,8 +338,8 @@ def execute(args: Namespace) -> None:
         optimizer_mngr=None,
         training_config=training_config,
         dataset_config=dataset_config,
-        visualization_config=args.visualization,
-        epoch="final",
+        projection_info=projection_info,
+        epoch=num_epochs,
         seed=seed,
         device=device,
         stats=eval_info,

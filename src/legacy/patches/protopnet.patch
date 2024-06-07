@@ -23,24 +23,62 @@ index 3ef615e..b3b91f5 100644
              # print('preprocessing input for pushing ...')
              # search_batch = copy.deepcopy(search_batch_input)
 diff --git a/img_aug.py b/img_aug.py
-index ca05b19..e6a2972 100644
+index ca05b19..8783a8c 100644
 --- a/img_aug.py
 +++ b/img_aug.py
-@@ -7,11 +7,10 @@ def makedir(path):
+@@ -1,5 +1,6 @@
+ import Augmentor
+ import os
++import random
+ def makedir(path):
+     '''
+     if path does not exist in the file system, create it
+@@ -7,11 +8,11 @@ def makedir(path):
      if not os.path.exists(path):
          os.makedirs(path)
  
 -datasets_root_dir = './datasets/cub200_cropped/'
 -dir = datasets_root_dir + 'train_cropped/'
 -target_dir = datasets_root_dir + 'train_cropped_augmented/'
- 
+-
 -makedir(target_dir)
++# Set random seed for reproducibility
++random.seed(0)
 +dir = "data/CUB_200_2011/dataset/train_crop/"
 +target_dir = "../../train_crop_augmented/"
 +os.makedirs("data/CUB_200_2011/dataset/train_crop_augmented", exist_ok=True)
  folders = [os.path.join(dir, folder) for folder in next(os.walk(dir))[1]]
  target_folders = [os.path.join(target_dir, folder) for folder in next(os.walk(dir))[1]]
  
+@@ -20,24 +21,24 @@ for i in range(len(folders)):
+     tfd = target_folders[i]
+     # rotation
+     p = Augmentor.Pipeline(source_directory=fd, output_directory=tfd)
+-    p.rotate(probability=1, max_left_rotation=15, max_right_rotation=15)
++    p.rotate(probability=1, max_left_rotation=10, max_right_rotation=10) # Reduce angle to avoid errors in Augmentor
+     p.flip_left_right(probability=0.5)
+     for i in range(10):
+-        p.process()
++        p.sample(0, multi_threaded=False) # Use single thread for reproducibility
+     del p
+     # skew
+     p = Augmentor.Pipeline(source_directory=fd, output_directory=tfd)
+     p.skew(probability=1, magnitude=0.2)  # max 45 degrees
+     p.flip_left_right(probability=0.5)
+     for i in range(10):
+-        p.process()
++        p.sample(0, multi_threaded=False) # Use single thread for reproducibility
+     del p
+     # shear
+     p = Augmentor.Pipeline(source_directory=fd, output_directory=tfd)
+     p.shear(probability=1, max_shear_left=10, max_shear_right=10)
+     p.flip_left_right(probability=0.5)
+     for i in range(10):
+-        p.process()
++        p.sample(0, multi_threaded=False) # Use single thread for reproducibility
+     del p
+     # random_distortion
+     #p = Augmentor.Pipeline(source_directory=fd, output_directory=tfd)
 diff --git a/model.py b/model.py
 index b8870ab..dc24b37 100644
 --- a/model.py

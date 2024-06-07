@@ -5,23 +5,42 @@ import importlib
 from typing import Any, Callable
 
 import torchvision.transforms
-from loguru import logger
 from cabrnet.utils.parser import load_config
-from torch.utils.data import DataLoader, Dataset
+from loguru import logger
+from torch.utils.data import DataLoader, Dataset, Subset
+
+
+class VisionDatasetSubset(Subset):
+    r"""Overwrites the Subset class so that it exposes all properties of a VisionDataset."""
+
+    @property
+    def transform(self) -> Any:
+        r"""Returns the 'transform' function of the original dataset."""
+        return getattr(self.dataset, "transform", None)
+
+    def target_transform(self) -> Any:
+        r"""Returns the 'target_transform' function of the original dataset."""
+        return getattr(self.dataset, "target_transform", None)
+
+    def transforms(self) -> Any:
+        r"""Returns the 'transforms' function of the original dataset."""
+        return getattr(self.dataset, "transforms", None)
 
 
 class DatasetManager:
+    r"""Class for handling datasets in CaBRNet."""
+
     DEFAULT_DATASET_CONFIG: str = "dataset.yml"
 
     @staticmethod
     def create_parser(
         parser: argparse.ArgumentParser | None = None, mandatory_config: bool = False
     ) -> argparse.ArgumentParser:
-        """Create the argument parser for CaBRNet datasets.
+        r"""Creates the argument parser for CaBRNet datasets.
 
         Args:
-            parser: Existing parser (if any)
-            mandatory_config: Make dataset configuration mandatory
+            parser (ArgumentParser, optional): Existing parser (if any). Default: None.
+            mandatory_config (bool, optional): If True, makes the configuration mandatory. Default: False.
 
         Returns:
             The parser itself.
@@ -45,12 +64,14 @@ class DatasetManager:
 
     @staticmethod
     def get_transform(trans_config: dict[str, Any]) -> Callable:
-        """Build a data transformation from a dictionary.
+        r"""Builds a data transformation from a dictionary.
 
         Args:
-            trans_config: Transformation configuration
+            trans_config (dictionary): Transformation configuration.
+
         Returns:
-            transformation
+            Transformation.
+
         Raises:
             ValueError whenever the configuration is incorrect.
         """
@@ -73,17 +94,21 @@ class DatasetManager:
         return getattr(module, trans_config["type"])()
 
     @staticmethod
-    def get_datasets(config_file: str) -> dict[str, dict[str, Dataset | int | bool]]:
-        """Load datasets from yaml configuration file.
+    def get_datasets(
+        config_file: str, sampling_ratio: int = 1, load_segmentation: bool = False
+    ) -> dict[str, dict[str, Dataset | int | bool]]:
+        r"""Loads datasets from a configuration file.
 
         Args:
-            config_file: path to configuration file
+            config_file (str): Path to configuration file.
+            sampling_ratio (int, optional): Sampling ratio (e.g. 5 means only one image in five is used). Default: 1.
+            load_segmentation (bool, optional): If True, loads segmentation datasets if available. Default: False.
 
         Returns:
-            dictionary of datasets with their respective batch size and shuffle property
+            Dictionary of datasets with their respective batch size and shuffle property.
 
         Raises:
-            ValueError whenever a dataset could not be loaded
+            ValueError whenever a dataset could not be loaded.
         """
         config = load_config(config_file)
         datasets: dict[str, dict[str, Dataset | int | bool]] = {}
@@ -126,6 +151,23 @@ class DatasetManager:
                 # Remove image preprocessing to recover raw images
                 params["transform"] = None
             dataset["raw_dataset"] = getattr(module, dconfig["name"])(**params)
+            if load_segmentation:
+                try:
+                    params["root"] += "_seg"
+                    dataset["seg_dataset"] = getattr(module, dconfig["name"])(**params)
+                except FileNotFoundError:
+                    logger.warning(f"Segmentation set unavailable for dataset {dataset_name}")
+
+            if sampling_ratio > 1:
+                # Apply data sub-selection
+                selected_indices = [idx for idx in range(len(dataset["dataset"]))][::sampling_ratio]
+                for key in ["dataset", "raw_dataset", "seg_dataset"]:
+                    if dataset.get(key) is not None:
+                        dset = dataset[key]
+                        if not isinstance(dset, Dataset):
+                            raise TypeError(f"{dataset[key]} should be a dataset, but is of type {type(dataset[key])}")
+                        dataset[key] = VisionDatasetSubset(dset, selected_indices)
+
             dataset["batch_size"] = batch_size
             dataset["shuffle"] = shuffle
             # Recover optional number of workers
@@ -134,44 +176,64 @@ class DatasetManager:
         return datasets
 
     @staticmethod
-    def get_dataloaders(config_file: str) -> dict[str, DataLoader]:
-        """Create dataloaders from yaml configuration file.
+    def get_dataloaders(
+        config_file: str, sampling_ratio: int = 1, load_segmentation: bool = False
+    ) -> dict[str, DataLoader]:
+        r"""Creates dataloaders from a configuration file.
 
         Args:
-            config_file: path to configuration file
+            config_file (str): Path to configuration file.
+            sampling_ratio (int, optional): Sampling ratio (e.g. 5 means only one image in five is used). Default: 1.
+            load_segmentation (bool, optional): If True, loads segmentation datasets if available. Default: False.
 
         Returns:
-            dictionary of dataloaders
+            Dictionary of dataloaders.
 
         Raises:
-            ValueError whenever a dataset could not be loaded or a parameter is invalid
+            ValueError whenever a dataset could not be loaded or a parameter is invalid.
         """
-        datasets = DatasetManager.get_datasets(config_file=config_file)
+        datasets = DatasetManager.get_datasets(
+            config_file=config_file, sampling_ratio=sampling_ratio, load_segmentation=load_segmentation
+        )
         dataloaders: dict[str, DataLoader] = {}
+
+        def _safe_item_load(item, t):
+            if not isinstance(item, t):
+                raise TypeError(f"{item} is of type {type(item)} but should be of type {t}.")
+            return item
+
         for dataset_name in datasets:
-            dataset: Dataset = datasets[dataset_name]["dataset"]  # type: ignore
-            raw_dataset: Dataset = datasets[dataset_name]["raw_dataset"]  # type: ignore
-            batch_size: int = datasets[dataset_name]["batch_size"]  # type: ignore
-            shuffle: bool = datasets[dataset_name]["shuffle"]  # type: ignore
-            num_workers: int = datasets[dataset_name]["num_workers"]  # type: ignore
+            dataset = _safe_item_load(datasets[dataset_name]["dataset"], Dataset)
+            raw_dataset = _safe_item_load(datasets[dataset_name]["raw_dataset"], Dataset)
+            batch_size = _safe_item_load(datasets[dataset_name]["batch_size"], int)
+            shuffle = _safe_item_load(datasets[dataset_name]["shuffle"], bool)
+            num_workers = _safe_item_load(datasets[dataset_name]["num_workers"], int)
             dataloaders[dataset_name] = DataLoader(
                 dataset=dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers
             )
             dataloaders[dataset_name + "_raw"] = DataLoader(
                 dataset=raw_dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers
             )
+            if load_segmentation:
+                try:
+                    seg_dataset = _safe_item_load(datasets[dataset_name]["seg_dataset"], Dataset)
+                    dataloaders[dataset_name + "_seg"] = DataLoader(
+                        dataset=seg_dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers
+                    )
+                except KeyError:
+                    pass
         return dataloaders
 
     @staticmethod
     def get_dataset_transform(config_file: str, dataset: str = "test_set") -> Callable | None:
-        """Return transform function associated with a given dataset
+        r"""Returns the transform function associated with a given dataset.
 
         Args:
-            config_file: path to configuration file
-            dataset: name of target dataset
+            config_file (str): Path to configuration file.
+            dataset (str, optional): Name of target dataset. Default: test_set.
 
         Returns:
-            transform function if any
+            Transform function (if any).
 
         Raises:
             ValueError whenever the configuration is incorrect.

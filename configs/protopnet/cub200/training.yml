@@ -62,7 +62,3 @@ auxiliary_info:
     frequency: 10 # Projection frequency (in number of epochs)
     num_ft_epochs: 20 # Number of fine-tuning epochs on the last layer
 
-# After training
-epilogue:
-  pruning_threshold: 3
-  num_nearest_patches: 6

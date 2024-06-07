@@ -135,6 +135,7 @@ class TestProtoTreeCompatibility(unittest.TestCase):
         self.dataset_config_file = os.path.join(test_dir, DatasetManager.DEFAULT_DATASET_CONFIG)
         self.training_config_file = os.path.join(test_dir, OptimizerManager.DEFAULT_TRAINING_CONFIG)
         self.legacy_state_dict = os.path.join(test_dir, "legacy_state.pth")
+        self.output_dir = os.path.join(test_dir, "output")
 
         # Create a namespace with all legacy options
         self.legacy_params = legacy_get_namespace(
@@ -373,7 +374,9 @@ class TestProtoTreeCompatibility(unittest.TestCase):
         cabrnet_model.load_state_dict(torch.load(self.legacy_state_dict, map_location="cpu"))
         cabrnet_model.prune(pruning_threshold=0.01)
         cabrnet_projection_info = cabrnet_model.project(
-            data_loader=dataloaders["projection_set"], device=self.device, verbose=True
+            dataloader=dataloaders["projection_set"],
+            device=self.device,
+            verbose=True,
         )
 
         # Legacy

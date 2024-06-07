@@ -13,7 +13,7 @@ src/legacy/prototree
 src/legacy/protopnet
 pretrained_models/
 *.vim
-logs/
+logs*
 *.pth
 *.ckpt
 docs/API/reference/

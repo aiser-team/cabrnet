@@ -24,7 +24,7 @@ classifier: # How to compute the decision from the features
   params:
     num_features: 128
     num_classes: 196
-    depth: 11
+    depth: 9
     leaves_init_mode: ZEROS
     proto_init_mode: SHIFTED_NORMAL
     log_probabilities: False

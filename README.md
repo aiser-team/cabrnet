@@ -15,3 +15,20 @@ Recognition](https://openaccess.thecvf.com/content/CVPR2021/papers/Nauta_Neural_
 # Index
 - [Build and install](docs/manuals/install.md)
 - [Quickstart](docs/README.md)
+
+# Authors
+This library is collaboratively maintained by members of CEA-LIST. 
+The current point of contact is Romain Xu-Darme. The following authors contributed in a significant manner
+to the code base and/or the documentation of the library:
+
+- Romain Xu-Darme (CEA-LIST)
+- Aymeric Varasse (CEA-LIST)
+- Alban Grastien (CEA-LIST)
+- Julien Girard-Satabin (CEA-LIST)
+
+The following authors contributed in a significant manner to the experiments and the
+publication of trained models:
+
+- Jules Soria (CEA-LIST)
+- Alban Grastien (CEA-LIST)
+- Romain Xu-Darme (CEA-LIST)

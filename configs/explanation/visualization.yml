@@ -1,8 +1,8 @@
 attribution:
   type: prp
   params:
-    single_location: True
     normalize: True
+    single_location: True
 view:
   type: bbox_to_percentile
   params:

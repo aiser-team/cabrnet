@@ -1,7 +1,7 @@
 # Training configuration
 The training configuration associated with a model is stored in a YML file, according to the following specification.
-For more examples, see the [ProtoPNet](https://git.frama-c.com/pub/cabrnet/-/tree/master/configs/protopnet/training.yml) and 
-[ProtoTree](https://git.frama-c.com/pub/cabrnet/-/tree/master/configs/prototree/training.yml) configuration files.
+For more examples, see the [ProtoPNet](https://github.com/aiser-team/cabrnet/tree/master/configs/protopnet/cub200/training.yml) and 
+[ProtoTree](https://github.com/aiser-team/cabrnet/tree/master/configs/prototree/cub200/training.yml) configuration files.
 
 ## Defining parameter groups
 Parameters of the model can be sorted into different groups, using the following formats:
@@ -93,7 +93,7 @@ epilogue:
 ```
 
 ## Creating an Optimizer Manager
-CaBRNet provides a class [OptimizerManager](https://git.frama-c.com/pub/cabrnet/-/blob/master/src/cabrnet/utils/optimizers.py) in charge of parsing the configuration file 
+CaBRNet provides a class [OptimizerManager](https://github.com/aiser-team/cabrnet/tree/master/src/cabrnet/utils/optimizers.py) in charge of parsing the configuration file 
 and handling optimizers/schedulers during the training process.
 ```python
 from cabrnet.utils.optimizers import OptimizerManager
@@ -109,6 +109,6 @@ An Optimizer Manager provides four main functions that are used during training:
 
 - `zero_grad()`: Reset all optimizer(s) gradients (before each batch of data)
 - `freeze(epoch: int)`: Freeze all relevant model parameters, according to the current `epoch`.
-- `optimizer_step(epoch: int)`: Move all relevant optimizers forward (step), according to the current `epoch`. 
-- `scheduler_step(epoch: int)`: Move all relevant schedulers forward (step), according to the current `epoch`.
+- `optimizer_step(epoch: int)`: Update all relevant optimizers, according to the current `epoch`. 
+- `scheduler_step(epoch: int)`: Update all relevant schedulers, according to the current `epoch`.
 

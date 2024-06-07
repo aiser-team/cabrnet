@@ -1,7 +1,7 @@
 # Model configuration
 The specification of a CaBRNet model architecture is stored in a YML file, according to the following specification.
-For more examples, see the [ProtoPNet](https://git.frama-c.com/pub/cabrnet/-/tree/master/configs/protopnet/cub200/model_arch.yml) and 
-[ProtoTree](https://git.frama-c.com/pub/cabrnet/-/tree/master/configs/prototree/cub200/model_arch.yml) configuration files.
+For more examples, see the [ProtoPNet](https://github.com/aiser-team/cabrnet/tree/master/configs/protopnet/cub200/model_arch.yml) and 
+[ProtoTree](https://github.com/aiser-team/cabrnet/tree/master/configs/prototree/cub200/model_arch.yml) configuration files.
 
 As shown below, each CaBRNet model is composed of:
 
@@ -16,10 +16,10 @@ the feature extractor produce a HxW map of D-dimensional vectors, called the **f
     (*e.g.* based on the L2 distance between vectors in $\mathbb{R}^D$).
     - computes the classification logits based on these distances (*e.g.* using a Decision Tree in ProtoTree).
 
-![architecture](../imgs/architecture.png)
+![architecture](imgs/architecture.png)
 
 
-As illustrated for [ProtoTree](https://git.frama-c.com/pub/cabrnet/-/tree/master/src/cabrnet/prototree) or [ProtoPNet](https://git.frama-c.com/pub/cabrnet/-/tree/master/src/cabrnet/protopnet), the code for each
+As illustrated for [ProtoTree](https://github.com/aiser-team/cabrnet/tree/master/src/cabrnet/prototree) or [ProtoPNet](https://github.com/aiser-team/cabrnet/tree/master/src/cabrnet/protopnet), the code for each
 type of architecture is regrouped into a dedicated directory and contains:
 
 - a file `decision.py` describing the module in charge of performing the prototype-based classification
@@ -103,36 +103,35 @@ top_arch:
 # Implementing a new prototype-based architecture
 ## Defining a new classifier architecture
 The module in charge of classification should be placed inside a dedicated file in
-`src/cabrnet/<ARCH_NAME>/decision.py` (*e.g.* [src/cabrnet/prototree/decision.py](https://git.frama-c.com/pub/cabrnet/-/blob/master/src/cabrnet/prototree/decision.py)).
+`src/cabrnet/<ARCH_NAME>/decision.py` (*e.g.* [src/cabrnet/prototree/decision.py](https://github.com/aiser-team/cabrnet/tree/master/src/cabrnet/prototree/decision.py)).
 
 The following code provides a minimal example on how to define a new classifier.
-The classifier must inherit from the `CaBRNetAbstractClassifier` class as follows:
+The classifier must inherit from the `CaBRNetGenericClassifier` class as follows:
 ```python
 import torch.nn as nn
 import torch
 from cabrnet.utils.prototypes import init_prototypes
 from cabrnet.utils.similarities import L2Similarities
-from cabrnet.generic.decision import CaBRNetAbstractClassifier
+from cabrnet.generic.decision import CaBRNetGenericClassifier
 
-class ArchNameClassifier(CaBRNetAbstractClassifier, nn.Module):
-  
+class ArchNameClassifier(CaBRNetGenericClassifier):
+    r"""Classification pipeline for ArchName architecture."""
     def __init__(
         self,
         num_classes: int,
         num_features: int,
         proto_init_mode: str = "SHIFTED_NORMAL",
     ) -> None:
-        """
-        Create a ArchName classifier
+        r"""Initializes a ArchName classifier.
+        
         Args:
-            num_features: Number of features (size of each prototype)
-            num_classes: Number of classes
-            proto_init_mode: Init mode for prototypes
+            num_features (int): Number of features (size of each prototype).
+            num_classes (int): Number of classes.
+            proto_init_mode (str, optional): Init mode for prototypes. Default: Shifted normal distribution.
             ...
         """
-        nn.Module.__init__(self)
-        CaBRNetAbstractClassifier.__init__(
-            self, num_classes=num_classes, 
+        super().__init__(
+            num_classes=num_classes, 
             num_features=num_features, 
             proto_init_mode=proto_init_mode
         )
@@ -151,30 +150,23 @@ class ArchNameClassifier(CaBRNetAbstractClassifier, nn.Module):
             num_prototypes=self.num_prototypes, num_features=self.num_features
         )
 
-    @property
-    def max_num_prototypes(self) -> ...:
-        """
-        Returns: Maximum number of prototypes 
-            (might differ from current number of prototypes due to pruning)
-        """
-        ...
 
-    @property
-    def num_prototypes(self) -> ...:
-        """
-        Returns: Current number of prototypes
+    def prototype_is_active(self, proto_idx: int) -> bool:
+        r"""Is the prototype *proto_idx* active or disabled?
+        Args:
+            proto_idx (int): Prototype index.
         """
         ...
 
 
     def forward(self, features: torch.Tensor) -> ...:
-        """
-        Perform classification using decision tree
+        r"""Performs classification.
+        
         Args:
-            features: Convolutional features from extractor. Shape (N, D, H, W)
+            features (tensor): Convolutional features from extractor. Shape (N, D, H, W).
 
         Returns:
-            Vector of logits
+            Vector of logits.
         """
         similarities = self.similarity_layer(features, self.prototypes)
         
@@ -184,14 +176,15 @@ class ArchNameClassifier(CaBRNetAbstractClassifier, nn.Module):
 
 ## Defining a new top-module
 The module in charge of combining the feature extractor and the classifier should be
-placed inside a dedicated file in `src/cabrnet/<ARCH_NAME>/model.py` (*e.g.* [src/cabrnet/prototree/model.py](https://git.frama-c.com/pub/cabrnet/-/blob/master/src/cabrnet/prototree/model.py)).
-The top-module class should inherit from the generic class [CaBRNet](https://git.frama-c.com/pub/cabrnet/-/blob/master/src/cabrnet/generic/model.py), and implements
+placed inside a dedicated file in `src/cabrnet/<ARCH_NAME>/model.py` (*e.g.* [src/cabrnet/prototree/model.py](https://github.com/aiser-team/cabrnet/blob/master/src/cabrnet/prototree/model.py)).
+The top-module class should inherit from the generic class [CaBRNet](https://github.com/aiser-team/cabrnet/blob/master/src/cabrnet/generic/model.py), and implements
 some mandatory functions as illustrated below.
 ```python
 import torch.nn.functional
 from torch.utils.data import DataLoader
 from typing import Any, Callable
 from tqdm import tqdm
+from PIL import Image
 from cabrnet.generic.model import CaBRNet
 from cabrnet.utils.optimizers import OptimizerManager
 from cabrnet.visualization.visualizer import SimilarityVisualizer
@@ -200,15 +193,14 @@ from cabrnet.visualization.visualizer import SimilarityVisualizer
 class ArchName(CaBRNet):
       
     def loss(self, model_output: Any, label: torch.Tensor) -> tuple[torch.Tensor, dict[str, float]]:
-        """
-        Loss function
+        r"""Loss function.
+        
         Args:
-            model_output: Model output, in this case a tuple containing the prediction 
-                and the leaf probabilities
-            label: Batch labels
+            model_output (Any): Model output.
+            label (tensor): Batch labels.
 
         Returns:
-            loss tensor and batch statistics
+            Loss tensor and batch statistics.
         """
         loss = ...
         batch_stats = {"accuracy": ...} 
@@ -217,27 +209,28 @@ class ArchName(CaBRNet):
 
     def train_epoch( # Mandatory signature
         self,
-        dataloaders: dict[str,DataLoader],
+        dataloaders: dict[str, DataLoader],
         optimizer_mngr: OptimizerManager,
         device: str = "cuda:0",
-        progress_bar_position: int = 0,
+        tqdm_position: int = 0,
         epoch_idx: int = 0,
         verbose: bool = False,
         max_batches: int | None = None,
     ) -> dict[str, float]:
-        """
-        Train the model for one epoch.
+        r"""Trains the model for one epoch.
+
         Args:
-            dataloaders: Dictionary of dataloaders
-            optimizer_mngr: Optimizer manager
-            device: Target device
-            progress_bar_position: Position of the progress bar.
-            epoch_idx: Epoch index
-            max_batches: Max number of batches (early stop for small compatibility tests)
-            verbose: Display progress bar
+            dataloaders (dictionary): Dictionary of dataloaders.
+            optimizer_mngr (OptimizerManager): Optimizer manager.
+            device (str, optional): Target device. Default: cuda:0.
+            tqdm_position (int, optional): Position of the progress bar. Default: 0.
+            epoch_idx (int, optional): Epoch index. Default: 0.
+            verbose (bool, optional): Display progress bar. Default: False.
+            max_batches (int, optional): Max number of batches (early stop for small compatibility tests).
+                Default: None.
 
         Returns:
-            dictionary containing learning statistics
+            Dictionary containing learning statistics.
         """
         self.train()
         self.to(device)
@@ -254,7 +247,7 @@ class ArchName(CaBRNet):
             enumerate(train_loader),
             total=len(train_loader),
             leave=False,
-            position=progress_bar_position,
+            position=tqdm_position,
             disable=not verbose,
         )
         batch_num = len(train_loader)
@@ -290,24 +283,25 @@ class ArchName(CaBRNet):
     
     def project(
         self,
-        data_loader: DataLoader,
+        dataloader: DataLoader,
         device: str = "cuda:0",
         verbose: bool = False,
-        progress_bar_position: int = 0,
+        tqdm_position: int = 0,
     ) -> dict[int, dict]:
-        """
-        Perform prototype projection after training
+        r"""Performs prototype projection after training.
+
         Args:
-            data_loader: Dataloader containing projection data. 
+            dataloader (DataLoader): Dataloader containing projection data. 
                 WARNING: This dataloader must not be shuffled!
-            device: Target device
-            verbose: Display progress bar
-            progress_bar_position: Position of the progress bar.
+            device (str, optional): Target device. Default: cuda:0.
+            verbose (bool, optional): Display progress bar. Default: False.
+            tqdm_position (int, optional): Position of the progress bar. Default: 0.
+
         Returns:
-            dictionary containing projection information for each prototype
+            Dictionary containing projection information for each prototype.
         """
-        # Original number of prototypes
-        max_num_prototypes = self.classifier.max_num_prototypes
+        # Number of prototypes
+        num_prototypes = self.num_prototypes
 
         # For each prototype, keep track of:
         #   - the index of the closest projection image
@@ -321,7 +315,7 @@ class ArchName(CaBRNet):
                 "w": -1,
                 "score": 0,
             }
-            for proto_idx in range(max_num_prototypes)
+            for proto_idx in range(num_prototypes)
         }
         # Perform projection
         ...
@@ -330,57 +324,66 @@ class ArchName(CaBRNet):
     def epilogue(
         self,
         dataloaders: dict[str, DataLoader],
-        visualizer: SimilarityVisualizer,
+        optimizer_mngr: OptimizerManager,
         output_dir: str,
-        model_config: str,
-        training_config: str,
-        dataset_config: str,
-        seed: int,
-        device: str,
-        verbose: bool,
+        device: str = "cuda:0",
+        verbose: bool = False,
         **kwargs,
     ) -> None:
-        """OPTIONAL Function called after training, using information from the epilogue
-        field in the training configuration. 
-        This usually contains prototype pruning, projection and extraction.
+        r"""Function called after training, using information from the epilogue field in the training configuration.
+            This usually contains prototype pruning, projection and extraction.
+
+        Args:
+            dataloaders (dictionary): Dictionary of dataloaders.
+            optimizer_mngr (OptimizerManager): Optimizer manager.
+            output_dir (str): Path to output directory.
+            device (str, optional): Target device. Default: cuda:0.
+            verbose (bool, optional): Display progress bar. Default: False.
         """
         ...
     
     def explain(
         self,
-        img_path: str,
+        img: str | Image.Image,
         preprocess: Callable,
-        visualizer: SimilarityVisualizer,
-        prototype_dir_path: str,
-        output_dir_path: str,
-        device: str,
+        visualizer: SimilarityVisualizer | None,
+        prototype_dir: str = "",
+        output_dir: str = "",
+        device: str = "cuda:0",
         exist_ok: bool = False,
+        disable_rendering: bool = False,
         **kwargs,
-    ) -> None:
-        """Explain the decision for a particular image
+    ) -> list[tuple[int, float, bool]]:
+        r"""Explains the decision for a particular image.
 
         Args:
-            img_path: raw original image
-            preprocess: preprocessing function
-            visualizer: prototype visualizer
-            prototype_dir_path: path to directory containing prototype visualizations
-            output_dir_path: path to output directory containing the explanation
-            device: target hardware device
-            exist_ok: silently overwrite existing explanation if any
+            img (str or Image): Path to image or image itself.
+            preprocess (Callable): Preprocessing function.
+            visualizer (SimilarityVisualizer): Similarity visualizer.
+            prototype_dir (str): Path to directory containing prototype visualizations.
+            output_dir (str): Path to output directory.
+            device (str, optional): Target hardware device. Default: cuda:0.
+            exist_ok (bool, optional): Silently overwrites existing explanation (if any). Default: False.
+            disable_rendering (bool, optional): When True, no visual explanation is generated. Default: False.
+
+        Returns:
+            List of most relevant prototypes for the decision, where each entry is in the form
+                (<prototype index>, <similarity score>, <similar>)
+            and <similar> indicates whether the prototype is considered similar or dissimilar.
         """
         ...
     
     def explain_global(
         self,
-        prototype_dir_path: str,
-        output_dir_path: str,
+        prototype_dir: str,
+        output_dir: str,
         **kwargs,
     ) -> None:
-        """Explain the global decision-making process
+        r"""Explains the global decision-making process of a CaBRNet model.
 
         Args:
-            prototype_dir_path: path to directory containing prototype visualizations
-            output_dir_path: path to output directory containing the explanations
+            prototype_dir (str): Path to directory containing prototype visualizations.
+            output_dir (str): Path to output directory.
         """
         ...
 ```

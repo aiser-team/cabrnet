@@ -1,18 +1,22 @@
-from abc import ABC, abstractmethod
-from cabrnet.utils.prototypes import prototype_init_modes
 from argparse import ArgumentParser
+
 import torch.nn as nn
+from cabrnet.utils.prototypes import prototype_init_modes
 
 
-class CaBRNetAbstractClassifier(ABC):
-    prototypes: nn.Parameter()
+class CaBRNetGenericClassifier(nn.Module):
+    r"""Abstract class for CaBRNet classification based on extracted features.
 
-    """Abstract class for CaBRNet classification based on extracted features
-    Args:
-        num_classes: Number of classes
-        num_features: Number of features (size of each prototype)
-        proto_init_mode: Init mode for prototypes
+    Attributes:
+        num_classes: Number of output classes.
+        num_features: Size of the features extracted by the convolutional extractor.
+        prototypes: Tensor of prototypes.
+        prototypes_init_mode: Initialization mode for the tensor of prototypes.
+        similarity_layer: Layer used to compute similarity scores between the prototypes and the convolutional features.
     """
+
+    prototypes: nn.Parameter
+    similarity_layer: nn.Module
 
     def __init__(
         self,
@@ -20,6 +24,15 @@ class CaBRNetAbstractClassifier(ABC):
         num_features: int,
         proto_init_mode: str = "SHIFTED_NORMAL",
     ) -> None:
+        r"""Initializes a CaBRNetGenericClassifier.
+
+        Args:
+            num_classes (int): Number of classes.
+            num_features (int): Number of features (size of each prototype).
+            proto_init_mode (str, optional): Init mode for prototypes. Default: Shifted normal distribution.
+        """
+        super().__init__()
+
         # Sanity check on all parameters
         assert num_classes > 1, f"Invalid number of classes: {num_classes}"
         assert num_features > 0, f"Invalid number of features: {num_features}"
@@ -30,34 +43,32 @@ class CaBRNetAbstractClassifier(ABC):
         self.num_classes = num_classes
         self.num_features = num_features
         self.prototypes_init_mode = proto_init_mode
-        # Dummy initialisation of prototypes and similarity layer
-        self.prototypes = None
-        self.similarity_layer = None
 
     @property
-    @abstractmethod
     def num_prototypes(self) -> int:
-        """
-        Returns: Current number of prototypes
-        """
-        raise NotImplementedError
+        r"""Returns the maximum number of prototypes, as given by the corresponding tensor.
 
-    @property
-    @abstractmethod
-    def max_num_prototypes(self) -> int:
+        Note: some prototypes might be inactive.
         """
-        Returns: Maximum number of prototypes (might differ from current number of prototypes due to pruning)
+        return self.prototypes.size(0)
+
+    def prototype_is_active(self, proto_idx: int) -> bool:
+        r"""Is the prototype *proto_idx* active or disabled?
+
+        Args:
+            proto_idx (int): Prototype index.
         """
         raise NotImplementedError
 
     @staticmethod
     def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
-        """Add essential arguments for creating a CaBRNet classifier
+        r"""Adds essential arguments for creating a CaBRNet classifier.
+
         Args:
-            parser: Existing argument parser (if any)
+            parser (ArgumentParser, optional): Existing argument parser (if any). Default: None.
 
         Returns:
-            Parser with arguments
+            Parser with arguments.
         """
         if parser is None:
             parser = ArgumentParser(description="builds a CaBRNet classifier object.")

@@ -6,10 +6,10 @@ from PIL import Image
 
 
 def convert_to_rgb() -> Callable:
-    """Convert MNIST dataset to RGB.
+    r"""Converts MNIST dataset to RGB.
 
     Returns:
-        A function that converts PIL images to RGB
+        A function that converts PIL images to RGB.
     """
 
     def _convert_to_rgb_fn(img: Image.Image) -> Image.Image:

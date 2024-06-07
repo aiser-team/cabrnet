@@ -46,3 +46,4 @@ auxiliary_info:
 epilogue:
   pruning_threshold: 3
   num_nearest_patches: 6
+  num_fine_tuning_epochs: 1
