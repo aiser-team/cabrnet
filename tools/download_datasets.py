@@ -273,9 +273,9 @@ def preprocess_cub(path: str) -> None:
         for _ in range(10):
             p.sample(0, multi_threaded=False)  # Use single thread for reproducibility
         del p
-        # skew
+        # skew (max 45 degrees)
         p = Augmentor.Pipeline(source_directory=class_dir, output_directory=class_aug_dir)
-        p.skew(probability=1, magnitude=1)  # max 45 degrees
+        p.skew(probability=1, magnitude=0.2)  # type: ignore
         p.flip_left_right(probability=0.5)
         for _ in range(10):
             p.sample(0, multi_threaded=False)  # Use single thread for reproducibility
