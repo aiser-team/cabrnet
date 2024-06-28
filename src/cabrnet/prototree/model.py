@@ -217,6 +217,7 @@ class ProtoTree(CaBRNet):
         # Training stats
         total_loss = 0.0
         total_acc = 0.0
+        nb_inputs = 0
 
         # Capture data fetch time relative to total batch time to ensure that there is no bottleneck here
         total_batch_time = 0.0
@@ -245,6 +246,7 @@ class ProtoTree(CaBRNet):
 
         for batch_idx, (xs, ys) in train_iter:
             data_time = time.time() - ref_time
+            nb_inputs += xs.size(0)
 
             # Reset gradients and map the data on the target device
             optimizer_mngr.zero_grad()
@@ -286,8 +288,8 @@ class ProtoTree(CaBRNet):
             train_iter.set_postfix_str(postfix_str)
 
             # Update global metrics
-            total_loss += batch_loss.item()
-            total_acc += batch_accuracy
+            total_loss += batch_loss.item() * xs.size(0)
+            total_acc += batch_accuracy * xs.size(0)
             total_batch_time += batch_time
             total_data_time += data_time
             ref_time = time.time()
@@ -300,8 +302,8 @@ class ProtoTree(CaBRNet):
         # Update batch_num with effective value
         batch_num = batch_idx + 1
         train_info = {
-            "avg_loss": total_loss / batch_num,
-            "avg_train_accuracy": total_acc / batch_num,
+            "avg_loss": total_loss / nb_inputs,
+            "avg_train_accuracy": total_acc / nb_inputs,
             "avg_batch_time": total_batch_time / batch_num,
             "avg_data_time": total_data_time / batch_num,
         }
