@@ -328,6 +328,7 @@ class CaBRNet(nn.Module):
         # Training stats
         total_loss = 0.0
         total_acc = 0.0
+        nb_inputs = 0
 
         # Show progress on progress bar if needed
         data_iter = tqdm(
@@ -338,9 +339,9 @@ class CaBRNet(nn.Module):
             position=tqdm_position,
             disable=not verbose,
         )
-        batch_num = len(dataloader)
         with torch.no_grad():
             for xs, ys in data_iter:
+                nb_inputs += xs.size(0)
                 xs, ys = xs.to(device), ys.to(device)
 
                 # Perform inference and compute loss
@@ -349,14 +350,14 @@ class CaBRNet(nn.Module):
                 batch_accuracy = batch_stats["accuracy"]
 
                 # Update global metrics
-                total_loss += batch_loss.item()
-                total_acc += batch_accuracy
+                total_loss += batch_loss.item() * xs.size(0)
+                total_acc += batch_accuracy * xs.size(0)
 
                 # Update progress bar
                 postfix_str = f"Batch loss: {batch_loss.item():.3f}, Acc: {batch_accuracy:.3f}"
                 data_iter.set_postfix_str(postfix_str)
 
-        return {"avg_loss": total_loss / batch_num, "avg_accuracy": total_acc / batch_num}
+        return {"avg_loss": total_loss / nb_inputs, "avg_accuracy": total_acc / nb_inputs}
 
     def train(self, mode: bool = True) -> nn.Module:
         r"""Overwrites the nn.Module train function to freeze elements if necessary.
