@@ -53,12 +53,21 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         help="path to output directory",
     )
     parser.add_argument(
-        "-p",
+        "-y",
         "--prototype-dir",
         type=str,
         required=True,
         metavar="path/to/prototype/directory",
         help="path to directory containing prototype visualizations",
+    )
+    parser.add_argument(
+        "-f",
+        "--format",
+        type=str,
+        default="pdf",
+        required=False,
+        metavar="extension",
+        help="output file format",
     )
     parser.add_argument(
         "--overwrite",
@@ -126,7 +135,7 @@ def execute(args: Namespace) -> None:
     model: CaBRNet = CaBRNet.build_from_config(config_file=args.model_config, state_dict_path=args.model_state_dict)
 
     # Init visualizer
-    visualizer = SimilarityVisualizer.build_from_config(config_file=args.visualization, model=model)
+    visualizer = SimilarityVisualizer.build_from_config(config=args.visualization, model=model)
 
     # Recover preprocessing function
     preprocess = DatasetManager.get_dataset_transform(config_file=args.dataset, dataset="test_set")
@@ -141,6 +150,7 @@ def execute(args: Namespace) -> None:
         visualizer=visualizer,
         prototype_dir=args.prototype_dir,
         output_dir=output_dir,
+        output_format=args.format,
         device=args.device,
         exist_ok=args.overwrite,
     )

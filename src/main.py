@@ -43,11 +43,12 @@ def get_version() -> str:
 
 
 class ParserWithHelper(ArgumentParser):
-    """Hepler class for better parser errors."""
+    """Helper class for better parser errors."""
 
-    def error(self, message: str):
+    def error(self, message: str | None = None):
         r"""Overrides default error message in argparse to print help menu."""
-        self._print_message(f"Error: {message}\n", sys.stderr)
+        if message is not None:
+            self._print_message(f"Error: {message}\n", sys.stderr)
         self.print_help(sys.stderr)
         self.exit(2)
 

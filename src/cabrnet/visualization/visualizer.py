@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import argparse
-from typing import Callable
+from typing import Callable, Any
 
 import numpy as np
 import torch.nn as nn
@@ -79,7 +79,7 @@ class SimilarityVisualizer(nn.Module):
         img_tensor: Tensor,
         proto_idx: int,
         device: str,
-        location: tuple[int, int] | None = None,
+        location: tuple[int, int] | str | None = None,
     ) -> Image.Image:
         r"""Generates a visualization of the most similar patch to a given prototype.
 
@@ -88,19 +88,15 @@ class SimilarityVisualizer(nn.Module):
             img_tensor (tensor): Image tensor.
             proto_idx (int): Prototype index.
             device (str): Target hardware device.
-            location (tuple[int,int], optional): Location inside the similarity map. Default: None.
+            location (tuple[int,int], str or None, optional): Location inside the similarity map.
+                Can be given as an explicit location (tuple) or "max" for the location of maximum similarity.
+                Default: None.
 
         Returns:
             Patch visualization.
         """
-        sim_map = self.attribution(
-            model=self.model,
-            img=img,
-            img_tensor=img_tensor,
-            proto_idx=proto_idx,
-            device=device,
-            location=location,
-            **self.attribution_params,
+        sim_map = self.get_attribution(
+            img=img, img_tensor=img_tensor, proto_idx=proto_idx, device=device, location=location
         )
         return self.view(img=img, sim_map=sim_map, **self.view_params)
 
@@ -110,7 +106,7 @@ class SimilarityVisualizer(nn.Module):
         img_tensor: Tensor,
         proto_idx: int,
         device: str,
-        location: tuple[int, int] | None = None,
+        location: tuple[int, int] | str | None = None,
     ) -> np.ndarray:
         r"""Identifies the most similar pixels to a given prototype.
 
@@ -119,19 +115,25 @@ class SimilarityVisualizer(nn.Module):
             img_tensor (tensor): Image tensor.
             proto_idx (int): Prototype index.
             device (str): Target hardware device.
-            location (tuple[int,int], optional): Location inside the similarity map. Default: None.
+            location (tuple[int,int], str or None, optional): Location inside the similarity map.
+                Can be given as an explicit location (tuple) or "max" for the location of maximum similarity.
+                Default: None.
 
         Returns:
             Importance map.
         """
+        attribution_params = self.attribution_params
+        if location is not None:
+            # Overwrite default location parameter if necessary
+            attribution_params["location"] = location
+
         return self.attribution(
             model=self.model,
             img=img,
             img_tensor=img_tensor,
             proto_idx=proto_idx,
             device=device,
-            location=location,
-            **self.attribution_params,
+            **attribution_params,
         )
 
     DEFAULT_VISUALIZATION_CONFIG = "visualization.yml"
@@ -162,18 +164,22 @@ class SimilarityVisualizer(nn.Module):
         return parser
 
     @staticmethod
-    def build_from_config(config_file: str, model: nn.Module) -> SimilarityVisualizer:
-        r"""Builds a ProtoVisualizer from a configuration file.
+    def build_from_config(config: str | dict[str, Any], model: nn.Module) -> SimilarityVisualizer:
+        r"""Builds a ProtoVisualizer from a configuration file or dictionary.
 
         Args:
-            config_file (str): Path to configuration file.
+            config (str): Path to configuration file or dictionary.
             model (Module): Target model.
 
         Returns:
             ProtoVisualizer.
         """
-        logger.info(f"Loading patch visualizer from {config_file}.")
-        config_dict = load_config(config_file)
+        if isinstance(config, str):
+            logger.info(f"Loading patch visualizer from {config}.")
+            config_dict = load_config(config)
+        else:
+            # Configuration is given in dictionary form
+            config_dict = config
 
         # Sanity checks on mandatory field
         for mandatory_field in ["attribution", "view"]:
@@ -199,5 +205,5 @@ class SimilarityVisualizer(nn.Module):
             view_fn=view_fn,
             attribution_params=attribution_params,
             view_params=view_params,
-            config_file=config_file,
+            config_file=config if isinstance(config, str) else None,
         )

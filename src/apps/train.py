@@ -7,6 +7,7 @@ from cabrnet.utils.data import DatasetManager
 from cabrnet.utils.exceptions import ArgumentError
 from cabrnet.utils.optimizers import OptimizerManager
 from cabrnet.utils.parser import load_config
+from cabrnet.utils.monitoring import metrics_to_str
 from cabrnet.utils.save import load_checkpoint, save_checkpoint
 from loguru import logger
 from tqdm import tqdm
@@ -166,18 +167,6 @@ def check_args(args: Namespace) -> Namespace:
     return args
 
 
-def metrics_to_str(metrics: dict[str, float]) -> str:
-    r"""Converts a dictionary of metrics into a readable string.
-
-    Args:
-        metrics (dictionary): Dictionary of batch metrics.
-
-    Returns:
-        Readable string representing batch statistics.
-    """
-    return ", ".join([f"{key}: {value:.3f}" for key, value in metrics.items()])
-
-
 def execute(args: Namespace) -> None:
     r"""Creates a CaBRNet model, then trains it.
 
@@ -330,7 +319,7 @@ def execute(args: Namespace) -> None:
 
     # Evaluate model
     eval_info = model.evaluate(dataloader=dataloaders["test_set"], device=device, verbose=verbose)
-    logger.info(f"Average loss: {eval_info['avg_loss']:.2f}. Average accuracy: {eval_info['avg_eval_accuracy']:.2f}.")
+    logger.info(f"Average loss: {eval_info['avg_loss']:.2f}. Average accuracy: {eval_info['avg_accuracy']:.2f}.")
     save_checkpoint(
         directory_path=os.path.join(root_dir, "final"),
         model=model,

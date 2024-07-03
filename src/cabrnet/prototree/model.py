@@ -341,7 +341,7 @@ class ProtoTree(CaBRNet):
         eval_info = self.evaluate(dataloader=dataloaders["test_set"], device=device, verbose=verbose)
         logger.info(
             f"After projection. Average loss: {eval_info['avg_loss']:.2f}. "
-            f"Average accuracy: {eval_info['avg_eval_accuracy']:.2f}."
+            f"Average accuracy: {eval_info['avg_accuracy']:.2f}."
         )
 
         if pruning_threshold <= 0.0:
@@ -479,6 +479,7 @@ class ProtoTree(CaBRNet):
         visualizer: SimilarityVisualizer,
         prototype_dir: str = "",
         output_dir: str = "",
+        output_format: str = "pdf",
         device: str = "cuda:0",
         exist_ok: bool = False,
         disable_rendering: bool = False,
@@ -493,6 +494,7 @@ class ProtoTree(CaBRNet):
             visualizer (SimilarityVisualizer): Similarity visualizer.
             prototype_dir (str, optional): Path to directory containing prototype visualizations. Default: "".
             output_dir (str, optional): Path to output directory. Default: "".
+            output_format (str, optional): Output file format. Default: pdf.
             device (str, optional): Target hardware device. Default: cuda:0.
             exist_ok (bool, optional): Silently overwrites existing explanation (if any). Default: False.
             disable_rendering (bool, optional): When True, no visual explanation is generated. Default: False.
@@ -572,13 +574,14 @@ class ProtoTree(CaBRNet):
             proto_idx = prototype_mapping[node_id][0]  # Update index of prototype associated with next node
         explanation.add_prediction(int(torch.argmax(prediction).item()))
         if not disable_rendering:
-            explanation.render()
+            explanation.render(output_format=output_format)
         return most_relevant_prototypes
 
     def explain_global(
         self,
         prototype_dir: str,
         output_dir: str,
+        output_format: str = "pdf",
         **kwargs,
     ) -> None:
         r"""Explains the global decision-making process of a CaBRNet model.
@@ -586,6 +589,7 @@ class ProtoTree(CaBRNet):
         Args:
             prototype_dir (str): Path to directory containing prototype visualizations.
             output_dir (str): Path to output directory.
+            output_format (str, optional): Output file format. Default: pdf.
         """
 
         def build_tree_explanation(node: nn.Module, graph: graphviz.Digraph) -> graphviz.Digraph:
@@ -604,7 +608,7 @@ class ProtoTree(CaBRNet):
                 graph.node(name=f"node_{node.node_id}", label=f"Class {class_idx}", fontsize="25", height="0.5")
             else:
                 proto_idx = node.proto_idxs[0]
-                img_path = os.path.relpath(os.path.join(prototype_dir, f"prototype_{proto_idx}.png"), output_dir)
+                img_path = os.path.abspath(os.path.join(prototype_dir, f"prototype_{proto_idx}.png"))
                 graph.node(name=f"node_{node.node_id}", image=img_path, imagescale="True")
                 for child_name, similarity in zip(["nsim", "sim"], ["not similar", "similar"]):
                     child = node.get_submodule(f"{node.node_id}_child_{child_name}")
@@ -622,4 +626,4 @@ class ProtoTree(CaBRNet):
         explanation_graph.attr("node", shape="plaintext", label="", fixedsize="True", width="2", height="2")
         explanation_graph = build_tree_explanation(node, explanation_graph)
         logger.debug(explanation_graph.source)
-        explanation_graph.render(filename=os.path.join(output_dir, "global_explanation"))
+        explanation_graph.render(filename=os.path.join(output_dir, "global_explanation"), format=output_format)

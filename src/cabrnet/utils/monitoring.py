@@ -2,6 +2,18 @@ import torch
 from loguru import logger
 
 
+def metrics_to_str(metrics: dict[str, float]) -> str:
+    r"""Converts a dictionary of metrics into a readable string.
+
+    Args:
+        metrics (dictionary): Dictionary of batch metrics.
+
+    Returns:
+        Readable string representing batch statistics.
+    """
+    return ", ".join([f"{key}: {value:.3f}" for key, value in metrics.items()])
+
+
 class _MemoryLogger:
     r"""Class for CUDA memory monitoring."""
 

@@ -13,9 +13,9 @@ def cubic_upsampling(
     img_tensor: Tensor,
     proto_idx: int,
     device: str,
-    location: tuple[int, int] | None = None,
-    single_location: bool = True,
+    location: tuple[int, int] | str | None = None,
     normalize: bool = False,
+    **kwargs,
 ) -> np.ndarray:
     r"""Performs patch visualization using upsampling with cubic interpolation.
 
@@ -25,8 +25,9 @@ def cubic_upsampling(
         img_tensor (tensor): Input image tensor.
         proto_idx (int): Prototype index.
         device (str): Target hardware device.
-        location (tuple[int,int], optional): Location inside the similarity map. Default: None.
-        single_location (bool, optional): Focus on the location of maximum similarity only. Default: False.
+        location (tuple[int,int], str or None, optional): Location inside the similarity map.
+                Can be given as an explicit location (tuple) or "max" for the location of maximum similarity.
+                Default: None.
         normalize (bool, optional): If True, performs min-max normalization. Default: False.
 
     Returns:
@@ -45,14 +46,18 @@ def cubic_upsampling(
         # Compute similarity map
         sim_map = model.similarities(img_tensor)[0, proto_idx].cpu().numpy()
 
-    if single_location:
-        if location is None:
+    # Location of interest (if any)
+    if location is not None:
+        if location == "max":
             # Find location of feature vector with the highest similarity
             h, w = np.where(sim_map == np.max(sim_map))
             h, w = h[0], w[0]
-        else:
+        elif isinstance(location, tuple):
             # Location is predefined
             h, w = location
+        else:
+            raise ValueError(f"Invalid target location {location}")
+
         sim_map = np.zeros_like(sim_map)
         sim_map[h, w] = 1
 
