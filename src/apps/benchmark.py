@@ -61,6 +61,14 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         help="path to output directory containing all analysis results",
     )
     parser.add_argument("--overwrite", action="store_true", help="overwrite output directory if necessary")
+    parser.add_argument(
+        "-y",
+        "--prototype-dir",
+        type=str,
+        required=False,
+        metavar="path/to/prototype/directory",
+        help="path to directory containing a visualization of all prototypes",
+    )
     return parser
 
 
@@ -96,6 +104,11 @@ def check_args(args: Namespace) -> Namespace:
             raise ArgumentError(f"Missing {name} file (option {option}).")
     if os.path.isdir(args.output_dir) and not args.overwrite:
         raise ArgumentError("Output directory already exists. Use --overwrite option to override.")
+
+    # Set-up prototype directory if necessary
+    if args.prototype_dir is None:
+        args.prototype_dir = os.path.join(os.path.dirname(args.model_config), "prototypes")
+
     return args
 
 
@@ -115,6 +128,7 @@ def execute(args: Namespace) -> None:
     visualizer_config = args.visualization
     projection_file = args.projection_info
     bench_config = args.benchmark_configuration
+    prototype_dir = args.prototype_dir
     verbose = args.verbose
     device = args.device
     output_dir = args.output_dir
@@ -160,5 +174,6 @@ def execute(args: Namespace) -> None:
             root_dir=output_dir,
             device=device,
             verbose=verbose,
+            prototype_dir=prototype_dir,
             **config,
         )

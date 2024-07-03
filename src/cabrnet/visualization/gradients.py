@@ -123,8 +123,7 @@ def _captum_attribution(
     img_tensor: Tensor,
     proto_idx: int,
     device: str,
-    location: tuple[int, int] | None = None,
-    single_location: bool = True,
+    location: tuple[int, int] | str | None = None,
     polarity: str | None = "absolute",
     gaussian_ksize: int = 5,
     normalize: bool = False,
@@ -141,8 +140,9 @@ def _captum_attribution(
         img_tensor (tensor): Input image tensor.
         proto_idx (int): Prototype index.
         device (str): Target hardware device.
-        location (tuple[int,int], optional): Location inside the similarity map. Default: None.
-        single_location (bool, optional): Focus on the location of maximum similarity only. Default: False.
+        location (tuple[int,int], str or None, optional): Location inside the similarity map.
+                Can be given as an explicit location (tuple) or "max" for the location of maximum similarity.
+                Default: None.
         polarity (str, optional): Polarity filter (None, "absolute", "positive", or "negative"). Default: absolute.
         gaussian_ksize (int, optional): Size of gaussian filter kernel size. Default: 5.
         normalize (bool, optional): If True, performs min-max normalization. Default: False.
@@ -171,15 +171,16 @@ def _captum_attribution(
 
     # Location of interest (if any)
     h_max, w_max = -1, -1
-    if single_location:
-        if location is None:
+    if location is not None:
+        if location == "max":
             # Find location of feature vector with the highest similarity
             h_max, w_max = np.where(sim_map == np.max(sim_map))
             h_max, w_max = h_max[0], w_max[0]
-        else:
+        elif isinstance(location, tuple):
             # Location is predefined
             h_max, w_max = location
-
+        else:
+            raise ValueError(f"Invalid target location {location}")
         # Update similarity threshold to ensure that at least one location is used
         similarity_threshold = sim_map[h_max, w_max]
 
@@ -228,8 +229,7 @@ def smoothgrad(
     img_tensor: Tensor,
     proto_idx: int,
     device: str,
-    location: tuple[int, int] | None = None,
-    single_location: bool = True,
+    location: tuple[int, int] | str | None = None,
     polarity: str | None = "absolute",
     gaussian_ksize: int = 5,
     normalize: bool = False,
@@ -237,6 +237,7 @@ def smoothgrad(
     noise_ratio: float = 0.2,
     grads_x_input: bool = False,
     similarity_threshold: float = 0.1,
+    **kwargs,
 ) -> np.ndarray:
     r"""Performs patch visualization using SmoothGrad (https://arxiv.org/abs/1706.03825).
 
@@ -246,8 +247,9 @@ def smoothgrad(
         img_tensor (tensor): Input image tensor.
         proto_idx (int): Prototype index.
         device (str): Target hardware device.
-        location (tuple[int,int], optional): Location inside the similarity map. Default: None.
-        single_location (bool, optional): Focus on the location of maximum similarity only. Default: False.
+        location (tuple[int,int], str or None, optional): Location inside the similarity map.
+                Can be given as an explicit location (tuple) or "max" for the location of maximum similarity.
+                Default: None.
         polarity (str, optional): Polarity filter (None, "absolute", "positive", or "negative"). Default: absolute.
         gaussian_ksize (int, optional): Size of gaussian filter kernel size. Default: 5.
         normalize (bool, optional): If True, performs min-max normalization. Default: False.
@@ -269,7 +271,6 @@ def smoothgrad(
         proto_idx=proto_idx,
         device=device,
         location=location,
-        single_location=single_location,
         polarity=polarity,
         gaussian_ksize=gaussian_ksize,
         normalize=normalize,
@@ -286,13 +287,13 @@ def saliency(
     img_tensor: Tensor,
     proto_idx: int,
     device: str,
-    location: tuple[int, int] | None = None,
-    single_location: bool = True,
+    location: tuple[int, int] | str | None = None,
     polarity: str | None = "absolute",
     gaussian_ksize: int = 5,
     normalize: bool = False,
     grads_x_input: bool = False,
     similarity_threshold: float = 0.1,
+    **kwargs,
 ) -> np.ndarray:
     r"""Performs patch visualization using saliency (https://arxiv.org/abs/1312.6034).
 
@@ -302,8 +303,9 @@ def saliency(
         img_tensor (tensor): Input image tensor.
         proto_idx (int): Prototype index.
         device (str): Target hardware device.
-        location (tuple[int,int], optional): Location inside the similarity map. Default: None.
-        single_location (bool, optional): Focus on the location of maximum similarity only. Default: False.
+        location (tuple[int,int], str or None, optional): Location inside the similarity map.
+                Can be given as an explicit location (tuple) or "max" for the location of maximum similarity.
+                Default: None.
         polarity (str, optional): Polarity filter (None, "absolute", "positive", or "negative"). Default: absolute.
         gaussian_ksize (int, optional): Size of gaussian filter kernel size. Default: 5.
         normalize (bool, optional): If True, performs min-max normalization. Default: False.
@@ -323,7 +325,6 @@ def saliency(
         proto_idx=proto_idx,
         device=device,
         location=location,
-        single_location=single_location,
         polarity=polarity,
         gaussian_ksize=gaussian_ksize,
         normalize=normalize,
@@ -376,14 +377,14 @@ def prp(
     img_tensor: Tensor,
     proto_idx: int,
     device: str,
-    location: tuple[int, int] | None = None,
-    single_location: bool = True,
+    location: tuple[int, int] | str | None = None,
     stability_factor: float = 1e-6,
     polarity: str | None = "absolute",
     gaussian_ksize: int = 5,
     normalize: bool = False,
     grads_x_input: bool = False,
     similarity_threshold: float = 0.1,
+    **kwargs,
 ) -> np.ndarray:
     r"""Performs patch visualization using Prototype Relevance Propagation.
 
@@ -395,8 +396,9 @@ def prp(
         img_tensor (tensor): Input image tensor.
         proto_idx (int): Prototype index.
         device (str): Target hardware device.
-        location (tuple[int,int], optional): Location inside the similarity map. Default: None.
-        single_location (bool, optional): Focus on the location of maximum similarity only. Default: False.
+        location (tuple[int,int], str or None, optional): Location inside the similarity map.
+                Can be given as an explicit location (tuple) or "max" for the location of maximum similarity.
+                Default: None.
         stability_factor (float, optional): LRP stability factor (epsilon). Default: 1e-6.
         polarity (str, optional): Polarity filter (None, "absolute", "positive", or "negative"). Default: absolute.
         gaussian_ksize (int, optional): Size of gaussian filter kernel size. Default: 5.
@@ -426,7 +428,6 @@ def prp(
         proto_idx=proto_idx,
         device=device,
         location=location,
-        single_location=single_location,
         polarity=polarity,
         gaussian_ksize=gaussian_ksize,
         normalize=normalize,

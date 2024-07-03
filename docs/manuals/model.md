@@ -349,6 +349,7 @@ class ArchName(CaBRNet):
         visualizer: SimilarityVisualizer | None,
         prototype_dir: str = "",
         output_dir: str = "",
+        output_format: str = "pdf",
         device: str = "cuda:0",
         exist_ok: bool = False,
         disable_rendering: bool = False,
@@ -362,6 +363,7 @@ class ArchName(CaBRNet):
             visualizer (SimilarityVisualizer): Similarity visualizer.
             prototype_dir (str): Path to directory containing prototype visualizations.
             output_dir (str): Path to output directory.
+            output_format (str, optional): Output file format. Default: pdf.
             device (str, optional): Target hardware device. Default: cuda:0.
             exist_ok (bool, optional): Silently overwrites existing explanation (if any). Default: False.
             disable_rendering (bool, optional): When True, no visual explanation is generated. Default: False.
@@ -377,6 +379,7 @@ class ArchName(CaBRNet):
         self,
         prototype_dir: str,
         output_dir: str,
+        output_format: str = "pdf",
         **kwargs,
     ) -> None:
         r"""Explains the global decision-making process of a CaBRNet model.
@@ -384,6 +387,7 @@ class ArchName(CaBRNet):
         Args:
             prototype_dir (str): Path to directory containing prototype visualizations.
             output_dir (str): Path to output directory.
+            output_format (str, optional): Output file format. Default: pdf.
         """
         ...
 ```

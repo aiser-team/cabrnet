@@ -22,3 +22,4 @@ pymdown-extensions
 python-markdown-math
 pandas~=2.2.1
 py-cpuinfo~=9.0.0
+gradio~=4.33.0

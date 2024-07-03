@@ -20,6 +20,8 @@ classifiers = [
 
 [project.scripts]
 cabrnet = "main:main"
+cabrnet-gui = "main_gui:main"
+
 
 [tool.black]
 line-length = 120

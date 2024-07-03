@@ -51,6 +51,15 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         metavar="path/to/output/directory",
         help="path to output directory",
     )
+    parser.add_argument(
+        "-f",
+        "--format",
+        type=str,
+        default="pdf",
+        required=False,
+        metavar="extension",
+        help="output file format",
+    )
     return parser
 
 
@@ -101,7 +110,7 @@ def execute(args: Namespace) -> None:
     model: CaBRNet = CaBRNet.build_from_config(config_file=args.model_config, state_dict_path=args.model_state_dict)
 
     # Init visualizer
-    visualizer = SimilarityVisualizer.build_from_config(config_file=args.visualization, model=model)
+    visualizer = SimilarityVisualizer.build_from_config(config=args.visualization, model=model)
 
     # Build prototypes
     dataloaders = DatasetManager.get_dataloaders(config_file=args.dataset)
@@ -124,6 +133,10 @@ def execute(args: Namespace) -> None:
 
     # Generate explanation
     try:
-        model.explain_global(prototype_dir=os.path.join(args.output_dir, "prototypes"), output_dir=args.output_dir)
+        model.explain_global(
+            prototype_dir=os.path.join(args.output_dir, "prototypes"),
+            output_dir=args.output_dir,
+            output_format=args.format,
+        )
     except NotImplementedError:
         logger.error("Global explanation not available for this model.")
