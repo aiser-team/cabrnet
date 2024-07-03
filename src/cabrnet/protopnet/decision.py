@@ -14,11 +14,20 @@ class ProtoPNetSimilarityScore(L2Similarities):
     r"""Class for computing similarity scores based on L2 distance in the convolutional space.
 
     Attributes:
+        epsilon (float, optional): Small constant to avoid division by zero. Default: 1e-4.
         protopnet_compatibility: If True, uses the order of operations of ProtoPNet to compute the L2 distance.
     """
-
+    def __init__(
+        self, epsilon:float = 1e-4, **kwargs):
+        r"""Initializes a ProtoPNetSimilarityScore layer.
+        Args:
+            epsilon (float, optional): Small constant to avoid division by zero. Default: 1e-4.
+        """
+        super().__init__(**kwargs)
+        self.epsilon = epsilon
+        
     def forward(
-        self, features: Tensor, prototypes: Tensor, output_distances: bool = False
+        self, features: Tensor, prototypes: Tensor, output_distances: bool = False,
     ) -> Tensor | tuple[Tensor, Tensor]:
         r"""Computes similarity based on L2 distance using ||x - y||² = ||x||² + ||y||² - 2 x.y.
 
@@ -32,7 +41,7 @@ class ProtoPNetSimilarityScore(L2Similarities):
             Tensor of distances. Shape (N, P, H, W) (only if output_distances is enabled).
         """
         distances = torch.relu(self.L2_square_distance(features=features, prototypes=prototypes))
-        similarities = torch.log((distances + 1) / (distances + 1e-4))
+        similarities = torch.log((distances + 1) / (distances + self.epsilon))
         if output_distances:
             return similarities, distances
         return similarities
@@ -59,6 +68,7 @@ class ProtoPNetClassifier(CaBRNetGenericClassifier):
         proto_init_mode: str = "SHIFTED_NORMAL",
         incorrect_class_penalty: float = -0.5,
         compatibility_mode: bool = False,
+        epsilon: float = 1e-4,
     ) -> None:
         r"""Initializes a ProtoPNet classifier.
 
@@ -71,6 +81,7 @@ class ProtoPNetClassifier(CaBRNetGenericClassifier):
                 Default: 0.5.
             compatibility_mode (bool, optional): If True, enables compatibility mode with legacy ProtoPNet.
                 Default: False.
+            epsilon (float, optional): Small constant to avoid division by zero. Default: 1e-4.
         """
         super().__init__(num_classes=num_classes, num_features=num_features, proto_init_mode=proto_init_mode)
 
@@ -89,6 +100,7 @@ class ProtoPNetClassifier(CaBRNetGenericClassifier):
             )
         )
         self.similarity_layer = ProtoPNetSimilarityScore(
+            epsilon=epsilon,
             num_prototypes=self.num_prototypes,
             num_features=self.num_features,
             protopnet_compatibility=compatibility_mode,
