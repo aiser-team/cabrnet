@@ -129,7 +129,7 @@ def execute(args: Namespace) -> None:
         training_config=training_config,
         dataset_config=dataset_config,
         projection_info=projection_info,
-        epoch="imported",
+        epoch="final",
         seed=seed,
         device=device,
         stats=eval_info,

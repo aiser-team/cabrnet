@@ -55,7 +55,7 @@ def create_parser() -> ArgumentParser:
         "--use-segmentation",
         "-s",
         action="store_true",
-        help="Download segmentation dataset alongsite regular dataset",
+        help="Download segmentation dataset alongside regular dataset",
     )
     return parser
 
