@@ -688,6 +688,7 @@ class ProtoPNet(CaBRNet):
         exist_ok: bool = False,
         disable_rendering: bool = False,
         num_closest: int = 10,
+        class_specific: bool = True,
         **kwargs,
     ) -> list[tuple[int, float, bool]]:
         r"""Explains the decision for a particular image.
@@ -703,7 +704,7 @@ class ProtoPNet(CaBRNet):
             exist_ok (bool, optional): Silently overwrites existing explanation (if any). Default: False.
             disable_rendering (bool, optional): When True, no visual explanation is generated. Default: False.
             num_closest (int, optional): Number of closest prototypes to display. Default: 10.
-
+            class_specific (bool, optional): If True, only use prototypes from the predicted class. Default: True.
 
         Returns:
             List of most relevant prototypes for the decision, where each entry is in the form
@@ -732,9 +733,11 @@ class ProtoPNet(CaBRNet):
         class_idx = torch.argmax(prediction, dim=1)[0]
         min_distances = min_distances[0]
 
-        # Ignore distances to pruned prototypes
+        # Ignore distances to pruned/non-class specific prototypes
         for proto_idx in range(self.num_prototypes):
-            if not self.classifier.prototype_is_active(proto_idx):
+            if not self.classifier.prototype_is_active(proto_idx) or (
+                class_specific and self.classifier.proto_class_map[proto_idx, class_idx] == 0
+            ):
                 min_distances[proto_idx] = float("inf")
 
         # Build explanation
