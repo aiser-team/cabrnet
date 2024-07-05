@@ -250,6 +250,7 @@ class ProtoPNet(CaBRNet):
         # Training stats
         total_loss = 0.0
         total_acc = 0.0
+        nb_inputs = 0
 
         # Use training dataloader
         train_loader = dataloaders["train_set"]
@@ -263,9 +264,10 @@ class ProtoPNet(CaBRNet):
             position=tqdm_position,
             disable=not verbose,
         )
-        batch_num = len(train_loader)
 
         for batch_idx, (xs, ys) in train_iter:
+            nb_inputs += xs.size(0)
+
             # Reset gradients and map the data on the target device
             optimizer_mngr.zero_grad()
             xs, ys = xs.to(device), ys.to(device)
@@ -290,8 +292,8 @@ class ProtoPNet(CaBRNet):
             train_iter.set_postfix_str(postfix_str)
 
             # Update global metrics
-            total_loss += batch_loss.item()
-            total_acc += batch_accuracy
+            total_loss += batch_loss.item() * xs.size(0)
+            total_acc += batch_accuracy * xs.size(0)
 
             if max_batches is not None and batch_idx == max_batches:
                 break
@@ -299,13 +301,7 @@ class ProtoPNet(CaBRNet):
         # Clean gradients after last batch
         optimizer_mngr.zero_grad()
 
-        if max_batches is not None:
-            train_info = {
-                "avg_loss": total_loss / (max_batches + 1),
-                "avg_train_accuracy": total_acc / (max_batches + 1),
-            }
-        else:
-            train_info = {"avg_loss": total_loss / batch_num, "avg_train_accuracy": total_acc / batch_num}
+        train_info = {"avg_loss": total_loss / nb_inputs, "avg_train_accuracy": total_acc / nb_inputs}
         return train_info
 
     def train_epoch(
