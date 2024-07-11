@@ -1,6 +1,6 @@
-torch >= 1.12.1
-torchvision >= 0.13.0
-numpy >= 1.19.5
+torch>=2.0.0
+torchvision>=0.13.0
+numpy>=1.19.5
 pillow~=10.0.1
 setuptools~=60.2.0
 tqdm~=4.62.3
@@ -24,5 +24,5 @@ pandas~=2.2.1
 py-cpuinfo~=9.0.0
 gradio~=4.33.0
 tensorboard~=2.17.0
-ray[tune]
+ray[tune]~=2.34.0
 optuna~=3.6.1
