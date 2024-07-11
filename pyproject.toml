@@ -9,23 +9,31 @@ authors = [
     { name = "Romain Xu-Darme", email = "romain.xu-darme@cea.fr" },
     { name = "Aymeric Varasse", email = "aymeric.varasse@cea.fr" },
 ]
+maintainers = [
+    { name = "Romain Xu-Darme", email = "romain.xu-darme@cea.fr" },
+    { name = "Aymeric Varasse", email = "aymeric.varasse@cea.fr" },
+    { name = "Julien Girard-Satabin", email = "julien.girard2@cea.fr" },
+    { name = "Alban Grastien", email = "alban.grastien@cea.fr" },
+]
 description = "Generic library for prototype-based classifiers"
 readme = "README.md"
 requires-python = ">=3.10"
 classifiers = [
     "Programming Language :: Python :: 3",
-    "License :: LGPLv2.1",
+    "License :: OSI Approved :: GNU Lesser General Public License v2 (LGPLv2)",
     "Operating System :: OS Independent",
 ]
+
+[project.urls]
+Homepage = "https://github.com/aiser-team/cabrnet"
+Issues = "https://github.com/aiser-team/cabrnet/issues"
 
 [project.scripts]
 cabrnet = "main:main"
 cabrnet-gui = "main_gui:main"
 
+[tool.setuptools.dynamic]
+dependencies = { file = "requirements.txt" }
 
 [tool.black]
 line-length = 120
-
-[[tool.mypy.overrides]]
-module = ["gdown", "torch.*", "torchvision.*"]
-ignore_missing_imports = true
