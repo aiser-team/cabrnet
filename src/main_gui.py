@@ -17,9 +17,7 @@
 
 """Main entry point for CaBRNet (GUI version)."""
 
-import importlib
-import os
-import pathlib
+import importlib.metadata
 import random
 import sys
 from argparse import ArgumentParser
@@ -32,22 +30,12 @@ from cabrnet.interface.design_gui import main as design_main
 from loguru import logger
 
 
-def get_version() -> str:
-    """Gets the version.
-
-    Returns:
-        The current version of CaBRNet.
-    """
-    with open(os.path.join(pathlib.Path(__file__).parent.resolve(), "..", "VERSION"), "r") as fin:
-        return fin.readline()
-
-
 class ParserWithHelper(ArgumentParser):
     """Helper class for better parser errors."""
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.add_argument("-V", "--version", action="version", version=get_version())
+        self.add_argument("-V", "--version", action="version", version=importlib.metadata.version("cabrnet"))
 
     def error(self, message: str | None = None):
         r"""Overrides default error message in argparse to print help menu."""

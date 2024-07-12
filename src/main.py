@@ -18,8 +18,8 @@
 """Main entry point for CaBRNet."""
 
 import importlib
+import importlib.metadata
 import os
-import pathlib
 import random
 import sys
 import traceback
@@ -30,16 +30,6 @@ import torch
 from cabrnet.utils.exceptions import ArgumentError
 from cabrnet.utils.system_info import get_hardware_info
 from loguru import logger
-
-
-def get_version() -> str:
-    """Gets the version.
-
-    Returns:
-        The current version of CaBRNet.
-    """
-    with open(os.path.join(pathlib.Path(__file__).parent.resolve(), "..", "VERSION"), "r") as fin:
-        return fin.readline()
 
 
 class ParserWithHelper(ArgumentParser):
@@ -95,7 +85,7 @@ def main():
         )
         # print logs and progress bars to the console
         common_group.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
-    parser.add_argument("-V", "--version", action="version", version=get_version())
+    parser.add_argument("-V", "--version", action="version", version=importlib.metadata.version("cabrnet"))
 
     args = parser.parse_args()
 
