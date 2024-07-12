@@ -4,18 +4,26 @@ top_arch:
 
 extractor:
   backbone:
-    arch: resnet18
-    layer: layer4
+    arch: vgg19
+    layer: features
     weights: IMAGENET1K_V1
   add_on:
-    init_mode: XAVIER
+    init_mode: PROTOPNET
     conv1:
       type: Conv2d
       params:
         out_channels: 128
         kernel_size: 1
-        bias: False
-    sigmoid1:
+        bias: True
+    act1:
+      type: ReLU
+    conv2:
+      type: Conv2d
+      params:
+        out_channels: 128
+        kernel_size: 1
+        bias: True
+    act2:
       type: Sigmoid
 
 similarity:
@@ -25,8 +33,7 @@ classifier:
   module: cabrnet.core.protopnet.decision
   name: ProtoPNetClassifier
   params:
-    num_classes: 10
+    num_classes: 200
     num_proto_per_class: 10
-    proto_init_mode: SHIFTED_NORMAL
+    proto_init_mode: UNIFORM
     compatibility_mode: True
-

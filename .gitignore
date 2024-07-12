@@ -9,8 +9,8 @@ runs
 build/
 dist/
 examples/
-src/legacy/prototree
-src/legacy/protopnet
+src/cabrnet/legacy/prototree
+src/cabrnet/legacy/protopnet
 pretrained_models/
 *.vim
 logs*

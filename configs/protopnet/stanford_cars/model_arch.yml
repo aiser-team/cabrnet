@@ -1,5 +1,5 @@
 top_arch: # Optional
-  module: cabrnet.protopnet.model
+  module: cabrnet.core.protopnet.model
   name: ProtoPNet # Take "extractor" and "classifier", implement the generic class ProtoClassifier
 
 extractor: # How to build the feature extractor
@@ -22,7 +22,7 @@ similarity:
   name: LegacyProtoPNetSimilarity
 
 classifier: # How to compute the decision from the features
-  module: cabrnet.protopnet.decision
+  module: cabrnet.core.protopnet.decision
   name: ProtoPNetClassifier
   params:
     num_classes: 196

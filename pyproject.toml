@@ -29,8 +29,8 @@ Homepage = "https://github.com/aiser-team/cabrnet"
 Issues = "https://github.com/aiser-team/cabrnet/issues"
 
 [project.scripts]
-cabrnet = "main:main"
-cabrnet-gui = "main_gui:main"
+cabrnet = "cabrnet.main:main"
+cabrnet-gui = "cabrnet.main_gui:main"
 
 [tool.setuptools.dynamic]
 dependencies = { file = "requirements.txt" }
