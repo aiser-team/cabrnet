@@ -76,6 +76,7 @@ class CaBRNetAnalysisGUI:
                 self.projection_info = load_projection_info(
                     filename=os.path.join(checkpoint_path, CaBRNet.DEFAULT_PROJECTION_INFO)
                 )
+                return gr.update(root_dir=self.dataloaders["test_set"].dataset.root)
 
             except FileNotFoundError as e:
                 logger.warning(e)
@@ -272,7 +273,6 @@ class CaBRNetAnalysisGUI:
                         allow_creation=False,
                         key="checkpoint",
                     )
-                    model_select.change(self.checkpoint_callback(), inputs=[model_select])
                     stats = gr.Textbox(label="Statistics", interactive=False)
                 evaluate_button = gr.Button(value="Evaluate", icon="docs/logos/cabrnet.svg")
                 evaluate_button.click(self.evaluate_callback(), outputs=[stats])
@@ -323,6 +323,7 @@ class CaBRNetAnalysisGUI:
                         height=200,
                         key="segmentation",
                     )
+                model_select.change(self.checkpoint_callback(), inputs=[model_select], outputs=[image_selection])
                 image_selection.change(
                     lambda x: Image.open(x) if x is not None else None, inputs=[image_selection], outputs=[input_image]
                 )
