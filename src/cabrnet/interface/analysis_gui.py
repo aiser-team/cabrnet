@@ -76,7 +76,7 @@ class CaBRNetAnalysisGUI:
                 self.projection_info = load_projection_info(
                     filename=os.path.join(checkpoint_path, CaBRNet.DEFAULT_PROJECTION_INFO)
                 )
-                return gr.update(root_dir=self.dataloaders["test_set"].dataset.root)
+                return gr.update(root_dir=self.dataloaders["test_set"].dataset.root)  # type: ignore
 
             except FileNotFoundError as e:
                 logger.warning(e)
@@ -216,6 +216,10 @@ class CaBRNetAnalysisGUI:
             # Extract configuration
             gradio_config = gradio_convert_outputs(gradio_outputs=gradio_outputs)
 
+            if gradio_config["input_image"] is None:
+                logger.warning("No image loaded (yet).")
+                return None
+
             # Builds visualizer
             visualization_config = get_visualization_config(gradio_config=gradio_config)
             visualizer = SimilarityVisualizer.build_from_config(config=visualization_config, model=self.model)
@@ -241,6 +245,10 @@ class CaBRNetAnalysisGUI:
                     os.path.join(self._output_dir, "analysis", "local_perturbation", "img_sensitivity.png")
                 )
             else:
+                if gradio_config["segmentation"] is None:
+                    logger.warning("Segmentation unavailable.")
+                    return None
+
                 cabrnet.evaluation.relevance_analysis.analyze(
                     model=self.model,
                     img=gradio_config["input_image"],
@@ -333,13 +341,14 @@ class CaBRNetAnalysisGUI:
                     if img_path is None:
                         return None
                     # Simple search and replace
-                    tentative_path = img_path.replace("/images/", "/segmentations/")
-                    if os.path.isfile(tentative_path):
-                        return Image.open(tentative_path)
-                    # Try with replacing file extension
-                    tentative_path = tentative_path.replace(".jpg", ".png")
-                    if os.path.isfile(tentative_path):
-                        return Image.open(tentative_path)
+                    if "dataset/test_full" in img_path:
+                        tentative_path = img_path.replace("/dataset/test_full", "/segmentations/")
+                        if os.path.isfile(tentative_path):
+                            return Image.open(tentative_path)
+                        # Try with replacing file extension
+                        tentative_path = tentative_path.replace(".jpg", ".png")
+                        if os.path.isfile(tentative_path):
+                            return Image.open(tentative_path)
                     return None
 
                 image_selection.change(
