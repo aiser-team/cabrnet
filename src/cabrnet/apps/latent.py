@@ -1,6 +1,15 @@
+import torch
+import numpy as np
+import pacmap
 from argparse import ArgumentParser, Namespace
 from cabrnet.archs.generic.model import CaBRNet
 from cabrnet.core.utils.data import DatasetManager
+from loguru import logger
+from matplotlib import pyplot as plt
+from matplotlib.colors import Normalize
+from torch.utils.data import DataLoader
+from sklearn.manifold import TSNE
+
 
 description = "visualizes the latent space"
 
@@ -38,7 +47,75 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     return parser
 
 
-def draw_latent(model: CaBRNet, dataloaders: dict, output_file: str):
+def draw_latent(model: CaBRNet, dataloader: DataLoader, output_file: str, method: str = "t-SNE", device: str = "cuda:0"):
+    """
+    Plots the latent space of the dataset and prototypes in a 2D plot using t-SNE or PaCMAP for dimensionality reduction.
+
+    Args:
+        model (CaBRNet): The CaBRNet model.
+        dataloader (DataLoader): Dataloader containing the dataset.
+        method (str): Dimensionality reduction method. Options: "t-SNE" (default), "PaCMAP".
+        device (str): Target device. Default: "cuda:0".
+        output_file (str): Path to the output file.
+
+    Returns:
+        None
+
+    Raises:
+        ValueError: If an invalid dimensionality reduction method is provided.
+    """
+    logger.info("Plotting latent space")
+    model.eval()
+    model.to(device)
+
+    # Get the features of the dataset
+    features = []
+    labels = []
+    with torch.no_grad():
+        for xs, ys in dataloader:
+            xs, ys = xs.to(device), ys.to(device)
+            feats = model.extractor(xs)
+            features.append(feats.view(feats.size(0), -1).cpu().numpy())
+            labels.append(ys.cpu().numpy())
+    features = np.concatenate(features, axis=0)
+    labels = np.concatenate(labels, axis=0)
+
+    # Get the features of the prototypes
+    proto_features = model.classifier.prototypes.view(model.num_prototypes, -1).detach().cpu().numpy()
+
+    # Combine features and prototypes
+    combined_data = np.vstack((features, proto_features))
+
+    # Perform dimensionality reduction on the combined dataset
+    if method == "t-SNE":
+        tsne = TSNE(n_components=2, random_state=0)
+    elif method == "PaCMAP":
+        tsne = pacmap.PaCMAP(n_components=2, MN_ratio=0.5, FP_ratio=2.0) 
+    else:
+        raise ValueError(f"Invalid dimensionality reduction method: {method}")
+    embeddings = tsne.fit_transform(combined_data)
+
+    # Separate the embeddings back into features and prototypes
+    feature_embeddings = embeddings[: len(features)]
+    proto_embeddings = embeddings[len(features) :]
+
+    # Plot the latent space with features and prototypes
+    plt.figure(figsize=(10, 10))
+    unique_labels = np.unique(labels)
+    norm = Normalize(vmin=labels.min(), vmax=labels.max())
+    for label in unique_labels:
+        plt.scatter(
+        feature_embeddings[labels == label, 0],
+        feature_embeddings[labels == label, 1],
+        c=labels[labels == label],
+        cmap="viridis",
+        norm=norm,
+        label=f"Label {label}",
+        )
+    plt.scatter(proto_embeddings[:, 0], proto_embeddings[:, 1], marker='^', c="red", label="Prototypes")
+    plt.title("Latent space")
+    plt.legend()
+    plt.savefig(output_file)
     pass
 
 
@@ -50,8 +127,8 @@ def execute(args: Namespace) -> None:
         args (Namespace): Parsed arguments.
 
     """
-    verbose = args.verbose
     device = args.device
+    method = args.type
 
     model = CaBRNet.build_from_config(args.model_config, state_dict_path=args.model_state_dict)
     model.eval()
@@ -59,9 +136,9 @@ def execute(args: Namespace) -> None:
     dataloaders = DatasetManager.get_dataloaders(config=args.dataset)
     output_file = args.output_file
 
-    draw_latent(model, dataloaders, output_file)
+    draw_latent(model=model, dataloader=dataloaders["train_set"], method=method, device=device, output_file=output_file)
 
-    prototypes = model.classifier.prototypes
+    # prototypes = model.classifier.prototypes
     # model.extractor
 
     pass
