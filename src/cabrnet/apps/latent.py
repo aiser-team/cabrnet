@@ -9,6 +9,7 @@ from matplotlib import pyplot as plt
 from matplotlib.colors import Normalize
 from torch.utils.data import DataLoader
 from sklearn.manifold import TSNE
+from cabrnet.utils.exceptions import ArgumentError
 
 
 description = "visualizes the latent space"
@@ -47,7 +48,9 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     return parser
 
 
-def draw_latent(model: CaBRNet, dataloader: DataLoader, output_file: str, method: str = "t-SNE", device: str = "cuda:0"):
+def draw_latent(
+    model: CaBRNet, dataloader: DataLoader, output_file: str, method: str = "t-SNE", device: str = "cuda:0"
+):
     """
     Plots the latent space of the dataset and prototypes in a 2D plot using t-SNE or PaCMAP for dimensionality reduction.
 
@@ -69,13 +72,18 @@ def draw_latent(model: CaBRNet, dataloader: DataLoader, output_file: str, method
     model.to(device)
 
     # Get the features of the dataset
-    features = []
+    features = []  # (N*H*W, D)
     labels = []
     with torch.no_grad():
         for xs, ys in dataloader:
             xs, ys = xs.to(device), ys.to(device)
-            feats = model.extractor(xs)
-            features.append(feats.view(feats.size(0), -1).cpu().numpy())
+            feats = model.extractor(xs)  # (N, D, H, W)
+            feats = torch.transpose(feats, 1, 3)  # (N, W, H, D)
+            N, W, H, D = feats.shape
+            feats = feats.reshape((N * W * H, D)).cpu().numpy()
+            features.append(feats)
+            # features.append(feats.view(feats.size(0), -1).cpu().numpy())
+            ys = ys.reshape(ys.shape + (1,)).repeat(1, H * W).reshape((ys.shape[0] * H * W,))
             labels.append(ys.cpu().numpy())
     features = np.concatenate(features, axis=0)
     labels = np.concatenate(labels, axis=0)
@@ -87,10 +95,13 @@ def draw_latent(model: CaBRNet, dataloader: DataLoader, output_file: str, method
     combined_data = np.vstack((features, proto_features))
 
     # Perform dimensionality reduction on the combined dataset
+    if method is None:
+        logger.warning("Using default method: t-SNE")
+        method = "t-SNE"
     if method == "t-SNE":
         tsne = TSNE(n_components=2, random_state=0)
     elif method == "PaCMAP":
-        tsne = pacmap.PaCMAP(n_components=2, MN_ratio=0.5, FP_ratio=2.0) 
+        tsne = pacmap.PaCMAP(n_components=2, MN_ratio=0.5, FP_ratio=2.0)
     else:
         raise ValueError(f"Invalid dimensionality reduction method: {method}")
     embeddings = tsne.fit_transform(combined_data)
@@ -105,14 +116,14 @@ def draw_latent(model: CaBRNet, dataloader: DataLoader, output_file: str, method
     norm = Normalize(vmin=labels.min(), vmax=labels.max())
     for label in unique_labels:
         plt.scatter(
-        feature_embeddings[labels == label, 0],
-        feature_embeddings[labels == label, 1],
-        c=labels[labels == label],
-        cmap="viridis",
-        norm=norm,
-        label=f"Label {label}",
+            feature_embeddings[labels == label, 0],
+            feature_embeddings[labels == label, 1],
+            c=labels[labels == label],
+            cmap="viridis",
+            norm=norm,
+            label=f"Label {label}",
         )
-    plt.scatter(proto_embeddings[:, 0], proto_embeddings[:, 1], marker='^', c="red", label="Prototypes")
+    plt.scatter(proto_embeddings[:, 0], proto_embeddings[:, 1], marker="^", c="red", label="Prototypes")
     plt.title("Latent space")
     plt.legend()
     plt.savefig(output_file)
@@ -136,9 +147,11 @@ def execute(args: Namespace) -> None:
     dataloaders = DatasetManager.get_dataloaders(config=args.dataset)
     output_file = args.output_file
 
-    draw_latent(model=model, dataloader=dataloaders["train_set"], method=method, device=device, output_file=output_file)
-
-    # prototypes = model.classifier.prototypes
-    # model.extractor
-
-    pass
+    if "latent_repr" in dataloaders:
+        key = "latent_repr"
+    elif "train_set" in dataloaders:
+        logger.warning("No `latent_repr' in dataset.yml. Using `train_set' instead.")
+        key = "train_set"
+    else:
+        raise ArgumentError("'latent_repr' not found in dataloaders")
+    draw_latent(model=model, dataloader=dataloaders[key], method=method, device=device, output_file=output_file)
