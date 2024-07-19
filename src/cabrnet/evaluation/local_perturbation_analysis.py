@@ -48,7 +48,12 @@ def get_config(config_file: str) -> dict[str, Any] | None:
 
 
 def _wave_distortion(
-    img_array: np.ndarray, attribution: np.ndarray, num_periods: int = 5, amplitude: float = 7, percentile: float = 0.7
+    img_array: np.ndarray,
+    attribution: np.ndarray,
+    num_periods: int = 5,
+    amplitude: float = 7,
+    direction: str = "vertical",
+    percentile: float = 0.7,
 ) -> np.ndarray:
     r"""Applies a sinusoid distortion to a region of an image.
 
@@ -57,11 +62,16 @@ def _wave_distortion(
         attribution (Numpy array): Attribution map.
         num_periods (int, optional): Number of periods for the sinus distortion. Default: 5.
         amplitude (float, optional): Amplitude factor of the sinus distortion. Default: 7.0.
+        direction (str, optional): Direction of the perturbation (either "horizontal", "vertical" or "both").
+            Default: "both".
         percentile (float, optional): Hard threshold used to calibrate the sinus deformation. Default: 0.7.
 
     Returns:
         Deformed image.
     """
+    if direction not in ["horizontal", "vertical", "both"]:
+        raise ValueError(f"Unsupported direction for sinus distortion: {direction}.")
+
     # Get an estimation of the patch bounding box to calibrate the sinus deformation
     x_min, x_max, y_min, y_max = compute_bbox(array=attribution[..., 0], threshold=1.0 - percentile)
     periods = num_periods / max(x_max - x_min, y_max - y_min)
@@ -70,10 +80,12 @@ def _wave_distortion(
         return amplitude * np.sin(2.0 * np.pi * val * periods)
 
     distortion = img_array.copy()
-    for y in range(distortion.shape[0]):
-        distortion[y, :, ...] = np.roll(distortion[y, :, ...], int(shift(y)), axis=0)
-    for x in range(distortion.shape[1]):
-        distortion[:, x, ...] = np.roll(distortion[:, x, ...], int(shift(x)), axis=0)
+    if direction in ["horizontal", "both"]:
+        for y in range(distortion.shape[0]):
+            distortion[y, :, ...] = np.roll(distortion[y, :, ...], int(shift(y)), axis=0)
+    if direction in ["vertical", "both"]:
+        for x in range(distortion.shape[1]):
+            distortion[:, x, ...] = np.roll(distortion[:, x, ...], int(shift(x)), axis=0)
 
     return distortion
 
@@ -91,6 +103,7 @@ def _compute_perturbations(
     gaussian_blur_sigma: float = 2.0,
     distortion_periods: int = 5,
     distortion_amplitude: float = 7.0,
+    distortion_direction: str = "both",
 ) -> dict[str, dict[str, Any]]:
     r"""Applies a set of perturbations on an image.
 
@@ -107,6 +120,8 @@ def _compute_perturbations(
         gaussian_blur_sigma (float, optional): Gaussian blur standard deviation. Default: 2.0.
         distortion_periods (int, optional): Number of periods for the sinus distortion. Default: 5.
         distortion_amplitude (float, optional): Amplitude factor of the sinus distortion. Default: 7.0.
+        distortion_direction (str, optional): Direction of the perturbation (either "horizontal", "vertical" or "both").
+            Default: "both".
 
     Returns:
         Dictionary of perturbed images, where the key corresponds to the name of the perturbation.
@@ -232,13 +247,17 @@ def _compute_perturbations(
     if perturbations is None or "sin_distortion" in perturbations:
         perturbed_img_arrays["sin_distortion"] = {
             "focus": _merge(
-                _wave_distortion(img_array, attribution, distortion_periods, distortion_amplitude),
+                _wave_distortion(
+                    img_array, attribution, distortion_periods, distortion_amplitude, distortion_direction
+                ),
                 img_array,
                 mask=attribution,
                 name="dist_focus",
             ),
             "dual": _merge(
-                _wave_distortion(img_array, attribution, distortion_periods, distortion_amplitude),
+                _wave_distortion(
+                    img_array, attribution, distortion_periods, distortion_amplitude, distortion_direction
+                ),
                 img_array,
                 mask=1 - attribution,
                 name="dist_dual",
