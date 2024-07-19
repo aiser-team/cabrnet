@@ -48,8 +48,11 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     return parser
 
 
+DEFAULT_METHOD = "tsne"
+
+
 def draw_latent(
-    model: CaBRNet, dataloader: DataLoader, output_file: str, method: str = "t-SNE", device: str = "cuda:0"
+    model: CaBRNet, dataloader: DataLoader, output_file: str, method: str = DEFAULT_METHOD, device: str = "cuda:0"
 ):
     """
     Plots the latent space of the dataset and prototypes in a 2D plot using t-SNE or PaCMAP for dimensionality reduction.
@@ -57,7 +60,7 @@ def draw_latent(
     Args:
         model (CaBRNet): The CaBRNet model.
         dataloader (DataLoader): Dataloader containing the dataset.
-        method (str): Dimensionality reduction method. Options: "t-SNE" (default), "PaCMAP".
+        method (str): Dimensionality reduction method. Options: "tsne" (default), "pacmap".
         device (str): Target device. Default: "cuda:0".
         output_file (str): Path to the output file.
 
@@ -96,15 +99,15 @@ def draw_latent(
 
     # Perform dimensionality reduction on the combined dataset
     if method is None:
-        logger.warning("Using default method: t-SNE")
-        method = "t-SNE"
-    if method == "t-SNE":
-        tsne = TSNE(n_components=2, random_state=0)
-    elif method == "PaCMAP":
-        tsne = pacmap.PaCMAP(n_components=2, MN_ratio=0.5, FP_ratio=2.0)
+        logger.warning(f"Using default method: {DEFAULT_METHOD}")
+        method = DEFAULT_METHOD
+    if method == "tsne":
+        projection_method = TSNE(n_components=2, random_state=0)
+    elif method == "pacmap":
+        projection_method = pacmap.PaCMAP(n_components=2, MN_ratio=0.5, FP_ratio=2.0)
     else:
         raise ValueError(f"Invalid dimensionality reduction method: {method}")
-    embeddings = tsne.fit_transform(combined_data)
+    embeddings = projection_method.fit_transform(combined_data)
 
     # Separate the embeddings back into features and prototypes
     feature_embeddings = embeddings[: len(features)]
@@ -139,7 +142,7 @@ def execute(args: Namespace) -> None:
 
     """
     device = args.device
-    method = args.type
+    method = str.lower(args.type)
 
     model = CaBRNet.build_from_config(args.model_config, state_dict_path=args.model_state_dict)
     model.eval()
