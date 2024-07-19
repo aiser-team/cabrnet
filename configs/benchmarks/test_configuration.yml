@@ -15,6 +15,7 @@ local_perturbation_analysis:
   gaussian_blur_sigma: 2.0 # Standard deviation of the gaussian blur
   distortion_periods: 5 # Controls the frequency of the (local) sinus distortion
   distortion_amplitude: 7 # Controls the amplitude of the (local) sinus distortion
+  distortion_direction: both # Controls the direction of the (local) sinus distortion
 
 relevance_analysis:
   prototype_info_db: prototype_info_db.csv # Path to CSV file containing raw analysis per prototype

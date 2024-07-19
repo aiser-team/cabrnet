@@ -102,6 +102,15 @@ def create_perturbation_benchmark_gui(benchmark_selection: gr.Dropdown, visible:
             visible=False,
         )
 
+        distortion_direction = gr.Dropdown(
+            label="Distortion direction",
+            choices=["horizontal", "vertical", "both"],
+            value="both",
+            interactive=True,
+            key="distortion_direction",
+            visible=False,
+        )
+
         perturbation_selection.change(change_visibility("brightness"), perturbation_selection, brightness)
         perturbation_selection.change(change_visibility("contrast"), perturbation_selection, contrast)
         perturbation_selection.change(change_visibility("saturation"), perturbation_selection, saturation)
@@ -110,6 +119,7 @@ def create_perturbation_benchmark_gui(benchmark_selection: gr.Dropdown, visible:
         perturbation_selection.change(change_visibility("blur"), perturbation_selection, gaussian_sigma)
         perturbation_selection.change(change_visibility("sin_distortion"), perturbation_selection, distortion_periods)
         perturbation_selection.change(change_visibility("sin_distortion"), perturbation_selection, distortion_amplitude)
+        perturbation_selection.change(change_visibility("sin_distortion"), perturbation_selection, distortion_direction)
 
     benchmark_selection.change(change_visibility("Local perturbation analysis"), benchmark_selection, col)
     return {
@@ -123,6 +133,7 @@ def create_perturbation_benchmark_gui(benchmark_selection: gr.Dropdown, visible:
         gaussian_sigma,
         distortion_periods,
         distortion_amplitude,
+        distortion_direction,
     }
 
 
@@ -148,6 +159,7 @@ def get_perturbation_config(gradio_config: dict[str, Any]) -> dict[str, Any]:
             "gaussian_blur_sigma": gradio_config["blur_sigma"],
             "distortion_periods": gradio_config["distortion_periods"],
             "distortion_amplitude": gradio_config["distortion_amplitude"],
+            "distortion_direction": gradio_config["distortion_direction"],
         }
     }
 
