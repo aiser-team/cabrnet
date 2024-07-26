@@ -200,8 +200,7 @@ def execute(args: Namespace) -> None:
     # Build optimizer manager
     optimizer_mngr = OptimizerManager.build_from_config(config=training_config, model=model)
     # Dataloaders
-    dataloaders = DatasetManager.get_dataloaders(config=dataset_config)
-
+    dataloaders = DatasetManager.get_dataloaders(config=dataset_config, sampling_ratio=args.sampling_ratio)
     # By default, process all data batches and all epochs
     start_epoch = 0
     num_epochs = trainer["num_epochs"]

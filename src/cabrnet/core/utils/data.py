@@ -55,6 +55,15 @@ class DatasetManager:
             metavar="/path/to/file.yml",
             help="path to the dataset config",
         )
+        parser.add_argument(
+            "-s",
+            "--sampling-ratio",
+            type=int,
+            required=False,
+            default=1,
+            metavar="int",
+            help="sampling ratio (e.g. 5 means only one image in five is used). Default: 1",
+        )
         return parser
 
     # Common torchvision datasets use one of the following keywords to indicate data transformations.
