@@ -1,10 +1,11 @@
 from argparse import ArgumentParser
 
+from abc import ABC, abstractmethod
 import torch.nn as nn
 from cabrnet.utils.prototypes import prototype_init_modes
 
 
-class CaBRNetGenericClassifier(nn.Module):
+class CaBRNetClassifier(nn.Module, ABC):
     r"""Abstract class for CaBRNet classification based on extracted features.
 
     Attributes:
@@ -24,7 +25,7 @@ class CaBRNetGenericClassifier(nn.Module):
         num_features: int,
         proto_init_mode: str = "SHIFTED_NORMAL",
     ) -> None:
-        r"""Initializes a CaBRNetGenericClassifier.
+        r"""Initializes a CaBRNetClassifier.
 
         Args:
             num_classes (int): Number of classes.

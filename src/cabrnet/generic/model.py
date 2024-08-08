@@ -9,7 +9,7 @@ from typing import Any, Callable
 import torch
 import torch.nn as nn
 from cabrnet.generic.conv_extractor import ConvExtractor, layer_init_functions
-from cabrnet.generic.decision import CaBRNetGenericClassifier
+from cabrnet.generic.decision import CaBRNetClassifier
 from cabrnet.utils.optimizers import OptimizerManager
 from cabrnet.utils.parser import load_config
 from cabrnet.visualization.visualizer import SimilarityVisualizer
@@ -33,12 +33,17 @@ class CaBRNet(nn.Module):
     DEFAULT_MODEL_STATE: str = "model_state.pth"
     DEFAULT_PROJECTION_INFO: str = "projection_info.csv"
 
-    def __init__(self, extractor: nn.Module, classifier: CaBRNetGenericClassifier, compatibility_mode: bool = False):
+    def __init__(
+        self,
+        extractor: nn.Module,
+        classifier: CaBRNetClassifier,
+        compatibility_mode: bool = False,
+    ):
         r"""Builds a CaBRNet prototype-based model.
 
         Args:
             extractor (Module): Feature extractor.
-            classifier (CaBRNetGenericClassifier): Classification based on extracted features.
+            classifier (CaBRNetClassifier): Classification based on extracted features.
             compatibility_mode (bool, optional): Compatibility mode with legacy architectures. \
                 When enabled, batch_norm running parameters are not "properly" frozen, ie they are updated during the
                 forward-pass even if the backbone parameters should not be modified.

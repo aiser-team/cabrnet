@@ -6,7 +6,7 @@ from enum import Enum
 
 import torch
 import torch.nn as nn
-from cabrnet.generic.decision import CaBRNetGenericClassifier
+from cabrnet.generic.decision import CaBRNetClassifier
 from cabrnet.utils.prototypes import init_prototypes
 from cabrnet.utils.similarities import L2Similarities
 from cabrnet.utils.tree import BinaryNode
@@ -57,7 +57,7 @@ class ProtoTreeSimilarityScore(L2Similarities):
         return torch.exp(-distances)
 
 
-class ProtoTreeClassifier(CaBRNetGenericClassifier):
+class ProtoTreeClassifier(CaBRNetClassifier):
     r"""Classification pipeline for ProtoTree architecture.
 
     Attributes:
@@ -174,51 +174,3 @@ class ProtoTreeClassifier(CaBRNetGenericClassifier):
             prediction = torch.index_select(input=leaf_distributions, dim=0, index=leaf_idxs[..., 0])
             tree_info["decision_leaf"] = [leaf_names[int(leaf_idx.item())] for leaf_idx in leaf_idxs]
         return prediction, tree_info
-
-    @staticmethod
-    def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
-        r"""Adds arguments for creating a ProtoTreeClassifier.
-
-        Args:
-            parser (ArgumentParser, optional): Existing argument parser (if any). Default: None.
-
-        Returns:
-            Parser with arguments.
-        """
-        if parser is None:
-            parser = ArgumentParser(description="builds a ProtoTreeClassifier object.")
-        parser = CaBRNetGenericClassifier.create_parser(parser)
-        parser.add_argument(
-            "--leaves-init-mode",
-            type=str,
-            default="zeros",
-            choices=["zeros", "normal"],
-            metavar="mode",
-            help="initialisation mode for the leaves distributions.",
-        )
-        parser.add_argument("--tree-depth", type=int, default=9, metavar="num", help="depth of the decision tree.")
-        parser.add_argument(
-            "--use-log-probabilities",
-            action="store_true",
-            help="use log probabilities.",
-        )
-        return parser
-
-    @staticmethod
-    def build_from_parser(args: argparse.Namespace) -> ProtoTreeClassifier:
-        r"""Builds a classifier from the command line.
-
-        Args:
-            args (Namespace): Parsed command line.
-
-        Returns:
-            Prototree classifier.
-        """
-        return ProtoTreeClassifier(
-            num_classes=args.num_classes,
-            depth=args.tree_depth,
-            num_features=args.num_features,
-            leaves_init_mode=args.leaves_init_mode,
-            proto_init_mode=args.prototype_init_mode,
-            log_probabilities=args.use_log_probabilities,
-        )

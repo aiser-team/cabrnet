@@ -6,6 +6,7 @@ from typing import Any
 import torch
 import torch.nn as nn
 from cabrnet.utils.similarities import L2Similarities
+from cabrnet.generic.decision import CaBRNetClassifier
 from captum.attr._utils.lrp_rules import IdentityRule, PropagationRule
 from loguru import logger
 from torch import Tensor
@@ -87,7 +88,7 @@ class L2SimilaritiesLRPWrapper(L2Similarities):
         return self.autograd_func.apply(features, prototypes)  # type: ignore
 
 
-class DecisionLRPWrapper(nn.Module):
+class DecisionLRPWrapper(CaBRNetClassifier):
     r"""Replacement for the decision layer of a CaBRNet model.
 
     Attributes:
@@ -95,7 +96,7 @@ class DecisionLRPWrapper(nn.Module):
         similarity_layer: Layer used to compute similarity scores between the prototypes and the convolutional features.
     """
 
-    def __init__(self, classifier: nn.Module, stability_factor: float = 1e-12) -> None:
+    def __init__(self, classifier: CaBRNetClassifier, stability_factor: float = 1e-12) -> None:
         r"""Initializes a DecisionLRPWrapper layer.
 
         Args:

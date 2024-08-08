@@ -4,7 +4,7 @@ from argparse import ArgumentParser, Namespace
 
 import torch
 import torch.nn as nn
-from cabrnet.generic.decision import CaBRNetGenericClassifier
+from cabrnet.generic.decision import CaBRNetClassifier
 from cabrnet.utils.prototypes import init_prototypes
 from cabrnet.utils.similarities import L2Similarities
 from torch import Tensor
@@ -47,7 +47,7 @@ class ProtoPNetSimilarityScore(L2Similarities):
         return similarities
 
 
-class ProtoPNetClassifier(CaBRNetGenericClassifier):
+class ProtoPNetClassifier(CaBRNetClassifier):
     r"""Classification pipeline for ProtoPNet architecture.
 
     Attributes:
@@ -149,44 +149,3 @@ class ProtoPNetClassifier(CaBRNetGenericClassifier):
         prediction = self.last_layer(similarities)
 
         return prediction, min_distances
-
-    @staticmethod
-    def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
-        r"""Adds arguments for creating a ProtoPNetClassifier.
-
-        Args:
-            parser (ArgumentParser, optional): Existing argument parser (if any). Default: None.
-
-        Returns:
-            Parser with arguments.
-        """
-        if parser is None:
-            parser = ArgumentParser(description="builds a ProtoPNetClassifier object.")
-        parser = CaBRNetGenericClassifier.create_parser(parser)
-        parser.add_argument(
-            "--num-proto-per-class",
-            type=int,
-            default=10,
-            metavar="num",
-            help="number of prototype for each category.",
-        )
-        return parser
-
-    @staticmethod
-    def build_from_parser(args: Namespace) -> ProtoPNetClassifier:
-        r"""Builds a classifier from the command line.
-
-        Args:
-            args (Namespace): Parsed command line.
-
-        Returns:
-            ProtoPNet classifier.
-        """
-        return ProtoPNetClassifier(
-            num_classes=args.num_classes,
-            num_features=args.num_features,
-            num_proto_per_class=args.num_proto_per_class,
-            proto_init_mode=args.prototype_init_mode,
-            incorrect_class_penalty=args.incorrect_class_penalty,
-            compatibility_mode=args.compatibility_mode,
-        )

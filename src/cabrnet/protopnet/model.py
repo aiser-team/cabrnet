@@ -6,7 +6,7 @@ import graphviz
 import numpy as np
 import torch
 import torch.nn as nn
-from cabrnet.generic.decision import CaBRNetGenericClassifier
+from cabrnet.generic.decision import CaBRNetClassifier
 from cabrnet.generic.model import CaBRNet
 from cabrnet.utils.optimizers import OptimizerManager
 from cabrnet.visualization.explainer import ExplanationGraph
@@ -28,12 +28,12 @@ class ProtoPNet(CaBRNet):
         projection_config: Parameters of the projection function used during training.
     """
 
-    def __init__(self, extractor: nn.Module, classifier: CaBRNetGenericClassifier, **kwargs):
+    def __init__(self, extractor: nn.Module, classifier: CaBRNetClassifier, **kwargs):
         r"""Builds a ProtoPNet.
 
         Args:
             extractor (Module): Feature extractor.
-            classifier (CaBRNetGenericClassifier): Classification based on extracted features.
+            classifier (CaBRNetClassifier): Classification based on extracted features.
         """
         super(ProtoPNet, self).__init__(extractor, classifier, **kwargs)
 
