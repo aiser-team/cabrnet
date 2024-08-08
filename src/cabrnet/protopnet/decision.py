@@ -1,50 +1,12 @@
 from __future__ import annotations
 
-from argparse import ArgumentParser, Namespace
 
 import torch
 import torch.nn as nn
 from cabrnet.generic.decision import CaBRNetClassifier
 from cabrnet.utils.prototypes import init_prototypes
-from cabrnet.utils.similarities import L2Similarities
 from torch import Tensor
-
-
-class ProtoPNetSimilarityScore(L2Similarities):
-    r"""Class for computing similarity scores based on L2 distance in the convolutional space.
-
-    Attributes:
-        epsilon (float, optional): Small constant to avoid division by zero. Default: 1e-4.
-        protopnet_compatibility: If True, uses the order of operations of ProtoPNet to compute the L2 distance.
-    """
-    def __init__(
-        self, epsilon:float = 1e-4, **kwargs):
-        r"""Initializes a ProtoPNetSimilarityScore layer.
-        Args:
-            epsilon (float, optional): Small constant to avoid division by zero. Default: 1e-4.
-        """
-        super().__init__(**kwargs)
-        self.epsilon = epsilon
-        
-    def forward(
-        self, features: Tensor, prototypes: Tensor, output_distances: bool = False,
-    ) -> Tensor | tuple[Tensor, Tensor]:
-        r"""Computes similarity based on L2 distance using ||x - y||² = ||x||² + ||y||² - 2 x.y.
-
-        Args:
-            features (tensor): Input tensor. Shape (N, D, H, W).
-            prototypes (tensor): Tensor of prototypes. Shape (P, D, 1, 1).
-            output_distances (bool, optional): If True, also outputs raw distances. Default: False.
-
-        Returns:
-            Tensor of similarities. Shape (N, P, H, W).
-            Tensor of distances. Shape (N, P, H, W) (only if output_distances is enabled).
-        """
-        distances = torch.relu(self.L2_square_distance(features=features, prototypes=prototypes))
-        similarities = torch.log((distances + 1) / (distances + self.epsilon))
-        if output_distances:
-            return similarities, distances
-        return similarities
+from typing import Any
 
 
 class ProtoPNetClassifier(CaBRNetClassifier):
@@ -62,17 +24,19 @@ class ProtoPNetClassifier(CaBRNetClassifier):
 
     def __init__(
         self,
+        similarity_config: dict[str, Any],
         num_classes: int,
         num_features: int,
         num_proto_per_class: int,
         proto_init_mode: str = "SHIFTED_NORMAL",
         incorrect_class_penalty: float = -0.5,
         compatibility_mode: bool = False,
-        epsilon: float = 1e-4,
     ) -> None:
         r"""Initializes a ProtoPNet classifier.
 
         Args:
+            similarity_config (dict): Configuration of the layer used to compute similarity scores between the
+                prototypes and the convolutional features.
             num_classes (int): Number of classes.
             num_features (int): Number of features (size of each prototype).
             num_proto_per_class (int): Number of prototypes per class.
@@ -81,13 +45,10 @@ class ProtoPNetClassifier(CaBRNetClassifier):
                 Default: 0.5.
             compatibility_mode (bool, optional): If True, enables compatibility mode with legacy ProtoPNet.
                 Default: False.
-            epsilon (float, optional): Small constant to avoid division by zero. Default: 1e-4.
         """
         super().__init__(num_classes=num_classes, num_features=num_features, proto_init_mode=proto_init_mode)
 
-        # Sanity check on all parameters
         assert num_proto_per_class > 0, f"Invalid number of prototypes per class: {num_proto_per_class}"
-
         self.num_proto_per_class = num_proto_per_class
         self._compatibility_mode = compatibility_mode
 
@@ -99,12 +60,9 @@ class ProtoPNetClassifier(CaBRNetClassifier):
                 init_mode=proto_init_mode,
             )
         )
-        self.similarity_layer = ProtoPNetSimilarityScore(
-            epsilon=epsilon,
-            num_prototypes=self.num_prototypes,
-            num_features=self.num_features,
-            protopnet_compatibility=compatibility_mode,
-        )
+
+        # Init similarity layer
+        self.build_similarity(similarity_config)
 
         # Initialize last layer
         proto_class_map = torch.zeros(self.num_prototypes, self.num_classes)
@@ -124,7 +82,7 @@ class ProtoPNetClassifier(CaBRNetClassifier):
         """
         return not (int(torch.max(self.proto_class_map[proto_idx])) == 0)
 
-    def forward(self, features: Tensor) -> tuple[Tensor, Tensor]:
+    def forward(self, features: Tensor, **kwargs) -> tuple[Tensor, Tensor]:
         r"""Performs classification using a linear layer.
 
         Args:
@@ -134,10 +92,10 @@ class ProtoPNetClassifier(CaBRNetClassifier):
             Vector of logits. Shape (N, C).
             Tensor of min distances. Shape (N, P).
         """
-        similarities, distances = self.similarity_layer(
-            features, self.prototypes, output_distances=True
-        )  # Shape (N, P, H, W)
+        similarities = self.similarity_layer.similarities(features, self.prototypes)  # Shape (N, P, H, W)
+        distances = self.similarity_layer.distances(features, self.prototypes)  # Shape (N, P, H, W)
         if self._compatibility_mode:
+            # Reproduce legacy ProtoPNet operations
             min_distances = -torch.nn.functional.max_pool2d(
                 -distances, kernel_size=(distances.size()[2], distances.size()[3])
             )

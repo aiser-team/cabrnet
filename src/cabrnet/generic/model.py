@@ -82,19 +82,19 @@ class CaBRNet(nn.Module):
             Tensor of similarity scores.
         """
         x = self.extractor(x, **kwargs)
-        return self.classifier.similarity_layer(x, self.classifier.prototypes)
+        return self.classifier.similarities(x, **kwargs)
 
-    def l2_distances(self, x: Tensor, **kwargs) -> Tensor:
-        r"""Returns L2 distances to each prototype.
+    def distances(self, x: Tensor, **kwargs) -> Tensor:
+        r"""Returns pairwise distances between each feature vector and each prototype.
 
         Args:
             x (tensor): Input tensor.
 
         Returns:
-            Tensor of L2 distances.
+            Tensor of distances.
         """
         x = self.extractor(x, **kwargs)
-        return self.classifier.similarity_layer.L2_square_distance(x, self.classifier.prototypes)
+        return self.classifier.distances(x, **kwargs)
 
     @property
     def num_prototypes(self) -> int:
@@ -183,7 +183,7 @@ class CaBRNet(nn.Module):
         config_dict = load_config(config_file)
 
         # Sanity checks on mandatory field
-        for mandatory_field in ["extractor", "classifier"]:
+        for mandatory_field in ["extractor", "classifier", "similarity"]:
             if mandatory_field not in config_dict:
                 raise ValueError(f"Missing mandatory field {mandatory_field} in configuration")
 
@@ -224,7 +224,9 @@ class CaBRNet(nn.Module):
 
         # Load classifier module
         classifier_module = importlib.import_module(classifier_config["module"])
-        classifier = getattr(classifier_module, classifier_config["name"])(**classifier_config["params"])
+        classifier = getattr(classifier_module, classifier_config["name"])(
+            similarity_config=config_dict["similarity"], **classifier_config["params"]
+        )
 
         # Load top architecture module
         for mandatory_field in ["module", "name"]:

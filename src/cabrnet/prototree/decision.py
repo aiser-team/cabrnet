@@ -1,14 +1,11 @@
 from __future__ import annotations
 
-import argparse
-from argparse import ArgumentParser
 from enum import Enum
-
+from typing import Any
 import torch
 import torch.nn as nn
 from cabrnet.generic.decision import CaBRNetClassifier
 from cabrnet.utils.prototypes import init_prototypes
-from cabrnet.utils.similarities import L2Similarities
 from cabrnet.utils.tree import BinaryNode
 from torch import Tensor
 
@@ -19,42 +16,6 @@ class SamplingStrategy(Enum):
     DISTRIBUTED = 1  # The output is the sum of all leaf distributions, weighted by their respective probability
     SAMPLE_MAX = 2  # The output is the distribution of the leaf with the highest probability
     GREEDY = 3  # The output is computed by following the branch with the highest probability at each decision node.
-
-
-class ProtoTreeSimilarityScore(L2Similarities):
-    r"""Class for computing similarity scores based on L2 distance in the convolutional space.
-
-    Attributes:
-        protopnet_compatibility: If True, uses the order of operations of ProtoPNet to compute the L2 distance.
-        log_probabilities: If True, returns similarity scores as log of probabilities.
-    """
-
-    def __init__(self, num_prototypes: int, num_features: int, log_probabilities: bool = False) -> None:
-        r"""Creates module for computing similarities based on L2 distance.
-
-        Args:
-            num_prototypes (int): Number of prototypes.
-            num_features (int): Size of each prototype.
-            log_probabilities (bool, optional): If True, returns values as log of probabilities. Default: False.
-
-        """
-        super().__init__(num_prototypes=num_prototypes, num_features=num_features)
-        self.log_probabilities = log_probabilities
-
-    def forward(self, features: Tensor, prototypes: Tensor) -> Tensor:
-        r"""Computes similarity based on L2 distance using ||x - y||² = ||x||² + ||y||² - 2 x.y.
-
-        Args:
-            features (tensor): Input tensor. Shape (N, D, H, W).
-            prototypes (tensor): Tensor of prototypes. Shape (P, D, 1, 1).
-
-        Returns:
-            Tensor of similarities. Shape (N, P, H, W).
-        """
-        distances = torch.sqrt(torch.abs(self.L2_square_distance(features=features, prototypes=prototypes)) + 1e-14)
-        if self.log_probabilities:
-            return -distances
-        return torch.exp(-distances)
 
 
 class ProtoTreeClassifier(CaBRNetClassifier):
@@ -74,6 +35,7 @@ class ProtoTreeClassifier(CaBRNetClassifier):
 
     def __init__(
         self,
+        similarity_config: dict[str, Any],
         num_classes: int,
         depth: int,
         num_features: int,
@@ -84,6 +46,8 @@ class ProtoTreeClassifier(CaBRNetClassifier):
         r"""Initializes a ProtoTree classifier.
 
         Args:
+            similarity_config (dict): Configuration of the layer used to compute similarity scores between the
+                prototypes and the convolutional features.
             num_classes (int): Number of classes.
             depth (int): Depth of the binary decision tree.
             num_features (int): Number of features (size of each prototype).
@@ -93,7 +57,7 @@ class ProtoTreeClassifier(CaBRNetClassifier):
         """
         super().__init__(num_classes=num_classes, num_features=num_features, proto_init_mode=proto_init_mode)
 
-        # Sanity check on all parameters
+        # Sanity check
         assert depth > 0, f"Invalid tree depth: {depth}"
 
         self.depth = depth
@@ -112,14 +76,16 @@ class ProtoTreeClassifier(CaBRNetClassifier):
             init_prototypes(num_prototypes=num_prototypes, num_features=self.num_features, init_mode=proto_init_mode)
         )
         self._active_prototypes = self.tree.active_prototypes
-        self.similarity_layer = ProtoTreeSimilarityScore(
-            num_prototypes=num_prototypes, num_features=self.num_features, log_probabilities=log_probabilities
-        )
+
         if log_probabilities:
             self.register_buffer("_root_prob", torch.zeros(1))
         else:
             self.register_buffer("_root_prob", torch.ones(1))
         self.register_buffer("_root_greedy_path", torch.Tensor([True]))
+
+        # Init similarity layer
+        similarity_config["log_probabilities"] = log_probabilities
+        self.build_similarity(similarity_config)
 
     def prototype_is_active(self, proto_idx: int) -> bool:
         r"""Is the prototype *proto_idx* active or disabled?
@@ -130,7 +96,7 @@ class ProtoTreeClassifier(CaBRNetClassifier):
         return proto_idx in self._active_prototypes
 
     def forward(
-        self, features: Tensor, strategy: SamplingStrategy = SamplingStrategy.DISTRIBUTED
+        self, features: Tensor, strategy: SamplingStrategy = SamplingStrategy.DISTRIBUTED, **kwargs
     ) -> tuple[Tensor, dict] | None:
         r"""Performs classification using a decision tree.
 

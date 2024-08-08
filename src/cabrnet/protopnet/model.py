@@ -125,9 +125,10 @@ class ProtoPNet(CaBRNet):
                 )
                 # Update shape of all other relevant tensors
                 self.classifier.proto_class_map = torch.zeros(self.num_prototypes, self.classifier.num_classes)
-                self.classifier.similarity_layer.register_buffer(
-                    "_summation_kernel", torch.ones((self.num_prototypes, self.classifier.num_features, 1, 1))
-                )
+                if hasattr(self.classifier.similarity_layer, "_summation_kernel"):
+                    self.classifier.similarity_layer.register_buffer(
+                        "_summation_kernel", torch.ones((self.num_prototypes, self.classifier.num_features, 1, 1))
+                    )
                 pruned_last_layer = nn.Linear(
                     in_features=self.num_prototypes, out_features=self.classifier.num_classes, bias=False
                 )
@@ -506,7 +507,7 @@ class ProtoPNet(CaBRNet):
         with torch.no_grad():
             for xs, ys in data_iter:
                 xs = xs.to(device)
-                distances = self.l2_distances(xs)
+                distances = self.distances(xs)
                 min_dist, _ = torch.min(distances.view(distances.shape[:2] + (-1,)), dim=2)
 
                 for img_idx, (_, y) in enumerate(zip(xs, ys)):
@@ -642,7 +643,7 @@ class ProtoPNet(CaBRNet):
                 xs = xs.to(device)
                 feats = self.extractor(xs)  # Shape N x D x H x W
                 _, W = feats.shape[2], feats.shape[3]
-                distances = self.classifier.similarity_layer.L2_square_distance(
+                distances = self.classifier.similarity_layer.distances(
                     feats, self.classifier.prototypes
                 )  # Shape (N, P, H, W)
                 min_dist, min_dist_idxs = torch.min(distances.view(distances.shape[:2] + (-1,)), dim=2)
