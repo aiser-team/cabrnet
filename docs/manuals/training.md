@@ -81,6 +81,33 @@ periods:
 When no period matches the current epoch index, all optimizers are used for each training epoch and 
 no parameter groups are frozen. It is also true in the particular case when no period is specified.
 
+As an alternative to `epoch_range`, it is possible to define the number of epochs *per period* using the
+`num_epochs` keyword inside the period definition. In this case, periods are treated one after another (no overlap is possible), *e.g.*
+
+```yaml
+num_epochs: 10
+periods:
+  warmup:
+    epoch_range: [0, 3]
+    optimizers: warmup_optimizer
+  main_training:
+    epoch_range: [4, 9]
+    optimizers: main_optimizer
+```
+can be written as:
+```yaml
+num_epochs: 10
+periods:
+  warmup:
+    num_epochs: 4
+    optimizers: warmup_optimizer
+  main_training:
+    num_epochs: 6 # Optional for the last period
+    optimizers: main_optimizer
+```
+Note that the `num_epochs` field is optional for the last period (in this case, it is replaced by the remaining number
+of epochs, as given in the global `num_epochs` field).
+
 ## Configuring the epilogue
 Specific architectures such as ProtoPNet or ProtoTree can end the training process with an additional step, 
 called the epilogue, in which operations such as prototype pruning are performed. The configuration of this step

@@ -183,15 +183,31 @@ class OptimizerManager:
                 }
             }
         else:
+            current_epoch = 0
             for epoch_name in self.config["periods"]:
                 epoch_config = self.config["periods"][epoch_name]
-                if epoch_config.get("epoch_range") is None or epoch_config.get("optimizers") is None:
-                    raise ValueError(f"Missing parameters for training period {epoch_name}")
+                if current_epoch > 0 and epoch_config.get("epoch_range") is not None:
+                    raise ValueError(
+                        f"Incompatible formats for period boundaries. Use either epoch_num or epoch_range."
+                    )
+                if epoch_config.get("epoch_range") is None and epoch_config.get("num_epochs") is None:
+                    # Default epoch range
+                    epoch_config["epoch_range"] = [current_epoch, num_epochs - 1]
+                if epoch_config.get("optimizers") is None:
+                    raise ValueError(f"Missing optimizer for training period {epoch_name}")
                 self.periods[epoch_name] = epoch_config
                 if isinstance(self.periods[epoch_name]["optimizers"], str):
                     self.periods[epoch_name]["optimizers"] = [self.periods[epoch_name]["optimizers"]]
                 if isinstance(self.periods[epoch_name].get("freeze"), str):
                     self.periods[epoch_name]["freeze"] = [self.periods[epoch_name]["freeze"]]
+
+                # Convert num_epochs to epoch_range
+                if epoch_config.get("num_epochs") is not None:
+                    self.periods[epoch_name]["epoch_range"] = [
+                        current_epoch,
+                        current_epoch + epoch_config["num_epochs"] - 1,
+                    ]
+                    current_epoch += epoch_config["num_epochs"]
 
                 # Sanity checks
                 epoch_range = self.periods[epoch_name]["epoch_range"]
