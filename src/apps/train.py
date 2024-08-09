@@ -187,7 +187,7 @@ def execute(args: Namespace) -> None:
     sanity_check_only = args.sanity_check
     resume_dir = args.resume_from
 
-    model: CaBRNet = CaBRNet.build_from_config(config_file=model_config, seed=args.seed)
+    model: CaBRNet = CaBRNet.build_from_config(config=model_config, seed=args.seed)
 
     # Training configuration
     trainer = load_config(training_config)
@@ -195,9 +195,9 @@ def execute(args: Namespace) -> None:
     root_dir = args.output_dir
 
     # Build optimizer manager
-    optimizer_mngr = OptimizerManager.build_from_config(config_file=training_config, model=model)
+    optimizer_mngr = OptimizerManager.build_from_config(config=training_config, model=model)
     # Dataloaders
-    dataloaders = DatasetManager.get_dataloaders(config_file=dataset_config)
+    dataloaders = DatasetManager.get_dataloaders(config=dataset_config)
 
     # By default, process all data batches and all epochs
     max_batches = None

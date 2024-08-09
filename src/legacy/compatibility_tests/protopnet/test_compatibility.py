@@ -195,7 +195,7 @@ class TestProtoPNetCompatibility(unittest.TestCase):
     def test_dataloaders(self):
         # CaBRNet
         setup_rng(self.seed)
-        dataloaders = DatasetManager.get_dataloaders(config_file=self.dataset_config_file)
+        dataloaders = DatasetManager.get_dataloaders(config=self.dataset_config_file)
         xc_train, yc_train = next(iter(dataloaders["train_set"]))
         xc_test, yc_test = next(iter(dataloaders["test_set"]))
 
@@ -240,7 +240,7 @@ class TestProtoPNetCompatibility(unittest.TestCase):
         training_config = load_config(self.training_config_file)
         cabrnet_model.register_training_params(training_config)
         optimizer_mngr = OptimizerManager.build_from_config(self.training_config_file, cabrnet_model)
-        dataloaders = DatasetManager.get_dataloaders(config_file=self.dataset_config_file)
+        dataloaders = DatasetManager.get_dataloaders(config=self.dataset_config_file)
         num_epochs = training_config["num_epochs"]
         for epoch in tqdm(range(num_epochs), desc="Training CaBRNet model", disable=not self.verbose):
             optimizer_mngr.freeze(epoch=epoch)
@@ -343,7 +343,7 @@ class TestProtoPNetCompatibility(unittest.TestCase):
         # CaBRNet
         setup_rng(self.seed)
         cabrnet_model = CaBRNet.build_from_config(self.model_config_file, seed=self.seed, compatibility_mode=True)
-        dataloaders = DatasetManager.get_dataloaders(config_file=self.dataset_config_file)
+        dataloaders = DatasetManager.get_dataloaders(config=self.dataset_config_file)
         cabrnet_model.project(
             dataloader=dataloaders["projection_set"],
             device=self.device,
@@ -380,7 +380,7 @@ class TestProtoPNetCompatibility(unittest.TestCase):
         cabrnet_model.load_state_dict(torch.load(self.legacy_state_dict, map_location="cpu"))
 
         # Get batch of images
-        dataloaders = DatasetManager.get_dataloaders(config_file=self.dataset_config_file)
+        dataloaders = DatasetManager.get_dataloaders(config=self.dataset_config_file)
         xs, ys = next(iter(dataloaders["train_set"]))
 
         # Compare outputs and loss values
@@ -400,7 +400,7 @@ class TestProtoPNetCompatibility(unittest.TestCase):
         setup_rng(self.seed)
         cabrnet_model = CaBRNet.build_from_config(self.model_config_file, seed=self.seed, compatibility_mode=True)
         cabrnet_model.load_state_dict(torch.load(self.legacy_state_dict, map_location=self.device))
-        dataloaders = DatasetManager.get_dataloaders(config_file=self.dataset_config_file)
+        dataloaders = DatasetManager.get_dataloaders(config=self.dataset_config_file)
         training_config = load_config(self.training_config_file)
         cabrnet_model.prune(
             dataloader=dataloaders["projection_set"],

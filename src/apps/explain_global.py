@@ -107,13 +107,13 @@ def execute(args: Namespace) -> None:
     args = check_args(args)
 
     # Build model and load state dictionary
-    model: CaBRNet = CaBRNet.build_from_config(config_file=args.model_config, state_dict_path=args.model_state_dict)
+    model: CaBRNet = CaBRNet.build_from_config(config=args.model_config, state_dict_path=args.model_state_dict)
 
     # Init visualizer
     visualizer = SimilarityVisualizer.build_from_config(config=args.visualization, model=model)
 
     # Build prototypes
-    dataloaders = DatasetManager.get_dataloaders(config_file=args.dataset)
+    dataloaders = DatasetManager.get_dataloaders(config=args.dataset)
     projection_info = load_projection_info(args.projection_info)
     model.extract_prototypes(
         dataloader_raw=dataloaders["projection_set_raw"],

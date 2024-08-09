@@ -60,17 +60,23 @@ class OptimizerManager:
         self._set_periods()
 
     @staticmethod
-    def build_from_config(config_file: str, model: nn.Module) -> OptimizerManager:
+    def build_from_config(config: str | dict[str, Any], model: nn.Module) -> OptimizerManager:
         r"""Builds an OptimizerManager object from a YML file.
 
         Args:
-            config_file (str): Path to configuration file.
+            config (str | dict): Path to configuration file, or configuration dictionary.
             model (Module): Target module.
 
         Returns:
             OptimizerManager.
         """
-        return OptimizerManager(config_dict=load_config(config_file), module=model)
+        if not isinstance(config, (str, dict)):
+            raise ValueError(f"Unsupported configuration format: {type(config)}")
+        if isinstance(config, str):
+            config_dict = load_config(config)
+        else:
+            config_dict = config
+        return OptimizerManager(config_dict=config_dict, module=model)
 
     def _set_param_groups(self, module: nn.Module) -> None:
         r"""Builds the groups of parameters from the configuration dictionary.

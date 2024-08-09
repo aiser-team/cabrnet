@@ -393,7 +393,7 @@ def execute(
 
     if debug_mode and not os.path.isdir(prototype_dir):
         # Get dataloaders and projection info, then build prototypes
-        dataloaders = DatasetManager.get_dataloaders(config_file=dataset_config)
+        dataloaders = DatasetManager.get_dataloaders(config=dataset_config)
         projection_info = load_projection_info(projection_file)
         visualizer = SimilarityVisualizer.build_from_config(config=visualization_config, model=model)
 

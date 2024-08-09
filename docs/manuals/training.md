@@ -127,7 +127,7 @@ from cabrnet.utils.optimizers import OptimizerManager
 from cabrnet.utils.parser import load_config
 from cabrnet.generic.model import CaBRNet
 
-model = CaBRNet.build_from_config(config_file="<path/to/model/configuration/file.yml") 
+model = CaBRNet.build_from_config(config="<path/to/model/configuration/file.yml") 
 training_config = load_config(config_file="<path/to/training/configuration/file.yml>")
 optimizer_mngr=OptimizerManager(config_dict=training_config,module=model)
 ```

@@ -132,13 +132,13 @@ def execute(args: Namespace) -> None:
     args = check_args(args)
 
     # Build model and load state dictionary
-    model: CaBRNet = CaBRNet.build_from_config(config_file=args.model_config, state_dict_path=args.model_state_dict)
+    model: CaBRNet = CaBRNet.build_from_config(config=args.model_config, state_dict_path=args.model_state_dict)
 
     # Init visualizer
     visualizer = SimilarityVisualizer.build_from_config(config=args.visualization, model=model)
 
     # Recover preprocessing function
-    preprocess = DatasetManager.get_dataset_transform(config_file=args.dataset, dataset="test_set")
+    preprocess = DatasetManager.get_dataset_transform(config=args.dataset, dataset="test_set")
 
     # Dedicated directory for target image
     output_dir = os.path.join(args.output_dir, Path(args.image).stem)

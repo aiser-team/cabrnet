@@ -60,7 +60,7 @@ class CaBRNetAnalysisGUI:
             try:
                 # Load the model
                 self.model = CaBRNet.build_from_config(
-                    config_file=os.path.join(checkpoint_path, CaBRNet.DEFAULT_MODEL_CONFIG),
+                    config=os.path.join(checkpoint_path, CaBRNet.DEFAULT_MODEL_CONFIG),
                     state_dict_path=os.path.join(checkpoint_path, CaBRNet.DEFAULT_MODEL_STATE),
                 )
                 self.model.eval()
@@ -68,7 +68,7 @@ class CaBRNetAnalysisGUI:
 
                 # Load the datasets
                 self.dataloaders = DatasetManager.get_dataloaders(
-                    config_file=os.path.join(checkpoint_path, DatasetManager.DEFAULT_DATASET_CONFIG),
+                    config=os.path.join(checkpoint_path, DatasetManager.DEFAULT_DATASET_CONFIG),
                     load_segmentation=True,
                 )
 

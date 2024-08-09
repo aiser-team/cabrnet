@@ -79,7 +79,7 @@ def execute(args: Namespace) -> None:
     model.eval()
 
     # Dataloaders
-    dataloaders = DatasetManager.get_dataloaders(config_file=args.dataset)
+    dataloaders = DatasetManager.get_dataloaders(config=args.dataset)
     model.to(args.device)
 
     stats = model.evaluate(

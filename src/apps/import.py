@@ -105,7 +105,7 @@ def execute(args: Namespace) -> None:
     dataloaders = DatasetManager.get_dataloaders(dataset_config)
 
     # Build optimizer manager
-    optimizer_mngr = OptimizerManager.build_from_config(config_file=training_config, model=model)
+    optimizer_mngr = OptimizerManager.build_from_config(config=training_config, model=model)
 
     # Call epilogue
     trainer = load_config(training_config)
