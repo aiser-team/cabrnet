@@ -49,13 +49,22 @@ file_list = [
         "file": "cabrnet_prototree_stanfordcars_resnet50_depth9.zip",
     },
     {
-        "identifier": "cabrnet_prototree_cub200_resnet50",
+        "identifier": "cabrnet_prototree_cub200_resnet50_depth9",
         "description": "ProtoTree models trained using CaBRNet on CUB200 "
-                       "(with ResNet50 backbone pretrained on INaturalist)",
+                       "(with ResNet50 backbone pretrained on INaturalist and depth 9)",
         "type": "zenodo",
-        "record": "12652504",
+        "record": "13305449",
         "dir": "trained_models",
         "file": "prototree_cub200_resnet50_depth9.zip",
+    },
+    {
+        "identifier": "cabrnet_prototree_cub200_resnet50_depth10",
+        "description": "ProtoTree models trained using CaBRNet on CUB200 "
+                       "(with ResNet50 backbone pretrained on INaturalist and depth 10)",
+        "type": "zenodo",
+        "record": "13305449",
+        "dir": "trained_models",
+        "file": "prototree_cub200_resnet50_depth10.zip",
     },
 ]
 
