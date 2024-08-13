@@ -1,14 +1,14 @@
 import os
 from argparse import ArgumentParser, Namespace
-from pathlib import Path
 
 from cabrnet.generic.model import CaBRNet
 from cabrnet.utils.data import DatasetManager
 from cabrnet.utils.exceptions import ArgumentError
 from cabrnet.utils.optimizers import OptimizerManager
 from cabrnet.utils.parser import load_config
-from cabrnet.utils.monitoring import metrics_to_str
-from cabrnet.utils.save import load_checkpoint, save_checkpoint
+from cabrnet.utils.train import training_loop
+from cabrnet.utils.save import load_checkpoint
+from cabrnet.utils.system_info import get_parent_directory
 from loguru import logger
 from tqdm import tqdm
 
@@ -41,6 +41,15 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         help="save best model based on chosen metric and mode (min or max)",
     )
     parser.add_argument(
+        "-p",
+        "--patience",
+        type=int,
+        required=False,
+        default=-1,
+        metavar="num_epochs",
+        help="stop training if no better model was found during the last X epochs",
+    )
+    parser.add_argument(
         "-o",
         "--output-dir",
         type=str,
@@ -56,7 +65,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         required=False,
         metavar="/path/to/config/dir",
         help="path to directory containing all configuration files to start training "
-        "(alternative to --model-config, --dataset and --training)",
+        "(alternative to --model-arch, --dataset and --training)",
     )
     x_group.add_argument(
         "-r",
@@ -90,18 +99,6 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         help="skip training and go to epilogue.",
     )
     return parser
-
-
-def get_parent_directory(dir_path: str):
-    r"""Returns the parent directory of *dir_path*.
-
-    Args:
-        dir_path (str): Path to directory.
-
-    Returns:
-        Absolute path to parent directory.
-    """
-    return Path(dir_path).parent.absolute()
 
 
 def check_args(args: Namespace) -> Namespace:
@@ -205,7 +202,6 @@ def execute(args: Namespace) -> None:
     dataloaders = DatasetManager.get_dataloaders(config=dataset_config)
 
     # By default, process all data batches and all epochs
-    max_batches = None
     start_epoch = 0
     num_epochs = trainer["num_epochs"]
     metric = args.save_best[0]
@@ -231,7 +227,6 @@ def execute(args: Namespace) -> None:
         epoch_select = []
     elif sanity_check_only:
         logger.warning(f"{'='*20} SANITY CHECK MODE: THE TRAINING WILL NOT BE FULLY PERFORMED {'='*20}")
-        max_batches = 5  # Process only a few batches
         # Only perform one epoch per training period
         epoch_select = [optimizer_mngr.periods[p_name]["epoch_range"][0] for p_name in optimizer_mngr.periods]
         epoch_select = (
@@ -240,103 +235,32 @@ def execute(args: Namespace) -> None:
             else [start_epoch]
         )
 
-    for epoch in tqdm(
-        epoch_select,
-        initial=start_epoch,
-        total=num_epochs,
-        leave=False,
-        desc="Training epochs",
-        disable=not verbose,
-    ):
-        # Freeze parameters if necessary depending on current epoch and parameter group
-        optimizer_mngr.freeze(epoch=epoch)
-        train_info = model.train_epoch(
-            dataloaders=dataloaders,
-            optimizer_mngr=optimizer_mngr,
-            device=device,
-            tqdm_position=1,
-            epoch_idx=epoch,
-            max_batches=max_batches,
-            verbose=verbose,
-        )
-        # Apply scheduler
-        optimizer_mngr.scheduler_step(epoch=epoch)
-
-        save_best_checkpoint = False
-        if train_info.get(metric) is None:
-            raise ValueError(f"Unknown training metric '{metric}'. Candidates are {list(train_info.keys())}")
-        if (maximize and best_metric < train_info[metric]) or (not maximize and best_metric > train_info[metric]):
-            best_metric = train_info[metric]
-            save_best_checkpoint = True
-
-        # Add information regarding current best metric
-        train_info[f"best_{metric}"] = best_metric
-        logger.info(f"Metrics at epoch {epoch}: {metrics_to_str(train_info)}")
-        if save_best_checkpoint:
-            logger.success(f"Better model found at epoch {epoch}. Saving checkpoint.")
-            save_checkpoint(
-                directory_path=os.path.join(root_dir, "best"),
-                model=model,
-                model_arch=model_arch,
-                optimizer_mngr=optimizer_mngr,
-                training_config=training_config,
-                dataset_config=dataset_config,
-                projection_info=None,
-                epoch=epoch,
-                seed=seed,
-                device=device,
-                stats=train_info,
-            )
-        if args.checkpoint_frequency is not None and (epoch % args.checkpoint_frequency == 0):
-            save_checkpoint(
-                directory_path=os.path.join(root_dir, f"epoch_{epoch}"),
-                model=model,
-                model_arch=model_arch,
-                optimizer_mngr=optimizer_mngr,
-                training_config=training_config,
-                dataset_config=dataset_config,
-                projection_info=None,
-                epoch=epoch,
-                seed=seed,
-                device=device,
-                stats=train_info,
-            )
-
-    if not epilogue_only:
-        # Seek best model (in epilogue mode, keep the existing model state)
-        if os.path.isdir(os.path.join(root_dir, "best")):
-            path_to_best = os.path.join(root_dir, "best")
-        elif resume_dir is not None and os.path.isdir(os.path.join(get_parent_directory(resume_dir), "best")):
-            # Best checkpoint occurred before training was resumed
-            path_to_best = os.path.join(get_parent_directory(resume_dir), "best")
-        else:
-            raise FileNotFoundError("Could not find path to best model. Aborting epilogue.")
-        logger.info(f"Loading best model from checkpoint {path_to_best}")
-        load_checkpoint(directory_path=path_to_best, model=model, optimizer_mngr=optimizer_mngr)
-
-    # Call epilogue
-    projection_info = model.epilogue(
+    training_loop(
+        working_dir=root_dir,
+        model=model,
+        epoch_range=tqdm(
+            epoch_select,
+            initial=start_epoch,
+            total=num_epochs,
+            leave=False,
+            desc="Training epochs",
+            disable=not verbose,
+        ),
         dataloaders=dataloaders,
         optimizer_mngr=optimizer_mngr,
-        output_dir=root_dir,
-        device=device,
-        verbose=verbose,
-        **trainer.get("epilogue", {}),
-    )
-
-    # Evaluate model
-    eval_info = model.evaluate(dataloader=dataloaders["test_set"], device=device, verbose=verbose)
-    logger.info(f"Metrics on test set: {metrics_to_str(eval_info)}")
-    save_checkpoint(
-        directory_path=os.path.join(root_dir, "final"),
-        model=model,
+        metric=metric,
+        maximize=maximize,
+        best_metric=best_metric,
+        num_epochs=num_epochs,
+        patience=args.patience,
+        save_final=True,
+        checkpoint_frequency=args.checkpoint_frequency,
         model_arch=model_arch,
-        optimizer_mngr=None,
         training_config=training_config,
         dataset_config=dataset_config,
-        projection_info=projection_info,
-        epoch=num_epochs,
+        resume_dir=resume_dir,
         seed=seed,
         device=device,
-        stats=eval_info,
+        verbose=verbose,
+        sanity_check=sanity_check_only,
     )

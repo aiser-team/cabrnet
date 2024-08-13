@@ -9,7 +9,7 @@ from cabrnet.utils.data import DatasetManager
 from cabrnet.utils.exceptions import ArgumentError
 from cabrnet.utils.optimizers import OptimizerManager
 from cabrnet.utils.parser import load_config
-from cabrnet.utils.save import load_checkpoint, save_checkpoint
+from apps.train import training_loop
 from ray import train, tune
 from ray.tune.search.optuna import OptunaSearch
 from loguru import logger
@@ -37,10 +37,29 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         "-b",
         "--save-best",
         type=str,
+        required=False,
+        nargs=2,
+        default=["avg_accuracy", "max"],
+        metavar=("metric", "min/max"),
+        help="during training, save best model based on chosen metric and mode (min or max)",
+    )
+    parser.add_argument(
+        "-s",
+        "--search-space",
+        type=str,
         nargs=4,
         required=True,
-        metavar=("metric", "min/max", "path/to/search_space.yml", "num_steps"),
-        help="save best hyperparameters based on chosen metric",
+        metavar=("metric", "min/max", "path/to/search_space.yml", "num_trials"),
+        help="optimize hyperparameters based on chosen metric",
+    )
+    parser.add_argument(
+        "-p",
+        "--patience",
+        type=int,
+        required=False,
+        default=-1,
+        metavar="num_epochs",
+        help="stop training if not better model was found during the last X epochs",
     )
     parser.add_argument(
         "-o",
@@ -89,6 +108,11 @@ def check_args(args: Namespace) -> Namespace:
     Returns:
         Modified argument namespace.
     """
+    # Check environment variable
+    assert (
+        os.environ.get("RAY_CHDIR_TO_TRIAL_DIR") == "0"
+    ), "Environment variable RAY_CHDIR_TO_TRIAL_DIR should be set to 0"
+
     if args.config_dir is not None:
         for param, name in zip(
             [args.model_arch, args.dataset, args.training], ["--model-arch", "--dataset", "--training"]
@@ -113,9 +137,11 @@ def check_args(args: Namespace) -> Namespace:
         if param is None:
             raise ArgumentError(f"Missing {name} configuration file (option {option}).")
 
-    # Check save-best option
+    # Check optimization mode
     if args.save_best[1] not in ["min", "max"]:
-        raise ArgumentError(f"Unknown optimization directive: {args.save_best[1]}")
+        raise ArgumentError(f"Invalid optimization mode '{args.save_best[1]}' in --save-best")
+    if args.search_space[1] not in ["min", "max"]:
+        raise ArgumentError(f"Invalid optimization mode '{args.search_space[1]}' in --search-space")
 
     if os.path.exists(args.output_dir) and args.resume_from is None and not args.overwrite:
         raise ArgumentError(
@@ -167,8 +193,11 @@ def execute(args: Namespace) -> None:
     sanity_check_only = args.sanity_check
     seed = args.seed
 
-    save_min = args.save_best[1] == "min"
-    metric = args.save_best[0]
+    # Recover metrics
+    train_metric = args.save_best[0]
+    train_maximize = args.save_best[1] == "max"
+    hp_metric = args.search_space[0]
+    hp_mode = args.search_space[1]
 
     # Load initial configuration
     training_config = load_config(training_config_file)
@@ -206,54 +235,26 @@ def execute(args: Namespace) -> None:
         )
 
         num_epochs = training_config["num_epochs"]
-        best_metric = float("inf") if save_min else 0.0
 
-        for epoch in range(0, num_epochs):
-            # Freeze parameters if necessary depending on current epoch and parameter group
-            optimizer_mngr.freeze(epoch=epoch)
-            train_info = model.train_epoch(
-                dataloaders=dataloaders,
-                optimizer_mngr=optimizer_mngr,
-                device=device,
-                epoch_idx=epoch,
-            )
-            # Apply scheduler
-            optimizer_mngr.scheduler_step(epoch=epoch)
-
-            save_best_checkpoint = False
-            if (save_min and best_metric > train_info[metric]) or (not save_min and best_metric < train_info[metric]):
-                best_metric = train_info[metric]
-                save_best_checkpoint = True
-
-            # Add information regarding current best metric
-            train_info[f"best_avg_train_{metric}"] = best_metric
-            if save_best_checkpoint:
-                save_checkpoint(
-                    directory_path=os.path.join(root_dir, "best"),
-                    model=model,
-                    model_arch=model_arch_file,
-                    optimizer_mngr=optimizer_mngr,
-                    training_config=training_config_file,
-                    dataset_config=dataset_config_file,
-                    projection_info=None,
-                    epoch=epoch,
-                    seed=seed,
-                    device=device,
-                    stats=train_info,
-                )
-
-        # Load best model and call epilogue
-        load_checkpoint(directory_path=os.path.join(root_dir, "best"), model=model, optimizer_mngr=optimizer_mngr)
-        model.epilogue(
+        eval_info = training_loop(
+            working_dir=root_dir,
+            model=model,
+            epoch_range=range(0, num_epochs),
             dataloaders=dataloaders,
             optimizer_mngr=optimizer_mngr,
-            output_dir=root_dir,
+            metric=train_metric,
+            maximize=train_maximize,
+            best_metric=(0.0 if train_maximize else float("inf")),
+            num_epochs=num_epochs,
+            patience=args.patience,
+            save_final=False,
+            model_arch=model_arch,
+            training_config=training_config,
+            dataset_config=dataset_config,
+            seed=seed,
             device=device,
-            **training_config.get("epilogue", {}),
+            logger_level="INFO",
         )
-
-        # Evaluate model
-        eval_info = model.evaluate(dataloader=dataloaders["test_set"], device=device)
         train.report(eval_info)
 
     def tune_search_space(config: dict):
@@ -268,11 +269,10 @@ def execute(args: Namespace) -> None:
         return config
 
     # Load search space
-    search_space = tune_search_space(load_config(args.save_best[2]))
+    search_space = tune_search_space(load_config(args.search_space[2]))
 
     search_alg = OptunaSearch()
-    mode = args.save_best[1]
-    num_steps = int(args.save_best[3])
+    num_trials = int(args.search_space[3])
 
     # Set-up hardware resources
     trainable_with_resources = tune.with_resources(evaluate_configuration, {"gpu": 1})
@@ -291,10 +291,10 @@ def execute(args: Namespace) -> None:
         tuner = tune.Tuner(
             trainable=trainable_with_resources,
             tune_config=tune.TuneConfig(
-                metric=metric,
-                mode=mode,
+                metric=hp_metric,
+                mode=hp_mode,
                 search_alg=search_alg,
-                num_samples=num_steps,
+                num_samples=num_trials,
             ),
             run_config=train.RunConfig(storage_path=root_dir, name="test_experiment"),
             param_space=search_space,

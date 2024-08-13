@@ -79,7 +79,7 @@ def save_checkpoint(
             with open(os.path.join(directory_path, OptimizerManager.DEFAULT_TRAINING_CONFIG), "w") as fout:
                 # Save dictionary to file
                 yaml.dump(training_config, fout, sort_keys=False)
-    
+
     if isinstance(dataset_config, str):
         safe_copy(src=dataset_config, dst=os.path.join(directory_path, DatasetManager.DEFAULT_DATASET_CONFIG))
     else:
