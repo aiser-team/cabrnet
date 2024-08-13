@@ -183,9 +183,23 @@ class CaBRNet(nn.Module):
         config_dict = load_config(config_file)
 
         # Sanity checks on mandatory field
-        for mandatory_field in ["extractor", "classifier", "similarity"]:
+        for mandatory_field in ["extractor", "classifier"]:
             if mandatory_field not in config_dict:
                 raise ValueError(f"Missing mandatory field {mandatory_field} in configuration")
+
+        # Backward compatibility
+        if config_dict.get("similarity") is None:
+            logger.warning(
+                "Missing explicit similarity function in model configuration, falling back to legacy function."
+            )
+            if config_dict["classifier"]["name"] == "ProtoPNetClassifier":
+                config_dict["similarity"] = {"name": "LegacyProtoPNetSimilarity"}
+            elif config_dict["classifier"]["name"] == "ProtoTreeClassifier":
+                config_dict["similarity"] = {"name": "LegacyProtoTreeSimilarity"}
+            else:
+                raise ValueError(
+                    f"Unknown default similarity function for classifier {config_dict['classifier']['name']}"
+                )
 
         add_on_init_mode = None
         if compatibility_mode:
