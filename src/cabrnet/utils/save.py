@@ -10,6 +10,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 import torch
+import yaml
 from cabrnet.generic.model import CaBRNet
 from cabrnet.utils.data import DatasetManager
 from cabrnet.utils.optimizers import OptimizerManager
@@ -33,10 +34,10 @@ def safe_copy(src: str, dst: str) -> None:
 def save_checkpoint(
     directory_path: str,
     model: CaBRNet,
-    model_config: str,
+    model_config: str | dict[str, Any],
     optimizer_mngr: OptimizerManager | None,
-    training_config: str | None,
-    dataset_config: str,
+    training_config: str | dict[str, Any] | None,
+    dataset_config: str | dict[str, Any],
     projection_info: dict[int, dict[str, int | float]] | None,
     epoch: int | str,
     seed: int | None,
@@ -48,10 +49,10 @@ def save_checkpoint(
     Args:
         directory_path (str): Target location.
         model (Module): CaBRNet model.
-        model_config (str): Path to the model configuration file.
+        model_config (str): Path to the model configuration file, or configuration dictionary.
         optimizer_mngr (OptimizerManager): Optimizer manager.
-        training_config (str): Path to the training configuration file.
-        dataset_config (str): Path to the dataset configuration file.
+        training_config (str): Path to the training configuration file, or configuration dictionary.
+        dataset_config (str): Path to the dataset configuration file, or configuration dictionary.
         projection_info (dictionary, optional): Projection dictionary, generated during training epilogue.
         epoch (int or str): Current epoch.
         seed (int): Initial random seed (recorded for reproducibility).
@@ -65,10 +66,26 @@ def save_checkpoint(
     torch.save(model.state_dict(), os.path.join(directory_path, CaBRNet.DEFAULT_MODEL_STATE))
     if optimizer_mngr is not None:
         torch.save(optimizer_mngr.state_dict(), os.path.join(directory_path, OptimizerManager.DEFAULT_TRAINING_STATE))
-    safe_copy(src=model_config, dst=os.path.join(directory_path, CaBRNet.DEFAULT_MODEL_CONFIG))
+    if isinstance(model_config, str):
+        safe_copy(src=model_config, dst=os.path.join(directory_path, CaBRNet.DEFAULT_MODEL_CONFIG))
+    else:
+        with open(os.path.join(directory_path, CaBRNet.DEFAULT_MODEL_CONFIG), "w") as fout:
+            # Save dictionary to file
+            yaml.dump(model_config, fout, sort_keys=False)
     if training_config is not None:
-        safe_copy(src=training_config, dst=os.path.join(directory_path, OptimizerManager.DEFAULT_TRAINING_CONFIG))
-    safe_copy(src=dataset_config, dst=os.path.join(directory_path, DatasetManager.DEFAULT_DATASET_CONFIG))
+        if isinstance(training_config, str):
+            safe_copy(src=training_config, dst=os.path.join(directory_path, OptimizerManager.DEFAULT_TRAINING_CONFIG))
+        else:
+            with open(os.path.join(directory_path, OptimizerManager.DEFAULT_TRAINING_CONFIG), "w") as fout:
+                # Save dictionary to file
+                yaml.dump(training_config, fout, sort_keys=False)
+    
+    if isinstance(dataset_config, str):
+        safe_copy(src=dataset_config, dst=os.path.join(directory_path, DatasetManager.DEFAULT_DATASET_CONFIG))
+    else:
+        with open(os.path.join(directory_path, DatasetManager.DEFAULT_DATASET_CONFIG), "w") as fout:
+            # Save dictionary to file
+            yaml.dump(dataset_config, fout, sort_keys=False)
 
     state = {
         "random_generators": {

@@ -1,6 +1,7 @@
 """This file holds all the necessary functions to create datasets and dataloaders from configuration files."""
 
 import argparse
+import copy
 import importlib
 from typing import Any, Callable
 
@@ -131,7 +132,7 @@ class DatasetManager:
                 if key not in dconfig:
                     raise ValueError(f"Missing dataset {key} information")
 
-            params = dconfig["params"]
+            params = copy.copy(dconfig["params"])
             for field in params:
                 if field in DatasetManager.TRANSFORM_FIELDS:
                     # Replace configuration with actual transformation function
