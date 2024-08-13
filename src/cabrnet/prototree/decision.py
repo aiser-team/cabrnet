@@ -1,14 +1,11 @@
 from __future__ import annotations
 
-import argparse
-from argparse import ArgumentParser
 from enum import Enum
-
+from typing import Any
 import torch
 import torch.nn as nn
-from cabrnet.generic.decision import CaBRNetGenericClassifier
+from cabrnet.generic.decision import CaBRNetClassifier
 from cabrnet.utils.prototypes import init_prototypes
-from cabrnet.utils.similarities import L2Similarities
 from cabrnet.utils.tree import BinaryNode
 from torch import Tensor
 
@@ -21,43 +18,7 @@ class SamplingStrategy(Enum):
     GREEDY = 3  # The output is computed by following the branch with the highest probability at each decision node.
 
 
-class ProtoTreeSimilarityScore(L2Similarities):
-    r"""Class for computing similarity scores based on L2 distance in the convolutional space.
-
-    Attributes:
-        protopnet_compatibility: If True, uses the order of operations of ProtoPNet to compute the L2 distance.
-        log_probabilities: If True, returns similarity scores as log of probabilities.
-    """
-
-    def __init__(self, num_prototypes: int, num_features: int, log_probabilities: bool = False) -> None:
-        r"""Creates module for computing similarities based on L2 distance.
-
-        Args:
-            num_prototypes (int): Number of prototypes.
-            num_features (int): Size of each prototype.
-            log_probabilities (bool, optional): If True, returns values as log of probabilities. Default: False.
-
-        """
-        super().__init__(num_prototypes=num_prototypes, num_features=num_features)
-        self.log_probabilities = log_probabilities
-
-    def forward(self, features: Tensor, prototypes: Tensor) -> Tensor:
-        r"""Computes similarity based on L2 distance using ||x - y||² = ||x||² + ||y||² - 2 x.y.
-
-        Args:
-            features (tensor): Input tensor. Shape (N, D, H, W).
-            prototypes (tensor): Tensor of prototypes. Shape (P, D, 1, 1).
-
-        Returns:
-            Tensor of similarities. Shape (N, P, H, W).
-        """
-        distances = torch.sqrt(torch.abs(self.L2_square_distance(features=features, prototypes=prototypes)) + 1e-14)
-        if self.log_probabilities:
-            return -distances
-        return torch.exp(-distances)
-
-
-class ProtoTreeClassifier(CaBRNetGenericClassifier):
+class ProtoTreeClassifier(CaBRNetClassifier):
     r"""Classification pipeline for ProtoTree architecture.
 
     Attributes:
@@ -74,6 +35,7 @@ class ProtoTreeClassifier(CaBRNetGenericClassifier):
 
     def __init__(
         self,
+        similarity_config: dict[str, Any],
         num_classes: int,
         depth: int,
         num_features: int,
@@ -84,6 +46,8 @@ class ProtoTreeClassifier(CaBRNetGenericClassifier):
         r"""Initializes a ProtoTree classifier.
 
         Args:
+            similarity_config (dict): Configuration of the layer used to compute similarity scores between the
+                prototypes and the convolutional features.
             num_classes (int): Number of classes.
             depth (int): Depth of the binary decision tree.
             num_features (int): Number of features (size of each prototype).
@@ -93,7 +57,7 @@ class ProtoTreeClassifier(CaBRNetGenericClassifier):
         """
         super().__init__(num_classes=num_classes, num_features=num_features, proto_init_mode=proto_init_mode)
 
-        # Sanity check on all parameters
+        # Sanity check
         assert depth > 0, f"Invalid tree depth: {depth}"
 
         self.depth = depth
@@ -112,14 +76,16 @@ class ProtoTreeClassifier(CaBRNetGenericClassifier):
             init_prototypes(num_prototypes=num_prototypes, num_features=self.num_features, init_mode=proto_init_mode)
         )
         self._active_prototypes = self.tree.active_prototypes
-        self.similarity_layer = ProtoTreeSimilarityScore(
-            num_prototypes=num_prototypes, num_features=self.num_features, log_probabilities=log_probabilities
-        )
+
         if log_probabilities:
             self.register_buffer("_root_prob", torch.zeros(1))
         else:
             self.register_buffer("_root_prob", torch.ones(1))
         self.register_buffer("_root_greedy_path", torch.Tensor([True]))
+
+        # Init similarity layer
+        similarity_config["log_probabilities"] = log_probabilities
+        self.build_similarity(similarity_config)
 
     def prototype_is_active(self, proto_idx: int) -> bool:
         r"""Is the prototype *proto_idx* active or disabled?
@@ -130,7 +96,7 @@ class ProtoTreeClassifier(CaBRNetGenericClassifier):
         return proto_idx in self._active_prototypes
 
     def forward(
-        self, features: Tensor, strategy: SamplingStrategy = SamplingStrategy.DISTRIBUTED
+        self, features: Tensor, strategy: SamplingStrategy = SamplingStrategy.DISTRIBUTED, **kwargs
     ) -> tuple[Tensor, dict] | None:
         r"""Performs classification using a decision tree.
 
@@ -174,51 +140,3 @@ class ProtoTreeClassifier(CaBRNetGenericClassifier):
             prediction = torch.index_select(input=leaf_distributions, dim=0, index=leaf_idxs[..., 0])
             tree_info["decision_leaf"] = [leaf_names[int(leaf_idx.item())] for leaf_idx in leaf_idxs]
         return prediction, tree_info
-
-    @staticmethod
-    def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
-        r"""Adds arguments for creating a ProtoTreeClassifier.
-
-        Args:
-            parser (ArgumentParser, optional): Existing argument parser (if any). Default: None.
-
-        Returns:
-            Parser with arguments.
-        """
-        if parser is None:
-            parser = ArgumentParser(description="builds a ProtoTreeClassifier object.")
-        parser = CaBRNetGenericClassifier.create_parser(parser)
-        parser.add_argument(
-            "--leaves-init-mode",
-            type=str,
-            default="zeros",
-            choices=["zeros", "normal"],
-            metavar="mode",
-            help="initialisation mode for the leaves distributions.",
-        )
-        parser.add_argument("--tree-depth", type=int, default=9, metavar="num", help="depth of the decision tree.")
-        parser.add_argument(
-            "--use-log-probabilities",
-            action="store_true",
-            help="use log probabilities.",
-        )
-        return parser
-
-    @staticmethod
-    def build_from_parser(args: argparse.Namespace) -> ProtoTreeClassifier:
-        r"""Builds a classifier from the command line.
-
-        Args:
-            args (Namespace): Parsed command line.
-
-        Returns:
-            Prototree classifier.
-        """
-        return ProtoTreeClassifier(
-            num_classes=args.num_classes,
-            depth=args.tree_depth,
-            num_features=args.num_features,
-            leaves_init_mode=args.leaves_init_mode,
-            proto_init_mode=args.prototype_init_mode,
-            log_probabilities=args.use_log_probabilities,
-        )

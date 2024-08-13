@@ -7,7 +7,7 @@ import graphviz
 import torch
 import torch.nn as nn
 import torch.nn.functional
-from cabrnet.generic.decision import CaBRNetGenericClassifier
+from cabrnet.generic.decision import CaBRNetClassifier
 from cabrnet.generic.model import CaBRNet
 from cabrnet.prototree.decision import ProtoTreeClassifier, SamplingStrategy
 from cabrnet.utils.optimizers import OptimizerManager
@@ -29,12 +29,12 @@ class ProtoTree(CaBRNet):
         classifier: Model used to compute the classification, based on similarity scores with a set of prototypes.
     """
 
-    def __init__(self, extractor: nn.Module, classifier: CaBRNetGenericClassifier, **kwargs):
+    def __init__(self, extractor: nn.Module, classifier: CaBRNetClassifier, **kwargs):
         r"""Initializes a ProtoTree.
 
         Args:
             extractor (Module): Feature extractor.
-            classifier (CaBRNetGenericClassifier): Classification based on extracted features.
+            classifier (CaBRNetClassifier): Classification based on extracted features.
         """
         super(ProtoTree, self).__init__(extractor, classifier, **kwargs)
 

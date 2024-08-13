@@ -26,6 +26,9 @@ extractor: # How to build the feature extractor
     act2:
       type: Sigmoid
 
+similarity:
+  name: LegacyProtoPNetSimilarity
+
 classifier:
   module: cabrnet.protopnet.decision
   name: ProtoPNetClassifier

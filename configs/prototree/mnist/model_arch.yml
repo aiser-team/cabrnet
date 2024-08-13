@@ -18,6 +18,9 @@ extractor:
     sigmoid1:
       type: Sigmoid
 
+similarity:
+  name: LegacyProtoTreeSimilarity
+
 classifier:
   module: cabrnet.prototree.decision
   name: ProtoTreeClassifier

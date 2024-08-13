@@ -5,7 +5,8 @@ from typing import Any
 
 import torch
 import torch.nn as nn
-from cabrnet.utils.similarities import L2Similarities
+from cabrnet.generic.decision import CaBRNetClassifier
+from cabrnet.utils.similarities import ProtoPNetSimilarity
 from captum.attr._utils.lrp_rules import IdentityRule, PropagationRule
 from loguru import logger
 from torch import Tensor
@@ -13,25 +14,26 @@ from torch.fx import symbolic_trace
 from torch.nn import functional as F
 
 
-class L2SimilaritiesLRPWrapper(L2Similarities):
-    r"""Replacement for the L2 similarity layer.
+class SimilarityLRPWrapper(ProtoPNetSimilarity):
+    r"""Replacement layer for ProtoPNetSimilarity used when applying LayerWise Relevance Propagation (LRP).
 
     Attributes:
-        stability_factor: Epsilon value used for numerical stability.
+        stability_factor: Stability factor.
+        lrp_stability_factor: Epsilon value used for numerical stability in LRP propagation rule.
         rule: LRP propagation rule.
         autograd_func: Internal autograd function.
     """
 
-    def __init__(self, num_prototypes: int, num_features: int, stability_factor: float = 1e-12) -> None:
-        r"""Initializes a L2SimilaritiesLRPWrapper layer.
+    def __init__(self, stability_factor: float = 1e-4, lrp_stability_factor: float = 1e-12) -> None:
+        r"""Initializes a SimilarityLRPWrapper layer.
 
         Args:
-            num_prototypes (int): Number of prototypes.
-            num_features (int): Size of each prototype.
-            stability_factor (float, optional): Epsilon value used for numerical stability. Default: 1e-12.
+            stability_factor (float, optional): Stability factor. Default: 1e-4.
+            lrp_stability_factor (float, optional): Epsilon value used for numerical stability in LRP propagation rule.
+                Default: 1e-12.
         """
-        super().__init__(num_prototypes=num_prototypes, num_features=num_features)
-        self.stability_factor = stability_factor
+        super().__init__(stability_factor)
+        self.lrp_stability_factor = lrp_stability_factor
         self.rule = GradientRule()
         self.autograd_func = self._autograd_func()
 
@@ -45,15 +47,8 @@ class L2SimilaritiesLRPWrapper(L2Similarities):
         class SimilarityAutoGradFunc(torch.autograd.Function):
             @staticmethod
             def forward(ctx: Any, features: Tensor, prototypes: Tensor) -> Tensor:
-                # Compute raw L2 distances
-                distances = self.L2_square_distance(features=features, prototypes=prototypes)
-                # Use ReLU to filter out negative values coming from approximations
-                distances = F.relu(distances)
-                # Converts to similarity scores following ProtoPNet method
-                # i.e. sim = log( (distance+1)/(distance + epsilon))
-                similarities = torch.log((distances + 1) / (distances + 1e-4))
                 ctx.save_for_backward(features, prototypes)
-                return similarities
+                return self.similarities(features=features, prototypes=prototypes)
 
             @staticmethod
             def backward(ctx, grad_output):  # type: ignore
@@ -62,8 +57,8 @@ class L2SimilaritiesLRPWrapper(L2Similarities):
                 # the result shape is (N x P x C x H x W)
                 tiled_prototypes = torch.unsqueeze(prototypes, dim=0)  # Shape 1 x P x C x 1 x 1
                 tiled_features = torch.unsqueeze(features, dim=1)  # Shape N x 1 x C x H x W
-                gamma_mc = 1 / ((tiled_features - tiled_prototypes) ** 2 + self.stability_factor)
-                sum_gamma = torch.sum(gamma_mc, dim=2, keepdim=True) + self.stability_factor
+                gamma_mc = 1 / ((tiled_features - tiled_prototypes) ** 2 + self.lrp_stability_factor)
+                sum_gamma = torch.sum(gamma_mc, dim=2, keepdim=True) + self.lrp_stability_factor
                 contributions = gamma_mc / sum_gamma  # sum_gamma is broadcast to (N x P x C x H x W)
 
                 # Tile gradients from N x P x H x W to N x P x 1 x H x W
@@ -74,7 +69,7 @@ class L2SimilaritiesLRPWrapper(L2Similarities):
 
         return SimilarityAutoGradFunc()
 
-    def forward(self, features: Tensor, prototypes: Tensor) -> Tensor:
+    def forward(self, features: Tensor, prototypes: Tensor, **kwargs) -> Tensor:
         r"""Applies the autograd function.
 
         Args:
@@ -87,7 +82,7 @@ class L2SimilaritiesLRPWrapper(L2Similarities):
         return self.autograd_func.apply(features, prototypes)  # type: ignore
 
 
-class DecisionLRPWrapper(nn.Module):
+class DecisionLRPWrapper(CaBRNetClassifier):
     r"""Replacement for the decision layer of a CaBRNet model.
 
     Attributes:
@@ -95,37 +90,31 @@ class DecisionLRPWrapper(nn.Module):
         similarity_layer: Layer used to compute similarity scores between the prototypes and the convolutional features.
     """
 
-    def __init__(self, classifier: nn.Module, stability_factor: float = 1e-12) -> None:
+    def __init__(self, classifier: CaBRNetClassifier, stability_factor: float = 1e-12) -> None:
         r"""Initializes a DecisionLRPWrapper layer.
 
         Args:
             classifier (Module): Source decision layer.
             stability_factor (float, optional): Epsilon value used for numerical stability. Default: 1e-12.
         """
-        super().__init__()
-        for attr in ["prototypes", "num_prototypes", "num_features"]:
-            if not hasattr(classifier, attr):
-                raise ValueError(
-                    f"Invalid source module when building {self.__class__.__name__}: " f"Missing attribute {attr}"
-                )
-        self.prototypes = copy.deepcopy(classifier.prototypes)
-        self.similarity_layer = L2SimilaritiesLRPWrapper(
-            # Do not use classifier.num_prototypes as it might have changed after pruning
-            num_prototypes=classifier.num_prototypes,
+        super().__init__(
+            num_classes=classifier.num_classes,
             num_features=classifier.num_features,
-            stability_factor=stability_factor,
+            proto_init_mode=classifier.prototypes_init_mode,
         )
+        self.prototypes = copy.deepcopy(classifier.prototypes)
+        self.similarity_layer = SimilarityLRPWrapper(lrp_stability_factor=stability_factor)
 
-    def forward(self, x: Tensor) -> Tensor:
+    def forward(self, features: Tensor, **kwargs) -> Tensor:
         r"""Computes a similarity score based on preset prototypes.
 
         Args:
-            x (tensor): Input tensor.
+            features (tensor): Input tensor.
 
         Returns:
             Tensor of similarity scores.
         """
-        return self.similarity_layer(x, self.prototypes)
+        return self.similarity_layer(features, self.prototypes)
 
 
 class GradientRule(PropagationRule):
@@ -778,7 +767,7 @@ def attach_lrp_comp_rules(module: nn.Module, module_path: str = "") -> None:
         torch.nn.BatchNorm2d: IdentityRule,
         torch.nn.Sigmoid: IdentityRule,
         StackedSum: GradientRule,
-        L2SimilaritiesLRPWrapper: GradientRule,
+        SimilarityLRPWrapper: GradientRule,
         ZBetaLayer: GradientRule,
         Alpha1Beta0Layer: GradientRule,
     }

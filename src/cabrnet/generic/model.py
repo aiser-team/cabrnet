@@ -9,7 +9,7 @@ from typing import Any, Callable
 import torch
 import torch.nn as nn
 from cabrnet.generic.conv_extractor import ConvExtractor, layer_init_functions
-from cabrnet.generic.decision import CaBRNetGenericClassifier
+from cabrnet.generic.decision import CaBRNetClassifier
 from cabrnet.utils.optimizers import OptimizerManager
 from cabrnet.utils.parser import load_config
 from cabrnet.visualization.visualizer import SimilarityVisualizer
@@ -33,12 +33,17 @@ class CaBRNet(nn.Module):
     DEFAULT_MODEL_STATE: str = "model_state.pth"
     DEFAULT_PROJECTION_INFO: str = "projection_info.csv"
 
-    def __init__(self, extractor: nn.Module, classifier: CaBRNetGenericClassifier, compatibility_mode: bool = False):
+    def __init__(
+        self,
+        extractor: nn.Module,
+        classifier: CaBRNetClassifier,
+        compatibility_mode: bool = False,
+    ):
         r"""Builds a CaBRNet prototype-based model.
 
         Args:
             extractor (Module): Feature extractor.
-            classifier (CaBRNetGenericClassifier): Classification based on extracted features.
+            classifier (CaBRNetClassifier): Classification based on extracted features.
             compatibility_mode (bool, optional): Compatibility mode with legacy architectures. \
                 When enabled, batch_norm running parameters are not "properly" frozen, ie they are updated during the
                 forward-pass even if the backbone parameters should not be modified.
@@ -77,19 +82,19 @@ class CaBRNet(nn.Module):
             Tensor of similarity scores.
         """
         x = self.extractor(x, **kwargs)
-        return self.classifier.similarity_layer(x, self.classifier.prototypes)
+        return self.classifier.similarities(x, **kwargs)
 
-    def l2_distances(self, x: Tensor, **kwargs) -> Tensor:
-        r"""Returns L2 distances to each prototype.
+    def distances(self, x: Tensor, **kwargs) -> Tensor:
+        r"""Returns pairwise distances between each feature vector and each prototype.
 
         Args:
             x (tensor): Input tensor.
 
         Returns:
-            Tensor of L2 distances.
+            Tensor of distances.
         """
         x = self.extractor(x, **kwargs)
-        return self.classifier.similarity_layer.L2_square_distance(x, self.classifier.prototypes)
+        return self.classifier.distances(x, **kwargs)
 
     @property
     def num_prototypes(self) -> int:
@@ -182,6 +187,20 @@ class CaBRNet(nn.Module):
             if mandatory_field not in config_dict:
                 raise ValueError(f"Missing mandatory field {mandatory_field} in configuration")
 
+        # Backward compatibility
+        if config_dict.get("similarity") is None:
+            logger.warning(
+                "Missing explicit similarity function in model configuration, falling back to legacy function."
+            )
+            if config_dict["classifier"]["name"] == "ProtoPNetClassifier":
+                config_dict["similarity"] = {"name": "LegacyProtoPNetSimilarity"}
+            elif config_dict["classifier"]["name"] == "ProtoTreeClassifier":
+                config_dict["similarity"] = {"name": "LegacyProtoTreeSimilarity"}
+            else:
+                raise ValueError(
+                    f"Unknown default similarity function for classifier {config_dict['classifier']['name']}"
+                )
+
         add_on_init_mode = None
         if compatibility_mode:
             logger.warning("Compatibility mode: postponing add-on layer initialisation")
@@ -219,7 +238,9 @@ class CaBRNet(nn.Module):
 
         # Load classifier module
         classifier_module = importlib.import_module(classifier_config["module"])
-        classifier = getattr(classifier_module, classifier_config["name"])(**classifier_config["params"])
+        classifier = getattr(classifier_module, classifier_config["name"])(
+            similarity_config=config_dict["similarity"], **classifier_config["params"]
+        )
 
         # Load top architecture module
         for mandatory_field in ["module", "name"]:
