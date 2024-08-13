@@ -22,6 +22,11 @@ def create_parser() -> ArgumentParser:
         action="store_true",
         help="ignore warnings related to usage of imperative (improves readability)",
     )
+    parser.add_argument(
+        "--quiet",
+        action="store_true",
+        help="do not show success messages (improves readability)",
+    )
     return parser
 
 
@@ -246,12 +251,13 @@ def parse_ast(ast_module: Any, filename: str, ignore_imperative_warnings: bool) 
     return complies
 
 
-def check_docstrings(dir_path: str, ignore_imperative_warnings: bool) -> None:
+def check_docstrings(dir_path: str, ignore_imperative_warnings: bool, quiet: bool) -> None:
     r"""Checks the docstring format of all python files inside the directory *dir_path*.
 
     Args:
         dir_path (str): Path to a source directory.
         ignore_imperative_warnings (bool): If True, does not display warnings related to usage of imperative.
+        quiet (bool): If True, does not display success messages.
 
     Raises:
         DocStringFormatError when DocString format does not comply with policy.
@@ -267,7 +273,7 @@ def check_docstrings(dir_path: str, ignore_imperative_warnings: bool) -> None:
                 ignore_imperative_warnings=ignore_imperative_warnings,
             ):
                 logger.error(f"Errors found in {filepath}")
-            else:
+            elif not quiet:
                 logger.success(f"File {filepath} complies with docstring policy")
 
 
@@ -275,7 +281,7 @@ def main():
     r"""Checks the docstring format of all files inside a given directory."""
     parser = create_parser()
     args = parser.parse_args()
-    check_docstrings(dir_path=args.dir, ignore_imperative_warnings=args.ignore_imperative_warnings)
+    check_docstrings(dir_path=args.dir, ignore_imperative_warnings=args.ignore_imperative_warnings, quiet=args.quiet)
 
 
 if __name__ == "__main__":
