@@ -44,11 +44,11 @@ standard error output).
 ## Training 
 `cabrnet train` is used to train a prototype-based model.
 
-- `--model-config </path/to/file.yml>` indicates how to [build and initialize the model](model.md).
+- `--model-config|-m </path/to/file.yml>` indicates how to [build and initialize the model](model.md).
 - `--dataset|-d </path/to/file.yml>` indicates how to [load and prepare the data for training](data.md).
 - `--training|-t </path/to/file.yml>` indicates the [training parameters of the model](training.md).
-- `--save-best <acc|loss>` indicates how to determine the "best" model, based either on accuracy (`acc`) or `loss`.
-- `--output-dir <path/to/output/directory>` indicates where to store the model checkpoints during training.
+- `--save-best|-b <metric> <min/max>` indicates how to determine the "best" model.
+- `--output-dir|-o <path/to/output/directory>` indicates where to store the model checkpoints during training.
 
 Note: If all configuration files are located in the same directory, it is possible to start the training using the 
 `--config-dir <dir>` option, that is effectively equivalent to:
@@ -67,9 +67,9 @@ For a quick sanity check of a particular architecture or overall training config
 ### Resuming computations
 CaBRNet provides options to save training checkpoints and resuming the training process from a given checkpoint.
 
-- `--checkpoint-frequency <num_epochs>` indicates the frequency of checkpoints (in number of epochs). 
+- `--checkpoint-frequency|-f <num_epochs>` indicates the frequency of checkpoints (in number of epochs). 
 If not provided, **only the best model is kept during training** (in the `best/` subdirectory)
-- `--resume-from </path/to/checkpoint/directory>` indicates the directory from which the training process should resume
+- `--resume-from|-r </path/to/checkpoint/directory>` indicates the directory from which the training process should resume
 (if not provided, the training process starts from the first epoch, see above). 
 More precisely, each training checkpoint directory contains:
     - a copy of the YML file describing the model architecture, as specified [here](model.md).

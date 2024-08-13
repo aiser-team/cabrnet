@@ -35,17 +35,17 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         "--save-best",
         type=str,
         required=False,
-        choices=["acc", "loss"],
-        default="acc",
-        metavar="metric",
-        help="save best model based on accuracy or loss",
+        nargs=2,
+        default=["avg_accuracy", "max"],
+        metavar=("metric", "min/max"),
+        help="save best model based on chosen metric and mode (min or max)",
     )
     parser.add_argument(
         "-o",
         "--output-dir",
         type=str,
         required=False,
-        metavar="path/to/output/directory",
+        metavar="/path/to/output/directory",
         help="path to output directory",
     )
     x_group = parser.add_mutually_exclusive_group(required=False)
@@ -66,6 +66,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         help="path to existing checkpoint directory to resume training",
     )
     parser.add_argument(
+        "-f",
         "--checkpoint-frequency",
         type=int,
         required=False,
@@ -137,6 +138,10 @@ def check_args(args: Namespace) -> Namespace:
         if param is None:
             raise ArgumentError(f"Missing {name} configuration file (option {option}).")
 
+    # Check optimization mode
+    if args.save_best[1] not in ["min", "max"]:
+        raise ArgumentError(f"Invalid optimization mode '{args.save_best[1]}' in --save-best")
+
     # In resume mode, specifying the output directory is optional
     if args.output_dir is None and args.resume_from is not None:
         args.output_dir = get_parent_directory(args.resume_from)
@@ -203,7 +208,9 @@ def execute(args: Namespace) -> None:
     max_batches = None
     start_epoch = 0
     num_epochs = trainer["num_epochs"]
-    best_metric = 0.0 if args.save_best == "acc" else float("inf")
+    metric = args.save_best[0]
+    maximize = args.save_best[1] == "max"
+    best_metric = 0.0 if maximize else float("inf")
     seed = args.seed
 
     if resume_dir is not None:
@@ -212,9 +219,9 @@ def execute(args: Namespace) -> None:
         start_epoch = state["epoch"] + 1
         seed = state["seed"]
         train_info = state["stats"]
-        best_metric = train_info.get(f"best_avg_train_{args.save_best}")
+        best_metric = train_info.get(f"best_{metric}")
         if best_metric is None:
-            raise ArgumentError(f"Could not recover best model {args.save_best}: invalid --save-best option?")
+            raise ArgumentError(f"Could not recover best model using metric {metric}: invalid --save-best option?")
         # Remap optimizer to device if necessary
         optimizer_mngr.to(device)
 
@@ -256,14 +263,14 @@ def execute(args: Namespace) -> None:
         optimizer_mngr.scheduler_step(epoch=epoch)
 
         save_best_checkpoint = False
-        if args.save_best == "acc" and best_metric < train_info["avg_train_accuracy"]:
-            best_metric = train_info["avg_train_accuracy"]
+        if train_info.get(metric) is None:
+            raise ValueError(f"Unknown training metric '{metric}'. Candidates are {list(train_info.keys())}")
+        if (maximize and best_metric < train_info[metric]) or (not maximize and best_metric > train_info[metric]):
+            best_metric = train_info[metric]
             save_best_checkpoint = True
-        elif args.save_best == "loss" and best_metric > train_info["avg_loss"]:
-            best_metric = train_info["avg_loss"]
-            save_best_checkpoint = True
+
         # Add information regarding current best metric
-        train_info[f"best_avg_train_{args.save_best}"] = best_metric
+        train_info[f"best_{metric}"] = best_metric
         logger.info(f"Metrics at epoch {epoch}: {metrics_to_str(train_info)}")
         if save_best_checkpoint:
             logger.success(f"Better model found at epoch {epoch}. Saving checkpoint.")
@@ -319,7 +326,7 @@ def execute(args: Namespace) -> None:
 
     # Evaluate model
     eval_info = model.evaluate(dataloader=dataloaders["test_set"], device=device, verbose=verbose)
-    logger.info(f"Average loss: {eval_info['avg_loss']:.2f}. Average accuracy: {eval_info['avg_accuracy']:.2f}.")
+    logger.info(f"Metrics on test set: {metrics_to_str(eval_info)}")
     save_checkpoint(
         directory_path=os.path.join(root_dir, "final"),
         model=model,
