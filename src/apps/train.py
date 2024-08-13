@@ -142,7 +142,7 @@ def check_args(args: Namespace) -> Namespace:
         args.output_dir = get_parent_directory(args.resume_from)
         logger.warning(f"Using {args.output_dir} as default output directory based on checkpoint path")
     if args.output_dir is None:
-        ArgumentError("Missing path to output directory (option --output-dir)")
+        raise ArgumentError("Missing path to output directory (option --output-dir)")
 
     # In full training mode (all epochs), or when the output directory is different from the checkpoint parent directory
     # (resume mode), check that the best model directory is available
