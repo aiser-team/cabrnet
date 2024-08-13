@@ -44,7 +44,7 @@ standard error output).
 ## Training 
 `cabrnet train` is used to train a prototype-based model.
 
-- `--model-config|-m </path/to/file.yml>` indicates how to [build and initialize the model](model.md).
+- `--model-arch|-m </path/to/file.yml>` indicates how to [build and initialize the model](model.md).
 - `--dataset|-d </path/to/file.yml>` indicates how to [load and prepare the data for training](data.md).
 - `--training|-t </path/to/file.yml>` indicates the [training parameters of the model](training.md).
 - `--save-best|-b <metric> <min/max>` indicates how to determine the "best" model.
@@ -53,7 +53,7 @@ standard error output).
 Note: If all configuration files are located in the same directory, it is possible to start the training using the 
 `--config-dir <dir>` option, that is effectively equivalent to:
 
-- `--model-config <dir>/model_arch.yml`
+- `--model-arch <dir>/model_arch.yml`
 - `--dataset <dir>/dataset.yml`
 - `--training <dir>/training.yml`
 
@@ -142,7 +142,7 @@ Currently, this tool only supports ProtoPNet and ProtoTree.
 
 Here is a short description of the options. As in `cabrnet train`:
 
-- `--model-config </path/to/file.yml>` indicates how to [build the model](model.md). 
+- `--model-arch </path/to/file.yml>` indicates how to [build the model](model.md). 
 - `--model-state-dict </path/to/model/state.pth>` indicates the location of the legacy state dictionary that should be used 
 to initialize the model.
 - `--output-dir <path/to/output/directory>` indicates where to store the imported model.
@@ -156,7 +156,7 @@ Therefore, the `cabrnet import` tool also requires the following information:
 
 Similar to the option in `cabrnet train`, the `--config-dir <dir>` option is equivalent to:
 
-- `--model-config <dir>/model_arch.yml`
+- `--model-arch <dir>/model_arch.yml`
 - `--dataset <dir>/dataset.yml`
 - `--training <dir>/training.yml`
 
@@ -164,14 +164,14 @@ Similar to the option in `cabrnet train`, the `--config-dir <dir>` option is equ
 After training, it is possible to evaluate the loss and accuracy of a model using the `cabrnet evaluate` tool. 
 To evaluate a model, the tool uses the following options:
 
-- `--model-config </path/to/file.yml>` indicates how to [build the model](model.md).
+- `--model-arch </path/to/file.yml>` indicates how to [build the model](model.md).
 - `--model-state-dict </path/to/model/state.pth>` indicates
 the location of a CaBRNet or legacy state dictionary that should be used to initialize the model.
 - `--dataset|-d </path/to/file.yml>` indicates how to [load and prepare the test data for the evaluation](data.md).
 
 To compute dedicated metrics for case-based reasoning models, the `cabrnet benchmark` tool uses the following options:
 
-- `--model-config </path/to/file.yml>` indicates how to [build the model](model.md).
+- `--model-arch </path/to/file.yml>` indicates how to [build the model](model.md).
 - `--model-state-dict </path/to/model/state.pth>` indicates
 the location of a CaBRNet or legacy state dictionary that should be used to initialize the model.
 - `--dataset|-d </path/to/file.yml>` indicates how to [load and prepare the test data for the evaluation](data.md).
@@ -181,7 +181,7 @@ the location of a CaBRNet or legacy state dictionary that should be used to init
 
 Similar to the `--config-dir` option in `cabrnet train`, the `--checkpoint-dir <dir>` option is equivalent to:
 
-- `--model-config <dir>/model_arch.yml`
+- `--model-arch <dir>/model_arch.yml`
 - `--model-state-dict <dir>/model_state.pth`
 - `--dataset <dir>/dataset.yml`
 
@@ -196,7 +196,7 @@ A global explanation is generated using the `explain_global` application (see th
 [MNIST example](mnist.md)). To generate such an explanation, 
 the tool uses the following options:
 
-- `--model-config </path/to/file.yml>` and `--model-state-dict </path/to/model/state.pth>` indicate how to 
+- `--model-arch </path/to/file.yml>` and `--model-state-dict </path/to/model/state.pth>` indicate how to 
 [build and initialize the model](model.md).
 - `--dataset|-d </path/to/file.yml>` indicates how to [load and prepare the projection data](data.md) before extracting 
 the prototype visualizations.
@@ -206,7 +206,7 @@ the prototype visualizations.
 
 Similar to `cabrnet evaluate`, the `--checkpoint-dir <dir>` option is equivalent to:
 
-- `--model-config <dir>/model_arch.yml`
+- `--model-arch <dir>/model_arch.yml`
 - `--model-state-dict <dir>/model_state.pth`
 - `--dataset <dir>/dataset.yml`
 - `--projection-info <dir>/projection_info.csv`
@@ -217,7 +217,7 @@ A local explanation is generated using the `explain_local` application (see the
 visualizations** using the `cabrnet explain_global` [application](#global-explanations).
 To generate such an explanation, the tool uses the following options:
 
-- `--model-config </path/to/file.yml>` and `--model-state-dict </path/to/model/state.pth>` indicate how to 
+- `--model-arch </path/to/file.yml>` and `--model-state-dict </path/to/model/state.pth>` indicate how to 
 [build and initialize the model](model.md).
 - `--image <path/to/image>` indicates which image should be classified by the model. 
 - `--dataset|-d </path/to/file.yml>` indicates how to [prepare the image](data.md) before it is processed by the model,
@@ -230,7 +230,7 @@ the [global explanation](#global-explanations) are stored (usually in `<explanat
 
 As in `cabrnet evaluate`, the `--checkpoint-dir <dir>` option is equivalent to:
 
-- `--model-config <dir>/model_arch.yml`
+- `--model-arch <dir>/model_arch.yml`
 - `--model-state-dict <dir>/model_state.pth`
 - `--dataset <dir>/dataset.yml`
 

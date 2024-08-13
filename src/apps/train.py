@@ -116,14 +116,14 @@ def check_args(args: Namespace) -> Namespace:
     for dir_path, option_name in zip([args.resume_from, args.config_dir], ["--resume-from", "--config-dir"]):
         if dir_path is not None:
             for param, name in zip(
-                [args.model_config, args.dataset, args.training], ["--model-config", "--dataset", "--training"]
+                [args.model_arch, args.dataset, args.training], ["--model-arch", "--dataset", "--training"]
             ):
                 if param is not None:
                     raise ArgumentError(f"Cannot specify both options {name} and {option_name}")
-            args.model_config = os.path.join(dir_path, CaBRNet.DEFAULT_MODEL_CONFIG)
+            args.model_arch = os.path.join(dir_path, CaBRNet.DEFAULT_MODEL_CONFIG)
             # Compatibility with v0.1: will be removed in the future
-            if not os.path.isfile(args.model_config) and os.path.isfile(os.path.join(dir_path, "model.yml")):
-                args.model_config = os.path.join(dir_path, "model.yml")
+            if not os.path.isfile(args.model_arch) and os.path.isfile(os.path.join(dir_path, "model.yml")):
+                args.model_arch = os.path.join(dir_path, "model.yml")
                 logger.warning(
                     f"Using model.yml from {dir_path}: "
                     f"please consider renaming the file to {CaBRNet.DEFAULT_MODEL_CONFIG} to ensure compatibility "
@@ -133,7 +133,7 @@ def check_args(args: Namespace) -> Namespace:
             args.training = os.path.join(dir_path, OptimizerManager.DEFAULT_TRAINING_CONFIG)
 
     for param, name, option in zip(
-        [args.model_config, args.dataset, args.training], ["model", "dataset", "training"], ["-m", "-d", "-t"]
+        [args.model_arch, args.dataset, args.training], ["model", "dataset", "training"], ["-m", "-d", "-t"]
     ):
         if param is None:
             raise ArgumentError(f"Missing {name} configuration file (option {option}).")
@@ -186,13 +186,13 @@ def execute(args: Namespace) -> None:
     verbose = args.verbose
     device = args.device
     training_config = args.training
-    model_config = args.model_config
+    model_arch = args.model_arch
     dataset_config = args.dataset
     epilogue_only = args.epilogue
     sanity_check_only = args.sanity_check
     resume_dir = args.resume_from
 
-    model: CaBRNet = CaBRNet.build_from_config(config=model_config, seed=args.seed)
+    model: CaBRNet = CaBRNet.build_from_config(config=model_arch, seed=args.seed)
 
     # Training configuration
     trainer = load_config(training_config)
@@ -277,7 +277,7 @@ def execute(args: Namespace) -> None:
             save_checkpoint(
                 directory_path=os.path.join(root_dir, "best"),
                 model=model,
-                model_config=model_config,
+                model_arch=model_arch,
                 optimizer_mngr=optimizer_mngr,
                 training_config=training_config,
                 dataset_config=dataset_config,
@@ -291,7 +291,7 @@ def execute(args: Namespace) -> None:
             save_checkpoint(
                 directory_path=os.path.join(root_dir, f"epoch_{epoch}"),
                 model=model,
-                model_config=model_config,
+                model_arch=model_arch,
                 optimizer_mngr=optimizer_mngr,
                 training_config=training_config,
                 dataset_config=dataset_config,
@@ -330,7 +330,7 @@ def execute(args: Namespace) -> None:
     save_checkpoint(
         directory_path=os.path.join(root_dir, "final"),
         model=model,
-        model_config=model_config,
+        model_arch=model_arch,
         optimizer_mngr=None,
         training_config=training_config,
         dataset_config=dataset_config,

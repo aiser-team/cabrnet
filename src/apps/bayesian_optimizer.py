@@ -57,7 +57,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         required=False,
         metavar="/path/to/config/dir",
         help="path to directory containing all configuration files to start training "
-        "(alternative to --model-config, --dataset and --training)",
+        "(alternative to --model-arch, --dataset and --training)",
     )
     parser.add_argument(
         "-r",
@@ -91,14 +91,14 @@ def check_args(args: Namespace) -> Namespace:
     """
     if args.config_dir is not None:
         for param, name in zip(
-            [args.model_config, args.dataset, args.training], ["--model-config", "--dataset", "--training"]
+            [args.model_arch, args.dataset, args.training], ["--model-arch", "--dataset", "--training"]
         ):
             if param is not None:
                 raise ArgumentError(f"Cannot specify both options {name} and --config-dir")
-        args.model_config = os.path.join(args.config_dir, CaBRNet.DEFAULT_MODEL_CONFIG)
+        args.model_arch = os.path.join(args.config_dir, CaBRNet.DEFAULT_MODEL_CONFIG)
         # Compatibility with v0.1: will be removed in the future
-        if not os.path.isfile(args.model_config) and os.path.isfile(os.path.join(args.config_dir, "model.yml")):
-            args.model_config = os.path.join(args.config_dir, "model.yml")
+        if not os.path.isfile(args.model_arch) and os.path.isfile(os.path.join(args.config_dir, "model.yml")):
+            args.model_arch = os.path.join(args.config_dir, "model.yml")
             logger.warning(
                 f"Using model.yml from {args.config_dir}: "
                 f"please consider renaming the file to {CaBRNet.DEFAULT_MODEL_CONFIG} to ensure compatibility "
@@ -108,7 +108,7 @@ def check_args(args: Namespace) -> Namespace:
         args.training = os.path.join(args.config_dir, OptimizerManager.DEFAULT_TRAINING_CONFIG)
 
     for param, name, option in zip(
-        [args.model_config, args.dataset, args.training], ["model", "dataset", "training"], ["-m", "-d", "-t"]
+        [args.model_arch, args.dataset, args.training], ["model", "dataset", "training"], ["-m", "-d", "-t"]
     ):
         if param is None:
             raise ArgumentError(f"Missing {name} configuration file (option {option}).")
@@ -161,7 +161,7 @@ def execute(args: Namespace) -> None:
 
     # Absolute paths are necessary because Optuna launches jobs from another directory
     training_config_file = os.path.abspath(args.training)
-    model_config_file = os.path.abspath(args.model_config)
+    model_arch_file = os.path.abspath(args.model_arch)
     dataset_config_file = os.path.abspath(args.dataset)
     root_dir = os.path.abspath(args.output_dir)
     sanity_check_only = args.sanity_check
@@ -172,7 +172,7 @@ def execute(args: Namespace) -> None:
 
     # Load initial configuration
     training_config = load_config(training_config_file)
-    model_config = load_config(model_config_file)
+    model_arch = load_config(model_arch_file)
     dataset_config = load_config(dataset_config_file)
 
     def evaluate_configuration(config: dict[str, dict]) -> None:
@@ -181,7 +181,7 @@ def execute(args: Namespace) -> None:
         Args:
             config (dict): Hyperparameter configuration to be tested.
         """
-        nonlocal seed, training_config, model_config, dataset_config
+        nonlocal seed, training_config, model_arch, dataset_config
 
         # Reset RNG states
         torch.manual_seed(seed)
@@ -190,11 +190,11 @@ def execute(args: Namespace) -> None:
 
         # Update configuration
         training_config = update_configuration(training_config, config.get("training", {}))
-        model_config = update_configuration(model_config, config.get("model", {}))
+        model_arch = update_configuration(model_arch, config.get("model", {}))
         dataset_config = update_configuration(dataset_config, config.get("dataset", {}))
 
         # Build model
-        model = CaBRNet.build_from_config(config=model_config, seed=args.seed)
+        model = CaBRNet.build_from_config(config=model_arch, seed=args.seed)
         # Register auxiliary training parameters directly into model
         model.register_training_params(training_config)
 
@@ -231,7 +231,7 @@ def execute(args: Namespace) -> None:
                 save_checkpoint(
                     directory_path=os.path.join(root_dir, "best"),
                     model=model,
-                    model_config=model_config_file,
+                    model_arch=model_arch_file,
                     optimizer_mngr=optimizer_mngr,
                     training_config=training_config_file,
                     dataset_config=dataset_config_file,

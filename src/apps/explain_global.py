@@ -40,7 +40,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         type=str,
         required=False,
         metavar="/path/to/checkpoint/dir",
-        help="path to a checkpoint directory (alternative to --model-config, --model-state-dict, --dataset "
+        help="path to a checkpoint directory (alternative to --model-arch, --model-state-dict, --dataset "
         "and --projection-info)",
     )
     parser.add_argument(
@@ -75,19 +75,19 @@ def check_args(args: Namespace) -> Namespace:
     if args.checkpoint_dir is not None:
         # Fetch all files from directory
         for param, name in zip(
-            [args.model_config, args.model_state_dict, args.dataset, args.projection_info],
-            ["--model-config", "--model-state-dict", "--dataset", "--projection-info"],
+            [args.model_arch, args.model_state_dict, args.dataset, args.projection_info],
+            ["--model-arch", "--model-state-dict", "--dataset", "--projection-info"],
         ):
             if param is not None:
                 raise ArgumentError(f"Cannot specify both options {name} and --checkpoint-dir")
-        args.model_config = os.path.join(args.checkpoint_dir, CaBRNet.DEFAULT_MODEL_CONFIG)
+        args.model_arch = os.path.join(args.checkpoint_dir, CaBRNet.DEFAULT_MODEL_CONFIG)
         args.model_state_dict = os.path.join(args.checkpoint_dir, CaBRNet.DEFAULT_MODEL_STATE)
         args.dataset = os.path.join(args.checkpoint_dir, DatasetManager.DEFAULT_DATASET_CONFIG)
         args.projection_info = os.path.join(args.checkpoint_dir, CaBRNet.DEFAULT_PROJECTION_INFO)
 
     # Check configuration completeness
     for param, name, option in zip(
-        [args.model_config, args.model_state_dict, args.dataset, args.projection_info],
+        [args.model_arch, args.model_state_dict, args.dataset, args.projection_info],
         ["model configuration", "state dictionary", "dataset configuration", "projection information"],
         ["-m", "-s", "-d", "-p"],
     ):
@@ -107,7 +107,7 @@ def execute(args: Namespace) -> None:
     args = check_args(args)
 
     # Build model and load state dictionary
-    model: CaBRNet = CaBRNet.build_from_config(config=args.model_config, state_dict_path=args.model_state_dict)
+    model: CaBRNet = CaBRNet.build_from_config(config=args.model_arch, state_dict_path=args.model_state_dict)
 
     # Init visualizer
     visualizer = SimilarityVisualizer.build_from_config(config=args.visualization, model=model)

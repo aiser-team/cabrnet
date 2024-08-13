@@ -34,7 +34,7 @@ def safe_copy(src: str, dst: str) -> None:
 def save_checkpoint(
     directory_path: str,
     model: CaBRNet,
-    model_config: str | dict[str, Any],
+    model_arch: str | dict[str, Any],
     optimizer_mngr: OptimizerManager | None,
     training_config: str | dict[str, Any] | None,
     dataset_config: str | dict[str, Any],
@@ -49,7 +49,7 @@ def save_checkpoint(
     Args:
         directory_path (str): Target location.
         model (Module): CaBRNet model.
-        model_config (str): Path to the model configuration file, or configuration dictionary.
+        model_arch (str): Path to the model configuration file, or configuration dictionary.
         optimizer_mngr (OptimizerManager): Optimizer manager.
         training_config (str): Path to the training configuration file, or configuration dictionary.
         dataset_config (str): Path to the dataset configuration file, or configuration dictionary.
@@ -66,12 +66,12 @@ def save_checkpoint(
     torch.save(model.state_dict(), os.path.join(directory_path, CaBRNet.DEFAULT_MODEL_STATE))
     if optimizer_mngr is not None:
         torch.save(optimizer_mngr.state_dict(), os.path.join(directory_path, OptimizerManager.DEFAULT_TRAINING_STATE))
-    if isinstance(model_config, str):
-        safe_copy(src=model_config, dst=os.path.join(directory_path, CaBRNet.DEFAULT_MODEL_CONFIG))
+    if isinstance(model_arch, str):
+        safe_copy(src=model_arch, dst=os.path.join(directory_path, CaBRNet.DEFAULT_MODEL_CONFIG))
     else:
         with open(os.path.join(directory_path, CaBRNet.DEFAULT_MODEL_CONFIG), "w") as fout:
             # Save dictionary to file
-            yaml.dump(model_config, fout, sort_keys=False)
+            yaml.dump(model_arch, fout, sort_keys=False)
     if training_config is not None:
         if isinstance(training_config, str):
             safe_copy(src=training_config, dst=os.path.join(directory_path, OptimizerManager.DEFAULT_TRAINING_CONFIG))

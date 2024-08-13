@@ -34,7 +34,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         required=False,
         metavar="/path/to/config/dir",
         help="path to directory containing all configuration files "
-        "(alternative to --model-config, --dataset and --training)",
+        "(alternative to --model-arch, --dataset and --training)",
     )
     parser.add_argument(
         "-o",
@@ -59,18 +59,18 @@ def check_args(args: Namespace) -> Namespace:
     if args.config_dir is not None:
         # Fetch all files from directory
         for param, name in zip(
-            [args.model_config, args.dataset, args.training],
-            ["--model-config", "--dataset", "--training"],
+            [args.model_arch, args.dataset, args.training],
+            ["--model-arch", "--dataset", "--training"],
         ):
             if param is not None:
                 raise ArgumentError(f"Cannot specify both options {name} and --config_dir")
-        args.model_config = os.path.join(args.config_dir, CaBRNet.DEFAULT_MODEL_CONFIG)
+        args.model_arch = os.path.join(args.config_dir, CaBRNet.DEFAULT_MODEL_CONFIG)
         args.dataset = os.path.join(args.config_dir, DatasetManager.DEFAULT_DATASET_CONFIG)
         args.training = os.path.join(args.config_dir, OptimizerManager.DEFAULT_TRAINING_CONFIG)
 
     # Check configuration completeness
     for param, name, option in zip(
-        [args.model_config, args.dataset, args.training, args.model_state_dict],
+        [args.model_arch, args.dataset, args.training, args.model_state_dict],
         ["model configuration", "dataset configuration", "training configuration", "model state"],
         ["-m", "-d", "-t", "-s"],
     ):
@@ -89,7 +89,7 @@ def execute(args: Namespace) -> None:
     # Check and post-process options
     args = check_args(args)
 
-    model_config = args.model_config
+    model_arch = args.model_arch
     dataset_config = args.dataset
     training_config = args.training
     legacy_state_dict = args.model_state_dict
@@ -99,7 +99,7 @@ def execute(args: Namespace) -> None:
     device = args.device
 
     # Build CaBRNet model, then load legacy state dictionary
-    model = CaBRNet.build_from_config(model_config, state_dict_path=legacy_state_dict)
+    model = CaBRNet.build_from_config(model_arch, state_dict_path=legacy_state_dict)
     model.eval()
 
     dataloaders = DatasetManager.get_dataloaders(dataset_config)
@@ -124,7 +124,7 @@ def execute(args: Namespace) -> None:
     save_checkpoint(
         directory_path=os.path.join(root_dir, "imported"),
         model=model,
-        model_config=model_config,
+        model_arch=model_arch,
         optimizer_mngr=None,
         training_config=training_config,
         dataset_config=dataset_config,

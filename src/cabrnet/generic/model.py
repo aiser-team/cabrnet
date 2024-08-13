@@ -146,7 +146,7 @@ class CaBRNet(nn.Module):
             parser = argparse.ArgumentParser(description="Build a CaBRNet model")
         parser.add_argument(
             "-m",
-            "--model-config",
+            "--model-arch",
             required=mandatory_config,
             metavar="/path/to/file.yml",
             help="path to the model configuration file",
