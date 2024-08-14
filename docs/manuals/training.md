@@ -64,6 +64,9 @@ The total number of training epochs is given using the `num_epochs` keyword, as 
 ```yaml
 num_epochs: <VALUE>
 ```
+Note that, as an option of the [train](cabrnet.md#training-) application, it is possible to 
+define an early stop condition based on the number of epochs spent without finding a better model
+(`--patience` option).
 
 ## Training periods
 Using the keyword `periods`, it is possible to define training periods, i.e. ranges of epochs where specific optimizers are used
