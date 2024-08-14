@@ -10,7 +10,7 @@ class SimilarityLayer(nn.Module, ABC):
 
     def __init__(self, **kwargs):
         r"""Uses nn.Module init function."""
-        nn.Module.__init__(self, **kwargs)
+        nn.Module.__init__(self)
 
     @abstractmethod
     def distances(self, features: Tensor, prototypes: Tensor, **kwargs) -> Tensor:
@@ -116,19 +116,6 @@ class ProtoPNetDistance(SimilarityLayer):
         intermediate = -2 * features_x_prototypes + prototypes_l2_squared
         return features_l2_squared + intermediate
 
-    def forward(self, features: Tensor, prototypes: Tensor, **kwargs) -> Tensor:
-        r"""Return pairwise similarity scores between a tensor of features and a tensor of prototypes.
-
-        Args:
-            features (tensor): Input tensor. Shape (N, D, H, W).
-            prototypes (tensor): Tensor of prototypes. Shape (P, D, 1, 1).
-
-        Returns:
-            Tensor of similarity scores. Shape (N, P, H, W).
-            Tensor of distances. Shape (N, P, H, W).
-        """
-        return self.similarities(features, prototypes, **kwargs)
-
 
 class ProtoTreeDistance(SimilarityLayer):
     r"""Layer for computing Euclidean (L2) distances in the convolutional space (ProtoTree original implementation).
@@ -169,19 +156,6 @@ class ProtoTreeDistance(SimilarityLayer):
         features_x_prototypes = torch.conv2d(input=features, weight=prototypes)
 
         return features_l2_squared + prototypes_l2_squared - 2 * features_x_prototypes
-
-    def forward(self, features: Tensor, prototypes: Tensor, **kwargs) -> Tensor:
-        r"""Return pairwise similarity scores between a tensor of features and a tensor of prototypes.
-
-        Args:
-            features (tensor): Input tensor. Shape (N, D, H, W).
-            prototypes (tensor): Tensor of prototypes. Shape (P, D, 1, 1).
-
-        Returns:
-            Tensor of similarity scores. Shape (N, P, H, W).
-            Tensor of distances. Shape (N, P, H, W).
-        """
-        return self.similarities(features, prototypes, **kwargs)
 
 
 class LogDistance(SimilarityLayer):
