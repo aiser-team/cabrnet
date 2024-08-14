@@ -175,7 +175,9 @@ def save_projection_info(projection_info: dict[int, dict[str, int | float]], fil
     else:
         # CSV format
         with open(filename, "w") as f:
-            writer = csv.DictWriter(f, fieldnames=["proto_idx"] + list(projection_info[0].keys()))
+            # Extract fields from first entry in the dictionary
+            fields = next(iter(projection_info.values())).keys()
+            writer = csv.DictWriter(f, fieldnames=["proto_idx"] + list(fields))
             writer.writeheader()
             for proto_idx in projection_info.keys():
                 writer.writerow(projection_info[proto_idx] | {"proto_idx": proto_idx})
