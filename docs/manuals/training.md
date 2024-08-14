@@ -142,3 +142,116 @@ An Optimizer Manager provides four main functions that are used during training:
 - `optimizer_step(epoch: int)`: Update all relevant optimizers, according to the current `epoch`. 
 - `scheduler_step(epoch: int)`: Update all relevant schedulers, according to the current `epoch`.
 
+# Hyperparameter tuning using Bayesian optimization
+Case-based reasoning models often require to balance multiple hyperparameters corresponding to 
+different learning objectives. To explore the search space of possible parameter values in an
+efficient manner, CaBRNet supports hyperparameter tuning using the Bayesian optimization engine
+of [Ray-Tune](https://docs.ray.io/en/latest/tune/index.html).
+
+## Defining the search space
+In practice, the search space of any **discrete** parameter that is used to configure the model (`model_arch.yml`), 
+the dataset (`dataset.yml`), or the training process (`training.yml`) can be defined using a *search space
+configuration file* (usually `search_space.yml`), according to the following format:
+
+```yaml
+model:
+  <KEY_INSIDE_MODEL_CONFIG>: [VALUE1, VALUE2, ...]
+
+training:
+  <KEY_INSIDE_TRAINING_CONFIG>: [VALUE1, VALUE2, ...]
+  
+dataset:
+  <KEY_INSIDE_DATASET_CONFIG>: [VALUE1, VALUE2, ...]
+```
+
+For example, given the following configuration files:
+```yaml
+<model_arch.yml>
+top_arch:
+  module: cabrnet.protopnet.model
+  name: ProtoPNet
+extractor: ...
+similarity: ...
+classifier:
+  module: cabrnet.protopnet.decision
+  name: ProtoPNetClassifier
+  params:
+    num_classes: 10
+    num_proto_per_class: 10
+    ...
+
+<training.yml>
+param_groups:
+  backbone: extractor.convnet
+  main_layers: [extractor.add_on, classifier.prototypes]
+  last_layer: classifier.last_layer
+
+optimizers:
+  warmup_optimizer:
+    type: Adam
+    groups:
+      main_layers:
+        lr: 0.001
+        momentum: 0.9
+  joint_optimizer:
+    type: Adam
+    groups:
+      backbone:
+        lr: 0.001
+      main_layers:
+        lr: 0.001
+        momentum: 0.9
+  last_layer_optimizer:
+    type: Adam
+    groups:
+      last_layer:
+        lr: 0.0001
+
+num_epochs: 100
+
+periods:
+  warmup:
+    epoch_num : 10
+    optimizers: warmup_optimizer
+  main_training:
+    optimizers: joint_optimizer
+```
+it possible to define the search space of various parameters as follows:
+```yaml
+model:
+    classifier:
+      params:
+        num_proto_per_class: [5, 10, 15] # List of possible values to explore
+training:
+    optimizers:
+      warmup_optimizer:
+        groups:
+          main_layers:
+            lr: [0.001, 0.0001, 0.0005]
+            momentum: [0.9, 0.5]
+      joint_optimizer:
+        type: Adam
+        groups:
+          backbone:
+            lr: [0.001, 0.01]
+    
+    num_epochs: [100, 150]
+    
+    periods:
+      warmup:
+        epoch_num : [10, 20, 50]
+```
+Currently, CaBRNet only supports lists of explicit values that can be tested for each parameter
+(using [`tune.choice`](https://docs.ray.io/en/latest/tune/api/doc/ray.tune.choice.html)).
+
+## Defining the training / optimization objectives
+For each trial (corresponding to one particular point inside the search space), CaBRNet models are optimized
+*w.r.t.* a given metric (*e.g.* average loss) that is usually computed on the training set and specified by the `--save-best` option 
+(see [here](cabrnet.md#defining-the-objective-function)).
+
+However, the general optimization objective for hyperparameter tuning - specified with the [`--search-space` option](cabrnet.md#hyperparameter-tuning-using-bayesian-optimization) - 
+can be different from the training objective
+(*e.g.* accuracy on a validation set after the epilogue takes place). In practice, for each trial, after the epilogue is 
+applied on the "best" trained model, the model is evaluated on the `test_set` (as defined [here](data.md)). Similar
+to the training objective, any metric returned by the [`evaluate`](model.md#defining-a-new-top-module) method can be
+used as a global optimization objective for the hyperparameter tuning.

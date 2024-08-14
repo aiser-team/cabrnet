@@ -279,7 +279,27 @@ class ArchName(CaBRNet):
 
         train_info = {"avg_loss": total_loss / batch_num, "avg_train_accuracy": total_acc / batch_num}
         return train_info
+    
+    def evaluate(
+        self,
+        dataloader: DataLoader,
+        device: str = "cuda:0",
+        tqdm_position: int = 0,
+        verbose: bool = False,
+    ) -> dict[str, float]:
+        r"""Evaluates the model.
 
+        Args:
+            dataloader (DataLoader): Dataloader containing evaluation data.
+            device (str, optional): Target device. Default: cuda:0.
+            tqdm_position (int, optional): Position of the progress bar. Default: 0.
+            verbose (bool, optional): Display progress bar. Default: 0.
+
+        Returns:
+            Dictionary containing evaluation statistics.
+        """
+        # Already implemented in the generic CaBRNet class
+        ...
     
     def project(
         self,

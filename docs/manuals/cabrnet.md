@@ -62,6 +62,20 @@ Note: If all configuration files are located in the same directory, it is possib
 To avoid inadvertently erasing a previous training run, CaBRNet will abort the training process if the output 
 directory already exists. To override this check, use the `--overwrite` option.
 
+### Defining the objective function
+Each CaBRNet model implements a function `train_epoch` (see [here](model.md#defining-a-new-top-module)) that
+returns a dictionary of metric values, *e.g.* `avg_loss`, `avg_accuracy`, usually computed on the training set (or the
+validation set if provided).
+During the training process, any of these metrics can be used to determine the "best" model, using the `--save-best` 
+option, that takes two values:
+- the metric name, corresponding to a valid key in the dictionary of the `train_epoch` function.
+- the optimization mode, either "`min`" or "`max`", indicating whether the chosen metric should be minimized or maximized. 
+
+For example, `--save-best avg_loss min` corresponds to the objective of minimizing the average loss.
+
+Note that this metric is used to select the best model after the specified number of training epochs, but **before** the
+epilogue takes place.
+
 ### Sanity check
 For a quick sanity check of a particular architecture or overall training configuration, it is possible to use the 
 `--sanity-check` option that only processes 5 batches per training epoch. 
@@ -235,6 +249,34 @@ As in `cabrnet evaluate`, the `--checkpoint-dir <dir>` option is equivalent to:
 - `--model-arch <dir>/model_arch.yml`
 - `--model-state-dict <dir>/model_state.pth`
 - `--dataset <dir>/dataset.yml`
+
+## Hyperparameter tuning using Bayesian optimization
+Hyperparameter tuning is performed using the ` bayesian_optimizer` application (see the [MNIST example](mnist.md)). 
+Similar to `cabrnet train`, the tool uses the following options:
+- `--model-arch|-m </path/to/file.yml>` indicates the default parameters for [building and initializing the model](model.md).
+- `--dataset|-d </path/to/file.yml>` indicates the default parameters for [loading and preparing the data for training](data.md).
+- `--training|-t </path/to/file.yml>` indicates the default [training parameters of the model](training.md).
+- `--save-best|-b <metric> <min/max>` indicates how to determine the "best" model for each trial (see [here](#defining-the-objective-function)).
+- `--search-space|-s <metric> <min/max> </path/to/file.yml> <num_trials`> indicates:
+  - the [global optimization objective](training.md#defining-the-training--optimization-objectives) for the hyperparameters.
+  - the definition of the [search space](training.md#defining-the-search-space).
+  - the number of trials in the Bayesian optimization search.
+- `--patience|-p <num_epochs>` indicates how many epochs without any progress are acceptable before each trial ends
+the training process (early stop).
+- `--output-dir|-o <path/to/output/directory>` indicates where to store the model checkpoints during training, as well 
+as the results of each trial (located in the `test_experiment` sub-folder).
+
+Again, if all configuration files are located in the same directory, it is possible to start the training using the 
+`--config-dir <dir>` option, that is effectively equivalent to:
+
+- `--model-arch <dir>/model_arch.yml`
+- `--dataset <dir>/dataset.yml`
+- `--training <dir>/training.yml`
+
+### Resuming the search
+As in `cabrnet train`, the `--resume-from|-r </path/to/output/directory>/test_experiment` allows to 
+resume the exploration of the search space. Note that in this case, unfinished trials will be restarted from
+the beginning, contrary to `cabrnet train` where a training process can be resumed from a saved checkpoint.
 
 ## Reproducibility
 ### Random number initialization and deterministic operations

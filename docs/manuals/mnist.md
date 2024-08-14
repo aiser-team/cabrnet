@@ -154,3 +154,20 @@ prototype visualizations, which can be generated using the `cabrnet explain_glob
 
 ![protopnet mnist local explanation](imgs/protopnet_mnist_local_explanation.png)
 
+
+## Hyperparameter tuning
+As described [here](cabrnet.md#hyperparameter-tuning-using-bayesian-optimization), it is possible to 
+explore multiple hyperparameter values using Bayesian optimization. For this example, 
+we study the hyperparameters of a ProtoPNet applied on MNIST. To speed-up computation, we use
+the `--sanity-check` options, which reduces the size of the training by a factor 100.
+
+```bash
+cd ../../ # Go back to root directory
+export RAY_CHDIR_TO_TRIAL_DIR=0 # Required to control Ray-Tune working directory
+cabrnet bayesian_optimizer --device cuda:0  --verbose \
+  --config-dir configs/protopnet/mnist_with_bayesian_optimization/ \
+  --output-dir runs/mnist_protopnet_bayesian_opt \
+  --save-best avg_loss min  \
+  --search-space avg_accuracy max configs/protopnet/mnist_with_bayesian_optimization/search_space.yml 10 \
+  --patience 5 --sanity-check 
+```

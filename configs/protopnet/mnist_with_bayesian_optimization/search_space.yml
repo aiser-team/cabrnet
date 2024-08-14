@@ -1,0 +1,40 @@
+model:
+  extractor:
+    add_on:
+      conv1:
+        params:
+          out_channels: [128, 256] # Try different sizes for the embedding space
+
+  similarity:
+    name: [LegacyProtoPNetSimilarity, ProtoPNetSimilarity] # Either original ProtoPNet similarity, or up-to-date version
+
+  classifier:
+    params:
+      num_proto_per_class: [10, 5] # Try different numbers of prototypes per class
+
+dataset:
+  train_set:
+    params:
+      transform:
+        random_order:
+          transforms:
+            affine:
+              params:
+                degrees: [15, 20, 45] # Try stronger rotations
+
+training:
+  optimizers:
+    warmup_optimizer:
+      groups:
+        warmup_group:
+          lr: [0.003, 0.03] # Try stronger learning rate during warmup
+
+  num_epochs: [100, 200] # Maximum number of training epochs
+
+  periods:
+    warmup:
+      num_epochs: [10, 20, 50] # Try longer warmup period
+
+  auxiliary_info:
+    loss_coefficients:
+      clustering: [0.8, 0.5] # Pu more or less emphasis on the clustering loss
