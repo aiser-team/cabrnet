@@ -1,7 +1,7 @@
 # Training configuration
 The training configuration associated with a model is stored in a YML file, according to the following specification.
-For more examples, see the [ProtoPNet](https://github.com/aiser-team/cabrnet/tree/master/configs/protopnet/cub200/training.yml) and 
-[ProtoTree](https://github.com/aiser-team/cabrnet/tree/master/configs/prototree/cub200/training.yml) configuration files.
+For more examples, see the [ProtoPNet](https://github.com/aiser-team/cabrnet/tree/main/configs/protopnet/cub200/training.yml) and 
+[ProtoTree](https://github.com/aiser-team/cabrnet/tree/main/configs/prototree/cub200/training.yml) configuration files.
 
 ## Defining parameter groups
 Parameters of the model can be sorted into different groups, using the following formats:
@@ -123,7 +123,7 @@ epilogue:
 ```
 
 ## Creating an Optimizer Manager
-CaBRNet provides a class [OptimizerManager](https://github.com/aiser-team/cabrnet/tree/master/src/cabrnet/utils/optimizers.py) in charge of parsing the configuration file 
+CaBRNet provides a class [OptimizerManager](https://github.com/aiser-team/cabrnet/tree/main/src/cabrnet/utils/optimizers.py) in charge of parsing the configuration file 
 and handling optimizers/schedulers during the training process.
 ```python
 from cabrnet.utils.optimizers import OptimizerManager

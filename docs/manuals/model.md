@@ -1,7 +1,7 @@
 # Model configuration
 The specification of a CaBRNet model architecture is stored in a YML file, according to the following specification.
-For more examples, see the [ProtoPNet](https://github.com/aiser-team/cabrnet/tree/master/configs/protopnet/cub200/model_arch.yml) and 
-[ProtoTree](https://github.com/aiser-team/cabrnet/tree/master/configs/prototree/cub200/model_arch.yml) configuration files.
+For more examples, see the [ProtoPNet](https://github.com/aiser-team/cabrnet/tree/main/configs/protopnet/cub200/model_arch.yml) and 
+[ProtoTree](https://github.com/aiser-team/cabrnet/tree/main/configs/prototree/cub200/model_arch.yml) configuration files.
 
 As shown below, each CaBRNet model is composed of:
 
@@ -19,7 +19,7 @@ the feature extractor produce a HxW map of D-dimensional vectors, called the **f
 ![architecture](imgs/architecture.png)
 
 
-As illustrated for [ProtoTree](https://github.com/aiser-team/cabrnet/tree/master/src/cabrnet/prototree) or [ProtoPNet](https://github.com/aiser-team/cabrnet/tree/master/src/cabrnet/protopnet), the code for each
+As illustrated for [ProtoTree](https://github.com/aiser-team/cabrnet/tree/main/src/cabrnet/prototree) or [ProtoPNet](https://github.com/aiser-team/cabrnet/tree/main/src/cabrnet/protopnet), the code for each
 type of architecture is regrouped into a dedicated directory and contains:
 
 - a file `decision.py` describing the module in charge of performing the prototype-based classification
@@ -103,7 +103,7 @@ top_arch:
 # Implementing a new prototype-based architecture
 ## Defining a new classifier architecture
 The module in charge of classification should be placed inside a dedicated file in
-`src/cabrnet/<ARCH_NAME>/decision.py` (*e.g.* [src/cabrnet/prototree/decision.py](https://github.com/aiser-team/cabrnet/tree/master/src/cabrnet/prototree/decision.py)).
+`src/cabrnet/<ARCH_NAME>/decision.py` (*e.g.* [src/cabrnet/prototree/decision.py](https://github.com/aiser-team/cabrnet/tree/main/src/cabrnet/prototree/decision.py)).
 
 The following code provides a minimal example on how to define a new classifier.
 The classifier must inherit from the `CaBRNetGenericClassifier` class as follows:
@@ -176,8 +176,8 @@ class ArchNameClassifier(CaBRNetGenericClassifier):
 
 ## Defining a new top-module
 The module in charge of combining the feature extractor and the classifier should be
-placed inside a dedicated file in `src/cabrnet/<ARCH_NAME>/model.py` (*e.g.* [src/cabrnet/prototree/model.py](https://github.com/aiser-team/cabrnet/blob/master/src/cabrnet/prototree/model.py)).
-The top-module class should inherit from the generic class [CaBRNet](https://github.com/aiser-team/cabrnet/blob/master/src/cabrnet/generic/model.py), and implements
+placed inside a dedicated file in `src/cabrnet/<ARCH_NAME>/model.py` (*e.g.* [src/cabrnet/prototree/model.py](https://github.com/aiser-team/cabrnet/blob/main/src/cabrnet/prototree/model.py)).
+The top-module class should inherit from the generic class [CaBRNet](https://github.com/aiser-team/cabrnet/blob/main/src/cabrnet/generic/model.py), and implements
 some mandatory functions as illustrated below.
 ```python
 import torch.nn.functional
