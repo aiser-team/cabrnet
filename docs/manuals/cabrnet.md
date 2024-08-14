@@ -44,21 +44,37 @@ standard error output).
 ## Training 
 `cabrnet train` is used to train a prototype-based model.
 
-- `--model-config </path/to/file.yml>` indicates how to [build and initialize the model](model.md).
+- `--model-arch|-m </path/to/file.yml>` indicates how to [build and initialize the model](model.md).
 - `--dataset|-d </path/to/file.yml>` indicates how to [load and prepare the data for training](data.md).
 - `--training|-t </path/to/file.yml>` indicates the [training parameters of the model](training.md).
-- `--save-best <acc|loss>` indicates how to determine the "best" model, based either on accuracy (`acc`) or `loss`.
-- `--output-dir <path/to/output/directory>` indicates where to store the model checkpoints during training.
+- `--save-best|-b <metric> <min/max>` indicates how to determine the "best" model.
+- `--patience|-p <num_epochs>` indicates how many epochs without any progress are acceptable before the application ends
+the training process (early stop).
+- `--output-dir|-o <path/to/output/directory>` indicates where to store the model checkpoints during training.
 
 Note: If all configuration files are located in the same directory, it is possible to start the training using the 
 `--config-dir <dir>` option, that is effectively equivalent to:
 
-- `--model-config <dir>/model_arch.yml`
+- `--model-arch <dir>/model_arch.yml`
 - `--dataset <dir>/dataset.yml`
 - `--training <dir>/training.yml`
 
 To avoid inadvertently erasing a previous training run, CaBRNet will abort the training process if the output 
 directory already exists. To override this check, use the `--overwrite` option.
+
+### Defining the objective function
+Each CaBRNet model implements a function `train_epoch` (see [here](model.md#defining-a-new-top-module)) that
+returns a dictionary of metric values, *e.g.* `avg_loss`, `avg_accuracy`, usually computed on the training set (or the
+validation set if provided).
+During the training process, any of these metrics can be used to determine the "best" model, using the `--save-best` 
+option, that takes two values:
+- the metric name, corresponding to a valid key in the dictionary of the `train_epoch` function.
+- the optimization mode, either "`min`" or "`max`", indicating whether the chosen metric should be minimized or maximized. 
+
+For example, `--save-best avg_loss min` corresponds to the objective of minimizing the average loss.
+
+Note that this metric is used to select the best model after the specified number of training epochs, but **before** the
+epilogue takes place.
 
 ### Sanity check
 For a quick sanity check of a particular architecture or overall training configuration, it is possible to use the 
@@ -67,9 +83,9 @@ For a quick sanity check of a particular architecture or overall training config
 ### Resuming computations
 CaBRNet provides options to save training checkpoints and resuming the training process from a given checkpoint.
 
-- `--checkpoint-frequency <num_epochs>` indicates the frequency of checkpoints (in number of epochs). 
+- `--checkpoint-frequency|-f <num_epochs>` indicates the frequency of checkpoints (in number of epochs). 
 If not provided, **only the best model is kept during training** (in the `best/` subdirectory)
-- `--resume-from </path/to/checkpoint/directory>` indicates the directory from which the training process should resume
+- `--resume-from|-r </path/to/checkpoint/directory>` indicates the directory from which the training process should resume
 (if not provided, the training process starts from the first epoch, see above). 
 More precisely, each training checkpoint directory contains:
     - a copy of the YML file describing the model architecture, as specified [here](model.md).
@@ -142,7 +158,7 @@ Currently, this tool only supports ProtoPNet and ProtoTree.
 
 Here is a short description of the options. As in `cabrnet train`:
 
-- `--model-config </path/to/file.yml>` indicates how to [build the model](model.md). 
+- `--model-arch </path/to/file.yml>` indicates how to [build the model](model.md). 
 - `--model-state-dict </path/to/model/state.pth>` indicates the location of the legacy state dictionary that should be used 
 to initialize the model.
 - `--output-dir <path/to/output/directory>` indicates where to store the imported model.
@@ -156,7 +172,7 @@ Therefore, the `cabrnet import` tool also requires the following information:
 
 Similar to the option in `cabrnet train`, the `--config-dir <dir>` option is equivalent to:
 
-- `--model-config <dir>/model_arch.yml`
+- `--model-arch <dir>/model_arch.yml`
 - `--dataset <dir>/dataset.yml`
 - `--training <dir>/training.yml`
 
@@ -164,14 +180,14 @@ Similar to the option in `cabrnet train`, the `--config-dir <dir>` option is equ
 After training, it is possible to evaluate the loss and accuracy of a model using the `cabrnet evaluate` tool. 
 To evaluate a model, the tool uses the following options:
 
-- `--model-config </path/to/file.yml>` indicates how to [build the model](model.md).
+- `--model-arch </path/to/file.yml>` indicates how to [build the model](model.md).
 - `--model-state-dict </path/to/model/state.pth>` indicates
 the location of a CaBRNet or legacy state dictionary that should be used to initialize the model.
 - `--dataset|-d </path/to/file.yml>` indicates how to [load and prepare the test data for the evaluation](data.md).
 
 To compute dedicated metrics for case-based reasoning models, the `cabrnet benchmark` tool uses the following options:
 
-- `--model-config </path/to/file.yml>` indicates how to [build the model](model.md).
+- `--model-arch </path/to/file.yml>` indicates how to [build the model](model.md).
 - `--model-state-dict </path/to/model/state.pth>` indicates
 the location of a CaBRNet or legacy state dictionary that should be used to initialize the model.
 - `--dataset|-d </path/to/file.yml>` indicates how to [load and prepare the test data for the evaluation](data.md).
@@ -181,7 +197,7 @@ the location of a CaBRNet or legacy state dictionary that should be used to init
 
 Similar to the `--config-dir` option in `cabrnet train`, the `--checkpoint-dir <dir>` option is equivalent to:
 
-- `--model-config <dir>/model_arch.yml`
+- `--model-arch <dir>/model_arch.yml`
 - `--model-state-dict <dir>/model_state.pth`
 - `--dataset <dir>/dataset.yml`
 
@@ -196,7 +212,7 @@ A global explanation is generated using the `explain_global` application (see th
 [MNIST example](mnist.md)). To generate such an explanation, 
 the tool uses the following options:
 
-- `--model-config </path/to/file.yml>` and `--model-state-dict </path/to/model/state.pth>` indicate how to 
+- `--model-arch </path/to/file.yml>` and `--model-state-dict </path/to/model/state.pth>` indicate how to 
 [build and initialize the model](model.md).
 - `--dataset|-d </path/to/file.yml>` indicates how to [load and prepare the projection data](data.md) before extracting 
 the prototype visualizations.
@@ -206,7 +222,7 @@ the prototype visualizations.
 
 Similar to `cabrnet evaluate`, the `--checkpoint-dir <dir>` option is equivalent to:
 
-- `--model-config <dir>/model_arch.yml`
+- `--model-arch <dir>/model_arch.yml`
 - `--model-state-dict <dir>/model_state.pth`
 - `--dataset <dir>/dataset.yml`
 - `--projection-info <dir>/projection_info.csv`
@@ -217,7 +233,7 @@ A local explanation is generated using the `explain_local` application (see the
 visualizations** using the `cabrnet explain_global` [application](#global-explanations).
 To generate such an explanation, the tool uses the following options:
 
-- `--model-config </path/to/file.yml>` and `--model-state-dict </path/to/model/state.pth>` indicate how to 
+- `--model-arch </path/to/file.yml>` and `--model-state-dict </path/to/model/state.pth>` indicate how to 
 [build and initialize the model](model.md).
 - `--image <path/to/image>` indicates which image should be classified by the model. 
 - `--dataset|-d </path/to/file.yml>` indicates how to [prepare the image](data.md) before it is processed by the model,
@@ -230,14 +246,42 @@ the [global explanation](#global-explanations) are stored (usually in `<explanat
 
 As in `cabrnet evaluate`, the `--checkpoint-dir <dir>` option is equivalent to:
 
-- `--model-config <dir>/model_arch.yml`
+- `--model-arch <dir>/model_arch.yml`
 - `--model-state-dict <dir>/model_state.pth`
 - `--dataset <dir>/dataset.yml`
+
+## Hyperparameter tuning using Bayesian optimization
+Hyperparameter tuning is performed using the ` bayesian_optimizer` application (see the [MNIST example](mnist.md)). 
+Similar to `cabrnet train`, the tool uses the following options:
+- `--model-arch|-m </path/to/file.yml>` indicates the default parameters for [building and initializing the model](model.md).
+- `--dataset|-d </path/to/file.yml>` indicates the default parameters for [loading and preparing the data for training](data.md).
+- `--training|-t </path/to/file.yml>` indicates the default [training parameters of the model](training.md).
+- `--save-best|-b <metric> <min/max>` indicates how to determine the "best" model for each trial (see [here](#defining-the-objective-function)).
+- `--search-space|-s <metric> <min/max> </path/to/file.yml> <num_trials`> indicates:
+  - the [global optimization objective](training.md#defining-the-training--optimization-objectives) for the hyperparameters.
+  - the definition of the [search space](training.md#defining-the-search-space).
+  - the number of trials in the Bayesian optimization search.
+- `--patience|-p <num_epochs>` indicates how many epochs without any progress are acceptable before each trial ends
+the training process (early stop).
+- `--output-dir|-o <path/to/output/directory>` indicates where to store the model checkpoints during training, as well 
+as the results of each trial (located in the `test_experiment` sub-folder).
+
+Again, if all configuration files are located in the same directory, it is possible to start the training using the 
+`--config-dir <dir>` option, that is effectively equivalent to:
+
+- `--model-arch <dir>/model_arch.yml`
+- `--dataset <dir>/dataset.yml`
+- `--training <dir>/training.yml`
+
+### Resuming the search
+As in `cabrnet train`, the `--resume-from|-r </path/to/output/directory>/test_experiment` allows to 
+resume the exploration of the search space. Note that in this case, unfinished trials will be restarted from
+the beginning, contrary to `cabrnet train` where a training process can be resumed from a saved checkpoint.
 
 ## Reproducibility
 ### Random number initialization and deterministic operations
 For reproducibility purposes, CaBRNet explicitly uses a random `seed` to initialize the various random number 
-generators that may be used during the training process, as shown [here](https://github.com/aiser-team/cabrnet/tree/master/src/main.py).
+generators that may be used during the training process, as shown [here](https://github.com/aiser-team/cabrnet/tree/main/src/main.py).
 ```python
 import numpy as np
 import torch

@@ -303,7 +303,7 @@ class ProtoTree(CaBRNet):
         batch_num = batch_idx + 1
         train_info = {
             "avg_loss": total_loss / nb_inputs,
-            "avg_train_accuracy": total_acc / nb_inputs,
+            "avg_accuracy": total_acc / nb_inputs,
             "avg_batch_time": total_batch_time / batch_num,
             "avg_data_time": total_data_time / batch_num,
         }

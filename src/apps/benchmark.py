@@ -42,7 +42,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         type=str,
         required=False,
         metavar="/path/to/checkpoint/dir",
-        help="path to a checkpoint directory " "(alternative to --model-config, --model-state-dict and --dataset)",
+        help="path to a checkpoint directory " "(alternative to --model-arch, --model-state-dict and --dataset)",
     )
     parser.add_argument(
         "-b",
@@ -84,19 +84,19 @@ def check_args(args: Namespace) -> Namespace:
     if args.checkpoint_dir is not None:
         # Fetch all files from directory
         for param, name in zip(
-            [args.model_config, args.model_state_dict, args.dataset, args.projection_info],
-            ["--model-config", "--model-state-dict", "--dataset", "--projection-info"],
+            [args.model_arch, args.model_state_dict, args.dataset, args.projection_info],
+            ["--model-arch", "--model-state-dict", "--dataset", "--projection-info"],
         ):
             if param is not None:
                 logger.warning(f"Ignoring option {name}: using content pointed by --checkpoint-dir instead")
-        args.model_config = os.path.join(args.checkpoint_dir, CaBRNet.DEFAULT_MODEL_CONFIG)
+        args.model_arch = os.path.join(args.checkpoint_dir, CaBRNet.DEFAULT_MODEL_CONFIG)
         args.model_state_dict = os.path.join(args.checkpoint_dir, CaBRNet.DEFAULT_MODEL_STATE)
         args.dataset = os.path.join(args.checkpoint_dir, DatasetManager.DEFAULT_DATASET_CONFIG)
         args.projection_info = os.path.join(args.checkpoint_dir, CaBRNet.DEFAULT_PROJECTION_INFO)
 
     # Check configuration completeness
     for param, name, option in zip(
-        [args.model_config, args.model_state_dict, args.dataset, args.projection_info],
+        [args.model_arch, args.model_state_dict, args.dataset, args.projection_info],
         ["model configuration", "state dictionary", "dataset configuration", "projection information"],
         ["-m", "-s", "-d", "-p"],
     ):
@@ -107,7 +107,7 @@ def check_args(args: Namespace) -> Namespace:
 
     # Set-up prototype directory if necessary
     if args.prototype_dir is None:
-        args.prototype_dir = os.path.join(os.path.dirname(args.model_config), "prototypes")
+        args.prototype_dir = os.path.join(os.path.dirname(args.model_arch), "prototypes")
 
     return args
 
@@ -122,7 +122,7 @@ def execute(args: Namespace) -> None:
     # Check and post-process options
     args = check_args(args)
 
-    model_config = args.model_config
+    model_arch = args.model_arch
     model_state_dict = args.model_state_dict
     dataset_config = args.dataset
     visualizer_config = args.visualization
@@ -134,7 +134,7 @@ def execute(args: Namespace) -> None:
     output_dir = args.output_dir
 
     # Build CaBRNet model, then load state dictionary
-    model = CaBRNet.build_from_config(model_config, state_dict_path=model_state_dict)
+    model = CaBRNet.build_from_config(model_arch, state_dict_path=model_state_dict)
     model.eval()
 
     # Create output directory and copy test configuration

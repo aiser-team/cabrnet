@@ -1,6 +1,7 @@
 """This file holds all the necessary functions to create datasets and dataloaders from configuration files."""
 
 import argparse
+import copy
 import importlib
 from typing import Any, Callable
 
@@ -95,12 +96,12 @@ class DatasetManager:
 
     @staticmethod
     def get_datasets(
-        config_file: str, sampling_ratio: int = 1, load_segmentation: bool = False
+        config: str | dict[str, Any], sampling_ratio: int = 1, load_segmentation: bool = False
     ) -> dict[str, dict[str, Dataset | int | bool]]:
         r"""Loads datasets from a configuration file.
 
         Args:
-            config_file (str): Path to configuration file.
+            config (str, dict): Path to configuration file, or configuration dictionary.
             sampling_ratio (int, optional): Sampling ratio (e.g. 5 means only one image in five is used). Default: 1.
             load_segmentation (bool, optional): If True, loads segmentation datasets if available. Default: False.
 
@@ -110,7 +111,11 @@ class DatasetManager:
         Raises:
             ValueError whenever a dataset could not be loaded.
         """
-        config = load_config(config_file)
+        if not isinstance(config, (str, dict)):
+            raise ValueError(f"Unsupported configuration format: {type(config)}")
+        if isinstance(config, str):
+            config = load_config(config)
+
         datasets: dict[str, dict[str, Dataset | int | bool]] = {}
 
         # Configuration should include at least train and projection sets
@@ -121,13 +126,13 @@ class DatasetManager:
 
         for dataset_name in config:
             dataset: dict[str, Dataset | int | bool] = {}
-            logger.info(f"Loading dataset {dataset_name} from file {config_file}")
+            logger.info(f"Loading dataset {dataset_name}")
             dconfig = config[dataset_name]
             for key in ["name", "module", "params", "batch_size", "shuffle"]:
                 if key not in dconfig:
                     raise ValueError(f"Missing dataset {key} information")
 
-            params = dconfig["params"]
+            params = copy.copy(dconfig["params"])
             for field in params:
                 if field in DatasetManager.TRANSFORM_FIELDS:
                     # Replace configuration with actual transformation function
@@ -177,12 +182,12 @@ class DatasetManager:
 
     @staticmethod
     def get_dataloaders(
-        config_file: str, sampling_ratio: int = 1, load_segmentation: bool = False
+        config: str | dict[str, Any], sampling_ratio: int = 1, load_segmentation: bool = False
     ) -> dict[str, DataLoader]:
         r"""Creates dataloaders from a configuration file.
 
         Args:
-            config_file (str): Path to configuration file.
+            config (str, dict): Path to configuration file, or configuration dictionary.
             sampling_ratio (int, optional): Sampling ratio (e.g. 5 means only one image in five is used). Default: 1.
             load_segmentation (bool, optional): If True, loads segmentation datasets if available. Default: False.
 
@@ -193,7 +198,7 @@ class DatasetManager:
             ValueError whenever a dataset could not be loaded or a parameter is invalid.
         """
         datasets = DatasetManager.get_datasets(
-            config_file=config_file, sampling_ratio=sampling_ratio, load_segmentation=load_segmentation
+            config=config, sampling_ratio=sampling_ratio, load_segmentation=load_segmentation
         )
         dataloaders: dict[str, DataLoader] = {}
 
@@ -225,11 +230,11 @@ class DatasetManager:
         return dataloaders
 
     @staticmethod
-    def get_dataset_transform(config_file: str, dataset: str = "test_set") -> Callable | None:
+    def get_dataset_transform(config: str | dict[str, Any], dataset: str = "test_set") -> Callable | None:
         r"""Returns the transform function associated with a given dataset.
 
         Args:
-            config_file (str): Path to configuration file.
+            config (str | dict): Path to configuration file, or configuration dictionary.
             dataset (str, optional): Name of target dataset. Default: test_set.
 
         Returns:
@@ -238,9 +243,10 @@ class DatasetManager:
         Raises:
             ValueError whenever the configuration is incorrect.
         """
-        config = load_config(config_file)
+        if isinstance(config, str):
+            config = load_config(config)
         if dataset not in config:
-            raise ValueError(f"Missing configuration for dataset {dataset} in file {config_file}.")
+            raise ValueError(f"Missing configuration for dataset {dataset} in {config}.")
         if "params" not in config[dataset]:
             raise ValueError(f"Missing parameters for dataset {dataset}.")
         if "transform" not in config[dataset]["params"]:

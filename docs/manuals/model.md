@@ -1,7 +1,7 @@
 # Model configuration
 The specification of a CaBRNet model architecture is stored in a YML file, according to the following specification.
-For more examples, see the [ProtoPNet](https://github.com/aiser-team/cabrnet/tree/master/configs/protopnet/cub200/model_arch.yml) and 
-[ProtoTree](https://github.com/aiser-team/cabrnet/tree/master/configs/prototree/cub200/model_arch.yml) configuration files.
+For more examples, see the [ProtoPNet](https://github.com/aiser-team/cabrnet/tree/main/configs/protopnet/cub200/model_arch.yml) and 
+[ProtoTree](https://github.com/aiser-team/cabrnet/tree/main/configs/prototree/cub200/model_arch.yml) configuration files.
 
 As shown below, each CaBRNet model is composed of:
 
@@ -10,16 +10,17 @@ usually in the form of a 3-dimensional tensor (D, H, W) where:
     - D is the number of (convolutional) channels.
     - H x W represent the size of the image representation after downsampling. In other words, for each image,
 the feature extractor produce a HxW map of D-dimensional vectors, called the **feature map**.
+- a [similarity layer](#similarity-configuration) that computes similarity scores between each vector of the feature map and each prototype, using a similarity layer 
+    (*e.g.* based on the L2 distance between vectors in $\mathbb{R}^D$). 
 - a [classifier](#classifier-configuration) that:
     - implements a set of prototypes that are either specific to a given class, or shared among multiples classes. 
-    - computes similarity scores between each vector of the feature map and each prototype, using a similarity layer 
-    (*e.g.* based on the L2 distance between vectors in $\mathbb{R}^D$).
-    - computes the classification logits based on these distances (*e.g.* using a Decision Tree in ProtoTree).
+    - embeds the similarity layer to compute scores.
+    - computes the classification logits based on these scores (*e.g.* using a Decision Tree in ProtoTree).
 
 ![architecture](imgs/architecture.png)
 
 
-As illustrated for [ProtoTree](https://github.com/aiser-team/cabrnet/tree/master/src/cabrnet/prototree) or [ProtoPNet](https://github.com/aiser-team/cabrnet/tree/master/src/cabrnet/protopnet), the code for each
+As illustrated for [ProtoTree](https://github.com/aiser-team/cabrnet/tree/main/src/cabrnet/prototree) or [ProtoPNet](https://github.com/aiser-team/cabrnet/tree/main/src/cabrnet/protopnet), the code for each
 type of architecture is regrouped into a dedicated directory and contains:
 
 - a file `decision.py` describing the module in charge of performing the prototype-based classification
@@ -47,8 +48,12 @@ extractor:
         <PARAM_NAME_1>: <VALUE>
         <PARAM_NAME_2>: <VALUE>
     <LAYER_NAME_2>:
-...
+
+similarity:
+  ...
+
 classifier:
+  ...
 ```
 Notes on the configuration of the backbone:
 
@@ -76,6 +81,27 @@ through the `init_mode` keyword:
 - `PROTOPNET`: a combination of [nn.init.kaiming_normal_](https://pytorch.org/cppdocs/api/function_namespacetorch_1_1nn_1_1init_1ac8a913c051976a3f41f20df7d6126e57.html) 
 for convolutional layers and a static starting configuration for BatchNorm layers. 
 
+## Similarity configuration
+The similarity layer computes similarity scores and distances in the feature space.
+Although the choice of a similarity function is usually specific to each type of model 
+architecture, CaBRNet offers a generic approach for using any similarity function with any architecture.
+```yaml
+similarity: 
+  module: <MODULE_NAME> # Optional. By default: cabrnet.utils.similarities
+  name: <CLASS_NAME>
+  params: # Optional
+    <PARAM_1>: <VALUE>
+    <PARAM_2>: <VALUE>
+...
+```
+Currently, CaBRNet supports the following similarity layers:
+- `LegacyProtoPNetSimilarity`: implements all operations performed in the original ProtoPNet code, in the same order.
+- `LegacyProtoTreeSimilarity`: implements all operations performed in the original ProtoTree code, in the same order.
+- `ProtoPNetSimilarity`: updated version of LegacyProtoPNetSimilarity that uses the [`torch.cdist`](https://pytorch.org/docs/stable/generated/torch.cdist.html) function.
+- `ProtoTreeSimilarity`: updated version of LegacyProtoTreeSimilarity that uses the [`torch.cdist`](https://pytorch.org/docs/stable/generated/torch.cdist.html) function.
+
+To implement a new similarity layer, see [here](#defining-a-new-similarity-layer).
+
 ## Classifier configuration
 The classifier performs the classification based on similarities between the output of the feature extractor and a set
 of **prototypes**. Prototype management is specific to each type of model architecture (*e.g.* decision tree in ProtoTree, 
@@ -101,23 +127,89 @@ top_arch:
 ```
 
 # Implementing a new prototype-based architecture
+
+## Defining a new similarity layer
+CaBRNet implements an abstract interface, called `SimilarityLayer`:
+```python
+from abc import ABC, abstractmethod
+import torch.nn as nn
+from torch import Tensor
+
+class SimilarityLayer(nn.Module, ABC):
+    r"""Abstract layer for computing similarity scores based on distances in the convolutional space."""
+
+    def __init__(self, **kwargs):
+        r"""Uses nn.Module init function."""
+        nn.Module.__init__(self)
+
+    @abstractmethod
+    def distances(self, features: Tensor, prototypes: Tensor, **kwargs) -> Tensor:
+        r"""Computes pairwise distances between a tensor of features and a tensor of prototypes.
+
+        Args:
+            features (tensor): Input tensor. Shape (N, D, H, W).
+            prototypes (tensor): Tensor of prototypes. Shape (P, D, 1, 1).
+
+        Returns:
+             Distance between each feature vector and each prototype. Shape (N, P, H, W).
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def similarities(self, features: Tensor, prototypes: Tensor, **kwargs) -> Tensor:
+        r"""Computes pairwise similarity scores between a tensor of features and a tensor of prototypes.
+
+        Args:
+            features (tensor): Input tensor. Shape (N, D, H, W).
+            prototypes (tensor): Tensor of prototypes. Shape (P, D, 1, 1).
+
+        Returns:
+            Tensor of similarity scores. Shape (N, P, H, W).
+        """
+        raise NotImplementedError
+
+    def forward(self, features: Tensor, prototypes: Tensor, **kwargs) -> Tensor:
+        r"""Return pairwise similarity scores between a tensor of features and a tensor of prototypes.
+
+        Args:
+            features (tensor): Input tensor. Shape (N, D, H, W).
+            prototypes (tensor): Tensor of prototypes. Shape (P, D, 1, 1).
+
+        Returns:
+            Tensor of similarity scores. Shape (N, P, H, W).
+            Tensor of distances. Shape (N, P, H, W).
+        """
+        return self.similarities(features, prototypes, **kwargs)
+```
+This interface provides a generic way to define:
+- how to compute distances between the feature vectors and the prototypes.
+- how to convert a distance into a similarity score.
+
+In practice, CaBRNet uses intermediate abstract classes that provide the building blocks for
+similarity layers, as shown below:
+
+![similarity](imgs/similarities.png)
+
+The new similarity layer can be added to the `src/cabrnet/utils/similarities.py` file.
+
 ## Defining a new classifier architecture
 The module in charge of classification should be placed inside a dedicated file in
-`src/cabrnet/<ARCH_NAME>/decision.py` (*e.g.* [src/cabrnet/prototree/decision.py](https://github.com/aiser-team/cabrnet/tree/master/src/cabrnet/prototree/decision.py)).
+`src/cabrnet/<ARCH_NAME>/decision.py` (*e.g.* [src/cabrnet/prototree/decision.py](https://github.com/aiser-team/cabrnet/tree/main/src/cabrnet/prototree/decision.py)).
 
 The following code provides a minimal example on how to define a new classifier.
 The classifier must inherit from the `CaBRNetGenericClassifier` class as follows:
 ```python
 import torch.nn as nn
 import torch
+from typing import Any
 from cabrnet.utils.prototypes import init_prototypes
-from cabrnet.utils.similarities import L2Similarities
-from cabrnet.generic.decision import CaBRNetGenericClassifier
+from cabrnet.generic.decision import CaBRNetClassifier
 
-class ArchNameClassifier(CaBRNetGenericClassifier):
+class ArchNameClassifier(CaBRNetClassifier):
     r"""Classification pipeline for ArchName architecture."""
     def __init__(
         self,
+        similarity_config: dict[str, Any],
         num_classes: int,
         num_features: int,
         proto_init_mode: str = "SHIFTED_NORMAL",
@@ -125,6 +217,8 @@ class ArchNameClassifier(CaBRNetGenericClassifier):
         r"""Initializes a ArchName classifier.
         
         Args:
+            similarity_config (dict): Configuration of the layer used to compute similarity scores between the
+                prototypes and the convolutional features.
             num_features (int): Number of features (size of each prototype).
             num_classes (int): Number of classes.
             proto_init_mode (str, optional): Init mode for prototypes. Default: Shifted normal distribution.
@@ -145,11 +239,10 @@ class ArchNameClassifier(CaBRNetGenericClassifier):
                 init_mode=proto_init_mode
             )
         )
-        # Example of a L2 based similarity layer
-        self.similarity_layer = L2Similarities(
-            num_prototypes=self.num_prototypes, num_features=self.num_features
-        )
-
+        
+        # Init self.similarity_layer using CaBRNetClassifier.build_similarity
+        self.build_similarity(similarity_config)
+        ...
 
     def prototype_is_active(self, proto_idx: int) -> bool:
         r"""Is the prototype *proto_idx* active or disabled?
@@ -176,8 +269,8 @@ class ArchNameClassifier(CaBRNetGenericClassifier):
 
 ## Defining a new top-module
 The module in charge of combining the feature extractor and the classifier should be
-placed inside a dedicated file in `src/cabrnet/<ARCH_NAME>/model.py` (*e.g.* [src/cabrnet/prototree/model.py](https://github.com/aiser-team/cabrnet/blob/master/src/cabrnet/prototree/model.py)).
-The top-module class should inherit from the generic class [CaBRNet](https://github.com/aiser-team/cabrnet/blob/master/src/cabrnet/generic/model.py), and implements
+placed inside a dedicated file in `src/cabrnet/<ARCH_NAME>/model.py` (*e.g.* [src/cabrnet/prototree/model.py](https://github.com/aiser-team/cabrnet/blob/main/src/cabrnet/prototree/model.py)).
+The top-module class should inherit from the generic class [CaBRNet](https://github.com/aiser-team/cabrnet/blob/main/src/cabrnet/generic/model.py), and implements
 some mandatory functions as illustrated below.
 ```python
 import torch.nn.functional
@@ -279,7 +372,27 @@ class ArchName(CaBRNet):
 
         train_info = {"avg_loss": total_loss / batch_num, "avg_train_accuracy": total_acc / batch_num}
         return train_info
+    
+    def evaluate(
+        self,
+        dataloader: DataLoader,
+        device: str = "cuda:0",
+        tqdm_position: int = 0,
+        verbose: bool = False,
+    ) -> dict[str, float]:
+        r"""Evaluates the model.
 
+        Args:
+            dataloader (DataLoader): Dataloader containing evaluation data.
+            device (str, optional): Target device. Default: cuda:0.
+            tqdm_position (int, optional): Position of the progress bar. Default: 0.
+            verbose (bool, optional): Display progress bar. Default: 0.
+
+        Returns:
+            Dictionary containing evaluation statistics.
+        """
+        # Already implemented in the generic CaBRNet class
+        ...
     
     def project(
         self,

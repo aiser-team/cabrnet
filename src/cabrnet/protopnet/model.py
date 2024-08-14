@@ -302,7 +302,7 @@ class ProtoPNet(CaBRNet):
         # Clean gradients after last batch
         optimizer_mngr.zero_grad()
 
-        train_info = {"avg_loss": total_loss / nb_inputs, "avg_train_accuracy": total_acc / nb_inputs}
+        train_info = {"avg_loss": total_loss / nb_inputs, "avg_accuracy": total_acc / nb_inputs}
         return train_info
 
     def train_epoch(

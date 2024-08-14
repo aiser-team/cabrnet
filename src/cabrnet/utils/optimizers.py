@@ -60,17 +60,23 @@ class OptimizerManager:
         self._set_periods()
 
     @staticmethod
-    def build_from_config(config_file: str, model: nn.Module) -> OptimizerManager:
+    def build_from_config(config: str | dict[str, Any], model: nn.Module) -> OptimizerManager:
         r"""Builds an OptimizerManager object from a YML file.
 
         Args:
-            config_file (str): Path to configuration file.
+            config (str | dict): Path to configuration file, or configuration dictionary.
             model (Module): Target module.
 
         Returns:
             OptimizerManager.
         """
-        return OptimizerManager(config_dict=load_config(config_file), module=model)
+        if not isinstance(config, (str, dict)):
+            raise ValueError(f"Unsupported configuration format: {type(config)}")
+        if isinstance(config, str):
+            config_dict = load_config(config)
+        else:
+            config_dict = config
+        return OptimizerManager(config_dict=config_dict, module=model)
 
     def _set_param_groups(self, module: nn.Module) -> None:
         r"""Builds the groups of parameters from the configuration dictionary.
@@ -183,27 +189,44 @@ class OptimizerManager:
                 }
             }
         else:
-            for epoch_name in self.config["periods"]:
-                epoch_config = self.config["periods"][epoch_name]
-                if epoch_config.get("epoch_range") is None or epoch_config.get("optimizers") is None:
-                    raise ValueError(f"Missing parameters for training period {epoch_name}")
-                self.periods[epoch_name] = epoch_config
-                if isinstance(self.periods[epoch_name]["optimizers"], str):
-                    self.periods[epoch_name]["optimizers"] = [self.periods[epoch_name]["optimizers"]]
-                if isinstance(self.periods[epoch_name].get("freeze"), str):
-                    self.periods[epoch_name]["freeze"] = [self.periods[epoch_name]["freeze"]]
+            current_epoch = 0
+            for period_name, period_config in self.config["periods"].items():
+                # Update configuration if necessary
+                if period_config.get("num_epochs") is not None:
+                    if period_config.get("epoch_range") is not None:
+                        # num_epochs parameter takes precedence over epoch_range
+                        logger.warning(
+                            f"Overwriting epoch range for period {period_name} based on provided value for num_epochs"
+                        )
+                    # Convert num_epochs into epoch_range
+                    period_config["epoch_range"] = [
+                        current_epoch,
+                        current_epoch + period_config["num_epochs"] - 1,
+                    ]
+                    current_epoch += period_config["num_epochs"]
+                    del period_config["num_epochs"]
+                elif period_config.get("epoch_range") is None:
+                    # Default epoch range
+                    period_config["epoch_range"] = [current_epoch, num_epochs - 1]
+                if period_config.get("optimizers") is None:
+                    raise ValueError(f"Missing optimizer for training period {period_name}")
+                self.periods[period_name] = period_config
+                if isinstance(self.periods[period_name]["optimizers"], str):
+                    self.periods[period_name]["optimizers"] = [self.periods[period_name]["optimizers"]]
+                if isinstance(self.periods[period_name].get("freeze"), str):
+                    self.periods[period_name]["freeze"] = [self.periods[period_name]["freeze"]]
 
                 # Sanity checks
-                epoch_range = self.periods[epoch_name]["epoch_range"]
+                epoch_range = self.periods[period_name]["epoch_range"]
                 if not isinstance(epoch_range, list) or len(epoch_range) != 2:
-                    raise ValueError(f"Invalid epoch range format for training period {epoch_name}: {epoch_range}")
-                if self.periods[epoch_name].get("freeze") is not None:
-                    for group_name in self.periods[epoch_name]["freeze"]:
+                    raise ValueError(f"Invalid epoch range format for training period {period_name}: {epoch_range}")
+                if self.periods[period_name].get("freeze") is not None:
+                    for group_name in self.periods[period_name]["freeze"]:
                         if group_name not in self.param_groups.keys():
-                            raise ValueError(f"Unknown parameter group for training period {epoch_name}: {group_name}")
-                for optim_name in self.periods[epoch_name]["optimizers"]:
+                            raise ValueError(f"Unknown parameter group for training period {period_name}: {group_name}")
+                for optim_name in self.periods[period_name]["optimizers"]:
                     if optim_name not in self.optimizers.keys():
-                        raise ValueError(f"Unknown optimizers name for training period {epoch_name}: {optim_name}")
+                        raise ValueError(f"Unknown optimizers name for training period {period_name}: {optim_name}")
 
             # Create periods for all non-covered epochs
             create_period = False
@@ -233,6 +256,13 @@ class OptimizerManager:
                     f"Creating full training period for epoch range "
                     f"{self.periods[f'full_train_period_{full_train_period_idx}']['epoch_range']}"
                 )
+        logger.info("Training periods")
+        for period_name, period_config in self.periods.items():
+            logger.info(
+                f"+ Period {period_name}: "
+                f"range [{period_config['epoch_range'][0]}-{period_config['epoch_range'][1]}], "
+                f"applied on {period_config['optimizers']}"
+            )
 
     def get_active_periods(self, epoch: int) -> list[str]:
         r"""Returns all active periods associated with a given epoch index.

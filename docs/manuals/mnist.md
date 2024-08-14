@@ -4,7 +4,7 @@
 ```bash
 cd ../../ # Go back to root directory
 cabrnet train --device cpu --seed 42 --verbose --logger-level INFO  \
-  --model-config configs/prototree/mnist/model_arch.yml \
+  --model-arch configs/prototree/mnist/model_arch.yml \
   --dataset configs/prototree/mnist/dataset.yml \
   --training configs/prototree/mnist/training.yml \
   --output-dir runs/mnist_prototree \
@@ -25,7 +25,7 @@ These commands train a ProtoTree during one epoch, and store the resulting check
 ```bash
 cd ../../ # Go back to root directory
 cabrnet explain_global --verbose \
-  --model-config runs/mnist_prototree/final/model_arch.yml \
+  --model-arch runs/mnist_prototree/final/model_arch.yml \
   --model-state-dict runs/mnist_prototree/final/model_state.pth \
   --dataset runs/mnist_prototree/final/dataset.yml \
   --projection-info runs/mnist_prototree/final/projection_info.csv \
@@ -51,7 +51,7 @@ In particular, the visualization of each prototype is stored in
 ```bash
 cd ../../ # Go back to root directory
 cabrnet explain_local --verbose \
-  --model-config runs/mnist_prototree/final/model_arch.yml  \
+  --model-arch runs/mnist_prototree/final/model_arch.yml  \
   --model-state-dict runs/mnist_prototree/final/model_state.pth \
   --dataset runs/mnist_prototree/final/dataset.yml \
   --visualization configs/explanation/mnist_visualization.yml \
@@ -81,7 +81,7 @@ prototype visualizations, which can be generated using the `cabrnet explain_glob
 ```bash
 cd ../../ # Go back to root directory
 cabrnet train --device cpu --seed 42 --verbose --logger-level INFO  \
-  --model-config configs/protopnet/mnist/model_arch.yml \
+  --model-arch configs/protopnet/mnist/model_arch.yml \
   --dataset configs/protopnet/mnist/dataset.yml \
   --training configs/protopnet/mnist/training.yml \
   --output-dir runs/mnist_protopnet \
@@ -102,7 +102,7 @@ These commands train a ProtoPNet during one epoch, and store the resulting check
 ```bash
 cd ../../ # Go back to root directory
 cabrnet explain_global --verbose \
-  --model-config runs/mnist_protopnet/final/model_arch.yml \
+  --model-arch runs/mnist_protopnet/final/model_arch.yml \
   --model-state-dict runs/mnist_protopnet/final/model_state.pth \
   --dataset runs/mnist_protopnet/final/dataset.yml \
   --projection-info runs/mnist_protopnet/final/projection_info.csv \
@@ -128,7 +128,7 @@ In particular, the visualization of each prototype is stored in
 ```bash
 cd ../../ # Go back to root directory
 cabrnet explain_local --verbose \
-  --model-config runs/mnist_protopnet/final/model_arch.yml  \
+  --model-arch runs/mnist_protopnet/final/model_arch.yml  \
   --model-state-dict runs/mnist_protopnet/final/model_state.pth \
   --dataset runs/mnist_protopnet/final/dataset.yml \
   --visualization configs/explanation/mnist_visualization.yml \
@@ -154,3 +154,20 @@ prototype visualizations, which can be generated using the `cabrnet explain_glob
 
 ![protopnet mnist local explanation](imgs/protopnet_mnist_local_explanation.png)
 
+
+## Hyperparameter tuning
+As described [here](cabrnet.md#hyperparameter-tuning-using-bayesian-optimization), it is possible to 
+explore multiple hyperparameter values using Bayesian optimization. For this example, 
+we study the hyperparameters of a ProtoPNet applied on MNIST. To speed-up computation, we use
+the `--sanity-check` options, which reduces the size of the training by a factor 100.
+
+```bash
+cd ../../ # Go back to root directory
+export RAY_CHDIR_TO_TRIAL_DIR=0 # Required to control Ray-Tune working directory
+cabrnet bayesian_optimizer --device cuda:0  --verbose \
+  --config-dir configs/protopnet/mnist_with_bayesian_optimization/ \
+  --output-dir runs/mnist_protopnet_bayesian_opt \
+  --save-best avg_loss min  \
+  --search-space avg_accuracy max configs/protopnet/mnist_with_bayesian_optimization/search_space.yml 10 \
+  --patience 5 --sanity-check 
+```

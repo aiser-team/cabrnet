@@ -146,7 +146,7 @@ class CaBRNet(nn.Module):
             parser = argparse.ArgumentParser(description="Build a CaBRNet model")
         parser.add_argument(
             "-m",
-            "--model-config",
+            "--model-arch",
             required=mandatory_config,
             metavar="/path/to/file.yml",
             help="path to the model configuration file",
@@ -163,7 +163,7 @@ class CaBRNet(nn.Module):
 
     @staticmethod
     def build_from_config(
-        config_file: str,
+        config: str | dict[str, Any],
         seed: int | None = None,
         compatibility_mode: bool = False,
         state_dict_path: str | None = None,
@@ -171,7 +171,7 @@ class CaBRNet(nn.Module):
         r"""Builds a CaBRNet model from a YAML configuration file.
 
         Args:
-            config_file (str): Path to configuration file.
+            config (str|dict): Path to configuration file, or configuration dictionary.
             seed (int, optional): Random seed (used only to resynchronise random number generators in
                 compatibility tests). Default: None.
             compatibility_mode (bool, optional): Compatibility mode with legacy architectures. Default: False.
@@ -180,7 +180,12 @@ class CaBRNet(nn.Module):
         Returns:
             CaBRNet model.
         """
-        config_dict = load_config(config_file)
+        if not isinstance(config, (str, dict)):
+            raise ValueError(f"Unsupported configuration format: {type(config)}")
+        if isinstance(config, str):
+            config_dict = load_config(config)
+        else:
+            config_dict = config
 
         # Sanity checks on mandatory field
         for mandatory_field in ["extractor", "classifier"]:

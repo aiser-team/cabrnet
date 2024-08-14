@@ -1,0 +1,58 @@
+param_groups:
+  backbone: extractor.convnet
+  add_on_layers: extractor.add_on
+  prototypes: classifier.prototypes
+  last_layer: classifier.last_layer
+  warmup_group: [extractor.add_on, classifier.prototypes]
+
+optimizers:
+  warmup_optimizer:
+    type: Adam
+    groups:
+      warmup_group:
+        lr: 0.003
+        weight_decay: 0.001
+  joint_optimizer:
+    type: Adam
+    groups:
+      backbone:
+        lr: 0.001
+        weight_decay_rate: 0.0
+        momentum: 0.9
+      add_on_layers:
+        lr: 0.001
+        weight_decay_rate: 0.0
+        momentum: 0.9
+      prototypes:
+        lr: 0.001
+        weight_decay_rate: 0.0
+        momentum: 0.9
+  last_layer_optimizer:
+    type: Adam
+    groups:
+      last_layer:
+        lr: 0.0001
+
+num_epochs: 10
+
+periods:
+  warmup:
+    num_epochs: 3
+    optimizers: warmup_optimizer
+  main_training:
+    optimizers: joint_optimizer
+
+auxiliary_info:
+  loss_coefficients:
+    clustering: 0.8
+    separability: -0.08
+    regularization: 0.0001
+  projection_config:
+    start_epoch: 4
+    frequency: 3
+    num_ft_epochs: 1
+
+epilogue:
+  pruning_threshold: 3
+  num_nearest_patches: 6
+  num_fine_tuning_epochs: 1

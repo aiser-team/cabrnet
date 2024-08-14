@@ -29,7 +29,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         type=str,
         required=False,
         metavar="/path/to/checkpoint/dir",
-        help="path to a checkpoint directory (alternative to --model-config, --model-state-dict and --dataset)",
+        help="path to a checkpoint directory (alternative to --model-arch, --model-state-dict and --dataset)",
     )
     return parser
 
@@ -46,18 +46,18 @@ def check_args(args: Namespace) -> Namespace:
     if args.checkpoint_dir is not None:
         # Fetch all files from directory
         for param, name in zip(
-            [args.model_config, args.model_state_dict, args.dataset],
-            ["--model-config", "--model-state-dict", "--dataset"],
+            [args.model_arch, args.model_state_dict, args.dataset],
+            ["--model-arch", "--model-state-dict", "--dataset"],
         ):
             if param is not None:
                 logger.warning(f"Ignoring option {name}: using content pointed by --checkpoint-dir instead")
-        args.model_config = os.path.join(args.checkpoint_dir, CaBRNet.DEFAULT_MODEL_CONFIG)
+        args.model_arch = os.path.join(args.checkpoint_dir, CaBRNet.DEFAULT_MODEL_CONFIG)
         args.model_state_dict = os.path.join(args.checkpoint_dir, CaBRNet.DEFAULT_MODEL_STATE)
         args.dataset = os.path.join(args.checkpoint_dir, DatasetManager.DEFAULT_DATASET_CONFIG)
 
     # Check configuration completeness
     for param, name in zip(
-        [args.model_config, args.model_state_dict, args.dataset],
+        [args.model_arch, args.model_state_dict, args.dataset],
         ["model", "state dictionary", "dataset"],
     ):
         if param is None:
@@ -75,11 +75,11 @@ def execute(args: Namespace) -> None:
     # Check and post-process options
     args = check_args(args)
 
-    model = CaBRNet.build_from_config(args.model_config, state_dict_path=args.model_state_dict)
+    model = CaBRNet.build_from_config(args.model_arch, state_dict_path=args.model_state_dict)
     model.eval()
 
     # Dataloaders
-    dataloaders = DatasetManager.get_dataloaders(config_file=args.dataset)
+    dataloaders = DatasetManager.get_dataloaders(config=args.dataset)
     model.to(args.device)
 
     stats = model.evaluate(
