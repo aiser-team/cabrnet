@@ -10,6 +10,7 @@ from cabrnet.utils.exceptions import ArgumentError
 from cabrnet.utils.optimizers import OptimizerManager
 from cabrnet.utils.parser import load_config
 from apps.train import training_loop
+import ray
 from ray import train, tune
 from ray.tune.search.optuna import OptunaSearch
 from loguru import logger
@@ -84,6 +85,16 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         type=str,
         metavar="/path/to/working/directory",
         help="path to existing working directory to resume optimization",
+    )
+    parser.add_argument(
+        "-n",
+        "--num-resources-per-trial",
+        type=int,
+        required=False,
+        default=0,
+        metavar="val",
+        help="number of hardware resources allocated to each trial. "
+             "If not specified, trials are processed consecutively using all available resources",
     )
     parser.add_argument(
         "--overwrite",
@@ -222,6 +233,10 @@ def execute(args: Namespace) -> None:
         model_arch = update_configuration(model_arch, config.get("model", {}))
         dataset_config = update_configuration(dataset_config, config.get("dataset", {}))
 
+        # Get unique task ID to avoid collision between trials. Note: the task ID is NOT the trial ID
+        task_id = ray.get_runtime_context().get_task_id()
+        task_device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
         # Build model
         model = CaBRNet.build_from_config(config=model_arch, seed=args.seed)
         # Register auxiliary training parameters directly into model
@@ -237,7 +252,7 @@ def execute(args: Namespace) -> None:
         num_epochs = training_config["num_epochs"]
 
         eval_info = training_loop(
-            working_dir=root_dir,
+            working_dir=os.path.join(root_dir, f"task_{task_id}"),
             model=model,
             epoch_range=range(0, num_epochs),
             dataloaders=dataloaders,
@@ -252,7 +267,7 @@ def execute(args: Namespace) -> None:
             training_config=training_config,
             dataset_config=dataset_config,
             seed=seed,
-            device=device,
+            device=task_device,
             logger_level="INFO",
         )
         train.report(eval_info)
@@ -275,7 +290,8 @@ def execute(args: Namespace) -> None:
     num_trials = int(args.search_space[3])
 
     # Set-up hardware resources
-    trainable_with_resources = tune.with_resources(evaluate_configuration, {"gpu": 1})
+    resources = {"cpu" if device == "cpu" else "gpu": args.num_resources_per_trial}
+    trainable_with_resources = tune.with_resources(evaluate_configuration, resources)
 
     if args.resume_from is not None:
         # Resume failed/interrupted experiment

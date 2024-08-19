@@ -9,12 +9,12 @@ from cabrnet.utils.parser import load_config
 from loguru import logger
 
 
-def move_optimizer_to(optim: torch.optim.Optimizer, device: str) -> None:
+def move_optimizer_to(optim: torch.optim.Optimizer, device: str | torch.device) -> None:
     r"""Moves optimizer to target device. Solution from https://github.com/pytorch/pytorch/issues/8741.
 
     Args:
         optim (Optimizer): Optimizer.
-        device (str): Target device.
+        device (str | device): Hardware device.
     """
     for param in optim.state.values():
         if isinstance(param, torch.Tensor):
@@ -336,11 +336,11 @@ class OptimizerManager:
                 if self.schedulers.get(optim_name) is not None:
                     self.schedulers[optim_name].step()
 
-    def to(self, device: str):
+    def to(self, device: str | torch.device):
         r"""Moves OptimizerManager to a given device.
 
         Args:
-            device (str): Target hardware device.
+            device (str | device): Hardware device.
         """
         for optim_name in self.optimizers:
             move_optimizer_to(self.optimizers[optim_name], device)

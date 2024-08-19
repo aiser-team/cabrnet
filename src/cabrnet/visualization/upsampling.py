@@ -12,7 +12,7 @@ def cubic_upsampling(
     img: Image.Image,
     img_tensor: Tensor,
     proto_idx: int,
-    device: str,
+    device: str | torch.device,
     location: tuple[int, int] | str | None = None,
     normalize: bool = False,
     **kwargs,
@@ -24,7 +24,7 @@ def cubic_upsampling(
         img (Image): Raw input image.
         img_tensor (tensor): Input image tensor.
         proto_idx (int): Prototype index.
-        device (str): Target hardware device.
+        device (str | device): Hardware device.
         location (tuple[int,int], str or None, optional): Location inside the similarity map.
                 Can be given as an explicit location (tuple) or "max" for the location of maximum similarity.
                 Default: None.

@@ -1,3 +1,5 @@
+import torch
+
 from cabrnet.generic.model import CaBRNet
 from cabrnet.utils.optimizers import OptimizerManager
 from cabrnet.utils.save import load_checkpoint, save_checkpoint
@@ -30,7 +32,7 @@ def training_loop(
     checkpoint_frequency: int | None = None,
     resume_dir: str | None = None,
     seed: int = 42,
-    device: str = "cuda:0",
+    device: str | torch.device = "cuda:0",
     verbose: bool = False,
     sanity_check: bool = False,
     logger_level: str | None = None,
@@ -56,7 +58,7 @@ def training_loop(
             Default: None.
         resume_dir (str, optional): If given, directory from which training was resumed. Default: None.
         seed (int, optional): Initial random seed. Default: 42.
-        device (str, optional): Hardware device. Default: cuda:0.
+        device (str | device, optional): Hardware device. Default: cuda:0.
         verbose (bool, optional): If True, enables verbose mode. Default: False.
         sanity_check (bool, optional): If True, enables sanity check mode (training on a reduced number of batches).
             Default: False.

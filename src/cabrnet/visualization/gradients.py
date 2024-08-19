@@ -122,7 +122,7 @@ def _captum_attribution(
     img: Image.Image,
     img_tensor: Tensor,
     proto_idx: int,
-    device: str,
+    device: str | torch.device,
     location: tuple[int, int] | str | None = None,
     polarity: str | None = "absolute",
     gaussian_ksize: int = 5,
@@ -139,7 +139,7 @@ def _captum_attribution(
         img (Image): Raw input image.
         img_tensor (tensor): Input image tensor.
         proto_idx (int): Prototype index.
-        device (str): Target hardware device.
+        device (str | device): Hardware device.
         location (tuple[int,int], str or None, optional): Location inside the similarity map.
                 Can be given as an explicit location (tuple) or "max" for the location of maximum similarity.
                 Default: None.
@@ -228,7 +228,7 @@ def smoothgrad(
     img: Image.Image,
     img_tensor: Tensor,
     proto_idx: int,
-    device: str,
+    device: str | torch.device,
     location: tuple[int, int] | str | None = None,
     polarity: str | None = "absolute",
     gaussian_ksize: int = 5,
@@ -246,7 +246,7 @@ def smoothgrad(
         img (Image): Raw input image.
         img_tensor (tensor): Input image tensor.
         proto_idx (int): Prototype index.
-        device (str): Target hardware device.
+        device (str | device): Hardware device.
         location (tuple[int,int], str or None, optional): Location inside the similarity map.
                 Can be given as an explicit location (tuple) or "max" for the location of maximum similarity.
                 Default: None.
@@ -286,7 +286,7 @@ def saliency(
     img: Image.Image,
     img_tensor: Tensor,
     proto_idx: int,
-    device: str,
+    device: str | torch.device,
     location: tuple[int, int] | str | None = None,
     polarity: str | None = "absolute",
     gaussian_ksize: int = 5,
@@ -302,7 +302,7 @@ def saliency(
         img (Image): Raw input image.
         img_tensor (tensor): Input image tensor.
         proto_idx (int): Prototype index.
-        device (str): Target hardware device.
+        device (str | device): Hardware device.
         location (tuple[int,int], str or None, optional): Location inside the similarity map.
                 Can be given as an explicit location (tuple) or "max" for the location of maximum similarity.
                 Default: None.
@@ -376,7 +376,7 @@ def prp(
     img: Image.Image,
     img_tensor: Tensor,
     proto_idx: int,
-    device: str,
+    device: str | torch.device,
     location: tuple[int, int] | str | None = None,
     stability_factor: float = 1e-6,
     polarity: str | None = "absolute",
@@ -395,7 +395,7 @@ def prp(
         img (Image): Raw input image.
         img_tensor (tensor): Input image tensor.
         proto_idx (int): Prototype index.
-        device (str): Target hardware device.
+        device (str | device): Hardware device.
         location (tuple[int,int], str or None, optional): Location inside the similarity map.
                 Can be given as an explicit location (tuple) or "max" for the location of maximum similarity.
                 Default: None.

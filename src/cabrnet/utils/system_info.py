@@ -15,11 +15,11 @@ def get_parent_directory(dir_path: str):
     return Path(dir_path).parent.absolute()
 
 
-def get_hardware_info(device: str) -> str:
+def get_hardware_info(device: str | torch.device) -> str:
     r"""Returns the target device hardware information.
 
     Args:
-        device (str): Target hardware device.
+        device (str | device): Hardware device.
     """
     if device == "cpu":
         return get_cpu_info()["brand_raw"]
