@@ -91,10 +91,9 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         "--num-resources-per-trial",
         type=int,
         required=False,
-        default=0,
+        default=1,
         metavar="val",
-        help="number of hardware resources allocated to each trial. "
-             "If not specified, trials are processed consecutively using all available resources",
+        help="number of hardware resources allocated to each trial"
     )
     parser.add_argument(
         "--overwrite",
@@ -291,7 +290,11 @@ def execute(args: Namespace) -> None:
 
     # Set-up hardware resources
     resources = {"cpu" if device == "cpu" else "gpu": args.num_resources_per_trial}
-    trainable_with_resources = tune.with_resources(evaluate_configuration, resources)
+    trainable_with_resources = (
+        tune.with_resources(evaluate_configuration, resources)
+        if args.num_resources_per_trial > 0
+        else evaluate_configuration
+    )
 
     if args.resume_from is not None:
         # Resume failed/interrupted experiment
