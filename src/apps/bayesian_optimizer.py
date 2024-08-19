@@ -87,6 +87,16 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         help="path to existing working directory to resume optimization",
     )
     parser.add_argument(
+        "-n",
+        "--num-resources-per-trial",
+        type=int,
+        required=False,
+        default=0,
+        metavar="val",
+        help="number of hardware resources allocated to each trial. "
+             "If not specified, trials are processed consecutively using all available resources",
+    )
+    parser.add_argument(
         "--overwrite",
         action="store_true",
         help="allow output directory to be overwritten with new results. This option should be enabled when "
@@ -280,7 +290,8 @@ def execute(args: Namespace) -> None:
     num_trials = int(args.search_space[3])
 
     # Set-up hardware resources
-    trainable_with_resources = tune.with_resources(evaluate_configuration, {"gpu": 1})
+    resources = {"cpu" if device == "cpu" else "gpu": args.num_resources_per_trial}
+    trainable_with_resources = tune.with_resources(evaluate_configuration, resources)
 
     if args.resume_from is not None:
         # Resume failed/interrupted experiment
