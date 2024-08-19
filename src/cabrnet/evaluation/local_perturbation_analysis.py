@@ -273,7 +273,7 @@ def analyze(
     img_id: int | str,
     preprocess: Callable,
     visualizer: SimilarityVisualizer,
-    device: str,
+    device: str | torch.device,
     perturbations: list[str] | None = None,
     num_prototypes: int = 1,
     enable_dual_mode: bool = True,
@@ -290,7 +290,7 @@ def analyze(
         img_id (int | str): Image identifier.
         preprocess (Callable): Preprocessing function.
         visualizer (SimilarityVisualizer): Patch visualizer.
-        device (str): Target device.
+        device (str | device): Hardware device.
         perturbations (list[str], optional): List of perturbations to apply (all perturbation if None). Default: None.
         num_prototypes (int, optional): Number of relevant prototypes to analyze. Default: 1.
         enable_dual_mode (bool, optional): Enable dual perturbations. Default: True.
@@ -443,7 +443,7 @@ def execute(
     dataset_config: str,
     visualization_config: str,
     root_dir: str,
-    device: str,
+    device: str | torch.device,
     verbose: bool,
     info_db: str = "local_perturbation_analysis.csv",
     global_stats: str = "global_stats.csv",
@@ -464,7 +464,7 @@ def execute(
         dataset_config (str): Path to dataset configuration file.
         visualization_config (str): Path to visualization configuration file.
         root_dir (str): Path to root output directory.
-        device (str): Target device.
+        device (str | device): Hardware device.
         verbose (bool): Verbose mode.
         info_db (str, optional): Path to CSV file containing raw analysis per test image.
             Default: local_perturbation_analysis.csv.

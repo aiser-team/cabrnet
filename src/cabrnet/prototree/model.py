@@ -190,7 +190,7 @@ class ProtoTree(CaBRNet):
         self,
         dataloaders: dict[str, DataLoader],
         optimizer_mngr: OptimizerManager,
-        device: str = "cuda:0",
+        device: str | torch.device = "cuda:0",
         tqdm_position: int = 0,
         epoch_idx: int = 0,
         verbose: bool = False,
@@ -201,7 +201,7 @@ class ProtoTree(CaBRNet):
         Args:
             dataloaders (dictionary): Dictionary of dataloaders.
             optimizer_mngr (OptimizerManager): Optimizer manager.
-            device (str, optional): Target device. Default: cuda:0.
+            device (str | device, optional): Hardware device. Default: cuda:0.
             tqdm_position (int, optional): Position of the progress bar. Default: 0.
             epoch_idx (int, optional): Epoch index. Default: 0.
             verbose (bool, optional): Display progress bar. Default: False.
@@ -314,7 +314,7 @@ class ProtoTree(CaBRNet):
         dataloaders: dict[str, DataLoader],
         optimizer_mngr: OptimizerManager,
         output_dir: str,
-        device: str = "cuda:0",
+        device: str | torch.device = "cuda:0",
         verbose: bool = False,
         pruning_threshold: float = 0.0,
         merge_same_decision: bool = False,
@@ -326,7 +326,7 @@ class ProtoTree(CaBRNet):
             dataloaders (dictionary): Dictionary of dataloaders.
             optimizer_mngr (OptimizerManager): Unused.
             output_dir (str): Unused.
-            device (str, optional): Target device. Default: cuda:0.
+            device (str | device, optional): Hardware device. Default: cuda:0.
             verbose (bool, optional): Display progress bar. Default: False.
             pruning_threshold (float, optional): Pruning threshold. Default: 0.0 (no pruning).
             merge_same_decision (bool, optional): If True, merges branches leading to same top decision. Default: False.
@@ -382,7 +382,7 @@ class ProtoTree(CaBRNet):
     def project(
         self,
         dataloader: DataLoader,
-        device: str = "cuda:0",
+        device: str | torch.device = "cuda:0",
         verbose: bool = False,
         tqdm_position: int = 0,
     ) -> dict[int, dict]:
@@ -390,7 +390,7 @@ class ProtoTree(CaBRNet):
 
         Args:
             dataloader (DataLoader): Dataloader containing projection data.
-            device (str, optional): Target device. Default: cuda:0.
+            device (str | device, optional): Hardware device. Default: cuda:0.
             verbose (bool, optional): Display progress bar. Default: False.
             tqdm_position (int, optional): Position of the progress bar. Default: 0.
 
@@ -482,7 +482,7 @@ class ProtoTree(CaBRNet):
         prototype_dir: str = "",
         output_dir: str = "",
         output_format: str = "pdf",
-        device: str = "cuda:0",
+        device: str | torch.device = "cuda:0",
         exist_ok: bool = False,
         disable_rendering: bool = False,
         strategy: SamplingStrategy = SamplingStrategy.GREEDY,
@@ -497,7 +497,7 @@ class ProtoTree(CaBRNet):
             prototype_dir (str, optional): Path to directory containing prototype visualizations. Default: "".
             output_dir (str, optional): Path to output directory. Default: "".
             output_format (str, optional): Output file format. Default: pdf.
-            device (str, optional): Target hardware device. Default: cuda:0.
+            device (str | device, optional): Hardware device. Default: cuda:0.
             exist_ok (bool, optional): Silently overwrites existing explanation (if any). Default: False.
             disable_rendering (bool, optional): When True, no visual explanation is generated. Default: False.
             strategy (SamplingStrategy, optional): Tree sampling strategy. Default: Greedy.

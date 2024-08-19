@@ -41,7 +41,7 @@ def save_checkpoint(
     projection_info: dict[int, dict[str, int | float]] | None,
     epoch: int | str,
     seed: int | None,
-    device: str,
+    device: str | torch.device,
     stats: dict[str, Any] | None = None,
 ) -> None:
     r"""Saves everything needed to restart a training process.
@@ -56,7 +56,7 @@ def save_checkpoint(
         projection_info (dictionary, optional): Projection dictionary, generated during training epilogue.
         epoch (int or str): Current epoch.
         seed (int): Initial random seed (recorded for reproducibility).
-        device (str): Target hardware device (recorded for reproducibility).
+        device (str | device): Hardware device (recorded for reproducibility).
         stats (dictionary, optional): Other optional statistics. Default: None.
     """
     os.makedirs(directory_path, exist_ok=True)
@@ -95,7 +95,7 @@ def save_checkpoint(
         },
         "epoch": epoch,
         "seed": seed,
-        "device": device,
+        "device": str(device),
         "stats": stats,
     }
 

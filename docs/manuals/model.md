@@ -304,7 +304,7 @@ class ArchName(CaBRNet):
         self,
         dataloaders: dict[str, DataLoader],
         optimizer_mngr: OptimizerManager,
-        device: str = "cuda:0",
+        device: str | torch.device = "cuda:0",
         tqdm_position: int = 0,
         epoch_idx: int = 0,
         verbose: bool = False,
@@ -315,7 +315,7 @@ class ArchName(CaBRNet):
         Args:
             dataloaders (dictionary): Dictionary of dataloaders.
             optimizer_mngr (OptimizerManager): Optimizer manager.
-            device (str, optional): Target device. Default: cuda:0.
+            device (str | device, optional): Hardware device. Default: cuda:0.
             tqdm_position (int, optional): Position of the progress bar. Default: 0.
             epoch_idx (int, optional): Epoch index. Default: 0.
             verbose (bool, optional): Display progress bar. Default: False.
@@ -376,7 +376,7 @@ class ArchName(CaBRNet):
     def evaluate(
         self,
         dataloader: DataLoader,
-        device: str = "cuda:0",
+        device: str | torch.device = "cuda:0",
         tqdm_position: int = 0,
         verbose: bool = False,
     ) -> dict[str, float]:
@@ -384,7 +384,7 @@ class ArchName(CaBRNet):
 
         Args:
             dataloader (DataLoader): Dataloader containing evaluation data.
-            device (str, optional): Target device. Default: cuda:0.
+            device (str | device, optional): Hardware device. Default: cuda:0.
             tqdm_position (int, optional): Position of the progress bar. Default: 0.
             verbose (bool, optional): Display progress bar. Default: 0.
 
@@ -397,7 +397,7 @@ class ArchName(CaBRNet):
     def project(
         self,
         dataloader: DataLoader,
-        device: str = "cuda:0",
+        device: str | torch.device = "cuda:0",
         verbose: bool = False,
         tqdm_position: int = 0,
     ) -> dict[int, dict]:
@@ -406,7 +406,7 @@ class ArchName(CaBRNet):
         Args:
             dataloader (DataLoader): Dataloader containing projection data. 
                 WARNING: This dataloader must not be shuffled!
-            device (str, optional): Target device. Default: cuda:0.
+            device (str | device, optional): Hardware device. Default: cuda:0.
             verbose (bool, optional): Display progress bar. Default: False.
             tqdm_position (int, optional): Position of the progress bar. Default: 0.
 
@@ -439,7 +439,7 @@ class ArchName(CaBRNet):
         dataloaders: dict[str, DataLoader],
         optimizer_mngr: OptimizerManager,
         output_dir: str,
-        device: str = "cuda:0",
+        device: str | torch.device = "cuda:0",
         verbose: bool = False,
         **kwargs,
     ) -> None:
@@ -450,7 +450,7 @@ class ArchName(CaBRNet):
             dataloaders (dictionary): Dictionary of dataloaders.
             optimizer_mngr (OptimizerManager): Optimizer manager.
             output_dir (str): Path to output directory.
-            device (str, optional): Target device. Default: cuda:0.
+            device (str | device, optional): Hardware device. Default: cuda:0.
             verbose (bool, optional): Display progress bar. Default: False.
         """
         ...
@@ -463,7 +463,7 @@ class ArchName(CaBRNet):
         prototype_dir: str = "",
         output_dir: str = "",
         output_format: str = "pdf",
-        device: str = "cuda:0",
+        device: str | torch.device = "cuda:0",
         exist_ok: bool = False,
         disable_rendering: bool = False,
         **kwargs,
@@ -477,7 +477,7 @@ class ArchName(CaBRNet):
             prototype_dir (str): Path to directory containing prototype visualizations.
             output_dir (str): Path to output directory.
             output_format (str, optional): Output file format. Default: pdf.
-            device (str, optional): Target hardware device. Default: cuda:0.
+            device (str | device, optional): Hardware device. Default: cuda:0.
             exist_ok (bool, optional): Silently overwrites existing explanation (if any). Default: False.
             disable_rendering (bool, optional): When True, no visual explanation is generated. Default: False.
 

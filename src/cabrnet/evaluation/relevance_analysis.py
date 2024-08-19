@@ -92,7 +92,7 @@ def analyze(
     seg: Image.Image,
     preprocess: Callable,
     visualizer: SimilarityVisualizer,
-    device: str,
+    device: str | torch.device,
     area_percentage: float = 0.1,
     num_prototypes: int = 1,
     prototype_location: tuple[int, int, int] | None = None,
@@ -110,7 +110,7 @@ def analyze(
         seg (Image): Object segmentation.
         preprocess (Callable): Preprocessing function.
         visualizer (SimilarityVisualizer): Patch visualizer.
-        device (str): Target device.
+        device (str | device): Hardware device.
         area_percentage (float, optional): Area percentage for pointing game mask relevance. Default: 0.1.
         num_prototypes (int, optional): Number of relevant prototypes to analyze. Default: 1.
         prototype_location (tuple, optional): A prototype location, given as (proto_idx, h, w). If not None, focus on
@@ -209,7 +209,7 @@ def patches_relevance_analysis(
     dataset_config: str,
     visualization_config: str,
     output_dir: str,
-    device: str,
+    device: str | torch.device,
     verbose: bool,
     patch_info_db: str,
     sampling_ratio: int = 1,
@@ -223,7 +223,7 @@ def patches_relevance_analysis(
         dataset_config (str): Path to dataset configuration file.
         visualization_config (str): Path to visualization configuration file.
         output_dir (str): Path to output directory.
-        device (str): Target device.
+        device (str | device): Hardware device.
         verbose (bool): Verbose mode.
         patch_info_db (str): Path to raw output analysis file.
         sampling_ratio (int, optional): Ratio of test images to use during evaluation (e.g. 10 means only
@@ -284,7 +284,7 @@ def proto_relevance_analysis(
     dataset_config: str,
     visualization_config: str,
     output_dir: str,
-    device: str,
+    device: str | torch.device,
     verbose: bool,
     prototype_info_db: str,
     projection_file: str,
@@ -298,7 +298,7 @@ def proto_relevance_analysis(
         dataset_config (str): Path to dataset configuration file.
         visualization_config (str): Path to visualization configuration file.
         output_dir (str): Path to output directory.
-        device (str): Target device.
+        device (str | device): Hardware device.
         verbose (bool): Verbose mode.
         prototype_info_db (str): Path to raw output analysis file.
         projection_file (str): Path to the projection info produced during training.
@@ -369,7 +369,7 @@ def execute(
     visualization_config: str,
     projection_file: str,
     root_dir: str,
-    device: str,
+    device: str | torch.device,
     verbose: bool,
     prototype_dir: str,
     debug_mode: bool = False,
@@ -383,7 +383,7 @@ def execute(
         visualization_config (str): Path to visualization configuration file.
         projection_file (str): Path to projection information file.
         root_dir (str): Path to root output directory.
-        device (str): Target device.
+        device (str | device): Hardware device.
         verbose (bool): Verbose mode.
         prototype_dir (str): Path to directory containing a visualization of all prototypes.
         debug_mode (bool, optional): If True, enables debug mode for visualizing image analysis. Default: False.

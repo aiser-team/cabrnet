@@ -222,7 +222,7 @@ class ProtoPNet(CaBRNet):
         self,
         dataloaders: dict[str, DataLoader],
         optimizer_mngr: OptimizerManager | torch.optim.Optimizer,
-        device: str = "cuda:0",
+        device: str | torch.device = "cuda:0",
         tqdm_position: int = 0,
         tqdm_title: str = "",
         epoch_idx: int = 0,
@@ -234,7 +234,7 @@ class ProtoPNet(CaBRNet):
         Args:
             dataloaders (dictionary): Dictionary of dataloaders.
             optimizer_mngr (OptimizerManager): Optimizer manager.
-            device (str, optional): Target device. Default: cuda:0.
+            device (str | device, optional): Hardware device. Default: cuda:0.
             tqdm_position (int, optional): Position of the progress bar. Default: 0.
             tqdm_title (str, optional): Progress bar title. Default: "".
             epoch_idx (int, optional): Epoch index. Default: 0.
@@ -309,7 +309,7 @@ class ProtoPNet(CaBRNet):
         self,
         dataloaders: dict[str, DataLoader],
         optimizer_mngr: OptimizerManager,
-        device: str = "cuda:0",
+        device: str | torch.device = "cuda:0",
         tqdm_position: int = 0,
         epoch_idx: int = 0,
         verbose: bool = False,
@@ -320,7 +320,7 @@ class ProtoPNet(CaBRNet):
         Args:
             dataloaders (dictionary): Dictionary of dataloaders.
             optimizer_mngr (OptimizerManager): Optimizer manager.
-            device (str, optional): Target device. Default: cuda:0.
+            device (str | device, optional): Hardware device. Default: cuda:0.
             tqdm_position (int, optional): Position of the progress bar. Default: 0.
             epoch_idx (int, optional): Epoch index. Default: 0.
             verbose (bool, optional): Display progress bar. Default: False.
@@ -382,7 +382,7 @@ class ProtoPNet(CaBRNet):
         dataloaders: dict[str, DataLoader],
         optimizer_mngr: OptimizerManager,
         output_dir: str,
-        device: str = "cuda:0",
+        device: str | torch.device = "cuda:0",
         verbose: bool = False,
         pruning_threshold: int = 3,
         num_nearest_patches: int = 0,
@@ -397,7 +397,7 @@ class ProtoPNet(CaBRNet):
             dataloaders (dictionary): Dictionary of dataloaders.
             optimizer_mngr (OptimizerManager): Optimizer manager.
             output_dir (str): Unused.
-            device (str, optional): Target device. Default: cuda:0.
+            device (str | device, optional): Hardware device. Default: cuda:0.
             verbose (bool, optional): Display progress bar. Default: False.
             pruning_threshold (int, optional): Pruning threshold. Default: 3.
             num_nearest_patches (int, optional): Number of patches near the prototype to look at.
@@ -470,7 +470,7 @@ class ProtoPNet(CaBRNet):
         pruning_threshold: int = 3,
         num_nearest_patches: int = 6,
         disable_pruned_prototypes: bool = False,
-        device: str = "cuda:0",
+        device: str | torch.device = "cuda:0",
         verbose: bool = False,
         tqdm_position: int = 0,
     ) -> None:
@@ -482,7 +482,7 @@ class ProtoPNet(CaBRNet):
             num_nearest_patches (int, optional): Number of patches near the prototype to look at. Default: 6.
             disable_pruned_prototypes (bool, optional): If True, only disables prototypes instead of deleting them
                 during pruning. Default: False.
-            device (str, optional): Target device. Default: cuda:0.
+            device (str | device, optional): Hardware device. Default: cuda:0.
             verbose (bool, optional): Display progress bar. Default: False.
             tqdm_position (int, optional): Position of the progress bar. Default: 0.
         """
@@ -581,7 +581,7 @@ class ProtoPNet(CaBRNet):
     def project(
         self,
         dataloader: DataLoader,
-        device: str = "cuda:0",
+        device: str | torch.device = "cuda:0",
         verbose: bool = False,
         tqdm_position: int = 0,
     ) -> dict[int, dict[str, int | float]]:
@@ -589,7 +589,7 @@ class ProtoPNet(CaBRNet):
 
         Args:
             dataloader (DataLoader): Dataloader containing projection data.
-            device (str, optional): Target device. Default: cuda:0.
+            device (str | device, optional): Hardware device. Default: cuda:0.
             verbose (bool, optional): Display progress bar. Default: False.
             tqdm_position (int, optional): Position of the progress bar. Default: 0.
 
@@ -681,7 +681,7 @@ class ProtoPNet(CaBRNet):
         prototype_dir: str = "",
         output_dir: str = "",
         output_format: str = "pdf",
-        device: str = "cuda:0",
+        device: str | torch.device = "cuda:0",
         exist_ok: bool = False,
         disable_rendering: bool = False,
         num_closest: int = 10,
@@ -697,7 +697,7 @@ class ProtoPNet(CaBRNet):
             prototype_dir (str, optional): Path to directory containing prototype visualizations. Default: "".
             output_dir (str, optional): Path to output directory. Default: "".
             output_format (str, optional): Output file format. Default: pdf.
-            device (str, optional): Target hardware device. Default: cuda:0.
+            device (str | device, optional): Hardware device. Default: cuda:0.
             exist_ok (bool, optional): Silently overwrites existing explanation (if any). Default: False.
             disable_rendering (bool, optional): When True, no visual explanation is generated. Default: False.
             num_closest (int, optional): Number of closest prototypes to display. Default: 10.

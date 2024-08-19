@@ -4,6 +4,7 @@ import argparse
 from typing import Callable, Any
 
 import numpy as np
+import torch
 import torch.nn as nn
 from cabrnet.utils.parser import load_config
 from cabrnet.visualization.gradients import prp, randgrad, saliency, smoothgrad
@@ -78,7 +79,7 @@ class SimilarityVisualizer(nn.Module):
         img: Image.Image,
         img_tensor: Tensor,
         proto_idx: int,
-        device: str,
+        device: str | torch.device,
         location: tuple[int, int] | str | None = None,
     ) -> Image.Image:
         r"""Generates a visualization of the most similar patch to a given prototype.
@@ -87,7 +88,7 @@ class SimilarityVisualizer(nn.Module):
             img (Image): Original image.
             img_tensor (tensor): Image tensor.
             proto_idx (int): Prototype index.
-            device (str): Target hardware device.
+            device (str | device): Hardware device.
             location (tuple[int,int], str or None, optional): Location inside the similarity map.
                 Can be given as an explicit location (tuple) or "max" for the location of maximum similarity.
                 Default: None.
@@ -105,7 +106,7 @@ class SimilarityVisualizer(nn.Module):
         img: Image.Image,
         img_tensor: Tensor,
         proto_idx: int,
-        device: str,
+        device: str | torch.device,
         location: tuple[int, int] | str | None = None,
     ) -> np.ndarray:
         r"""Identifies the most similar pixels to a given prototype.
@@ -114,7 +115,7 @@ class SimilarityVisualizer(nn.Module):
             img (Image): Original image.
             img_tensor (tensor): Image tensor.
             proto_idx (int): Prototype index.
-            device (str): Target hardware device.
+            device (str | device): Hardware device.
             location (tuple[int,int], str or None, optional): Location inside the similarity map.
                 Can be given as an explicit location (tuple) or "max" for the location of maximum similarity.
                 Default: None.
