@@ -168,7 +168,7 @@ class ProtoTree(CaBRNet):
             f"({len(remaining_leaves)/self.classifier.tree.num_leaves*100:.1f}%)"
         )
 
-    def loss(self, model_output: Any, label: torch.Tensor) -> tuple[torch.Tensor, dict[str, float]]:
+    def loss(self, model_output: Any, label: torch.Tensor, **kwargs) -> tuple[torch.Tensor, dict[str, float]]:
         r"""Loss function.
 
         Args:

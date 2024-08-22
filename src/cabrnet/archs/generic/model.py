@@ -126,7 +126,19 @@ class CaBRNet(nn.Module):
         Args:
             training_config (dictionary): Dictionary containing training configuration.
         """
-        pass
+        if training_config.get("auxiliary_info") is None:
+            logger.warning("Empty auxiliary training configuration. Using default values")
+            return
+        aux_training_params = training_config["auxiliary_info"]
+
+        for attribute_name, attribute_dict in aux_training_params.items():
+            if not hasattr(self, attribute_name):
+                raise ValueError(f"Unknown attribute name '{attribute_name}' in training configuration.")
+            for key, val in attribute_dict.items():
+                # Overwrite default loss coefficients
+                if key not in getattr(self, attribute_name).keys():
+                    raise ValueError(f"Unknown parameter name '{key}' in attribute '{attribute_name}'")
+            getattr(self, attribute_name).update(attribute_dict)
 
     @staticmethod
     def create_parser(
@@ -292,7 +304,7 @@ class CaBRNet(nn.Module):
 
         return model
 
-    def loss(self, model_output: Any, label: torch.Tensor) -> tuple[torch.Tensor, dict[str, float]]:
+    def loss(self, model_output: Any, label: torch.Tensor, **kwargs) -> tuple[torch.Tensor, dict[str, float]]:
         r"""Computes the loss and statistics over a batch of model outputs.
 
         Args:
@@ -360,6 +372,7 @@ class CaBRNet(nn.Module):
         device: str | torch.device = "cuda:0",
         tqdm_position: int = 0,
         verbose: bool = False,
+        **kwargs,
     ) -> dict[str, float]:
         r"""Evaluates the model.
 
@@ -395,7 +408,7 @@ class CaBRNet(nn.Module):
                 xs, ys = xs.to(device), ys.to(device)
 
                 # Perform inference and compute loss
-                ys_pred = self.forward(xs)
+                ys_pred = self.forward(xs, **kwargs)
                 batch_loss, batch_stats = self.loss(ys_pred, ys)
                 batch_accuracy = batch_stats["accuracy"]
 

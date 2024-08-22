@@ -66,6 +66,12 @@ class ProtoPNet(CaBRNet):
         cbrn_keys = list(self.state_dict().keys())
         cbrn_key = "dummy"
 
+        legacy_to_cabrnet = {
+            "last_layer.weight": "classifier.last_layer.weight",
+            "prototype_vectors": "classifier.prototypes",
+            "ones": "classifier.similarity_layer._summation_kernel",
+        }
+
         for legacy_key in legacy_keys:
             if legacy_key.startswith("features"):
                 # Feature extractor
@@ -84,12 +90,8 @@ class ProtoPNet(CaBRNet):
                             break
                 if not found_match:
                     raise ValueError(f"No parameter matching {legacy_key}. Check that model architectures are similar.")
-            elif legacy_key == "last_layer.weight":
-                cbrn_key = "classifier.last_layer.weight"
-            elif legacy_key == "prototype_vectors":
-                cbrn_key = "classifier.prototypes"
-            elif legacy_key == "ones":
-                cbrn_key = "classifier.similarity_layer._summation_kernel"
+            elif legacy_key in legacy_to_cabrnet.keys():
+                cbrn_key = legacy_to_cabrnet[legacy_key]
             else:
                 final_state[legacy_key] = torch.unsqueeze(final_state[legacy_key], 0)
 
@@ -138,23 +140,7 @@ class ProtoPNet(CaBRNet):
             # Load state dictionary
             super().load_state_dict(state_dict, **kwargs)
 
-    def register_training_params(self, training_config: dict[str, Any]) -> None:
-        r"""Saves additional information from the training configuration directly into the model.
-
-        Args:
-            training_config (dictionary): Dictionary containing training configuration.
-        """
-        if training_config.get("auxiliary_info") is None:
-            logger.warning("Empty auxiliary training configuration. Using default values")
-            return
-        aux_training_params = training_config["auxiliary_info"]
-
-        if aux_training_params.get("loss_coefficients") is not None:
-            self.loss_coefficients = aux_training_params["loss_coefficients"]
-        if aux_training_params.get("projection_config") is not None:
-            self.projection_config = aux_training_params["projection_config"]
-
-    def loss(self, model_output: Any, label: torch.Tensor) -> tuple[torch.Tensor, dict[str, float]]:
+    def loss(self, model_output: Any, label: torch.Tensor, **kwargs) -> tuple[torch.Tensor, dict[str, float]]:
         r"""Loss function.
 
         Args:
@@ -169,38 +155,26 @@ class ProtoPNet(CaBRNet):
         # Cross-entropy loss
         cross_entropy = torch.nn.functional.cross_entropy(output, label)
 
-        # Arbitrary high value to select min distances from masked vector
-        max_dist = 128
+        def distance_loss(dists: torch.Tensor, proto_selection: torch.Tensor) -> torch.Tensor:
+            r"""Returns the average minimum distance across a batch, w.r.t. a selection of valid prototypes.
 
-        if self._compatibility_mode:
-            prototypes_of_correct_class = torch.t(self.classifier.proto_class_map[:, label])
-            inverted_distances, _ = torch.max((max_dist - min_distances) * prototypes_of_correct_class, dim=1)
-            cluster_cost = torch.mean(max_dist - inverted_distances)
+            Args:
+                dists (tensor): Tensor of distances to all prototypes. Shape: N x P.
+                proto_selection (tensor): For each sample, binary vector corresponding to the list of prototypes
+                    associated with the sample class. Shape: N x P.
+            """
+            # Arbitrary high value to select min distances from masked vector
+            max_dist = self.classifier.num_features
+            # Min distance among the selected prototypes
+            inverted_distances = torch.max((max_dist - dists) * proto_selection, dim=1).values
+            return torch.mean(max_dist - inverted_distances)
 
-            prototypes_of_wrong_class = 1 - prototypes_of_correct_class
-            inverted_distances_to_nontarget_prototypes, _ = torch.max(
-                (max_dist - min_distances) * prototypes_of_wrong_class, dim=1
-            )
-            separation_cost = torch.mean(max_dist - inverted_distances_to_nontarget_prototypes)
+        prototypes_of_correct_class = torch.t(torch.index_select(self.classifier.proto_class_map, 1, label))
+        cluster_cost = distance_loss(min_distances, prototypes_of_correct_class)
+        separation_cost = distance_loss(min_distances, 1 - prototypes_of_correct_class)
 
-            l1_mask = 1 - torch.t(self.classifier.proto_class_map)
-            l1 = (self.classifier.last_layer.weight * l1_mask).norm(p=1)
-
-        else:
-            prototypes_of_correct_class = torch.t(torch.index_select(self.classifier.proto_class_map, 1, label))
-            prototypes_of_wrong_class = 1 - prototypes_of_correct_class
-
-            # Target vector is equal to max_dist everywhere except for the selected prototypes
-            cluster_cost = torch.mean(
-                torch.min(prototypes_of_correct_class * min_distances + max_dist * prototypes_of_wrong_class, dim=1)[0]
-            )
-            # Target vector is equal to max_dist for the selected prototypes
-            separation_cost = torch.mean(
-                torch.min(prototypes_of_wrong_class * min_distances + max_dist * prototypes_of_correct_class, dim=1)[0]
-            )
-
-            l1_mask = 1 - torch.t(self.classifier.proto_class_map)
-            l1 = (self.classifier.last_layer.weight * l1_mask).norm(p=1)
+        l1_mask = 1 - torch.t(self.classifier.proto_class_map)
+        l1 = (self.classifier.last_layer.weight * l1_mask).norm(p=1)
 
         loss = (
             cross_entropy
