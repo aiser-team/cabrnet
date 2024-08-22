@@ -192,6 +192,15 @@ class OptimizerManager:
         else:
             current_epoch = 0
             for period_name, period_config in self.config["periods"].items():
+                # Sanity check on keys
+                for key in period_config.keys():
+                    assert key in [
+                        "num_epochs",
+                        "epoch_range",
+                        "optimizers",
+                        "freeze",
+                    ], f"Unknown period configuration parameter {key}."
+
                 # Update configuration if necessary
                 if period_config.get("num_epochs") is not None:
                     if period_config.get("epoch_range") is not None:
