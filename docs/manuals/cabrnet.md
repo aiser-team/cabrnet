@@ -300,6 +300,7 @@ torch.use_deterministic_algorithms(mode=True)
 torch.manual_seed(seed)
 np.random.seed(seed)
 random.seed(seed)
+
 ```
 Additionally, CaBRNet use a pytorch feature called [torch.use_deterministic_algorithm](https://pytorch.org/docs/stable/generated/torch.use_deterministic_algorithms.html),
 which ensures reproducible results for a given hardware/software configuration. 

@@ -26,6 +26,17 @@ class SimilarityLayer(nn.Module, ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def distances_to_similarities(self, distances: Tensor, **kwargs) -> Tensor:
+        r"""Converts a tensor of distances into a tensor of similarity scores.
+
+        Args:
+            distances (tensor): Input tensor. Any shape.
+
+        Returns:
+             Similarity score corresponding to the provided distances. Same shape as input.
+        """
+        raise NotImplementedError
+
     def similarities(self, features: Tensor, prototypes: Tensor, **kwargs) -> Tensor:
         r"""Computes pairwise similarity scores between a tensor of features and a tensor of prototypes.
 
@@ -36,7 +47,9 @@ class SimilarityLayer(nn.Module, ABC):
         Returns:
             Tensor of similarity scores. Shape (N, P, H, W).
         """
-        raise NotImplementedError
+        # By default, similarity scores are computed from the distances
+        distances = self.distances(features=features, prototypes=prototypes, **kwargs)
+        return self.distances_to_similarities(distances=distances, **kwargs)
 
     def forward(self, features: Tensor, prototypes: Tensor, **kwargs) -> Tensor:
         r"""Return pairwise similarity scores between a tensor of features and a tensor of prototypes.
@@ -174,19 +187,18 @@ class LogDistance(SimilarityLayer):
         super().__init__(**kwargs)
         self.stability_factor = stability_factor
 
-    def similarities(self, features: Tensor, prototypes: Tensor, **kwargs) -> Tensor:
-        r"""Computes pairwise similarity scores between a tensor of features and a tensor of prototypes as
-        log((1+distances)/(1+epsilon)) where epsilon is the stability factor.
+    def distances_to_similarities(self, distances: Tensor, **kwargs) -> Tensor:
+        r"""Converts a tensor of distances into a tensor of similarity scores, such that
+        sim=log((1+distances)/(1+epsilon)) where epsilon is the stability factor.
 
         Args:
-            features (tensor): Input tensor. Shape (N, D, H, W).
-            prototypes (tensor): Tensor of prototypes. Shape (P, D, 1, 1).
+            distances (tensor): Input tensor. Any shape.
 
         Returns:
-            Tensor of similarity scores. Shape (N, P, H, W).
+             Similarity score corresponding to the provided distances. Same shape as input.
         """
         # Ensures that distances are greater than 0
-        distances = torch.relu(self.distances(features, prototypes))
+        distances = torch.relu(distances)
         return torch.log((distances + 1) / (distances + self.stability_factor))
 
 
@@ -210,21 +222,18 @@ class ExpDistance(SimilarityLayer):
         self.log_probabilities = log_probabilities
         self.stability_factor = stability_factor
 
-    def similarities(self, features: Tensor, prototypes: Tensor, **kwargs) -> Tensor:
-        r"""Computes pairwise similarity scores between a tensor of features and a tensor of prototypes
-        as exp(-sqrt(distances+epsilon))$$ where epsilon is the stability factor.
+    def distances_to_similarities(self, distances: Tensor, **kwargs) -> Tensor:
+        r"""Converts a tensor of distances into a tensor of similarity scores, such that
+        sim=exp(-sqrt(distances+epsilon)) where epsilon is the stability factor.
         If log_probabilities is enabled, simply returns -sqrt(distances+epsilon).
 
         Args:
-            features (tensor): Input tensor. Shape (N, D, H, W).
-            prototypes (tensor): Tensor of prototypes. Shape (P, D, 1, 1).
+            distances (tensor): Input tensor. Any shape.
 
         Returns:
-            Tensor of similarity scores. Shape (N, P, H, W).
+             Similarity score corresponding to the provided distances. Same shape as input.
         """
-        distances = torch.sqrt(
-            torch.abs(self.distances(features=features, prototypes=prototypes)) + self.stability_factor
-        )
+        distances = torch.sqrt(torch.abs(distances) + self.stability_factor)
         if self.log_probabilities:
             return -distances
         return torch.exp(-distances)

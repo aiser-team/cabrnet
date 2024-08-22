@@ -262,6 +262,17 @@ class SimilarityLayer(nn.Module, ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def distances_to_similarities(self, distances: Tensor, **kwargs) -> Tensor:
+        r"""Converts a tensor of distances into a tensor of similarity scores.
+
+        Args:
+            distances (tensor): Input tensor. Any shape.
+
+        Returns:
+             Similarity score corresponding to the provided distances. Same shape as input.
+        """
+        raise NotImplementedError
+
     def similarities(self, features: Tensor, prototypes: Tensor, **kwargs) -> Tensor:
         r"""Computes pairwise similarity scores between a tensor of features and a tensor of prototypes.
 
@@ -272,7 +283,9 @@ class SimilarityLayer(nn.Module, ABC):
         Returns:
             Tensor of similarity scores. Shape (N, P, H, W).
         """
-        raise NotImplementedError
+        # By default, similarity scores are computed from the distances
+        distances = self.distances(features=features, prototypes=prototypes, **kwargs)
+        return self.distances_to_similarities(distances=distances, **kwargs)
 
     def forward(self, features: Tensor, prototypes: Tensor, **kwargs) -> Tensor:
         r"""Return pairwise similarity scores between a tensor of features and a tensor of prototypes.
@@ -394,7 +407,7 @@ from cabrnet.visualization.visualizer import SimilarityVisualizer
 
 class ArchName(CaBRNet):
     def loss(
-        self, model_output: Any, label: torch.Tensor
+        self, model_output: Any, label: torch.Tensor, **kwargs
     ) -> tuple[torch.Tensor, dict[str, float]]:
         r"""Loss function.
 
@@ -490,6 +503,7 @@ class ArchName(CaBRNet):
         device: str | torch.device = "cuda:0",
         tqdm_position: int = 0,
         verbose: bool = False,
+        **kwargs,
     ) -> dict[str, float]:
         r"""Evaluates the model.
 

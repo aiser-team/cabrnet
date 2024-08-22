@@ -236,7 +236,6 @@ training:
             lr: [0.001, 0.0001, 0.0005]
             momentum: [0.9, 0.5]
       joint_optimizer:
-        type: Adam
         groups:
           backbone:
             lr: [0.001, 0.01]
