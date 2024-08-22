@@ -1,39 +1,26 @@
-import os.path
-import random
-import sys
 import unittest
-from typing import Any
-
-import numpy as np
-import torch
-import torch.nn as nn
-import torchvision.datasets as datasets
-import torchvision.transforms as transforms
+import sys
 from loguru import logger
-from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-import legacy.preprocess as legacy_preprocess
-import legacy.prune as legacy_prune
-import legacy.push as legacy_push
-import legacy.settings as legacy_settings
-import legacy.train_and_test as legacy_tnt
-from legacy.model import construct_PPNet
+import torch
+import torch.nn as nn
+from torch.utils.data import DataLoader
+import torchvision.transforms as transforms
+import torchvision.datasets as datasets
+
+from compatibility_tester import CaBRNetCompatibilityTester, DummyLogger, setup_rng
 from cabrnet.archs.generic.model import CaBRNet
+from cabrnet.core.utils.parser import load_config
 from cabrnet.core.utils.data import DatasetManager
 from cabrnet.core.utils.optimizers import OptimizerManager
-from cabrnet.core.utils.parser import load_config
 
-
-def setup_rng(seed: int):
-    torch.manual_seed(seed)
-    np.random.seed(seed)
-    random.seed(seed)
-
-
-class DummyLogger:
-    def __call__(self, _: str):
-        pass
+import protopnet.settings as legacy_settings
+import protopnet.preprocess as legacy_preprocess
+from protopnet.model import construct_PPNet
+import protopnet.push as legacy_push
+import protopnet.train_and_test as legacy_tnt
+import protopnet.prune as legacy_prune
 
 
 def legacy_get_model(seed: int) -> nn.Module:
@@ -123,62 +110,9 @@ def legacy_get_optimizers(
     return warm_optimizer, joint_optimizer, last_layer_optimizer, joint_lr_scheduler
 
 
-class TestProtoPNetCompatibility(unittest.TestCase):
+class TestProtoPNetCompatibility(CaBRNetCompatibilityTester):
     def __init__(self, methodName: str = "runTest"):
-        super(TestProtoPNetCompatibility, self).__init__(methodName=methodName)
-
-        # Test configuration
-        test_dir = os.path.dirname(os.path.realpath(__file__))
-        self.model_config_file = os.path.join(test_dir, CaBRNet.DEFAULT_MODEL_CONFIG)
-        self.dataset_config_file = os.path.join(test_dir, DatasetManager.DEFAULT_DATASET_CONFIG)
-        self.training_config_file = os.path.join(test_dir, OptimizerManager.DEFAULT_TRAINING_CONFIG)
-        self.legacy_state_dict = os.path.join(test_dir, "legacy_state.pth")
-        self.output_dir = os.path.join(test_dir, "output")
-        self.device: str = "cuda:0"
-        self.seed: int = 42
-        self.verbose: bool = True
-
-    def assertTensorEqual(self, expected: torch.Tensor, actual: torch.Tensor, msg: str | None = None):
-        if actual.size() != expected.size():
-            self.fail(f"{msg} Mismatching tensor sizes: {actual.size()} v. {expected.size()}.")
-        elif not torch.all(torch.eq(expected, actual)):
-            # print(expected, actual)
-            self.fail(f"{msg} Mismatching tensors (all close? {torch.allclose(expected,actual)}).")
-
-    def assertModelEqual(self, expected: nn.Module, actual: nn.Module):
-        expected.eval()
-        actual.eval()
-        expected.to(self.device)
-        actual.to(self.device)
-        x = torch.rand(16, 3, 224, 224).to(self.device)
-        with torch.no_grad():
-            y_e = expected(x)
-            y_a = actual(x)
-
-        self.assertGenericEqual(y_e, y_a)
-
-    def assertGenericEqual(self, expected: Any, actual: Any, msg: str | None = None):
-        """Generic comparison function for complex data structures"""
-        if type(expected) is not type(actual):
-            self.fail(f"{msg} Mismatching types ({type(expected)} v. {type(actual)}) for {expected} and {actual}")
-        elif isinstance(expected, dict):
-            for key in expected:
-                if key not in actual:
-                    self.fail(f"{msg} Key {key} not found in state dict")
-                else:
-                    self.assertGenericEqual(expected[key], actual[key], f"{msg} Checking key {key}.")
-        elif isinstance(expected, list) or isinstance(expected, tuple):
-            if len(expected) != len(actual):
-                self.fail(f"Mismatching list lengths: {len(expected)} v. {len(actual)}.")
-            for index, (ex, ac) in enumerate(zip(expected, actual)):
-                self.assertGenericEqual(ex, ac, f"{msg} Checking list (index {index}).")
-        elif isinstance(expected, torch.Tensor):
-            self.assertTensorEqual(expected, actual, msg)
-        elif isinstance(expected, np.ndarray):
-            if not (expected == actual).all():
-                self.fail(f"Mismatching np arrays (all close? {np.allclose(expected, actual)})")
-        else:
-            self.assertEqual(expected, actual, f"{msg} Checking generic type.")
+        super(TestProtoPNetCompatibility, self).__init__(arch="protopnet", methodName=methodName)
 
     def test_model_init(self):
         # CaBRNet

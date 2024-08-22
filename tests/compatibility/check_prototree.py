@@ -1,44 +1,26 @@
-import os
-import random
-import sys
 import unittest
-from argparse import Namespace
+import sys
 from typing import Any
-
-import numpy as np
+from loguru import logger
+from argparse import Namespace
 import torch
 import torch.nn as nn
-from loguru import logger
 
-import legacy.prototree.project as legacy_project
-import legacy.prototree.prototree as legacy_prototree
-import legacy.prototree.prune as legacy_prune
-import legacy.prototree.train as legacy_train
-import legacy.util.args as legacy_args
-import legacy.util.data as legacy_data
-import legacy.util.init as legacy_init
-import legacy.util.net as legacy_net
+from compatibility_tester import CaBRNetCompatibilityTester, DummyLogger, setup_rng
 from cabrnet.archs.generic.model import CaBRNet
-from cabrnet.archs.prototree.decision import SamplingStrategy
+from cabrnet.core.utils.parser import load_config
 from cabrnet.core.utils.data import DatasetManager
 from cabrnet.core.utils.optimizers import OptimizerManager
-from cabrnet.core.utils.parser import load_config
+from cabrnet.archs.prototree.decision import SamplingStrategy
 
-
-def setup_rng(seed: int):
-    torch.manual_seed(seed)
-    np.random.seed(seed)
-    random.seed(seed)
-
-
-class DummyLogger:
-    checkpoint_dir: str = ""
-
-    def set_checkpoint_dir(self, dir: str):
-        pass
-
-    def log_message(self, message: str):
-        pass
+import prototree_legacy.prototree.prototree as legacy_prototree
+import prototree_legacy.prototree.train as legacy_train
+import prototree_legacy.util.net as legacy_net
+import prototree_legacy.util.data as legacy_data
+import prototree_legacy.util.init as legacy_init
+import prototree_legacy.util.args as legacy_args
+import prototree_legacy.prototree.prune as legacy_prune
+import prototree_legacy.prototree.project as legacy_project
 
 
 def legacy_get_namespace(config_dict: dict[str, str]) -> Namespace:
@@ -125,17 +107,9 @@ def legacy_get_model(args: Namespace, seed: int) -> nn.Module:
     return tree
 
 
-class TestProtoTreeCompatibility(unittest.TestCase):
+class TestProtoTreeCompatibility(CaBRNetCompatibilityTester):
     def __init__(self, methodName: str = "runTest"):
-        super(TestProtoTreeCompatibility, self).__init__(methodName=methodName)
-
-        # Test configuration
-        test_dir = os.path.dirname(os.path.realpath(__file__))
-        self.model_config_file = os.path.join(test_dir, CaBRNet.DEFAULT_MODEL_CONFIG)
-        self.dataset_config_file = os.path.join(test_dir, DatasetManager.DEFAULT_DATASET_CONFIG)
-        self.training_config_file = os.path.join(test_dir, OptimizerManager.DEFAULT_TRAINING_CONFIG)
-        self.legacy_state_dict = os.path.join(test_dir, "legacy_state.pth")
-        self.output_dir = os.path.join(test_dir, "output")
+        super(TestProtoTreeCompatibility, self).__init__(arch="prototree", methodName=methodName)
 
         # Create a namespace with all legacy options
         self.legacy_params = legacy_get_namespace(
@@ -145,16 +119,8 @@ class TestProtoTreeCompatibility(unittest.TestCase):
                 "training_config": self.training_config_file,
             }
         )
-        self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
-        self.seed: int = 42
 
-    def assertTensorEqual(self, expected: torch.Tensor, actual: torch.Tensor):
-        if actual.size() != expected.size():
-            self.fail(f"Mismatching tensor sizes: {actual.size()} v. {expected.size()}")
-        elif not torch.all(torch.eq(expected, actual)):
-            self.fail(f"Mismatching tensors (all close? {torch.allclose(expected,actual)})")
-
-    def assertModelEqual(self, expected: nn.Module, actual: nn.Module):
+    def assertModelEqual(self, expected: nn.Module, actual: nn.Module, *args, **kwargs):
         expected.eval()
         actual.eval()
         expected.to(self.device)
@@ -166,29 +132,6 @@ class TestProtoTreeCompatibility(unittest.TestCase):
 
         # Only compare logits
         self.assertTensorEqual(y_e[0], y_a[0])
-
-    def assertGenericEqual(self, expected: Any, actual: Any, msg: str | None = None):
-        """Generic comparison function for complex data structures"""
-        if type(expected) is not type(actual):
-            self.fail(f"{msg} Mismatching types ({type(expected)} v. {type(actual)}) for {expected} and {actual}")
-        elif isinstance(expected, dict):
-            for key in expected:
-                if key not in actual:
-                    self.fail(f"{msg} Key {key} not found in state dict")
-                else:
-                    self.assertGenericEqual(expected[key], actual[key], f"Checking key {key}")
-        elif isinstance(expected, list) or isinstance(expected, tuple):
-            if len(expected) != len(actual):
-                self.fail(f"Mismatching list lengths: {len(expected)} v. {len(actual)}.")
-            for index, (ex, ac) in enumerate(zip(expected, actual)):
-                self.assertGenericEqual(ex, ac, f"Checking list (index {index})")
-        elif isinstance(expected, torch.Tensor):
-            self.assertTensorEqual(expected, actual)
-        elif isinstance(expected, np.ndarray):
-            if np.array_equal(expected, actual):
-                self.fail(f"Mismatching np arrays (all close? {np.allclose(expected, actual)})")
-        else:
-            self.assertEqual(expected, actual)
 
     def assertProjectionInfoEqual(self, expected: dict[Any, Any], actual: dict[Any, Any]):
         for key in expected:

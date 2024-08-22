@@ -18,7 +18,7 @@ file_list = [
         "description": "Legacy models trained using ProtoPNet and ProtoTree on CUB200",
         "type": "zenodo",
         "record": "11284813",
-        "dir": "tests/compatibility",
+        "dir": "tests/compatibility/data",
         "file": "cabrnet_legacy_models.zip",
     },
     {
