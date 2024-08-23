@@ -749,7 +749,10 @@ class ProtoPNet(CaBRNet):
         for _ in range(num_closest):
             proto_idx = int(torch.argmin(min_distances).item())
             min_distance = torch.min(min_distances)
-            score = torch.log((min_distance + 1) / (min_distance + 1e-4)).item()
+            if min_distance == float("inf"):
+                # Not enough relevant prototypes
+                break
+            score = self.classifier.similarity_layer.distances_to_similarities(min_distance).item()
             most_relevant_prototypes.append((proto_idx, score, True))  # ProtoPNet only considers positive similarities
             # Recover path to prototype image
             prototype_image_path = os.path.join(prototype_dir, f"prototype_{proto_idx}.png")
