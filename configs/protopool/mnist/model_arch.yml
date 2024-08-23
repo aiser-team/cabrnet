@@ -1,0 +1,33 @@
+top_arch:
+  module: cabrnet.protopool.model
+  name: ProtoPool
+
+extractor:
+  backbone:
+    arch: resnet18
+    layer: layer4
+    weights: IMAGENET1K_V1
+  add_on:
+    init_mode: XAVIER
+    conv1:
+      type: Conv2d
+      params:
+        out_channels: 128
+        kernel_size: 1
+        bias: False
+    sigmoid1:
+      type: Sigmoid
+
+similarity:
+  name: LegacyProtoPNetSimilarity
+
+classifier:
+  module: cabrnet.protopool.decision
+  name: ProtoPoolClassifier
+  params:
+    num_classes: 10
+    num_prototypes: 10
+    num_slots_per_class: 3
+    proto_init_mode: UNIFORM
+    compatibility_mode: True
+

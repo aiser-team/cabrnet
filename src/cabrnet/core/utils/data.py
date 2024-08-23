@@ -5,6 +5,9 @@ import copy
 import importlib
 from typing import Any, Callable
 
+import numpy as np
+import torch
+from torch import Tensor
 import torchvision.transforms
 from cabrnet.core.utils.parser import load_config
 from loguru import logger
@@ -266,3 +269,23 @@ class DatasetManager:
         ops = torchvision.transforms.Compose(ops) if len(ops) > 1 else ops[0]
         logger.debug(f"Transform function for dataset {dataset}: {ops}")
         return ops
+
+
+def batch_mixup(data: Tensor, labels: Tensor, alpha: float = 0) -> tuple[Tensor, Tensor, float]:
+    r"""Performs a random mix between elements inside a batch of data.
+    Adapted from https://github.com/gmum/ProtoPool/.
+
+    Args:
+        data (tensor): Batch data. Shape (N x D).
+        labels (tensor): Batch labels. Shape (N x L).
+        alpha (float, optional): Parameter of the Beta-distribution controlling the percentage of mix. Default: 0.
+
+    Returns:
+        Modified batch data. Shape (N x A).
+        Modified batch labels. Shape (N x L).
+        Percentage of mix.
+    """
+    percentage = np.random.beta(a=alpha, b=alpha) if alpha > 0 else 1.0
+    # Draws a random permutation of indices inside the batch
+    index = torch.randperm(data.size(0), dtype=torch.long, device=data.device)
+    return percentage * data + (1 - percentage) * data[index], labels[index], percentage
