@@ -7,6 +7,7 @@ cd "${location_abs}"/../../ || exit
 declare -a legacy_repos=(
   "ProtoPNet https://github.com/cfchen-duke/ProtoPNet"
   "ProtoTree https://github.com/M-Nauta/ProtoTree"
+  "ProtoPool https://github.com/gmum/ProtoPool"
 )
 
 for entry in "${legacy_repos[@]}"; do
