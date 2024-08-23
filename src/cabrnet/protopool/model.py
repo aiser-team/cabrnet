@@ -465,13 +465,14 @@ class ProtoPool(CaBRNet):
         # Compute mapping between classes and prototypes
         class_mapping = self.classifier.class_mapping
 
-        if not self._compatibility_mode:
-            # Hard assignment of prototypes to slots using one-hot distributions
-            hard_proto_slot_map = torch.zeros_like(self.classifier.proto_slot_map).to(device)
-            for c in range(self.classifier.num_classes):
-                for s in range(self.classifier.num_slots_per_class):
-                    hard_proto_slot_map[c, class_mapping[c, s], s] = 1.0
-            self.classifier.proto_slot_map.copy_(hard_proto_slot_map)
+        with torch.no_grad():
+            if not self._compatibility_mode:
+                # Hard assignment of prototypes to slots using one-hot distributions
+                hard_proto_slot_map = torch.zeros_like(self.classifier.proto_slot_map).to(device)
+                for c in range(self.classifier.num_classes):
+                    for s in range(self.classifier.num_slots_per_class):
+                        hard_proto_slot_map[c, class_mapping[c, s], s] = 1.0
+                self.classifier.proto_slot_map.copy_(hard_proto_slot_map)
 
         # Show progress on progress bar if needed
         data_iter = tqdm(
