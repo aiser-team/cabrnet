@@ -32,6 +32,7 @@ class ProtoPoolClassifier(CaBRNetClassifier):
         proto_init_mode: str = "UNIFORM",
         incorrect_class_penalty: float = 0,
         compatibility_mode: bool = False,
+        **kwargs,
     ) -> None:
         r"""Initializes a ProtoPool classifier.
 

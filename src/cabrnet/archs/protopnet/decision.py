@@ -32,6 +32,7 @@ class ProtoPNetClassifier(CaBRNetClassifier):
         proto_init_mode: str = "SHIFTED_NORMAL",
         incorrect_class_penalty: float = -0.5,
         compatibility_mode: bool = False,
+        **kwargs
     ) -> None:
         r"""Initializes a ProtoPNet classifier.
 

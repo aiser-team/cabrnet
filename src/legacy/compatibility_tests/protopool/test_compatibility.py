@@ -382,7 +382,11 @@ class TestProtoPoolCompatibility(CaBRNetCompatibilityTester):
 
         self.assertGenericEqual(expected_min_distances, actual_min_distances, "Checking min distances")
         self.assertGenericEqual(expected_proto_presence, actual_proto_presence, "Checking proto presence")
-        self.assertGenericEqual(expected_logits, actual_logits, "Checking logits")
+        # Slight variation in the computation of the average distances between modes of compatibility leads to
+        # different logit values
+        max_logit_error = torch.max(torch.norm(expected_logits - actual_logits, p=2, dim=1)).item()
+        if max_logit_error > 1e-5:
+            self.fail(f"Max logit error too great: {max_logit_error}")
 
         # Remove orthogonal loss from comparison
         expected_stats["orthogonal_loss"] = 0

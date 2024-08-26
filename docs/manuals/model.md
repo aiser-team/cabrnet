@@ -334,6 +334,7 @@ class ArchNameClassifier(CaBRNetClassifier):
         num_classes: int,
         num_features: int,
         proto_init_mode: str = "SHIFTED_NORMAL",
+        **kwargs
     ) -> None:
         r"""Initializes a ArchName classifier.
 

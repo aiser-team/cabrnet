@@ -188,7 +188,7 @@ class CaBRNet(nn.Module):
             config (str|dict): Path to configuration file, or configuration dictionary.
             seed (int, optional): Random seed (used only to resynchronise random number generators in
                 compatibility tests). Default: None.
-            compatibility_mode (bool, optional): Compatibility mode with legacy architectures. Default: False.
+            compatibility_mode (bool, optional): Force compatibility mode with legacy architectures. Default: False.
             state_dict_path (str, optional): Path to model state dictionary. Default: None.
 
         Returns:
@@ -210,6 +210,11 @@ class CaBRNet(nn.Module):
         extractor_config = config_dict["extractor"]
         classifier_config = config_dict["classifier"]
         arch_config = config_dict["top_arch"]
+
+        # Compatibility mode may also be enabled in the classifier configuration
+        compatibility_mode = compatibility_mode or config_dict["classifier"].get("params", {}).get(
+            "compatibility_mode", False
+        )
 
         # Backward compatibility
         if config_dict.get("similarity") is None:
@@ -272,7 +277,11 @@ class CaBRNet(nn.Module):
                 f"expected {classifier_config['params']['num_features']} "
                 f"but feature extractor outputs {num_features['convnet']} channels"
             )
-
+        
+        # Update compatibility mode if necessary
+        if compatibility_mode:
+            classifier_config["params"].update({"compatibility_mode": compatibility_mode})
+        
         # Load classifier module
         classifier_module = importlib.import_module(classifier_config["module"])
         classifier = getattr(classifier_module, classifier_config["name"])(
