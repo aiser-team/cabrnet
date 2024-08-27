@@ -7,6 +7,7 @@ import torch
 import torch.nn as nn
 import torchvision.models as torch_models
 from cabrnet.utils.init import layer_init_functions
+from cabrnet.utils.exceptions import check_mandatory_fields
 from loguru import logger
 from torchvision.models.feature_extraction import (
     create_feature_extractor,
@@ -185,12 +186,13 @@ class ConvExtractor(nn.Module):
         Raises:
             ValueError when configuration is invalid.
         """
-        for mandatory_key in ["backbone"]:
-            if mandatory_key not in config:
-                raise ValueError(f"Missing mandatory key {mandatory_key} in extractor configuration")
-        for mandatory_key in ["arch", "weights", "layer"]:
-            if mandatory_key not in config["backbone"]:
-                raise ValueError(f"Missing mandatory key {mandatory_key} in backbone configuration")
+        check_mandatory_fields(config_dict=config, mandatory_fields=["backbone"], location="extractor configuration")
+        check_mandatory_fields(
+            config_dict=config["backbone"],
+            mandatory_fields=["arch", "weights", "layer"],
+            location="backbone configuration",
+        )
+
         backbone = config["backbone"]
         add_on = config.get("add_on")
         return ConvExtractor(

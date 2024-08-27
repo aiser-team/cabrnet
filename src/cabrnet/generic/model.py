@@ -12,6 +12,7 @@ from cabrnet.generic.conv_extractor import ConvExtractor, layer_init_functions
 from cabrnet.generic.decision import CaBRNetClassifier
 from cabrnet.utils.optimizers import OptimizerManager
 from cabrnet.utils.parser import load_config
+from cabrnet.utils.exceptions import check_mandatory_fields
 from cabrnet.visualization.visualizer import SimilarityVisualizer
 from loguru import logger
 from PIL import Image
@@ -188,9 +189,11 @@ class CaBRNet(nn.Module):
             config_dict = config
 
         # Sanity checks on mandatory field
-        for mandatory_field in ["extractor", "classifier"]:
-            if mandatory_field not in config_dict:
-                raise ValueError(f"Missing mandatory field {mandatory_field} in configuration")
+        check_mandatory_fields(
+            config_dict=config_dict,
+            mandatory_fields=["extractor", "classifier", "top_arch"],
+            location="model configuration",
+        )
 
         # Backward compatibility
         if config_dict.get("similarity") is None:
@@ -223,9 +226,12 @@ class CaBRNet(nn.Module):
 
         # Build classifier
         classifier_config = config_dict["classifier"]
-        for mandatory_field in ["module", "name", "params"]:
-            if mandatory_field not in classifier_config:
-                raise ValueError(f"Missing mandatory field {mandatory_field} in classifier configuration")
+        check_mandatory_fields(
+            config_dict=classifier_config,
+            mandatory_fields=["module", "name", "params"],
+            location="classifier configuration",
+        )
+
         # Check coherency between extractor and classifier
         num_features = extractor.output_channels
         if "num_features" not in classifier_config["params"]:
@@ -248,10 +254,12 @@ class CaBRNet(nn.Module):
         )
 
         # Load top architecture module
-        for mandatory_field in ["module", "name"]:
-            if mandatory_field not in config_dict["top_arch"]:
-                raise ValueError(f"Missing mandatory field {mandatory_field} in top architecture configuration")
         arch_config = config_dict["top_arch"]
+        check_mandatory_fields(
+            config_dict=arch_config,
+            mandatory_fields=["module", "name"],
+            location="top architecture configuration",
+        )
         top_arch_module = importlib.import_module(arch_config["module"])
         model = getattr(top_arch_module, arch_config["name"])(
             extractor=extractor, classifier=classifier, compatibility_mode=compatibility_mode
