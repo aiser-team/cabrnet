@@ -220,7 +220,7 @@ class CaBRNet(nn.Module):
         if state_dict_path is not None:
             # Disable parameter loading when building the extractor, since all weights will eventually be overwritten
             config_dict["extractor"]["backbone"]["weights"] = None
-        extractor = ConvExtractor.build_from_dict(
+        extractor = ConvExtractor(
             config_dict["extractor"], seed=seed, disable_weight_logs=(state_dict_path is not None)
         )
 

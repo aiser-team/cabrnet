@@ -40,6 +40,9 @@ extractor:
     arch: <FEATURE_EXTRACTOR_ARCH> # Must belong to torchvision.models.list_models()
     weights: <null | path/to/state/dict.pth | WEIGHTS_NAME>
     layer: <LAYER_NAME> # Remove all layers in backbone after this one 
+    params: # Optional parameters of the model init function
+      <PARAM_NAME_1>: <VALUE>
+
   add_on: # Optional
     init_mode: <XAVIER | PROTOPNET> # Optional: Parameter initialization procedure
     <LAYER_NAME_1>:
@@ -67,6 +70,21 @@ Notes on the configuration of the backbone:
 - `layer`: Since the backbone model is usually a classifier, CaBRNet uses the 
 [create_feature_extractor](https://pytorch.org/vision/main/generated/torchvision.models.feature_extraction.create_feature_extractor.html) 
 function to automatically remove its deepest layers and to keep only the convolutional layers.
+- `params`: Additional parameters can be provided to the constructor of the backbone model, such as the
+number of classes of the underlying classifier, *e.g.* when initializing a backbone from a pretrained classifier
+fine-tuned on a particular task. For example, when using a Resnet50 classifier pretrained on CUB200, the backbone 
+configuration may look like this:
+
+```yaml
+extractor:
+  backbone:
+    arch: resnet50
+    layer: layer4
+    weights: examples/pretrained_conv_extractors/r50_CUB200.pth # Path to a pretrained model
+    params:
+      num_classes: 200 # How to initialize the ResNet50 BEFORE the state dictionary is loaded
+...
+```
 
 Add-on layers can be added after the backbone in order to reduce the dimensionality of the learned prototypes, 
 using the `add_on` keyword. In this case, each layer is identified by a layer name and configured using:

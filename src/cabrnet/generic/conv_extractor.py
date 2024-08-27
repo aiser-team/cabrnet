@@ -31,37 +31,50 @@ class ConvExtractor(nn.Module):
 
     def __init__(
         self,
-        arch: str,
-        weights: str | None,
-        layer: str,
-        add_on: dict[str, dict] | None,
+        config: dict[str, dict],
         seed: int | None = None,
         disable_weight_logs: bool = False,
     ) -> None:
-        r"""Initializes a ConvExtractor.
+        r"""Initializes a ConvExtractor from a configuration dictionary.
 
         Args:
-            arch (str): Architecture name.
-            weights (str): Weights of the neural network.
-            layer (str): Layer to extract.
-            add_on (dictionary): Add-on layers configuration.
+            config (dictionary): Configuration dictionary.
             seed (int, optional): Random seed (used only to resynchronise random number generators in
                 compatibility tests). Default: None.
             disable_weight_logs (bool, optional): Disable logger messages regarding model weights
                 (they will be overwritten later on). Default: False.
+
+        Raises:
+            ValueError when configuration is invalid.
         """
         super(ConvExtractor, self).__init__()
+
+        # Check mandatory fields
+        check_mandatory_fields(config_dict=config, mandatory_fields=["backbone"], location="extractor configuration")
+        backbone_config = config["backbone"]
+        check_mandatory_fields(
+            config_dict=backbone_config,
+            mandatory_fields=["arch", "weights", "layer"],
+            location="backbone configuration",
+        )
+
+        arch = backbone_config["arch"]
+        arch_params = backbone_config.get("params", {})
+        weights = backbone_config["weights"]
+        layer = backbone_config["layer"]
+
+        # Check that model architecture is supported
         assert arch.lower() in torch_models.list_models(), f"Unsupported model architecture: {arch}"
 
         if weights is None:
             if not disable_weight_logs:
                 logger.warning(f"Random initialisation of feature extractor with architecture {arch}")
-            model = torch_models.get_model(arch)
+            model = torch_models.get_model(arch, **arch_params)
         elif os.path.isfile(weights):
             if not disable_weight_logs:
                 logger.info(f"Loading state dict for feature extractor: {weights}")
             loaded_weights = torch.load(weights, map_location="cpu")
-            model = torch_models.get_model(arch)
+            model = torch_models.get_model(arch, **arch_params)
             if isinstance(loaded_weights, dict):
                 model.load_state_dict(loaded_weights)
             elif isinstance(loaded_weights, nn.Module):
@@ -72,7 +85,7 @@ class ConvExtractor(nn.Module):
             if not disable_weight_logs:
                 logger.info(f"Loading pytorch weights: {weights}")
             loaded_weights = getattr(torch_models.get_model_weights(arch), weights)
-            model = torch_models.get_model(arch, weights=loaded_weights)
+            model = torch_models.get_model(arch, weights=loaded_weights, **arch_params)
         else:
             raise ValueError(f"Cannot load weights {weights} for model of type {arch}. Possible typo or missing file.")
 
@@ -93,7 +106,7 @@ class ConvExtractor(nn.Module):
         # Dummy inference to recover number of output channels from the feature extractor
         self.convnet.eval()
         in_channels = self.convnet(torch.zeros((1, 3, 224, 224)))["convnet"].size(1)
-        self.add_on, self.output_channels = self.create_add_on(config=add_on, in_channels=in_channels)
+        self.add_on, self.output_channels = self.create_add_on(config=config.get("add_on"), in_channels=in_channels)
 
     def forward(self, x: torch.Tensor, **kwargs) -> torch.Tensor:
         r"""Computes convolutional features.
@@ -164,42 +177,3 @@ class ConvExtractor(nn.Module):
             add_on.apply(layer_init_functions[init_mode])
 
         return add_on, in_channels
-
-    @staticmethod
-    def build_from_dict(
-        config: dict[str, dict],
-        seed: int | None = None,
-        disable_weight_logs: bool = False,
-    ) -> nn.Module:
-        r"""Builds a ConvExtractor from a configuration dictionary.
-
-        Args:
-            config (dictionary): Configuration dictionary.
-            seed (int, optional): Random seed (used only to resynchronise random number generators
-                in compatibility tests). Default: None.
-            disable_weight_logs (bool, optional): Disable logger messages regarding model weights
-                (they will be overwritten later on). Default: False.
-
-        Returns:
-            ConvExtractor object.
-
-        Raises:
-            ValueError when configuration is invalid.
-        """
-        check_mandatory_fields(config_dict=config, mandatory_fields=["backbone"], location="extractor configuration")
-        check_mandatory_fields(
-            config_dict=config["backbone"],
-            mandatory_fields=["arch", "weights", "layer"],
-            location="backbone configuration",
-        )
-
-        backbone = config["backbone"]
-        add_on = config.get("add_on")
-        return ConvExtractor(
-            arch=backbone["arch"],
-            weights=backbone["weights"],
-            layer=backbone["layer"],
-            add_on=add_on,
-            seed=seed,
-            disable_weight_logs=disable_weight_logs,
-        )
