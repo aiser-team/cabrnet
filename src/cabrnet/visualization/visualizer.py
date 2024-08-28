@@ -7,6 +7,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 from cabrnet.utils.parser import load_config
+from cabrnet.utils.exceptions import check_mandatory_fields
 from cabrnet.visualization.gradients import prp, randgrad, saliency, smoothgrad
 from cabrnet.visualization.prp_utils import get_cabrnet_lrp_composite_model
 from cabrnet.visualization.upsampling import cubic_upsampling
@@ -183,9 +184,9 @@ class SimilarityVisualizer(nn.Module):
             config_dict = config
 
         # Sanity checks on mandatory field
-        for mandatory_field in ["attribution", "view"]:
-            if mandatory_field not in config_dict:
-                raise ValueError(f"Missing mandatory field {mandatory_field} in configuration")
+        check_mandatory_fields(
+            config_dict=config_dict, mandatory_fields=["attribution", "view"], location="visualizer configuration"
+        )
 
         # Visualization function
         attribution_fn = supported_attribution_functions.get(config_dict["attribution"]["type"])

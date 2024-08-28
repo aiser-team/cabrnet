@@ -12,6 +12,7 @@ from cabrnet.generic.conv_extractor import ConvExtractor, layer_init_functions
 from cabrnet.generic.decision import CaBRNetClassifier
 from cabrnet.utils.optimizers import OptimizerManager
 from cabrnet.utils.parser import load_config
+from cabrnet.utils.exceptions import check_mandatory_fields
 from cabrnet.visualization.visualizer import SimilarityVisualizer
 from loguru import logger
 from PIL import Image
@@ -188,9 +189,14 @@ class CaBRNet(nn.Module):
             config_dict = config
 
         # Sanity checks on mandatory field
-        for mandatory_field in ["extractor", "classifier"]:
-            if mandatory_field not in config_dict:
-                raise ValueError(f"Missing mandatory field {mandatory_field} in configuration")
+        check_mandatory_fields(
+            config_dict=config_dict,
+            mandatory_fields=["extractor", "classifier", "top_arch"],
+            location="model configuration",
+        )
+        extractor_config = config_dict["extractor"]
+        classifier_config = config_dict["classifier"]
+        arch_config = config_dict["top_arch"]
 
         # Backward compatibility
         if config_dict.get("similarity") is None:
@@ -205,40 +211,53 @@ class CaBRNet(nn.Module):
                 raise ValueError(
                     f"Unknown default similarity function for classifier {config_dict['classifier']['name']}"
                 )
+        if extractor_config.get("backbone", {}).get("layer"):
+            # Single layer extractor: create a single pipeline called "convnet"
+            layer_name = extractor_config["backbone"].pop("layer")
+            extractor_config["convnet"] = {"source_layer": layer_name}
+            if extractor_config.get("add_on"):
+                extractor_config["convnet"]["add_on"] = extractor_config.pop("add_on")
 
-        add_on_init_mode = None
+        add_on_init_mode = {}
         if compatibility_mode:
             logger.warning("Compatibility mode: postponing add-on layer initialisation")
             # In compatibility mode with legacy models, postpone add-on layers initialisation
-            if "init_mode" in config_dict["extractor"]["add_on"]:
-                add_on_init_mode = config_dict["extractor"]["add_on"].pop("init_mode")
+            for pipeline_name, pipeline_config in extractor_config.items():
+                if pipeline_name != "backbone" and pipeline_config.get("add_on", {}).get("init_mode"):
+                    add_on_init_mode[pipeline_name] = pipeline_config["add_on"].pop("init_mode")
 
-        # Build feature extractor
-        if state_dict_path is not None:
-            # Disable parameter loading when building the extractor, since all weights will eventually be overwritten
-            config_dict["extractor"]["backbone"]["weights"] = None
-        extractor = ConvExtractor.build_from_dict(
-            config_dict["extractor"], seed=seed, disable_weight_logs=(state_dict_path is not None)
+        # Build feature extractor. If state_dict_path is provided, then preloading the "initial" weights of the 
+        # extractor becomes optional (but should be done if possible). This covers two cases:
+        #   1) After publication of the trained model, the original weights of the feature extractor can appear
+        #    in the configuration (for transparency) but may not be available to the end-user. In this case, the
+        #    library will try to load the original weights but will not crash if they are not available.
+        #   2) In some rare cases, the content of state_dict_path may not contain the weights of the feature extractor
+        #    (for instance if the feature extractor is left untouched during training). In this particular instance,
+        #    the original weights of the feature extractor should be loaded.
+        extractor = ConvExtractor(
+            config_dict["extractor"], seed=seed, ignore_weight_errors=(state_dict_path is not None)
         )
 
         # Build classifier
-        classifier_config = config_dict["classifier"]
-        for mandatory_field in ["module", "name", "params"]:
-            if mandatory_field not in classifier_config:
-                raise ValueError(f"Missing mandatory field {mandatory_field} in classifier configuration")
+        check_mandatory_fields(
+            config_dict=classifier_config,
+            mandatory_fields=["module", "name", "params"],
+            location="classifier configuration",
+        )
+
         # Check coherency between extractor and classifier
         num_features = extractor.output_channels
         if "num_features" not in classifier_config["params"]:
             logger.warning(
                 f"num_features not set in classifier configuration. "
-                f"Using value {num_features} inferred from feature extractor"
+                f"Using value {num_features['convnet']} inferred from feature extractor"
             )
-            classifier_config["params"]["num_features"] = num_features
-        elif classifier_config["params"]["num_features"] != num_features:
+            classifier_config["params"]["num_features"] = num_features["convnet"]
+        elif classifier_config["params"]["num_features"] != num_features["convnet"]:
             raise ValueError(
                 f"Mismatching number of channels between extractor and classifier: "
                 f"expected {classifier_config['params']['num_features']} "
-                f"but feature extractor outputs {num_features} channels"
+                f"but feature extractor outputs {num_features['convnet']} channels"
             )
 
         # Load classifier module
@@ -248,18 +267,23 @@ class CaBRNet(nn.Module):
         )
 
         # Load top architecture module
-        for mandatory_field in ["module", "name"]:
-            if mandatory_field not in config_dict["top_arch"]:
-                raise ValueError(f"Missing mandatory field {mandatory_field} in top architecture configuration")
-        arch_config = config_dict["top_arch"]
+        check_mandatory_fields(
+            config_dict=arch_config,
+            mandatory_fields=["module", "name"],
+            location="top architecture configuration",
+        )
         top_arch_module = importlib.import_module(arch_config["module"])
         model = getattr(top_arch_module, arch_config["name"])(
             extractor=extractor, classifier=classifier, compatibility_mode=compatibility_mode
         )
 
         # Apply postponed add-on layer initialisation (compatibility mode only)
-        if add_on_init_mode is not None:
-            model.extractor.add_on.apply(layer_init_functions[add_on_init_mode])
+        if add_on_init_mode:
+            if model.extractor.num_pipelines == 1:
+                model.extractor.add_on.apply(layer_init_functions[add_on_init_mode[next(iter(add_on_init_mode))]])
+            else:
+                for pipeline_name, init_function in add_on_init_mode.items():
+                    model.extractor.add_on[pipeline_name].apply(layer_init_functions[init_function])
 
         if state_dict_path is not None:
             logger.info(f"Loading model state from {state_dict_path}")

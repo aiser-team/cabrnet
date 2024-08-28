@@ -33,13 +33,21 @@ The feature extractor is configured through a dedicated section of the configura
 using the `extractor` keyword. A feature extractor is based on a pre-existing CNN classifier architecture - identified by the `backbone` keyword - where the last layers (in charge of the classification itself) have been removed. 
 
 Additionally, in order to reduce the number of dimensions, it is possible to add a set of additional 
-layers using the `add_on` keyword:
+layers using the `add_on` keyword.
+
+
+### Single layer extraction
+This is the default (and most used) mode for feature extraction, where we extract the result of a 
+single layer `<LAYER_NAME>` as follows:
 ```yaml
 extractor:
   backbone:
     arch: <FEATURE_EXTRACTOR_ARCH> # Must belong to torchvision.models.list_models()
     weights: <null | path/to/state/dict.pth | WEIGHTS_NAME>
     layer: <LAYER_NAME> # Remove all layers in backbone after this one 
+    params: # Optional parameters of the model init function
+      <PARAM_NAME_1>: <VALUE>
+
   add_on: # Optional
     init_mode: <XAVIER | PROTOPNET> # Optional: Parameter initialization procedure
     <LAYER_NAME_1>:
@@ -61,12 +69,27 @@ Notes on the configuration of the backbone:
 [torchvision.models.list_models()](https://pytorch.org/vision/main/generated/torchvision.models.list_models.html).
 - `weights`: The backbone parameters can be either initialized:
     - randomly (`null` keyword).
-    - by providing the path to an existing state dictionary.
+    - by providing the path to an existing state dictionary or trained model.
     - by providing the name of a valid set of pre-trained parameters, as given by 
 [torchvision.models.get_model_weights(arch)](https://pytorch.org/vision/main/generated/torchvision.models.get_model_weights.html) (*e.g.* `IMAGENET1K_V1` for ImageNet pre-trained weights).
 - `layer`: Since the backbone model is usually a classifier, CaBRNet uses the 
 [create_feature_extractor](https://pytorch.org/vision/main/generated/torchvision.models.feature_extraction.create_feature_extractor.html) 
 function to automatically remove its deepest layers and to keep only the convolutional layers.
+- `params`: Additional parameters can be provided to the constructor of the backbone model, such as the
+number of classes of the underlying classifier, *e.g.* when initializing a backbone from a pretrained classifier
+fine-tuned on a particular task. For example, when using a Resnet50 classifier pretrained on CUB200, the backbone 
+configuration may look like this:
+
+```yaml
+extractor:
+  backbone:
+    arch: resnet50
+    layer: layer4
+    weights: examples/pretrained_conv_extractors/r50_CUB200.pth # Path to a pretrained model
+    params:
+      num_classes: 200 # How to initialize the ResNet50 BEFORE the state dictionary is loaded
+...
+```
 
 Add-on layers can be added after the backbone in order to reduce the dimensionality of the learned prototypes, 
 using the `add_on` keyword. In this case, each layer is identified by a layer name and configured using:
@@ -80,6 +103,88 @@ through the `init_mode` keyword:
 - `XAVIER`: used in ProtoTree and based on [nn.init.xavier_normal_](https://pytorch.org/cppdocs/api/function_namespacetorch_1_1nn_1_1init_1a86191a828a085e1c720dbce185d6c307.html)
 - `PROTOPNET`: a combination of [nn.init.kaiming_normal_](https://pytorch.org/cppdocs/api/function_namespacetorch_1_1nn_1_1init_1ac8a913c051976a3f41f20df7d6126e57.html) 
 for convolutional layers and a static starting configuration for BatchNorm layers. 
+
+### Multi-layer extraction
+To extract features from multiple layers simultaneously, CaBRNet proposes an alternate way to describe
+feature extraction which removes the `layer` keyword inside the backbone configuration in favor of a
+more generic approach that focuses on several **pipelines**. In practice, a pipeline is defined by a 
+source layer inside the backbone, followed by an optional set of add-on layers.
+
+```yaml
+extractor:
+  backbone:
+    arch: <FEATURE_EXTRACTOR_ARCH> # Must belong to torchvision.models.list_models()
+    weights: <null | path/to/state/dict.pth | WEIGHTS_NAME>
+    params: # Optional parameters of the model init function
+      <PARAM_NAME_1>: <VALUE>
+
+  <PIPELINE_NAME_1>: # Name of the pipeline
+    source_layer: <LAYER_1> # Name of the source layer inside the model
+    add_on: # Optional
+      init_mode: <XAVIER | PROTOPNET> # Optional: Parameter initialization procedure
+      <LAYER_NAME_1>:
+        type: <FUNCTION_NAME> # Layer name, as given in torch.nn
+        params: # Optional
+          <PARAM_NAME_1>: <VALUE>
+          <PARAM_NAME_2>: <VALUE>
+      <LAYER_NAME_2>:
+  
+  <PIPELINE_NAME_2>:
+    source_layer: <LAYER_2> # Name of the source layer inside the model
+    add_on: # Optional
+      init_mode: <XAVIER | PROTOPNET> # Optional: Parameter initialization procedure
+      <LAYER_NAME_1>:
+        type: <FUNCTION_NAME> # Layer name, as given in torch.nn
+        params: # Optional
+          <PARAM_NAME_1>: <VALUE>
+          <PARAM_NAME_2>: <VALUE>
+      <LAYER_NAME_2>:
+  
+
+similarity:
+  ...
+
+classifier:
+  ...
+```
+
+For instance, 
+```yaml
+extractor:  
+  backbone:
+    arch: resnet50
+    layer: layer4
+    weights: IMAGENET1K_V1
+  add_on:
+    init_mode: XAVIER
+    conv1:
+      type: Conv2d # nn.Module name
+      params:
+        out_channels: 128
+        kernel_size: 1
+        bias: False
+    sigmoid1:
+      type: Sigmoid
+```
+is equivalent to 
+```yaml
+extractor:  
+  backbone:
+    arch: resnet50
+    weights: IMAGENET1K_V1
+  convnet: # Name of the default pipeline
+    source_layer: layer4
+    add_on:
+      init_mode: XAVIER
+      conv1:
+        type: Conv2d # nn.Module name
+        params:
+          out_channels: 128
+          kernel_size: 1
+          bias: False
+      sigmoid1:
+        type: Sigmoid
+```
 
 ## Similarity configuration
 The similarity layer computes similarity scores and distances in the feature space.
@@ -252,11 +357,13 @@ class ArchNameClassifier(CaBRNetClassifier):
         ...
 
 
-    def forward(self, features: torch.Tensor) -> ...:
+    def forward(self, features: Any, **kwargs) -> ...:
         r"""Performs classification.
         
         Args:
-            features (tensor): Convolutional features from extractor. Shape (N, D, H, W).
+            features: Convolutional features from extractor. 
+                Either a single tensor of shape (N, D, H, W) or
+                a dictionary of tensors in the case of multi-layer extraction.
 
         Returns:
             Vector of logits.
