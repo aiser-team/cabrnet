@@ -23,10 +23,10 @@ class ConvExtractor(nn.Module):
     Attributes:
         arch_name: Architecture name.
         weights: Weights of the neural network.
-        layer: Layer to extract.
         convnet: Graph module that represents the intermediate nodes from the given model.
-        add_on: Add-on layers configuration.
-        output_channels: Number of output channels of the feature extractor
+        add_on: Add-on layer(s).
+        num_pipelines: Number of extracted layers.
+        output_channels: Number of output channels of the feature extractor.
     """
 
     def __init__(
@@ -54,14 +54,13 @@ class ConvExtractor(nn.Module):
         backbone_config = config["backbone"]
         check_mandatory_fields(
             config_dict=backbone_config,
-            mandatory_fields=["arch", "weights", "layer"],
+            mandatory_fields=["arch", "weights"],
             location="backbone configuration",
         )
 
         arch = backbone_config["arch"]
         arch_params = backbone_config.get("params", {})
         weights = backbone_config["weights"]
-        layer = backbone_config["layer"]
 
         # Check that model architecture is supported
         assert arch.lower() in torch_models.list_models(), f"Unsupported model architecture: {arch}"
@@ -100,9 +99,20 @@ class ConvExtractor(nn.Module):
 
         self.arch_name = arch.lower()
         self.weights = weights
-        self.layer = layer
+
+        # Find the source layer for each pipeline
+        self.source_layers = {
+            pipeline_name: pipeline_config["source_layer"]
+            for pipeline_name, pipeline_config in config.items()
+            if pipeline_name != "backbone"
+        }
+        self.num_pipelines = len(self.source_layers)
+        assert self.num_pipelines > 0, "No pipeline defined for feature extraction"
+
+        # Reverse mapping between pipeline names and source layers to build return nodes
+        return_nodes = {val: key for key, val in self.source_layers.items()}
         try:
-            self.convnet = create_feature_extractor(model=model, return_nodes={layer: "convnet"})
+            self.convnet = create_feature_extractor(model=model, return_nodes=return_nodes)
         except ValueError as e:
             logger.error(f"Could not create feature extractor. Possible layer names: {get_graph_node_names(model)}")
             logger.error("See model architecture below")
@@ -110,25 +120,42 @@ class ConvExtractor(nn.Module):
             raise e
         # Dummy inference to recover number of output channels from the feature extractor
         self.convnet.eval()
-        in_channels = self.convnet(torch.zeros((1, 3, 224, 224)))["convnet"].size(1)
-        self.add_on, self.output_channels = self.create_add_on(config=config.get("add_on"), in_channels=in_channels)
+        output_tensors = self.convnet(torch.zeros((1, 3, 224, 224)))
 
-    def forward(self, x: torch.Tensor, **kwargs) -> torch.Tensor:
+        add_ons, self.output_channels = {}, {}
+        for pipeline_name in self.source_layers.keys():
+            layer, num_channels = self.create_add_on(
+                config=config[pipeline_name].get("add_on"), in_channels=output_tensors[pipeline_name].size(1)
+            )
+            add_ons[pipeline_name] = layer
+            self.output_channels[pipeline_name] = num_channels
+
+        # Create a ModuleDict to register add-on layers as submodules, or simply use a single add-on module
+        self.add_on = nn.ModuleDict(add_ons) if self.num_pipelines > 1 else add_ons[next(iter(add_ons))]
+
+    def forward(self, x: torch.Tensor, **kwargs) -> torch.Tensor | dict[str, torch.Tensor]:
         r"""Computes convolutional features.
 
         Args:
             x (tensor): Input tensor.
 
         Returns:
-            Tensor of convolutional features.
+            Dictionary of tensors of convolutional features or tensor of convolutional features if the dictionary
+            contains a single entry.
         """
-        x = self.convnet(x)
-        if isinstance(x, dict):
-            # Output of a create_feature_extractor
-            x = x["convnet"]  # type: ignore
-        if self.add_on is not None:
-            x = self.add_on(x)
-        return x
+        features = self.convnet(x)
+        if self.num_pipelines == 1:
+            # Single layer extraction (features contains a single entry)
+            features = features[next(iter(features))]  # type: ignore
+            if self.add_on:
+                features = self.add_on(features)
+        else:
+            # Multi-layer extraction
+            for pipeline_name, add_on_layer in self.add_on.items():
+                # Apply add-on layers independently
+                if add_on_layer:
+                    features[pipeline_name] = add_on_layer(features[pipeline_name])
+        return features
 
     @staticmethod
     def create_add_on(config: dict[str, dict] | None, in_channels: int) -> Tuple[nn.Sequential | None, int]:
