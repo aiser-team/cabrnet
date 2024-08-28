@@ -14,7 +14,7 @@ stages:
   - formatting # in charge of ensuring the correct style of docstrings and code
   - typing # in charge of typechecking using mypy
   - doc # in charge of building the doc
-#  - test # in charge of running unit tests
+  - tests # in charge of running unit tests
 #  - install # in charge of checking that the soft can be released proper
 #  - mirror # in charge of replicating the state of this repo on others
 
@@ -56,3 +56,9 @@ user_manual:
   artifacts:
    paths:
      - result/docs/manuals/user_manual.pdf
+
+loading_modules:
+  stage: tests
+  allow_failure: true
+  script:
+    - nix --extra-experimental-features "nix-command flakes" build -L .#checks.x86_64-linux.testLoadingModules

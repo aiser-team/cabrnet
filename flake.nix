@@ -38,6 +38,7 @@
             (nix-filter.lib.inDirectory "tests")
             (nix-filter.lib.inDirectory "docs")
             (nix-filter.lib.inDirectory "src")
+            (nix-filter.lib.inDirectory "tests")
             (nix-filter.lib.inDirectory "tools")
             (nix-filter.lib.inDirectory "website")
           ];
@@ -119,6 +120,16 @@
               name = "check-${oldAttrs.name}-docstring";
               checkPhase = ''
                 python tools/check_docstrings.py -d src/
+              '';
+            });
+        # TODO: integrate the whole test suite
+        testLoadingModules =
+          self.packages.${system}.default.overrideAttrs
+            (oldAttrs: {
+              doCheck = true;
+              name = "check-${oldAttrs.name}-unittests";
+              checkPhase = ''
+                python -m tests/loading.py
               '';
             });
         typing =
