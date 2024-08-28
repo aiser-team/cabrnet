@@ -206,7 +206,7 @@ def execute(args: Namespace) -> None:
     num_epochs = trainer["num_epochs"]
     metric = args.save_best[0]
     maximize = args.save_best[1] == "max"
-    best_metric = 0.0 if maximize else float("inf")
+    best_metric = -float("inf") if maximize else float("inf")
     seed = args.seed
 
     if resume_dir is not None:
