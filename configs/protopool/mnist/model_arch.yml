@@ -12,7 +12,7 @@ extractor:
     conv1:
       type: Conv2d
       params:
-        out_channels: 128
+        out_channels: 256
         kernel_size: 1
         bias: False
     sigmoid1:
@@ -26,8 +26,8 @@ classifier:
   name: ProtoPoolClassifier
   params:
     num_classes: 10
-    num_prototypes: 10
-    num_slots_per_class: 3
+    num_prototypes: 30
+    num_slots_per_class: 5
     proto_init_mode: UNIFORM
     compatibility_mode: True
 
