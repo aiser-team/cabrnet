@@ -1,0 +1,68 @@
+param_groups:
+  backbone: extractor.convnet
+  addons: extractor.add_on
+  prototypes: [classifier.prototypes, classifier.proto_slot_map]
+  last_layer: classifier.last_layer
+
+optimizers:
+  # Optimizer used during the first epochs
+  warmup_optimizer:
+    type: Adam
+    groups:
+      addons:
+        lr: 0.0015
+        weight_decay: 0.001
+      prototypes:
+        lr: 0.0015
+
+  # Main optimizer
+  joint_optimizer:
+    type: Adam
+    groups:
+      backbone:
+        lr: 0.00005
+        weight_decay: 0.001
+      addons:
+        lr: 0.0015
+        weight_decay: 0.001
+      prototypes:
+        lr: 0.0015
+        weight_decay: 0.001
+    scheduler:
+      type: StepLR
+      params:
+        step_size: 5
+        gamma: 0.1
+
+  # Optimizer used during the first epochs
+  last_layer_optimizer:
+    type: Adam
+    groups:
+      last_layer:
+        lr: 0.0001
+
+num_epochs: 300
+
+periods:
+  warmup:
+    num_epochs: 10
+    freeze: [ backbone, last_layer ]
+    optimizers: warmup_optimizer
+  main_training:
+    freeze: last_layer
+    optimizers: joint_optimizer
+
+auxiliary_info:
+  loss_coefficients:
+    clustering: 0.8
+    separability: -0.08
+    regularization: 0.0001
+
+  training_config:
+    gumbel_min_scale: 1.3
+    gumbel_max_scale: 1000
+    gumbel_epochs: 30
+    use_mix_up: True
+
+epilogue:
+    num_fine_tuning_epochs: 15

@@ -1,0 +1,31 @@
+top_arch:
+  module: cabrnet.protopool.model
+  name: ProtoPool
+
+extractor: # How to build the feature extractor
+  backbone:
+    arch: resnet50
+    layer: layer4
+    weights: IMAGENET1K_V1
+  add_on:
+    init_mode: PROTOPNET
+    conv1:
+      type: Conv2d # nn.Module name
+      params:
+        out_channels: 128
+        kernel_size: 1
+    sigmoid1:
+      type: Sigmoid
+
+similarity:
+  name: ProtoPNetSimilarity
+
+classifier:
+  module: cabrnet.protopool.decision
+  name: ProtoPoolClassifier
+  params:
+    num_classes: 196
+    num_prototypes: 195
+    num_slots_per_class: 10
+    proto_init_mode: UNIFORM
+
