@@ -2,7 +2,7 @@ import os.path
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
 
-from cabrnet.core.generic.model import CaBRNet
+from cabrnet.archs.generic.model import CaBRNet
 from cabrnet.core.utils.data import DatasetManager
 from cabrnet.core.utils.exceptions import ArgumentError
 from cabrnet.core.utils.save import safe_copy

@@ -1,12 +1,17 @@
 import os
 from typing import Any, Callable
 
-import cabrnet.core.evaluation.local_perturbation_analysis
-import cabrnet.core.evaluation.relevance_analysis
 import gradio as gr
 import torch
 import yaml
-from cabrnet.core.generic.model import CaBRNet
+from gradio.components.base import Component
+from loguru import logger
+from PIL import Image
+from torchvision.transforms import ToTensor
+
+import cabrnet.core.evaluation.local_perturbation_analysis
+import cabrnet.core.evaluation.relevance_analysis
+from cabrnet.archs.generic.model import CaBRNet
 from cabrnet.core.interface.benchmark import (
     create_perturbation_benchmark_gui,
     create_pointing_benchmark_gui,
@@ -25,10 +30,6 @@ from cabrnet.core.utils.data import DatasetManager
 from cabrnet.core.utils.monitoring import metrics_to_str
 from cabrnet.core.utils.save import load_projection_info
 from cabrnet.core.visualization.visualizer import SimilarityVisualizer
-from gradio.components.base import Component
-from loguru import logger
-from PIL import Image
-from torchvision.transforms import ToTensor
 
 
 class CaBRNetAnalysisGUI:

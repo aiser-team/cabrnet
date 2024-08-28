@@ -1,12 +1,13 @@
 import os
 from argparse import ArgumentParser, Namespace
 
-from cabrnet.core.generic.model import CaBRNet
+from loguru import logger
+
+from cabrnet.archs.generic.model import CaBRNet
 from cabrnet.core.utils.data import DatasetManager
 from cabrnet.core.utils.exceptions import ArgumentError
 from cabrnet.core.utils.save import load_projection_info, safe_copy
 from cabrnet.core.visualization.visualizer import SimilarityVisualizer
-from loguru import logger
 
 description = "explains the global behaviour of a CaBRNet model"
 

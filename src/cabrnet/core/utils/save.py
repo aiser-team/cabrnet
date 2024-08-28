@@ -13,7 +13,7 @@ import torch
 import yaml
 from loguru import logger
 
-from cabrnet.core.generic.model import CaBRNet
+from cabrnet.archs.generic.model import CaBRNet
 from cabrnet.core.utils.data import DatasetManager
 from cabrnet.core.utils.optimizers import OptimizerManager
 

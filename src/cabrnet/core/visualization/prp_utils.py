@@ -11,7 +11,7 @@ from torch import Tensor
 from torch.fx import symbolic_trace
 from torch.nn import functional as F
 
-from cabrnet.core.generic.decision import CaBRNetClassifier
+from cabrnet.archs.generic.decision import CaBRNetClassifier
 from cabrnet.core.utils.similarities import ProtoPNetSimilarity
 
 

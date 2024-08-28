@@ -1,13 +1,14 @@
 import os
 from argparse import ArgumentParser, Namespace
 
-from cabrnet.core.generic.model import CaBRNet
+from loguru import logger
+
+from cabrnet.archs.generic.model import CaBRNet
 from cabrnet.core.utils.data import DatasetManager
 from cabrnet.core.utils.exceptions import ArgumentError
 from cabrnet.core.utils.optimizers import OptimizerManager
 from cabrnet.core.utils.parser import load_config
 from cabrnet.core.utils.save import save_checkpoint
-from loguru import logger
 
 description = "converts an existing legacy model into a CaBRNet model"
 

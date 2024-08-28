@@ -13,8 +13,8 @@ from torchvision.transforms import ToTensor
 from tqdm import tqdm
 import time
 
-from cabrnet.core.generic.decision import CaBRNetClassifier
-from cabrnet.core.generic.model import CaBRNet
+from cabrnet.archs.generic.decision import CaBRNetClassifier
+from cabrnet.archs.generic.model import CaBRNet
 from cabrnet.core.utils.optimizers import OptimizerManager
 from cabrnet.core.visualization.explainer import ExplanationGraph
 from cabrnet.core.visualization.visualizer import SimilarityVisualizer

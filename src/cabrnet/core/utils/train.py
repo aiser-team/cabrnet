@@ -7,7 +7,7 @@ from loguru import logger
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard.writer import SummaryWriter
 
-from cabrnet.core.generic.model import CaBRNet
+from cabrnet.archs.generic.model import CaBRNet
 from cabrnet.core.utils.monitoring import metrics_to_str
 from cabrnet.core.utils.optimizers import OptimizerManager
 from cabrnet.core.utils.parser import load_config

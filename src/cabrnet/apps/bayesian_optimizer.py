@@ -13,7 +13,7 @@ from ray.tune import Trainable
 from ray.tune.search.optuna import OptunaSearch
 
 from cabrnet.apps.train import training_loop
-from cabrnet.core.generic.model import CaBRNet
+from cabrnet.archs.generic.model import CaBRNet
 from cabrnet.core.utils.data import DatasetManager
 from cabrnet.core.utils.exceptions import ArgumentError
 from cabrnet.core.utils.optimizers import OptimizerManager

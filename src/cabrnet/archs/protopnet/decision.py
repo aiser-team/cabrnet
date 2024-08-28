@@ -6,7 +6,7 @@ import torch
 import torch.nn as nn
 from torch import Tensor
 
-from cabrnet.core.generic.decision import CaBRNetClassifier
+from cabrnet.archs.generic.decision import CaBRNetClassifier
 from cabrnet.core.utils.prototypes import init_prototypes
 
 

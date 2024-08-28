@@ -4,12 +4,13 @@ from typing import Any, Callable
 import gradio as gr
 import torchvision.models as torch_models
 import yaml
-from cabrnet.core.generic.model import CaBRNet
+from loguru import logger
+
+from cabrnet.archs.generic.model import CaBRNet
 from cabrnet.core.interface.utils import create_browse_folder_component
 from cabrnet.core.utils.init import layer_init_functions
 from cabrnet.core.utils.prototypes import prototype_init_modes
 from cabrnet.core.utils.tree import leaf_init_modes
-from loguru import logger
 
 # List and configuration of supported add-on layers. For each parameter, indicate the type of gradio component to use.
 supported_addon_layers = {
@@ -38,9 +39,9 @@ supported_addon_layers = {
 # List and configuration of supported architectures. For each parameter, indicate the type of gradio component to use.
 supported_architectures = {
     "ProtoPNet": {
-        "top_arch": {"module": "cabrnet.core.protopnet.model", "name": "ProtoPNet"},
+        "top_arch": {"module": "cabrnet.archs.protopnet.model", "name": "ProtoPNet"},
         "classifier": {
-            "module": "cabrnet.protopnet.decision",
+            "module": "cabrnet.archs.protopnet.decision",
             "name": "ProtoPNetClassifier",
             "params": {
                 "num_classes": ("number", 100),
@@ -53,9 +54,9 @@ supported_architectures = {
         },
     },
     "ProtoTree": {
-        "top_arch": {"module": "cabrnet.core.prototree.model", "name": "ProtoTree"},
+        "top_arch": {"module": "cabrnet.archs.prototree.model", "name": "ProtoTree"},
         "classifier": {
-            "module": "cabrnet.prototree.decision",
+            "module": "cabrnet.archs.prototree.decision",
             "name": "ProtoTreeClassifier",
             "params": {
                 "num_classes": ("number", 100),

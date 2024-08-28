@@ -4,13 +4,12 @@ from argparse import ArgumentParser, Namespace
 from loguru import logger
 from tqdm import tqdm
 
-from cabrnet.core.generic.model import CaBRNet
+from cabrnet.archs.generic.model import CaBRNet
 from cabrnet.core.utils.data import DatasetManager
 from cabrnet.core.utils.exceptions import ArgumentError
-from cabrnet.core.utils.monitoring import metrics_to_str
 from cabrnet.core.utils.optimizers import OptimizerManager
 from cabrnet.core.utils.parser import load_config
-from cabrnet.core.utils.save import load_checkpoint, save_checkpoint
+from cabrnet.core.utils.save import load_checkpoint
 from cabrnet.core.utils.system_info import get_parent_directory
 from cabrnet.core.utils.train import training_loop
 

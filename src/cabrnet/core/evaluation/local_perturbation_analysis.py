@@ -7,7 +7,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import torch
-from cabrnet.core.generic.model import CaBRNet
+from loguru import logger
+from PIL import Image
+from torchvision.transforms import ColorJitter, GaussianBlur, ToTensor
+from tqdm import tqdm
+
+from cabrnet.archs.generic.model import CaBRNet
 from cabrnet.core.utils.data import DatasetManager
 from cabrnet.core.utils.exceptions import ArgumentError
 from cabrnet.core.utils.image import square_resize
@@ -16,10 +21,6 @@ from cabrnet.core.utils.save import load_projection_info
 from cabrnet.core.visualization.explainer import PerturbationGraph
 from cabrnet.core.visualization.view import compute_bbox, heatmap
 from cabrnet.core.visualization.visualizer import SimilarityVisualizer
-from loguru import logger
-from PIL import Image
-from torchvision.transforms import ColorJitter, GaussianBlur, ToTensor
-from tqdm import tqdm
 
 
 def get_config(config_file: str) -> dict[str, Any] | None:

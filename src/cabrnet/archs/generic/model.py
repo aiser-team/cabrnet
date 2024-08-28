@@ -14,8 +14,8 @@ from torch import Tensor
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from cabrnet.core.generic.conv_extractor import ConvExtractor, layer_init_functions
-from cabrnet.core.generic.decision import CaBRNetClassifier
+from cabrnet.archs.generic.conv_extractor import ConvExtractor, layer_init_functions
+from cabrnet.archs.generic.decision import CaBRNetClassifier
 from cabrnet.core.utils.exceptions import check_mandatory_fields
 from cabrnet.core.utils.optimizers import OptimizerManager
 from cabrnet.core.utils.parser import load_config

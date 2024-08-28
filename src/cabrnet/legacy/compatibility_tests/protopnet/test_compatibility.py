@@ -4,24 +4,25 @@ import sys
 import unittest
 from typing import Any
 
-import cabrnet.legacy.protopnet.preprocess as legacy_preprocess
-import cabrnet.legacy.protopnet.prune as legacy_prune
-import cabrnet.legacy.protopnet.push as legacy_push
-import cabrnet.legacy.protopnet.settings as legacy_settings
-import cabrnet.legacy.protopnet.train_and_test as legacy_tnt
 import numpy as np
 import torch
 import torch.nn as nn
 import torchvision.datasets as datasets
 import torchvision.transforms as transforms
-from cabrnet.core.generic.model import CaBRNet
+from loguru import logger
+from torch.utils.data import DataLoader
+from tqdm import tqdm
+
+import cabrnet.legacy.protopnet.preprocess as legacy_preprocess
+import cabrnet.legacy.protopnet.prune as legacy_prune
+import cabrnet.legacy.protopnet.push as legacy_push
+import cabrnet.legacy.protopnet.settings as legacy_settings
+import cabrnet.legacy.protopnet.train_and_test as legacy_tnt
+from cabrnet.archs.generic.model import CaBRNet
 from cabrnet.core.utils.data import DatasetManager
 from cabrnet.core.utils.optimizers import OptimizerManager
 from cabrnet.core.utils.parser import load_config
 from cabrnet.legacy.protopnet.model import construct_PPNet
-from loguru import logger
-from torch.utils.data import DataLoader
-from tqdm import tqdm
 
 
 def setup_rng(seed: int):

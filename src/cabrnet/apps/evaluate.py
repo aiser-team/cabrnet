@@ -1,10 +1,11 @@
 import os
 from argparse import ArgumentParser, Namespace
 
-from cabrnet.core.generic.model import CaBRNet
+from loguru import logger
+
+from cabrnet.archs.generic.model import CaBRNet
 from cabrnet.core.utils.data import DatasetManager
 from cabrnet.core.utils.exceptions import ArgumentError
-from loguru import logger
 
 description = "evaluates the accuracy of a CaBRNet model"
 

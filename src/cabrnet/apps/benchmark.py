@@ -4,11 +4,12 @@ import shutil
 import traceback
 from argparse import ArgumentParser, Namespace
 
-from cabrnet.core.generic.model import CaBRNet
+from loguru import logger
+
+from cabrnet.archs.generic.model import CaBRNet
 from cabrnet.core.utils.data import DatasetManager
 from cabrnet.core.utils.exceptions import ArgumentError
 from cabrnet.core.visualization.visualizer import SimilarityVisualizer
-from loguru import logger
 
 description = "computes a set of evaluation metrics on a CaBRNet model"
 

@@ -13,9 +13,9 @@ from torch.utils.data import DataLoader
 from torchvision.transforms import ToTensor
 from tqdm import tqdm
 
-from cabrnet.core.generic.decision import CaBRNetClassifier
-from cabrnet.core.generic.model import CaBRNet
-from cabrnet.core.prototree.decision import ProtoTreeClassifier, SamplingStrategy
+from cabrnet.archs.generic.decision import CaBRNetClassifier
+from cabrnet.archs.generic.model import CaBRNet
+from cabrnet.archs.prototree.decision import ProtoTreeClassifier, SamplingStrategy
 from cabrnet.core.utils.optimizers import OptimizerManager
 from cabrnet.core.utils.tree import MappingMode, TreeNode
 from cabrnet.core.visualization.explainer import ExplanationGraph

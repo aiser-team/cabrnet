@@ -5,6 +5,11 @@ import unittest
 from argparse import Namespace
 from typing import Any
 
+import numpy as np
+import torch
+import torch.nn as nn
+from loguru import logger
+
 import cabrnet.legacy.prototree.prototree.project as legacy_project
 import cabrnet.legacy.prototree.prototree.prototree as legacy_prototree
 import cabrnet.legacy.prototree.prototree.prune as legacy_prune
@@ -13,15 +18,11 @@ import cabrnet.legacy.prototree.util.args as legacy_args
 import cabrnet.legacy.prototree.util.data as legacy_data
 import cabrnet.legacy.prototree.util.init as legacy_init
 import cabrnet.legacy.prototree.util.net as legacy_net
-import numpy as np
-import torch
-import torch.nn as nn
-from cabrnet.core.generic.model import CaBRNet
-from cabrnet.core.prototree.decision import SamplingStrategy
+from cabrnet.archs.generic.model import CaBRNet
+from cabrnet.archs.prototree.decision import SamplingStrategy
 from cabrnet.core.utils.data import DatasetManager
 from cabrnet.core.utils.optimizers import OptimizerManager
 from cabrnet.core.utils.parser import load_config
-from loguru import logger
 
 
 def setup_rng(seed: int):
