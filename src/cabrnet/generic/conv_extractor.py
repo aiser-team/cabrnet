@@ -33,7 +33,7 @@ class ConvExtractor(nn.Module):
         self,
         config: dict[str, dict],
         seed: int | None = None,
-        disable_weight_logs: bool = False,
+        ignore_weight_errors: bool = False,
     ) -> None:
         r"""Initializes a ConvExtractor from a configuration dictionary.
 
@@ -41,7 +41,7 @@ class ConvExtractor(nn.Module):
             config (dictionary): Configuration dictionary.
             seed (int, optional): Random seed (used only to resynchronise random number generators in
                 compatibility tests). Default: None.
-            disable_weight_logs (bool, optional): Disable logger messages regarding model weights
+            ignore_weight_errors (bool, optional): Ignore all errors regarding model weights
                 (they will be overwritten later on). Default: False.
 
         Raises:
@@ -67,11 +67,10 @@ class ConvExtractor(nn.Module):
         assert arch.lower() in torch_models.list_models(), f"Unsupported model architecture: {arch}"
 
         if weights is None:
-            if not disable_weight_logs:
-                logger.warning(f"Random initialisation of feature extractor with architecture {arch}")
-            model = torch_models.get_model(arch, **arch_params)
-        elif os.path.isfile(weights):
-            if not disable_weight_logs:
+            weights = ""
+        
+        if os.path.isfile(weights):
+            if not ignore_weight_errors:
                 logger.info(f"Loading state dict for feature extractor: {weights}")
             loaded_weights = torch.load(weights, map_location="cpu")
             model = torch_models.get_model(arch, **arch_params)
@@ -82,10 +81,16 @@ class ConvExtractor(nn.Module):
             else:
                 raise ValueError(f"Unsupported weights type: {type(loaded_weights)}")
         elif hasattr(torch_models.get_model_weights(arch), weights):
-            if not disable_weight_logs:
+            if not ignore_weight_errors:
                 logger.info(f"Loading pytorch weights: {weights}")
             loaded_weights = getattr(torch_models.get_model_weights(arch), weights)
             model = torch_models.get_model(arch, weights=loaded_weights, **arch_params)
+        elif ignore_weight_errors:
+            logger.warning(
+                f"Could not load initial weights for the feature extractor. "
+                f"This might be OK if the model state dictionary is loaded afterwards."
+            )
+            model = torch_models.get_model(arch, **arch_params)
         else:
             raise ValueError(f"Cannot load weights {weights} for model of type {arch}. Possible typo or missing file.")
 

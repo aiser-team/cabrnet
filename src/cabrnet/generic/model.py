@@ -216,12 +216,16 @@ class CaBRNet(nn.Module):
             if "init_mode" in config_dict["extractor"]["add_on"]:
                 add_on_init_mode = config_dict["extractor"]["add_on"].pop("init_mode")
 
-        # Build feature extractor
-        if state_dict_path is not None:
-            # Disable parameter loading when building the extractor, since all weights will eventually be overwritten
-            config_dict["extractor"]["backbone"]["weights"] = None
+        # Build feature extractor. If state_dict_path is provided, then preloading the "initial" weights of the 
+        # extractor becomes optional (but should be done if possible). This covers two cases:
+        #   1) After publication of the trained model, the original weights of the feature extractor can appear
+        #    in the configuration (for transparency) but may not be available to the end-user. In this case, the
+        #    library will try to load the original weights but will not crash if they are not available.
+        #   2) In some rare cases, the content of state_dict_path may not contain the weights of the feature extractor
+        #    (for instance if the feature extractor is left untouched during training). In this particular instance,
+        #    the original weights of the feature extractor should be loaded.
         extractor = ConvExtractor(
-            config_dict["extractor"], seed=seed, disable_weight_logs=(state_dict_path is not None)
+            config_dict["extractor"], seed=seed, ignore_weight_errors=(state_dict_path is not None)
         )
 
         # Build classifier
