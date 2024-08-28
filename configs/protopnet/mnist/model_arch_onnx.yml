@@ -1,0 +1,35 @@
+top_arch:
+  module: cabrnet.protopnet.model
+  name: ProtoPNet
+
+extractor:
+  backbone:
+    arch: genericOnnxModel
+    onnx_path: examples/resnet18.onnx
+    # Not necessary for ONNX models
+    weights: None
+  convnet:
+    source_layer: /layer4/layer4.0/conv2/Conv
+    add_on:
+    init_mode: XAVIER
+    conv1:
+      type: Conv2d
+      params:
+        out_channels: 128
+        kernel_size: 1
+        bias: False
+    sigmoid1:
+      type: Sigmoid
+
+similarity:
+  name: LegacyProtoPNetSimilarity
+
+classifier:
+  module: cabrnet.protopnet.decision
+  name: ProtoPNetClassifier
+  params:
+    num_classes: 10
+    num_proto_per_class: 10
+    proto_init_mode: SHIFTED_NORMAL
+    compatibility_mode: True
+

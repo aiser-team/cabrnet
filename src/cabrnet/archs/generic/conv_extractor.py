@@ -14,6 +14,7 @@ from torchvision.models.feature_extraction import (
 
 from cabrnet.core.utils.exceptions import check_mandatory_fields
 from cabrnet.core.utils.init import layer_init_functions
+from .onnx_backbone import GenericONNXModel
 
 warnings.filterwarnings("ignore")
 
@@ -62,13 +63,16 @@ class ConvExtractor(nn.Module):
         arch = backbone_config["arch"]
         arch_params = backbone_config.get("params", {})
         weights = backbone_config["weights"]
+        print(backbone_config)
 
         # Check that model architecture is supported
-        assert arch.lower() in torch_models.list_models(), f"Unsupported model architecture: {arch}"
+        assert arch.lower() in (
+            torch_models.list_models() + ["genericonnxmodel"]
+        ), f"Unsupported model architecture: {arch}"
 
         if weights is None:
             weights = ""
-
+        
         if os.path.isfile(weights):
             if not ignore_weight_errors:
                 logger.info(f"Loading state dict for feature extractor: {weights}")
@@ -91,8 +95,44 @@ class ConvExtractor(nn.Module):
                 f"This might be OK if the model state dictionary is loaded afterwards."
             )
             model = torch_models.get_model(arch, **arch_params)
+        if arch.lower() == "genericonnxmodel":
+            onnx_path = backbone_config["onnx_path"]
+            model = GenericONNXModel(onnx_path=onnx_path)
         else:
-            raise ValueError(f"Cannot load weights {weights} for model of type {arch}. Possible typo or missing file.")
+
+            if weights is None:
+                weights = ""
+
+            if os.path.isfile(weights):
+                if not ignore_weight_errors:
+                    logger.info(f"Loading state dict for feature extractor: {weights}")
+                loaded_weights = torch.load(weights, map_location="cpu")
+                model = torch_models.get_model(arch, **arch_params)
+                if isinstance(loaded_weights, dict):
+                    model.load_state_dict(loaded_weights)
+                elif isinstance(loaded_weights, nn.Module):
+                    model.load_state_dict(loaded_weights.state_dict(), strict=False)
+                else:
+                    raise ValueError(
+                        f"Unsupported weights type: {type(loaded_weights)}"
+                    )
+            elif hasattr(torch_models.get_model_weights(arch), weights):
+                if not ignore_weight_errors:
+                    logger.info(f"Loading pytorch weights: {weights}")
+                loaded_weights = getattr(torch_models.get_model_weights(arch), weights)
+                model = torch_models.get_model(
+                    arch, weights=loaded_weights, **arch_params
+                )
+            elif ignore_weight_errors:
+                logger.warning(
+                    f"Could not load initial weights for the feature extractor. "
+                    f"This might be OK if the model state dictionary is loaded afterwards."
+                )
+                model = torch_models.get_model(arch, **arch_params)
+            else:
+                raise ValueError(
+                    f"Cannot load weights {weights} for model of type {arch}. Possible typo or missing file."
+                )
 
         if seed is not None:
             # Reset random generator (compatibility tests only)
@@ -112,13 +152,27 @@ class ConvExtractor(nn.Module):
 
         # Reverse mapping between pipeline names and source layers to build return nodes
         return_nodes = {val: key for key, val in self.source_layers.items()}
-        try:
-            self.convnet = create_feature_extractor(model=model, return_nodes=return_nodes)
-        except ValueError as e:
-            logger.error(f"Could not create feature extractor. Possible layer names: {get_graph_node_names(model)}")
-            logger.error("See model architecture below")
-            logger.info(model)
-            raise e
+        if arch.lower() == "genericonnxmodel":
+            assert isinstance(model, GenericONNXModel)
+            layer_cut = list(return_nodes.keys())[0]
+            print(layer_cut)
+            _onnx_model, trimed_path = model.trim_backbone(
+                model.backbone, layer_cut=layer_cut
+            )
+            model.backbone_trimed_path = trimed_path
+            self.convnet = model
+        else:
+            try:
+                self.convnet = create_feature_extractor(
+                    model=model, return_nodes=return_nodes
+                )
+            except ValueError as e:
+                logger.error(
+                    f"Could not create feature extractor. Possible layer names: {get_graph_node_names(model)}"
+                )
+                logger.error("See model architecture below")
+                logger.info(model)
+                raise e
         # Dummy inference to recover number of output channels from the feature extractor
         self.convnet.eval()
         output_tensors = self.convnet(torch.zeros((1, 3, 224, 224)))
@@ -126,15 +180,22 @@ class ConvExtractor(nn.Module):
         add_ons, self.output_channels = {}, {}
         for pipeline_name in self.source_layers.keys():
             layer, num_channels = self.create_add_on(
-                config=config[pipeline_name].get("add_on"), in_channels=output_tensors[pipeline_name].size(1)
+                config=config[pipeline_name].get("add_on"),
+                in_channels=output_tensors[pipeline_name].size(1),
             )
             add_ons[pipeline_name] = layer
             self.output_channels[pipeline_name] = num_channels
 
         # Create a ModuleDict to register add-on layers as submodules, or simply use a single add-on module
-        self.add_on = nn.ModuleDict(add_ons) if self.num_pipelines > 1 else add_ons[next(iter(add_ons))]
+        self.add_on = (
+            nn.ModuleDict(add_ons)
+            if self.num_pipelines > 1
+            else add_ons[next(iter(add_ons))]
+        )
 
-    def forward(self, x: torch.Tensor, **kwargs) -> torch.Tensor | dict[str, torch.Tensor]:
+    def forward(
+        self, x: torch.Tensor, **kwargs
+    ) -> torch.Tensor | dict[str, torch.Tensor]:
         r"""Computes convolutional features.
 
         Args:
@@ -159,7 +220,9 @@ class ConvExtractor(nn.Module):
         return features
 
     @staticmethod
-    def create_add_on(config: dict[str, dict] | None, in_channels: int) -> Tuple[nn.Sequential | None, int]:
+    def create_add_on(
+        config: dict[str, dict] | None, in_channels: int
+    ) -> Tuple[nn.Sequential | None, int]:
         r"""Builds add-on layers based on configuration.
 
         Args:
@@ -182,7 +245,9 @@ class ConvExtractor(nn.Module):
             if key == "init_mode":
                 # Extract initialisation mode
                 if val not in layer_init_functions:
-                    raise ValueError(f"Unsupported add_on layers initialisation mode {val}")
+                    raise ValueError(
+                        f"Unsupported add_on layers initialisation mode {val}"
+                    )
                 init_mode = val
                 continue
             if not hasattr(nn, val["type"]):
