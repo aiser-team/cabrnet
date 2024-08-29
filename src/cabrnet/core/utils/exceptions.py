@@ -18,4 +18,4 @@ def check_mandatory_fields(config_dict: dict[str, Any], mandatory_fields: list[s
     """
     for field in mandatory_fields:
         if field not in config_dict:
-            raise ValueError(f"Missing mandatory field {field}" f"{'in {location}' if location is not None else ''}")
+            raise ValueError(f'Missing mandatory field {field} in {location}' if location is not None else '')
