@@ -11,6 +11,7 @@ from cabrnet.utils.optimizers import OptimizerManager
 from cabrnet.utils.parser import load_config
 from apps.train import training_loop
 import copy
+import shutil
 
 from ray import train, tune
 from ray.tune import Trainable
@@ -107,6 +108,11 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         "--sanity-check",
         action="store_true",
         help="check the training pipeline without performing the entire process.",
+    )
+    parser.add_argument(
+        "--cleanup",
+        action="store_true",
+        help="clean working directories after each trial.",
     )
     return parser
 
@@ -220,6 +226,7 @@ def execute(args: Namespace) -> None:
         model_arch: dict[str, Any]
         training_config: dict[str, Any]
         dataset_config: dict[str, Any]
+        working_dir: str
 
         def setup(self, config: dict[str, Any]):
             r"""Sets up the configuration of a trial.
@@ -238,6 +245,7 @@ def execute(args: Namespace) -> None:
             )
             self.model_arch = update_configuration(copy.deepcopy(initial_model_arch), config.get("model", {}))
             self.dataset_config = update_configuration(copy.deepcopy(initial_dataset_config), config.get("dataset", {}))
+            self.working_dir = os.path.join(root_dir, f"trial_{self.trial_name}")
 
         def step(self) -> dict[str, Any]:
             r"""Returns the statistics for this trial."""
@@ -255,7 +263,7 @@ def execute(args: Namespace) -> None:
             num_epochs = self.training_config["num_epochs"]
 
             eval_info = training_loop(
-                working_dir=os.path.join(root_dir, f"trial_{self.trial_name}"),
+                working_dir=self.working_dir,
                 model=model,
                 epoch_range=range(0, num_epochs),
                 dataloaders=dataloaders,
@@ -274,6 +282,12 @@ def execute(args: Namespace) -> None:
                 logger_level="INFO",
             )
             return eval_info
+
+        def cleanup(self):
+            if args.cleanup:
+                logger.info(f"Cleaning up working directory {self.working_dir}")
+                # Remove working directory
+                shutil.rmtree(self.working_dir)
 
     def tune_search_space(config: dict):
         r"""Recursively update lists of possible parameters into tune format"""
