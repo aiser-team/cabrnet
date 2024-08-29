@@ -10,8 +10,10 @@ from cabrnet.utils.exceptions import ArgumentError
 from cabrnet.utils.optimizers import OptimizerManager
 from cabrnet.utils.parser import load_config
 from apps.train import training_loop
-import ray
+import copy
+
 from ray import train, tune
+from ray.tune import Trainable
 from ray.tune.search.optuna import OptunaSearch
 from loguru import logger
 from typing import Any
@@ -93,7 +95,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         required=False,
         default=1,
         metavar="val",
-        help="number of hardware resources allocated to each trial"
+        help="number of hardware resources allocated to each trial",
     )
     parser.add_argument(
         "--overwrite",

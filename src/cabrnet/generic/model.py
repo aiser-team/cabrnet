@@ -226,7 +226,7 @@ class CaBRNet(nn.Module):
                 if pipeline_name != "backbone" and pipeline_config.get("add_on", {}).get("init_mode"):
                     add_on_init_mode[pipeline_name] = pipeline_config["add_on"].pop("init_mode")
 
-        # Build feature extractor. If state_dict_path is provided, then preloading the "initial" weights of the 
+        # Build feature extractor. If state_dict_path is provided, then preloading the "initial" weights of the
         # extractor becomes optional (but should be done if possible). This covers two cases:
         #   1) After publication of the trained model, the original weights of the feature extractor can appear
         #    in the configuration (for transparency) but may not be available to the end-user. In this case, the

@@ -67,7 +67,7 @@ class ConvExtractor(nn.Module):
 
         if weights is None:
             weights = ""
-        
+
         if os.path.isfile(weights):
             if not ignore_weight_errors:
                 logger.info(f"Loading state dict for feature extractor: {weights}")
