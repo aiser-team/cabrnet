@@ -212,66 +212,68 @@ def execute(args: Namespace) -> None:
     hp_mode = args.search_space[1]
 
     # Load initial configuration
-    training_config = load_config(training_config_file)
-    model_arch = load_config(model_arch_file)
-    dataset_config = load_config(dataset_config_file)
+    initial_training_config = load_config(training_config_file)
+    initial_model_arch = load_config(model_arch_file)
+    initial_dataset_config = load_config(dataset_config_file)
 
-    def evaluate_configuration(config: dict[str, dict]) -> None:
-        r"""Evaluates a given hyperparameter configuration.
+    class CaBRNetTrainable(Trainable):
+        model_arch: dict[str, Any]
+        training_config: dict[str, Any]
+        dataset_config: dict[str, Any]
 
-        Args:
-            config (dict): Hyperparameter configuration to be tested.
-        """
-        nonlocal seed, training_config, model_arch, dataset_config
+        def setup(self, config: dict[str, Any]):
+            r"""Sets up the configuration of a trial.
 
-        # Reset RNG states
-        torch.manual_seed(seed)
-        np.random.seed(seed)
-        random.seed(seed)
+            Args:
+                config (dict): Dictionary containing the hyperparameters that will be tweaked.
+            """
+            # Reset RNG states
+            torch.manual_seed(seed)
+            np.random.seed(seed)
+            random.seed(seed)
 
-        # Update configuration
-        training_config = update_configuration(training_config, config.get("training", {}))
-        model_arch = update_configuration(model_arch, config.get("model", {}))
-        dataset_config = update_configuration(dataset_config, config.get("dataset", {}))
+            # Update configuration
+            self.training_config = update_configuration(
+                copy.deepcopy(initial_training_config), config.get("training", {})
+            )
+            self.model_arch = update_configuration(copy.deepcopy(initial_model_arch), config.get("model", {}))
+            self.dataset_config = update_configuration(copy.deepcopy(initial_dataset_config), config.get("dataset", {}))
 
-        # Get unique task ID to avoid collision between trials. Note: the task ID is NOT the trial ID
-        task_id = ray.get_runtime_context().get_task_id()
-        task_device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        def step(self) -> dict[str, Any]:
+            r"""Returns the statistics for this trial."""
+            # Build model
+            model = CaBRNet.build_from_config(config=self.model_arch, seed=seed)
+            # Register auxiliary training parameters directly into model
+            model.register_training_params(self.training_config)
 
-        # Build model
-        model = CaBRNet.build_from_config(config=model_arch, seed=args.seed)
-        # Register auxiliary training parameters directly into model
-        model.register_training_params(training_config)
+            # Build optimizer manager
+            optimizer_mngr = OptimizerManager.build_from_config(config=self.training_config, model=model)
+            # Dataloaders
+            dataloaders = DatasetManager.get_dataloaders(
+                config=self.dataset_config, sampling_ratio=100 if sanity_check_only else 1
+            )
+            num_epochs = self.training_config["num_epochs"]
 
-        # Build optimizer manager
-        optimizer_mngr = OptimizerManager.build_from_config(config=training_config, model=model)
-        # Dataloaders
-        dataloaders = DatasetManager.get_dataloaders(
-            config=dataset_config, sampling_ratio=100 if sanity_check_only else 1
-        )
-
-        num_epochs = training_config["num_epochs"]
-
-        eval_info = training_loop(
-            working_dir=os.path.join(root_dir, f"task_{task_id}"),
-            model=model,
-            epoch_range=range(0, num_epochs),
-            dataloaders=dataloaders,
-            optimizer_mngr=optimizer_mngr,
-            metric=train_metric,
-            maximize=train_maximize,
-            best_metric=(0.0 if train_maximize else float("inf")),
-            num_epochs=num_epochs,
-            patience=args.patience,
-            save_final=False,
-            model_arch=model_arch,
-            training_config=training_config,
-            dataset_config=dataset_config,
-            seed=seed,
-            device=task_device,
-            logger_level="INFO",
-        )
-        train.report(eval_info)
+            eval_info = training_loop(
+                working_dir=os.path.join(root_dir, f"trial_{self.trial_name}"),
+                model=model,
+                epoch_range=range(0, num_epochs),
+                dataloaders=dataloaders,
+                optimizer_mngr=optimizer_mngr,
+                metric=train_metric,
+                maximize=train_maximize,
+                best_metric=(0.0 if train_maximize else float("inf")),
+                num_epochs=num_epochs,
+                patience=args.patience,
+                save_final=False,
+                model_arch=self.model_arch,
+                training_config=self.training_config,
+                dataset_config=self.dataset_config,
+                seed=seed,
+                device=torch.device("cuda" if torch.cuda.is_available() else "cpu"),
+                logger_level="INFO",
+            )
+            return eval_info
 
     def tune_search_space(config: dict):
         r"""Recursively update lists of possible parameters into tune format"""
@@ -293,9 +295,7 @@ def execute(args: Namespace) -> None:
     # Set-up hardware resources
     resources = {"cpu" if device == "cpu" else "gpu": args.num_resources_per_trial}
     trainable_with_resources = (
-        tune.with_resources(evaluate_configuration, resources)
-        if args.num_resources_per_trial > 0
-        else evaluate_configuration
+        tune.with_resources(CaBRNetTrainable, resources) if args.num_resources_per_trial > 0 else CaBRNetTrainable
     )
 
     if args.resume_from is not None:
@@ -317,7 +317,15 @@ def execute(args: Namespace) -> None:
                 search_alg=search_alg,
                 num_samples=num_trials,
             ),
-            run_config=train.RunConfig(storage_path=root_dir, name="test_experiment"),
+            run_config=train.RunConfig(
+                storage_path=root_dir,
+                name="test_experiment",
+                stop={"training_iteration": 1},  # Each trial configuration is only tested once
+                checkpoint_config=train.CheckpointConfig(
+                    # Checkpoint management is handled by CaBRNet directly
+                    checkpoint_at_end=False
+                ),
+            ),
             param_space=search_space,
         )
 
