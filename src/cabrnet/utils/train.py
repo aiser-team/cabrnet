@@ -68,8 +68,9 @@ def training_loop(
         Dictionary of statistics on the test set.
     """
     if logger_level is not None:
-        # Adjust logger level
+        # Adjust logger level and set log file
         logger.configure(handlers=[{"sink": sys.stderr, "level": logger_level}])
+        logger.add(sink=os.path.join(working_dir, "log.txt"), level=logger_level)
 
     epochs_since_best = 0
     trained = False
