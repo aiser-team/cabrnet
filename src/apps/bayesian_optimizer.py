@@ -265,7 +265,7 @@ def execute(args: Namespace) -> None:
                 best_metric=(0.0 if train_maximize else float("inf")),
                 num_epochs=num_epochs,
                 patience=args.patience,
-                save_final=False,
+                save_final=True,
                 model_arch=self.model_arch,
                 training_config=self.training_config,
                 dataset_config=self.dataset_config,
