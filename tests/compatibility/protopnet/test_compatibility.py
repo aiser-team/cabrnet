@@ -13,16 +13,16 @@ from loguru import logger
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-import cabrnet.legacy.protopnet.preprocess as legacy_preprocess
-import cabrnet.legacy.protopnet.prune as legacy_prune
-import cabrnet.legacy.protopnet.push as legacy_push
-import cabrnet.legacy.protopnet.settings as legacy_settings
-import cabrnet.legacy.protopnet.train_and_test as legacy_tnt
+import legacy.preprocess as legacy_preprocess
+import legacy.prune as legacy_prune
+import legacy.push as legacy_push
+import legacy.settings as legacy_settings
+import legacy.train_and_test as legacy_tnt
+from legacy.model import construct_PPNet
 from cabrnet.archs.generic.model import CaBRNet
 from cabrnet.core.utils.data import DatasetManager
 from cabrnet.core.utils.optimizers import OptimizerManager
 from cabrnet.core.utils.parser import load_config
-from cabrnet.legacy.protopnet.model import construct_PPNet
 
 
 def setup_rng(seed: int):

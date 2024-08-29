@@ -10,14 +10,14 @@ import torch
 import torch.nn as nn
 from loguru import logger
 
-import cabrnet.legacy.prototree.prototree.project as legacy_project
-import cabrnet.legacy.prototree.prototree.prototree as legacy_prototree
-import cabrnet.legacy.prototree.prototree.prune as legacy_prune
-import cabrnet.legacy.prototree.prototree.train as legacy_train
-import cabrnet.legacy.prototree.util.args as legacy_args
-import cabrnet.legacy.prototree.util.data as legacy_data
-import cabrnet.legacy.prototree.util.init as legacy_init
-import cabrnet.legacy.prototree.util.net as legacy_net
+import legacy.prototree.project as legacy_project
+import legacy.prototree.prototree as legacy_prototree
+import legacy.prototree.prune as legacy_prune
+import legacy.prototree.train as legacy_train
+import legacy.util.args as legacy_args
+import legacy.util.data as legacy_data
+import legacy.util.init as legacy_init
+import legacy.util.net as legacy_net
 from cabrnet.archs.generic.model import CaBRNet
 from cabrnet.archs.prototree.decision import SamplingStrategy
 from cabrnet.core.utils.data import DatasetManager

@@ -6,7 +6,7 @@ Nevertheless, it is possible to fetch these repositories and to verify their com
 To fetch existing repositories, simply enter
 ```bash
 cd ../../ # Go back to root directory
-./src/legacy/fetch_legacy_repos.sh
+./tests/compatibility/fetch_legacy_repos.sh
 ```
 Currently, this script:
 
@@ -25,7 +25,7 @@ As a sanity check, CaBRNet implements a small test suite that ensures its compat
 To check compatibility, simply run
 ```bash
 cd ../../ # Go back to root directory
-python3 src/legacy/compatibility_tests/prototree/test_compatibility.py  -v
-python3 src/legacy/compatibility_tests/protopnet/test_compatibility.py  -v
+python3 ./tests/compatibility/prototree/test_compatibility.py  -v
+python3 ./tests/compatibility/protopnet/test_compatibility.py  -v
 ```
 
