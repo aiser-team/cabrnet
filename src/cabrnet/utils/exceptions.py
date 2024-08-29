@@ -7,7 +7,7 @@ class ArgumentError(Exception):
 
 
 def check_mandatory_fields(config_dict: dict[str, Any], mandatory_fields: list[str], location: str | None = None):
-    r"""Checks that the list of mandatory fields appear in the specified config dict and, if not, raises an error 
+    r"""Checks that the list of mandatory fields appear in the specified config dict and, if not, raises an error
     pointing to the specified location. Ideally, the configuration dictionary is only accessed after the sanity check
     has been performed to avoid ugly errors.
 
