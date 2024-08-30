@@ -52,7 +52,11 @@ class ConvExtractor(nn.Module):
         super(ConvExtractor, self).__init__()
 
         # Check mandatory fields
-        check_mandatory_fields(config_dict=config, mandatory_fields=["backbone"], location="extractor configuration")
+        check_mandatory_fields(
+            config_dict=config,
+            mandatory_fields=["backbone"],
+            location="extractor configuration",
+        )
         backbone_config = config["backbone"]
         check_mandatory_fields(
             config_dict=backbone_config,

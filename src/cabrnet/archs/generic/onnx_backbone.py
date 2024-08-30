@@ -1,6 +1,7 @@
 from __future__ import annotations
 from os import PathLike
 from typing import Optional, Tuple
+from loguru import logger
 
 import numpy as np
 import onnx
@@ -9,9 +10,18 @@ import onnxruntime as rt
 import torch
 import torch.nn as nn
 
+"""
+TODO:
+* [ ] path sanitization and file permissions for ONNX models generation
+* [ ] Saving generated ONNX omdels
+      (they must be saved with the rest of the configuration once generated
+      to enable reproduceability)
+* [ ] create a collection of ORT running sessions with provided layer keys,
+      mirroring the ConvExtractor class capability to provide multi-output
+      models
+* [ ] type sanitization conversions for the ONNX sessions bindings
+"""
 
-# TODO:
-# create a collection of ORT running sessions with provided layer keys
 
 class GenericONNXModel(nn.Module):
     r"""A class describing generic ONNX models to be used as backbone.
@@ -26,21 +36,21 @@ class GenericONNXModel(nn.Module):
         backbone: a ONNX file
     """
 
-    def __init__(self, onnx_path: PathLike, layer_cut: Optional[str] = None):
+    def __init__(self, onnx_path: PathLike[str], layer_cut: Optional[str] = None):
         super(GenericONNXModel, self).__init__()
         model = onnx.load(onnx_path)
         onnx.checker.check_model(model)
-        self.backbone = model
-        self.backbone_path = onnx_path
-        self.feat_shape = (-1, 1, 1, 1)  # TODO: compute that from layer_cut
-        self.out_shape = (-1, 1, 1, 1)
+        model = onnx.shape_inference.infer_shapes(model)
+        self.backbone: onnx.ModelProto = model
+        self.backbone_path: PathLike[str] = onnx_path
+        # To be inferred with shape inference
+        self.out_shape: Optional[Tuple[int, int, int, int]] = None
         if len(gs.import_onnx(self.backbone).inputs[0].shape) != 4:
             (
                 self.backbone_batched,
                 self.backbone_batched_path,
             ) = self.allow_batched_inputs()
         if layer_cut is not None:
-            print("toto")
             self.backbone_trimed, self.backbone_trimed_path = self.trim_backbone(
                 self.backbone_batched, layer_cut
             )
@@ -62,11 +72,28 @@ class GenericONNXModel(nn.Module):
     def trim_backbone(
         self, model: onnx.ModelProto, layer_cut: str
     ) -> Tuple[onnx.ModelProto, str]:
-        r"""Trim the ONNX model upto the provided layer name, and returns the
-        modified ONNX model.
+        r"""
+        Trim the ONNX graph upto the provided layer name (included), and saves
+        the corresponding ONNX graph on disk.
+        Returns both the modified model and the path of the saved ONNX file.
+
+        Args:
+            model (onnx.ModelProto): ONNX model to trim.
+            layer_cut (str): Layer to trim the model to.
+
 
         """
+        # shape inference must have been run beforehand
+        assert len(model.graph.value_info) > 0
         to_trim = False
+        node_candidates = [
+            x for x in model.graph.value_info if x.name.__contains__(layer_cut)
+        ]
+        # otherwise, layer_cut is underspecified
+        assert len(node_candidates) == 1
+        assert len(node_candidates[0].type.tensor_type.shape.dim) == 4
+        [b, x, y, z] = node_candidates[0].type.tensor_type.shape.dim
+        self.out_shape = (b.dim_value, x.dim_value, y.dim_value, z.dim_value)
         graph = gs.import_onnx(model)
         n_to_trim = []
         for node in graph.nodes:
@@ -79,9 +106,11 @@ class GenericONNXModel(nn.Module):
             last_node.outputs = node.outputs
             node.outputs.clear()
         # create a new output for the graph
-        graph.outputs.append(
-            gs.Variable("features", dtype=np.float32, shape=self.feat_shape)
-        )
+        # and remove the previous one
+        graph.outputs = [
+            gs.Variable("features", dtype=np.float32, shape=self.out_shape)
+        ]
+        print(graph.outputs)
         last_node.outputs = graph.outputs
         graph.cleanup()
         trimed_name = "onnx_trimed.onnx"
@@ -96,51 +125,29 @@ class GenericONNXModel(nn.Module):
             device_type = "cpu"
         else:
             device_type = "cuda"
-        sess = rt.InferenceSession(self.backbone_path, providers=providers)
-        sess_f = rt.InferenceSession(self.backbone_trimed_path, providers=providers)
+        sess = rt.InferenceSession(self.backbone_trimed_path, providers=providers)
         input_name = sess.get_inputs()[0].name
+        output_name = sess.get_outputs()[0].name
         bind = sess.io_binding()
-        bind_f = sess_f.io_binding()
         bind.bind_input(
             name=input_name,
             device_type=device_type,
             device_id=0,
-            element_type=x.dtype,
+            element_type=np.float32,
             shape=tuple(x.shape),
             buffer_ptr=x.data_ptr(),
         )
-        bind_f.bind_input(
-            name=input_name,
-            device_type=device_type,
-            device_id=0,
-            element_type=x.dtype,
-            shape=tuple(x.shape),
-            buffer_ptr=x.data_ptr(),
-        )
-        score_shape = torch.Size((x.size()[0], *self.out_shape))
-        feat_shape = torch.Size((x.size()[0], *self.feat_shape))
-        score_tensor = torch.empty(
-            score_shape, dtype=torch.uint8, device=device
-        ).contiguous()
-        feat_tensor = torch.empty(
-            feat_shape, dtype=torch.float32, device=device
+        out_shape = torch.Size(self.out_shape)
+        out_tensor = torch.empty(
+            out_shape, dtype=torch.float32, device=device
         ).contiguous()
         bind.bind_output(
-            name="scores",
-            device_type=device_type,
-            device_id=0,
-            element_type=np.uint8,
-            shape=tuple(score_tensor.shape),
-            buffer_ptr=score_tensor.data_ptr(),
-        )
-        bind_f.bind_output(
-            name="features",
+            name=output_name,
             device_type=device_type,
             device_id=0,
             element_type=np.float32,
-            shape=tuple(feat_tensor.shape),
-            buffer_ptr=feat_tensor.data_ptr(),
+            shape=tuple(out_tensor.shape),
+            buffer_ptr=out_tensor.data_ptr(),
         )
         sess.run_with_iobinding(bind)
-        sess_f.run_with_iobinding(bind_f)
-        return score_tensor, feat_tensor
+        return out_tensor
