@@ -5,6 +5,8 @@ top_arch:
 extractor:
   backbone:
     arch: genericOnnxModel
+    # Generated from torch.onnx.export on a torchvision resnet18 with a random
+    # input of size 1,3,224,224 and dynamic shapes enabled
     onnx_path: examples/resnet18.onnx
     # Not necessary for ONNX models
     weights: None
