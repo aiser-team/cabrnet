@@ -1,12 +1,12 @@
-import os
-import warnings
 from collections import OrderedDict
+import os
 from typing import Tuple
+import warnings
 
+from loguru import logger
 import torch
 import torch.nn as nn
 import torchvision.models as torch_models
-from loguru import logger
 from torchvision.models.feature_extraction import (
     create_feature_extractor,
     get_graph_node_names,
@@ -14,6 +14,7 @@ from torchvision.models.feature_extraction import (
 
 from cabrnet.core.utils.exceptions import check_mandatory_fields
 from cabrnet.core.utils.init import layer_init_functions
+
 from .onnx_backbone import GenericONNXModel
 
 warnings.filterwarnings("ignore")
@@ -67,38 +68,12 @@ class ConvExtractor(nn.Module):
         arch = backbone_config["arch"]
         arch_params = backbone_config.get("params", {})
         weights = backbone_config["weights"]
-        print(backbone_config)
 
         # Check that model architecture is supported
         assert arch.lower() in (
             torch_models.list_models() + ["genericonnxmodel"]
         ), f"Unsupported model architecture: {arch}"
 
-        if weights is None:
-            weights = ""
-        
-        if os.path.isfile(weights):
-            if not ignore_weight_errors:
-                logger.info(f"Loading state dict for feature extractor: {weights}")
-            loaded_weights = torch.load(weights, map_location="cpu")
-            model = torch_models.get_model(arch, **arch_params)
-            if isinstance(loaded_weights, dict):
-                model.load_state_dict(loaded_weights)
-            elif isinstance(loaded_weights, nn.Module):
-                model.load_state_dict(loaded_weights.state_dict(), strict=False)
-            else:
-                raise ValueError(f"Unsupported weights type: {type(loaded_weights)}")
-        elif hasattr(torch_models.get_model_weights(arch), weights):
-            if not ignore_weight_errors:
-                logger.info(f"Loading pytorch weights: {weights}")
-            loaded_weights = getattr(torch_models.get_model_weights(arch), weights)
-            model = torch_models.get_model(arch, weights=loaded_weights, **arch_params)
-        elif ignore_weight_errors:
-            logger.warning(
-                f"Could not load initial weights for the feature extractor. "
-                f"This might be OK if the model state dictionary is loaded afterwards."
-            )
-            model = torch_models.get_model(arch, **arch_params)
         if arch.lower() == "genericonnxmodel":
             onnx_path = backbone_config["onnx_path"]
             model = GenericONNXModel(onnx_path=onnx_path)
@@ -158,13 +133,14 @@ class ConvExtractor(nn.Module):
         return_nodes = {val: key for key, val in self.source_layers.items()}
         if arch.lower() == "genericonnxmodel":
             assert isinstance(model, GenericONNXModel)
-            layer_cut = list(return_nodes.keys())[0]
-            print(layer_cut)
-            _onnx_model, trimed_path = model.trim_backbone(
-                model.backbone, layer_cut=layer_cut
-            )
-            model.backbone_trimed_path = trimed_path
-            self.convnet = model
+            try:
+                model.trim_model(return_nodes)
+                self.convnet = model
+            except ValueError as e:
+                logger.error(
+                    f"Could not create feature extractor from ONNX model. Possible layer names: {model.available_node_names()}"
+                )
+                raise e
         else:
             try:
                 self.convnet = create_feature_extractor(
