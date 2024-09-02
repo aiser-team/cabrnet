@@ -277,11 +277,11 @@ class CaBRNet(nn.Module):
                 f"expected {classifier_config['params']['num_features']} "
                 f"but feature extractor outputs {num_features['convnet']} channels"
             )
-        
+
         # Update compatibility mode if necessary
         if compatibility_mode:
             classifier_config["params"].update({"compatibility_mode": compatibility_mode})
-        
+
         # Load classifier module
         classifier_module = importlib.import_module(classifier_config["module"])
         classifier = getattr(classifier_module, classifier_config["name"])(
