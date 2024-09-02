@@ -352,8 +352,7 @@ class ProtoPNet(CaBRNet):
                 tqdm_position=tqdm_position,
             )
             # Freeze all parameters except last layer
-            for group in optimizer_mngr.param_groups:
-                optimizer_mngr.freeze_group(name=group, freeze=(group != "last_layer"))
+            optimizer_mngr.freeze_non_associated_groups(optim_name="last_layer_optimizer")
 
             fine_tuning_progress = tqdm(
                 range(self.projection_config["num_ft_epochs"]),
@@ -451,6 +450,11 @@ class ProtoPNet(CaBRNet):
                 position=tqdm_position,
                 disable=not verbose,
             )
+
+            if not self._compatibility_mode:
+                # Freeze all other parameter groups before fine-tuning
+                optimizer_mngr.freeze_non_associated_groups("last_layer_optimizer")
+
             for ft_epoch_idx in fine_tuning_progress:
                 self._train_epoch(
                     dataloaders=dataloaders,
