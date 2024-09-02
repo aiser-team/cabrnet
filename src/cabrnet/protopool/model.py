@@ -366,19 +366,20 @@ class ProtoPool(CaBRNet):
             device=device,
             verbose=verbose,
         )
-        if not self._compatibility_mode:
-            self.prune(device=device)
-
         eval_info = self.evaluate(dataloader=dataloaders["test_set"], device=device, verbose=verbose)
         logger.info(
             f"After projection. Average loss: {eval_info['avg_loss']:.2f}. "
             f"Average accuracy: {eval_info['avg_accuracy']:.2f}."
         )
+        if not self._compatibility_mode:
+            self.prune(device=device)
+            # Freeze all other parameter groups before fine-tuning
+            optimizer_mngr.freeze_non_associated_groups("last_layer_optimizer")
 
         # Last layer fine-tuning
         fine_tuning_progress = tqdm(
             range(num_fine_tuning_epochs),
-            desc="Fine-tuning last layer after pruning",
+            desc="Fine-tuning last layer",
             leave=False,
             position=tqdm_position,
             disable=not verbose,
