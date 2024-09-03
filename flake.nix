@@ -24,7 +24,7 @@
     flake-utils.lib.eachDefaultSystem (system:
     let
       pkgs = nixpkgs.legacyPackages.${system};
-      pythonPkgs = pkgs.python311Packages;
+      pythonPkgs = pkgs.python310Packages;
       lib = pkgs.lib;
       sources = {
         python = nix-filter.lib {
