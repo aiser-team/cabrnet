@@ -28,4 +28,4 @@ classifier:
     num_prototypes: 195
     num_slots_per_class: 10
     proto_init_mode: UNIFORM
-
+    compatibility_mode: True
