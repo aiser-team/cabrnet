@@ -1,12 +1,12 @@
 torch>=2.0.0
 torchvision>=0.13.0
 numpy>=1.19.5
-pillow~=10.0.1
-setuptools~=60.2.0
-tqdm~=4.62.3
+pillow~=10.3.0
+setuptools~=70.0.0
+tqdm~=4.66.3
 gdown~=4.7.1
 PyYAML~=6.0.1
-requests~=2.31.0
+requests~=2.32.0
 matplotlib~=3.8.0
 scipy~=1.11.3
 scikit-image~=0.22.0
