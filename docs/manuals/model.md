@@ -438,10 +438,9 @@ class ArchName(CaBRNet):
         self.to(device)
 
         # Training stats
-        total_loss = 0.0
-        total_acc = 0.0
-        
-        # Recover dataloader on training data 
+        train_info = {}
+
+        # Recover dataloader on training data
         train_loader = dataloaders["train_set"]
 
         # Show progress on progress bar if needed
@@ -452,7 +451,7 @@ class ArchName(CaBRNet):
             position=tqdm_position,
             disable=not verbose,
         )
-        batch_num = len(train_loader)
+        nb_inputs = 0
 
         for batch_idx, (xs, ys) in train_iter:
             # Reset gradients and map the data on the target device
@@ -467,11 +466,14 @@ class ArchName(CaBRNet):
             batch_loss.backward()
             optimizer_mngr.optimizer_step(epoch=epoch_idx)
 
-            # Update global metrics
-            batch_accuracy = batch_stats["accuracy"]
-            total_loss += batch_loss.item()
-            total_acc += batch_accuracy
-            
+            # Update all metrics
+            if not train_info:
+                train_info = batch_stats
+            else:
+                for key, value in batch_stats.items():
+                    train_info[key] += value * xs.size(0)
+            nb_inputs += xs.size(0)
+
             if max_batches is not None and batch_idx == max_batches:
                 # Early stop for small tests and sanity checks
                 break
@@ -479,7 +481,7 @@ class ArchName(CaBRNet):
         # Clean gradients after last batch
         optimizer_mngr.zero_grad()
 
-        train_info = {"avg_loss": total_loss / batch_num, "avg_train_accuracy": total_acc / batch_num}
+        train_info = {key: value / nb_inputs for key, value in train_info.items()}
         return train_info
 
     def evaluate(

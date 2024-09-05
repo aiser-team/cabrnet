@@ -167,7 +167,7 @@ export RAY_CHDIR_TO_TRIAL_DIR=0 # Required to control Ray-Tune working directory
 cabrnet bayesian_optimizer --device cuda:0  --verbose \
   --config-dir configs/protopnet/mnist_with_bayesian_optimization/ \
   --output-dir runs/mnist_protopnet_bayesian_opt \
-  --save-best avg_loss min  \
-  --search-space avg_accuracy max configs/protopnet/mnist_with_bayesian_optimization/search_space.yml 10 \
+  --save-best loss min  \
+  --search-space accuracy max configs/protopnet/mnist_with_bayesian_optimization/search_space.yml 10 \
   --patience 5 --sanity-check 
 ```
