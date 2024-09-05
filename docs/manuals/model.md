@@ -240,6 +240,7 @@ from abc import ABC, abstractmethod
 import torch.nn as nn
 from torch import Tensor
 
+
 class SimilarityLayer(nn.Module, ABC):
     r"""Abstract layer for computing similarity scores based on distances in the convolutional space."""
 
@@ -285,6 +286,7 @@ class SimilarityLayer(nn.Module, ABC):
             Tensor of distances. Shape (N, P, H, W).
         """
         return self.similarities(features, prototypes, **kwargs)
+
 ```
 This interface provides a generic way to define:
 - how to compute distances between the feature vectors and the prototypes.
@@ -305,13 +307,14 @@ The following code provides a minimal example on how to define a new classifier.
 The classifier must inherit from the `CaBRNetGenericClassifier` class as follows:
 ```python
 import torch.nn as nn
-import torch
 from typing import Any
 from cabrnet.utils.prototypes import init_prototypes
 from cabrnet.generic.decision import CaBRNetClassifier
 
+
 class ArchNameClassifier(CaBRNetClassifier):
     r"""Classification pipeline for ArchName architecture."""
+
     def __init__(
         self,
         similarity_config: dict[str, Any],
@@ -320,7 +323,7 @@ class ArchNameClassifier(CaBRNetClassifier):
         proto_init_mode: str = "SHIFTED_NORMAL",
     ) -> None:
         r"""Initializes a ArchName classifier.
-        
+
         Args:
             similarity_config (dict): Configuration of the layer used to compute similarity scores between the
                 prototypes and the convolutional features.
@@ -330,21 +333,20 @@ class ArchNameClassifier(CaBRNetClassifier):
             ...
         """
         super().__init__(
-            num_classes=num_classes, 
-            num_features=num_features, 
-            proto_init_mode=proto_init_mode
+            num_classes=num_classes,
+            num_features=num_features,
+            proto_init_mode=proto_init_mode,
         )
 
-        
         # Init prototypes
         self.prototypes = nn.Parameter(
             init_prototypes(
-                num_prototypes=self.num_prototypes, 
-                num_features=self.num_features, 
-                init_mode=proto_init_mode
+                num_prototypes=self.num_prototypes,
+                num_features=self.num_features,
+                init_mode=proto_init_mode,
             )
         )
-        
+
         # Init self.similarity_layer using CaBRNetClassifier.build_similarity
         self.build_similarity(similarity_config)
         ...
@@ -356,12 +358,11 @@ class ArchNameClassifier(CaBRNetClassifier):
         """
         ...
 
-
     def forward(self, features: Any, **kwargs) -> ...:
         r"""Performs classification.
-        
+
         Args:
-            features: Convolutional features from extractor. 
+            features: Convolutional features from extractor.
                 Either a single tensor of shape (N, D, H, W) or
                 a dictionary of tensors in the case of multi-layer extraction.
 
@@ -369,9 +370,10 @@ class ArchNameClassifier(CaBRNetClassifier):
             Vector of logits.
         """
         similarities = self.similarity_layer(features, self.prototypes)
-        
+
         # Compute classification based on similarity scores
         ...
+
 ```
 
 ## Defining a new top-module
@@ -391,10 +393,11 @@ from cabrnet.visualization.visualizer import SimilarityVisualizer
 
 
 class ArchName(CaBRNet):
-      
-    def loss(self, model_output: Any, label: torch.Tensor) -> tuple[torch.Tensor, dict[str, float]]:
+    def loss(
+        self, model_output: Any, label: torch.Tensor
+    ) -> tuple[torch.Tensor, dict[str, float]]:
         r"""Loss function.
-        
+
         Args:
             model_output (Any): Model output.
             label (tensor): Batch labels.
@@ -403,11 +406,10 @@ class ArchName(CaBRNet):
             Loss tensor and batch statistics.
         """
         loss = ...
-        batch_stats = {"accuracy": ...} 
-        # Please note that returning batch accuracy is mandatory 
+        batch_stats = {"accuracy": ..., "loss": ...}
         return loss, batch_stats
 
-    def train_epoch( # Mandatory signature
+    def train_epoch(  # Mandatory signature
         self,
         dataloaders: dict[str, DataLoader],
         optimizer_mngr: OptimizerManager,
@@ -434,7 +436,7 @@ class ArchName(CaBRNet):
         """
         self.train()
         self.to(device)
-        
+
         # Training stats
         total_loss = 0.0
         total_acc = 0.0
@@ -479,7 +481,7 @@ class ArchName(CaBRNet):
 
         train_info = {"avg_loss": total_loss / batch_num, "avg_train_accuracy": total_acc / batch_num}
         return train_info
-    
+
     def evaluate(
         self,
         dataloader: DataLoader,
@@ -500,7 +502,7 @@ class ArchName(CaBRNet):
         """
         # Already implemented in the generic CaBRNet class
         ...
-    
+
     def project(
         self,
         dataloader: DataLoader,
@@ -511,7 +513,7 @@ class ArchName(CaBRNet):
         r"""Performs prototype projection after training.
 
         Args:
-            dataloader (DataLoader): Dataloader containing projection data. 
+            dataloader (DataLoader): Dataloader containing projection data.
                 WARNING: This dataloader must not be shuffled!
             device (str | device, optional): Hardware device. Default: cuda:0.
             verbose (bool, optional): Display progress bar. Default: False.
@@ -540,7 +542,7 @@ class ArchName(CaBRNet):
         # Perform projection
         ...
         return projection_info
-    
+
     def epilogue(
         self,
         dataloaders: dict[str, DataLoader],
@@ -561,7 +563,7 @@ class ArchName(CaBRNet):
             verbose (bool, optional): Display progress bar. Default: False.
         """
         ...
-    
+
     def explain(
         self,
         img: str | Image.Image,
@@ -594,7 +596,7 @@ class ArchName(CaBRNet):
             and <similar> indicates whether the prototype is considered similar or dissimilar.
         """
         ...
-    
+
     def explain_global(
         self,
         prototype_dir: str,
@@ -610,5 +612,6 @@ class ArchName(CaBRNet):
             output_format (str, optional): Output file format. Default: pdf.
         """
         ...
+
 ```
 
