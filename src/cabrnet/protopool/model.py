@@ -167,9 +167,10 @@ class ProtoPool(CaBRNet):
             orthogonal_loss = orthogonal_loss / (self.classifier.num_slots_per_class * self.classifier.num_classes) - 1
         else:
             # Orthogonal loss, computed using the cosine similarity on the distribution vectors (after Gumbel-Softmax)
+            # Take absolute value of the similarity (to avoid optimization towards -1 !!!)
             mat = torch.nn.functional.cosine_similarity(
                 proto_slot_probs.unsqueeze(2), proto_slot_probs.unsqueeze(-1), dim=1
-            )  # Shape (K x S x S)
+            ).abs()  # Shape (K x S x S)
             # Remove diagonals (all ones) and compute the sum of all pairwise cosine similarity scores
             mat = mat * (1.0 - torch.eye(self.classifier.num_slots_per_class, dtype=mat.dtype, device=mat.device))
             orthogonal_loss = mat.sum()
