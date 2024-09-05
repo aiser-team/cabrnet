@@ -210,6 +210,7 @@ class ProtoPNet(CaBRNet):
 
         batch_accuracy = torch.sum(torch.eq(torch.argmax(output, dim=1), label)).item() / len(label)
         stats = {
+            "loss": loss.item(),
             "accuracy": batch_accuracy,
             "cross_entropy": cross_entropy.item(),
             "cluster_cost": cluster_cost.item(),
@@ -315,7 +316,7 @@ class ProtoPNet(CaBRNet):
 
         # Clean gradients after last batch
         optimizer_mngr.zero_grad()
-        
+
         train_info = {key: value / nb_inputs for key, value in train_info.items()}
 
         # Update batch_num with effective value
@@ -442,8 +443,8 @@ class ProtoPNet(CaBRNet):
 
         eval_info = self.evaluate(dataloader=dataloaders["test_set"], device=device, verbose=verbose)
         logger.info(
-            f"After projection. Average loss: {eval_info['avg_loss']:.2f}. "
-            f"Average accuracy: {eval_info['avg_accuracy']:.2f}."
+            f"After projection. Average loss: {eval_info['loss']:.2f}. "
+            f"Average accuracy: {eval_info['accuracy']:.2f}."
         )
 
         if num_nearest_patches > 0:
