@@ -1,5 +1,5 @@
 top_arch:
-  module: cabrnet.prototree.model
+  module: cabrnet.archs.prototree.model
   name: ProtoTree
 
 extractor:
@@ -22,7 +22,7 @@ similarity:
   name: LegacyProtoTreeSimilarity
 
 classifier:
-  module: cabrnet.prototree.decision
+  module: cabrnet.archs.prototree.decision
   name: ProtoTreeClassifier
   params:
     num_features: 128

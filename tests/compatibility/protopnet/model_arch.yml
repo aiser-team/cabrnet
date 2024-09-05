@@ -2,11 +2,11 @@ top_arch:
   module: cabrnet.archs.protopnet.model
   name: ProtoPNet
 
-extractor: # How to build the feature extractor
+extractor:
   backbone:
     arch: vgg19
     layer: features
-    weights: IMAGENET1K_V1 # or null, or path/to/state.pth
+    weights: IMAGENET1K_V1
   add_on:
     init_mode: PROTOPNET
     conv1:

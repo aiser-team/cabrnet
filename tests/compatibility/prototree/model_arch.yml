@@ -1,18 +1,18 @@
-top_arch: # Optional
+top_arch:
   module: cabrnet.archs.prototree.model
-  name: ProtoTree # Take "extractor" and "classifier", implement the generic class ProtoClassifier
+  name: ProtoTree
 
-extractor: # How to build the feature extractor
+extractor:
   backbone:
     arch: resnet50
     layer: layer4
-    weights: IMAGENET1K_V1
+    weights: examples/pretrained_conv_extractors/resnet50_inat.pth
   add_on:
     init_mode: XAVIER
     conv1:
-      type: Conv2d # nn.Module name
+      type: Conv2d
       params:
-        out_channels: 128
+        out_channels: 256
         kernel_size: 1
         bias: False
     sigmoid1:
@@ -21,12 +21,12 @@ extractor: # How to build the feature extractor
 similarity:
   name: LegacyProtoTreeSimilarity
 
-classifier: # How to compute the decision from the features
+classifier:
   module: cabrnet.archs.prototree.decision
   name: ProtoTreeClassifier
   params:
-    num_features: 128
-    num_classes: 196
+    num_features: 256
+    num_classes: 200
     depth: 9
     leaves_init_mode: ZEROS
     proto_init_mode: SHIFTED_NORMAL
