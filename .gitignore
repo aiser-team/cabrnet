@@ -9,8 +9,10 @@ runs
 build/
 dist/
 examples/
-src/cabrnet/legacy/prototree
-src/cabrnet/legacy/protopnet
+tests/compatibility/prototree/
+tests/compatibility/protopnet/
+tests/compatibility/cabrnet_legacy_models.zip
+tests/compatibility/md5sums.txt
 pretrained_models/
 *.vim
 logs*
