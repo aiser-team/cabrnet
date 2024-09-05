@@ -16,6 +16,7 @@ from PIL import Image
 from torch.utils.data import DataLoader
 from torchvision.transforms import ToTensor
 from tqdm import tqdm
+import time
 
 
 class ProtoPNet(CaBRNet):
@@ -249,9 +250,12 @@ class ProtoPNet(CaBRNet):
         self.to(device)
 
         # Training stats
-        total_loss = 0.0
-        total_acc = 0.0
+        train_info = {}
         nb_inputs = 0
+
+        # Capture data fetch time relative to total batch time to ensure that there is no bottleneck here
+        total_batch_time = 0.0
+        total_data_time = 0.0
 
         # Use training dataloader
         train_loader = dataloaders["train_set"]
@@ -265,8 +269,10 @@ class ProtoPNet(CaBRNet):
             position=tqdm_position,
             disable=not verbose,
         )
-
+        ref_time = time.time()
+        batch_idx = 0
         for batch_idx, (xs, ys) in train_iter:
+            data_time = time.time() - ref_time
             nb_inputs += xs.size(0)
 
             # Reset gradients and map the data on the target device
@@ -286,23 +292,40 @@ class ProtoPNet(CaBRNet):
 
             # Update progress bar
             batch_accuracy = batch_stats["accuracy"]
+            batch_time = time.time() - ref_time
             postfix_str = (
                 f"Batch [{batch_idx + 1}/{len(train_loader)}], "
-                f"Batch loss: {batch_loss.item():.3f}, Acc: {batch_accuracy:.3f}"
+                f"Batch loss: {batch_loss.item():.3f}, Acc: {batch_accuracy:.3f}, "
+                f"Batch time: {batch_time:.3f}s (data: {data_time:.3f})"
             )
             train_iter.set_postfix_str(postfix_str)
 
-            # Update global metrics
-            total_loss += batch_loss.item() * xs.size(0)
-            total_acc += batch_accuracy * xs.size(0)
+            # Update all metrics
+            if not train_info:
+                train_info = batch_stats
+            else:
+                for key, value in batch_stats.items():
+                    train_info[key] += value * xs.size(0)
+            total_batch_time += batch_time
+            total_data_time += data_time
+            ref_time = time.time()
 
             if max_batches is not None and batch_idx == max_batches:
                 break
 
         # Clean gradients after last batch
         optimizer_mngr.zero_grad()
+        
+        train_info = {key: value / nb_inputs for key, value in train_info.items()}
 
-        train_info = {"avg_loss": total_loss / nb_inputs, "avg_accuracy": total_acc / nb_inputs}
+        # Update batch_num with effective value
+        batch_num = batch_idx + 1
+        train_info.update(
+            {
+                "batch_time": total_batch_time / batch_num,
+                "data_time": total_data_time / batch_num,
+            }
+        )
         return train_info
 
     def train_epoch(

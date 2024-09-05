@@ -184,7 +184,7 @@ class ProtoTree(CaBRNet):
         else:
             batch_loss = torch.nn.functional.nll_loss(torch.log(ys_pred), label)
         batch_accuracy = torch.sum(torch.eq(torch.argmax(ys_pred, dim=1), label)).item() / len(label)
-        return batch_loss, {"accuracy": batch_accuracy}
+        return batch_loss, {"loss": batch_loss.item(), "accuracy": batch_accuracy}
 
     def train_epoch(
         self,
@@ -215,8 +215,7 @@ class ProtoTree(CaBRNet):
         self.to(device)
 
         # Training stats
-        total_loss = 0.0
-        total_acc = 0.0
+        train_info = {}
         nb_inputs = 0
 
         # Capture data fetch time relative to total batch time to ensure that there is no bottleneck here
@@ -287,9 +286,12 @@ class ProtoTree(CaBRNet):
             )
             train_iter.set_postfix_str(postfix_str)
 
-            # Update global metrics
-            total_loss += batch_loss.item() * xs.size(0)
-            total_acc += batch_accuracy * xs.size(0)
+            # Update all metrics
+            if not train_info:
+                train_info = batch_stats
+            else:
+                for key, value in batch_stats.items():
+                    train_info[key] += value * xs.size(0)
             total_batch_time += batch_time
             total_data_time += data_time
             ref_time = time.time()
@@ -301,12 +303,13 @@ class ProtoTree(CaBRNet):
         optimizer_mngr.zero_grad()
         # Update batch_num with effective value
         batch_num = batch_idx + 1
-        train_info = {
-            "avg_loss": total_loss / nb_inputs,
-            "avg_accuracy": total_acc / nb_inputs,
-            "avg_batch_time": total_batch_time / batch_num,
-            "avg_data_time": total_data_time / batch_num,
-        }
+        train_info = {key: value / nb_inputs for key, value in train_info.items()}
+        train_info.update(
+            {
+                "batch_time": total_batch_time / batch_num,
+                "data_time": total_data_time / batch_num,
+            }
+        )
         return train_info
 
     def epilogue(
@@ -342,8 +345,8 @@ class ProtoTree(CaBRNet):
         )
         eval_info = self.evaluate(dataloader=dataloaders["test_set"], device=device, verbose=verbose)
         logger.info(
-            f"After projection. Average loss: {eval_info['avg_loss']:.2f}. "
-            f"Average accuracy: {eval_info['avg_accuracy']:.2f}."
+            f"After projection. Average loss: {eval_info['loss']:.2f}. "
+            f"Average accuracy: {eval_info['accuracy']:.2f}."
         )
 
         if pruning_threshold <= 0.0:

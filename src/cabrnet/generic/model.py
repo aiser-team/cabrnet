@@ -375,9 +375,8 @@ class CaBRNet(nn.Module):
         self.eval()
         self.to(device)
 
-        # Training stats
-        total_loss = 0.0
-        total_acc = 0.0
+        # Global stats
+        stats = {}
         nb_inputs = 0
 
         # Show progress on progress bar if needed
@@ -399,15 +398,19 @@ class CaBRNet(nn.Module):
                 batch_loss, batch_stats = self.loss(ys_pred, ys)
                 batch_accuracy = batch_stats["accuracy"]
 
-                # Update global metrics
-                total_loss += batch_loss.item() * xs.size(0)
-                total_acc += batch_accuracy * xs.size(0)
+                # Update all metrics
+                if not stats:
+                    stats = batch_stats
+                else:
+                    for key, value in batch_stats.items():
+                        stats[key] += value * xs.size(0)
 
                 # Update progress bar
                 postfix_str = f"Batch loss: {batch_loss.item():.3f}, Acc: {batch_accuracy:.3f}"
                 data_iter.set_postfix_str(postfix_str)
 
-        return {"avg_loss": total_loss / nb_inputs, "avg_accuracy": total_acc / nb_inputs}
+        stats = {key: value / nb_inputs for key, value in stats.items()}
+        return stats
 
     def train(self, mode: bool = True) -> nn.Module:
         r"""Overwrites the nn.Module train function to freeze elements if necessary.
