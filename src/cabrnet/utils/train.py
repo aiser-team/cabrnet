@@ -103,17 +103,9 @@ def training_loop(
         # Apply scheduler
         optimizer_mngr.scheduler_step(epoch=epoch)
 
-        # Add losses to Tensorboard
-        # check if avg_train_loss is present in dictionary
-        if "avg_train_loss" in train_info.keys():
-            writer.add_scalar("Loss/train", train_info["avg_train_loss"], epoch)
-            writer.add_scalar("Loss/valid", train_info["avg_loss"], epoch)
-        else:
-            writer.add_scalar("Loss/train", train_info["avg_loss"], epoch)
-        # Add accuracies to Tensorboard
-        writer.add_scalar("Accuracy/train", train_info["avg_train_accuracy"], epoch)
-        if "avg_accuracy" in train_info.keys():
-            writer.add_scalar("Accuracy/valid", train_info["avg_accuracy"], epoch)
+        # Add all stats to Tensorboard
+        for key, value in train_info.items():
+            writer.add_scalar(key, value, epoch)
         writer.flush()
 
         save_best_checkpoint = False
