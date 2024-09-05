@@ -298,8 +298,8 @@ class ProtoPNet(CaBRNet):
         batch_num = batch_idx + 1
         train_info.update(
             {
-                "batch_time": total_batch_time / batch_num,
-                "data_time": total_data_time / batch_num,
+                "time/batch": total_batch_time / batch_num,
+                "time/data": total_data_time / batch_num,
             }
         )
         return train_info
