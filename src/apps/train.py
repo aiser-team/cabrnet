@@ -36,7 +36,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         type=str,
         required=False,
         nargs=2,
-        default=["avg_accuracy", "max"],
+        default=["accuracy", "max"],
         metavar=("metric", "min/max"),
         help="save best model based on chosen metric and mode (min or max)",
     )

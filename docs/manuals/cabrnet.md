@@ -64,14 +64,14 @@ directory already exists. To override this check, use the `--overwrite` option.
 
 ### Defining the objective function
 Each CaBRNet model implements a function `train_epoch` (see [here](model.md#defining-a-new-top-module)) that
-returns a dictionary of metric values, *e.g.* `avg_loss`, `avg_accuracy`, usually computed on the training set (or the
+returns a dictionary of metric values, *e.g.* `loss`, `accuracy`, usually computed on the training set (or the
 validation set if provided).
 During the training process, any of these metrics can be used to determine the "best" model, using the `--save-best` 
 option, that takes two values:
 - the metric name, corresponding to a valid key in the dictionary of the `train_epoch` function.
 - the optimization mode, either "`min`" or "`max`", indicating whether the chosen metric should be minimized or maximized. 
 
-For example, `--save-best avg_loss min` corresponds to the objective of minimizing the average loss.
+For example, `--save-best loss min` corresponds to the objective of minimizing the average loss.
 
 Note that this metric is used to select the best model after the specified number of training epochs, but **before** the
 epilogue takes place.
@@ -121,6 +121,14 @@ CaBRNet assumes that the high-level training process is common to all prototype-
 Note that the order of operations in the epilogue depends on the chosen architecture.
 Finally, when resuming computations, it is possible to load a given checkpoint and perform only the epilogue using the 
 `--epilogue` option. 
+
+### Monitoring using TensorBoard
+`cabrnet train` records all metrics returned by the [`train_epoch` method of the 
+model](model.md#defining-a-new-top-module) inside a `tensorboard_logs` folder (located in the output directory 
+specified by `--output-dir`). To monitor the training process, simply use the command:
+```
+tensorboard --logdir <output_dir>/tensorboard_logs
+```
 
 ### Summary
 `cabrnet train` provides multiples modes of operation, that can be summarized as follows (for readability, 

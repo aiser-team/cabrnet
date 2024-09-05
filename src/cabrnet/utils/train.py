@@ -7,6 +7,7 @@ from cabrnet.utils.parser import load_config
 from cabrnet.utils.monitoring import metrics_to_str
 from cabrnet.utils.system_info import get_parent_directory
 from torch.utils.data import DataLoader
+from torch.utils.tensorboard.writer import SummaryWriter
 
 from typing import Iterable, Any
 from loguru import logger
@@ -72,6 +73,9 @@ def training_loop(
         logger.configure(handlers=[{"sink": sys.stderr, "level": logger_level}])
         logger.add(sink=os.path.join(working_dir, "log.txt"), level=logger_level)
 
+    tboard_dir = os.path.join(working_dir, "tensorboard_logs")
+    writer = SummaryWriter(log_dir=tboard_dir)
+
     epochs_since_best = 0
     trained = False
 
@@ -98,6 +102,11 @@ def training_loop(
         )
         # Apply scheduler
         optimizer_mngr.scheduler_step(epoch=epoch)
+
+        # Add all stats to Tensorboard
+        for key, value in train_info.items():
+            writer.add_scalar(key, value, epoch)
+        writer.flush()
 
         save_best_checkpoint = False
         if train_info.get(metric) is None:
@@ -139,6 +148,7 @@ def training_loop(
                 device=device,
                 stats=train_info,
             )
+    writer.close()
 
     if trained:
         # Seek best model
