@@ -9,6 +9,24 @@ source venv/bin/activate
 python3 -m pip install -e .
 ```
 
+- To install development related dependencies
+
+```bash
+pip install -e .[dev]
+```
+
+- To install documentation related dependencies
+
+```bash
+pip install -e .[doc]
+```
+
+- To install legacy testing related dependencies
+
+```bash
+pip install -e .[legacy]
+```
+
 ## Building the package
 
 Once the dependencies are downloaded, the CaBRNet package can be built from
