@@ -33,8 +33,10 @@ view:
 CaBRNet currently supports the following attribution methods.
 
 ### Cubic up-sampling
-This is the method used in the original papers of both [ProtoPNet](https://proceedings.neurips.cc/paper_files/paper/2019/file/adf7ee2dcf142b0e11888e72b43fcb75-Paper.pdf) 
-and [ProtoTree](https://openaccess.thecvf.com/content/CVPR2021/papers/Nauta_Neural_Prototype_Trees_for_Interpretable_Fine-Grained_Image_Recognition_CVPR_2021_paper.pdf). The attribution map is obtained by 
+This is the method used in the original papers of both [ProtoPNet](https://proceedings.neurips.cc/paper_files/paper/2019/file/adf7ee2dcf142b0e11888e72b43fcb75-Paper.pdf), 
+[ProtoTree](https://openaccess.thecvf.com/content/CVPR2021/papers/Nauta_Neural_Prototype_Trees_for_Interpretable_Fine-Grained_Image_Recognition_CVPR_2021_paper.pdf) 
+and [ProtoPool](https://www.ecva.net/papers/eccv_2022/papers_ECCV/papers/136720346.pdf). 
+The attribution map is obtained by 
 up-sampling the similarity map between $I$ and $P$ to the size of $I$, using cubic interpolation.
 This method supports the following options:
 

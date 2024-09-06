@@ -118,7 +118,7 @@ Note that the `num_epochs` field is optional for the last period (in this case, 
 of epochs, as given in the global `num_epochs` field).
 
 ## Configuring the epilogue
-Specific architectures such as ProtoPNet or ProtoTree can end the training process with an additional step, 
+Specific architectures (*e.g.* ProtoPNet, ProtoTree, ProtoPool) can end the training process with an additional step, 
 called the epilogue, in which operations such as prototype pruning are performed. The configuration of this step
 is specific to each architecture but follows the same format:
 ```yaml

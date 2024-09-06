@@ -201,6 +201,7 @@ similarity:
 ```
 Currently, CaBRNet supports the following similarity layers:
 - `LegacyProtoPNetSimilarity`: implements all operations performed in the original ProtoPNet code, in the same order.
+Note that the same implementation is used in ProtoPool.
 - `LegacyProtoTreeSimilarity`: implements all operations performed in the original ProtoTree code, in the same order.
 - `ProtoPNetSimilarity`: updated version of LegacyProtoPNetSimilarity that uses the [`torch.cdist`](https://pytorch.org/docs/stable/generated/torch.cdist.html) function.
 - `ProtoTreeSimilarity`: updated version of LegacyProtoTreeSimilarity that uses the [`torch.cdist`](https://pytorch.org/docs/stable/generated/torch.cdist.html) function.

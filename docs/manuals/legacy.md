@@ -10,8 +10,8 @@ cd ../../ # Go back to root directory
 ```
 Currently, this script:
 
-- downloads the code for [ProtoPNet](https://github.com/cfchen-duke/ProtoPNet) and 
-[ProtoTree](https://github.com/M-Nauta/ProtoTree).
+- downloads the code for [ProtoPNet](https://github.com/cfchen-duke/ProtoPNet), 
+[ProtoTree](https://github.com/M-Nauta/ProtoTree) and [ProtoPool](https://github.com/gmum/ProtoPool).
 - applies some small patches to these codes, fixing minor bugs and ensuring compatibility with CaBRNet. The patches are
 available in the `tests/compatibility/data` directory.
 

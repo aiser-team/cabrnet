@@ -124,7 +124,8 @@ Finally, when resuming computations, it is possible to load a given checkpoint a
 ### Monitoring using TensorBoard
 `cabrnet train` records all metrics returned by the [`train_epoch` method of the 
 model](model.md#defining-a-new-top-module) inside a `tensorboard_logs` folder (located in the output directory 
-specified by `--output-dir`). To monitor the training process, simply use the command:
+specified by `--output-dir`). To monitor the training process using [TensorBoard](https://pytorch.org/docs/stable/tensorboard.html),
+simply use the command:
 ```
 tensorboard --logdir <output_dir>/tensorboard_logs
 ```
@@ -161,7 +162,7 @@ overwrite the result of a previous epilogue.
 ## Importing a legacy model
 To avoid restarting previous computations performed using the codes provided by the original authors,
 CaBRNet offers a tool to import an existing dictionary into the new format, using the `cabrnet import` command.
-Currently, this tool only supports ProtoPNet and ProtoTree.
+Currently, this tool only supports ProtoPNet, ProtoTree and ProtoPool.
 
 Here is a short description of the options. As in `cabrnet train`:
 
