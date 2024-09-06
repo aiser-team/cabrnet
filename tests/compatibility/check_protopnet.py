@@ -15,12 +15,12 @@ from cabrnet.core.utils.parser import load_config
 from cabrnet.core.utils.data import DatasetManager
 from cabrnet.core.utils.optimizers import OptimizerManager
 
-import protopnet.settings as legacy_settings
-import protopnet.preprocess as legacy_preprocess
-from protopnet.model import construct_PPNet
-import protopnet.push as legacy_push
-import protopnet.train_and_test as legacy_tnt
-import protopnet.prune as legacy_prune
+import protopnet_legacy.settings as legacy_settings
+import protopnet_legacy.preprocess as legacy_preprocess
+from protopnet_legacy.model import construct_PPNet
+import protopnet_legacy.push as legacy_push
+import protopnet_legacy.train_and_test as legacy_tnt
+import protopnet_legacy.prune as legacy_prune
 
 
 def legacy_get_model(seed: int) -> nn.Module:

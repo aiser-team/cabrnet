@@ -1,5 +1,5 @@
 top_arch:
-  module: cabrnet.protopool.model
+  module: cabrnet.archs.protopool.model
   name: ProtoPool
 
 extractor:
@@ -22,7 +22,7 @@ similarity:
   name: LegacyProtoPNetSimilarity
 
 classifier:
-  module: cabrnet.protopool.decision
+  module: cabrnet.archs.protopool.decision
   name: ProtoPoolClassifier
   params:
     num_classes: 10

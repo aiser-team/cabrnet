@@ -132,9 +132,9 @@ epilogue:
 CaBRNet provides a class [OptimizerManager](https://github.com/aiser-team/cabrnet/tree/main/src/cabrnet/utils/optimizers.py) in charge of parsing the configuration file 
 and handling optimizers/schedulers during the training process.
 ```python
-from cabrnet.utils.optimizers import OptimizerManager
-from cabrnet.utils.parser import load_config
-from cabrnet.generic.model import CaBRNet
+from cabrnet.core.utils.optimizers import OptimizerManager
+from cabrnet.core.utils.parser import load_config
+from cabrnet.archs.generic.model import CaBRNet
 
 model = CaBRNet.build_from_config(config="<path/to/model/configuration/file.yml") 
 training_config = load_config(config_file="<path/to/training/configuration/file.yml>")
@@ -174,12 +174,12 @@ For example, given the following configuration files:
 ```yaml
 <model_arch.yml>
 top_arch:
-  module: cabrnet.protopnet.model
+  module: cabrnet.archs.protopnet.model
   name: ProtoPNet
 extractor: ...
 similarity: ...
 classifier:
-  module: cabrnet.protopnet.decision
+  module: cabrnet.archs.protopnet.decision
   name: ProtoPNetClassifier
   params:
     num_classes: 10

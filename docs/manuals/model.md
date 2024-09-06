@@ -321,8 +321,8 @@ The classifier must inherit from the `CaBRNetGenericClassifier` class as follows
 ```python
 import torch.nn as nn
 from typing import Any
-from cabrnet.utils.prototypes import init_prototypes
-from cabrnet.generic.decision import CaBRNetClassifier
+from cabrnet.core.utils.prototypes import init_prototypes
+from cabrnet.archs.generic.decision import CaBRNetClassifier
 
 
 class ArchNameClassifier(CaBRNetClassifier):
@@ -393,7 +393,7 @@ class ArchNameClassifier(CaBRNetClassifier):
 ## Defining a new top-module
 The module in charge of combining the feature extractor and the classifier should be
 placed inside a dedicated file in `src/cabrnet/<ARCH_NAME>/model.py` (*e.g.* [src/cabrnet/prototree/model.py](https://github.com/aiser-team/cabrnet/blob/main/src/cabrnet/prototree/model.py)).
-The top-module class should inherit from the generic class [CaBRNet](https://github.com/aiser-team/cabrnet/blob/main/src/cabrnet/generic/model.py), and implements
+The top-module class should inherit from the generic class [CaBRNet](https://github.com/aiser-team/cabrnet/blob/main/src/cabrnet/archs/generic/model.py), and implements
 some mandatory functions as illustrated below.
 ```python
 import torch.nn.functional
@@ -401,9 +401,9 @@ from torch.utils.data import DataLoader
 from typing import Any, Callable
 from tqdm import tqdm
 from PIL import Image
-from cabrnet.generic.model import CaBRNet
-from cabrnet.utils.optimizers import OptimizerManager
-from cabrnet.visualization.visualizer import SimilarityVisualizer
+from cabrnet.archs.generic.model import CaBRNet
+from cabrnet.core.utils.optimizers import OptimizerManager
+from cabrnet.core.visualization.visualizer import SimilarityVisualizer
 
 
 class ArchName(CaBRNet):

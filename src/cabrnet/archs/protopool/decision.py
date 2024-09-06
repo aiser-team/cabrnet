@@ -3,8 +3,8 @@ from __future__ import annotations
 import numpy as np
 import torch
 import torch.nn as nn
-from cabrnet.generic.decision import CaBRNetClassifier
-from cabrnet.utils.prototypes import init_prototypes
+from cabrnet.archs.generic.decision import CaBRNetClassifier
+from cabrnet.core.utils.prototypes import init_prototypes
 from torch import Tensor
 from typing import Any
 

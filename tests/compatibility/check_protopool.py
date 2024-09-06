@@ -8,16 +8,16 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 
 
-from legacy.compatibility_tests.compatibility_tester import CaBRNetCompatibilityTester, setup_rng
-from cabrnet.generic.model import CaBRNet
-from cabrnet.protopool.model import ProtoPool
-from cabrnet.utils.parser import load_config
-from cabrnet.utils.data import DatasetManager, batch_mixup
-from cabrnet.utils.optimizers import OptimizerManager
+from compatibility_tester import CaBRNetCompatibilityTester, setup_rng
+from cabrnet.archs.generic.model import CaBRNet
+from cabrnet.archs.protopool.model import ProtoPool
+from cabrnet.core.utils.parser import load_config
+from cabrnet.core.utils.data import DatasetManager, batch_mixup
+from cabrnet.core.utils.optimizers import OptimizerManager
 
-from legacy.protopool.model import PrototypeChooser
-from legacy.protopool.utils import mixup_data
-from legacy.protopool.main import dist_loss, update_prototypes_on_batch
+from protopool_legacy.model import PrototypeChooser
+from protopool_legacy.utils import mixup_data
+from protopool_legacy.main import dist_loss, update_prototypes_on_batch
 
 
 def legacy_get_model(model_config_file: str, seed: int) -> PrototypeChooser:
