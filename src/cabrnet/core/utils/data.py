@@ -55,6 +55,14 @@ class DatasetManager:
             metavar="/path/to/file.yml",
             help="path to the dataset config",
         )
+        parser.add_argument(
+            "--sampling-ratio",
+            type=int,
+            required=False,
+            default=1,
+            metavar="ratio",
+            help="data sampling ratio (e.g. 5 means only one image in five is used). Default: 1",
+        )
         return parser
 
     # Common torchvision datasets use one of the following keywords to indicate data transformations.
@@ -115,7 +123,8 @@ class DatasetManager:
             raise ValueError(f"Unsupported configuration format: {type(config)}")
         if isinstance(config, str):
             config = load_config(config)
-
+        if sampling_ratio > 1:
+            logger.warning(f"{'=' * 20} SAMPLING RATIO > 1: PROCESSING 1/{sampling_ratio} IMAGES {'=' * 20}")
         datasets: dict[str, dict[str, Dataset | int | bool]] = {}
 
         # Configuration should include at least train and projection sets

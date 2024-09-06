@@ -166,6 +166,9 @@ def check_args(args: Namespace) -> Namespace:
             f"Output directory {final_model_path} is not empty. "
             f"To overwrite existing results, use --overwrite option."
         )
+    if args.sanity_check and args.sampling_ratio == 1:
+        # In sanity check mode, increase the sampling ratio
+        args.sampling_ratio = 100
 
     return args
 
@@ -200,8 +203,7 @@ def execute(args: Namespace) -> None:
     # Build optimizer manager
     optimizer_mngr = OptimizerManager.build_from_config(config=training_config, model=model)
     # Dataloaders
-    dataloaders = DatasetManager.get_dataloaders(config=dataset_config)
-
+    dataloaders = DatasetManager.get_dataloaders(config=dataset_config, sampling_ratio=args.sampling_ratio)
     # By default, process all data batches and all epochs
     start_epoch = 0
     num_epochs = trainer["num_epochs"]
@@ -266,5 +268,4 @@ def execute(args: Namespace) -> None:
         seed=seed,
         device=device,
         verbose=verbose,
-        sanity_check=sanity_check_only,
     )
