@@ -166,6 +166,9 @@ def check_args(args: Namespace) -> Namespace:
             f"Output directory {final_model_path} is not empty. "
             f"To overwrite existing results, use --overwrite option."
         )
+    if args.sanity_check and args.sampling_ratio == 1:
+        # In sanity check mode, increase the sampling ratio
+        args.sampling_ratio = 100
 
     return args
 
@@ -265,5 +268,4 @@ def execute(args: Namespace) -> None:
         seed=seed,
         device=device,
         verbose=verbose,
-        sanity_check=sanity_check_only,
     )

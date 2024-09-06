@@ -78,7 +78,8 @@ epilogue takes place.
 
 ### Sanity check
 For a quick sanity check of a particular architecture or overall training configuration, it is possible to use the 
-`--sanity-check` option that only processes 5 batches per training epoch. 
+`--sanity-check` option that only processes 1\% of the dataset and only one epoch per training period.
+Alternatively, the `--sampling-ratio` allows a finer control of the portion of data that is processed.
 
 ### Resuming computations
 CaBRNet provides options to save training checkpoints and resuming the training process from a given checkpoint.
@@ -208,6 +209,9 @@ Similar to the `--config-dir` option in `cabrnet train`, the `--checkpoint-dir <
 - `--model-arch <dir>/model_arch.yml`
 - `--model-state-dict <dir>/model_state.pth`
 - `--dataset <dir>/dataset.yml`
+
+Finally, similar to `cabrnet train`, the `--sampling-ratio` option allows for a control of the portion of 
+data that is processed.
 
 ## Generating explanations
 Prototype-based architectures provide both global and local explanations:
