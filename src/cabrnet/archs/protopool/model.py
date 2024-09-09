@@ -680,36 +680,32 @@ class ProtoPool(CaBRNet):
         # Compute mapping between classes and prototypes
         class_mapping = self.classifier.class_mapping
 
-        # Recover list of prototypes associated with at least one slot/class
-        active_prototypes = set(class_mapping.reshape(-1).tolist())
-
         explanation_graph = graphviz.Graph()
-        explanation_graph.attr(layout="circo", splines="True", overlap="False")
+        explanation_graph.attr(layout="circo")
         # Default node configuration
         explanation_graph.attr("node", label="", fixedsize="True", width="2", height="2", fontsize="25")
 
-        for proto_id in range(self.classifier.num_prototypes):
-            if proto_id not in active_prototypes:
-                logger.warning(f"Inactive prototype {proto_id}")
-                continue
-            img_path = os.path.abspath(os.path.join(prototype_dir, f"prototype_{proto_id}.png"))
-            explanation_graph.node(
-                name=f"P{proto_id}",
-                shape="plaintext",
-                xlabel=f"P{proto_id}",
-                image=img_path,
-                imagescale="true",
+        def _build_class_node(graph, class_idx):
+            graph.node(
+                name=f"C{class_idx}",
+                shape="circle",
+                label=f"Class {class_idx}",
+                root="True",
             )
+            for prototype in class_mapping[class_idx]:
+                img_path = os.path.abspath(os.path.join(prototype_dir, f"prototype_{prototype}.png"))
+                graph.node(
+                    name=f"P{prototype}_C{class_idx}",
+                    shape="plaintext",
+                    xlabel=f"P{prototype}",
+                    image=img_path,
+                    imagescale="true",
+                )
+                graph.edge(f"C{class_idx}", f"P{prototype}_C{class_idx}")
+            return graph
 
-            for class_idx in range(self.classifier.num_classes):
-                if proto_id in class_mapping[class_idx]:
-                    explanation_graph.node(
-                        name=f"C{class_idx}_P{proto_id}",
-                        shape="circle",
-                        label=f"Class {class_idx}",
-                        root="True",
-                    )
-                    explanation_graph.edge(f"C{class_idx}_P{proto_id}", f"P{proto_id}")
+        for class_idx in range(self.classifier.num_classes):
+            _build_class_node(explanation_graph, class_idx)
 
         logger.debug(explanation_graph.source)
         explanation_graph.render(filename=os.path.join(output_dir, "global_explanation"), format=output_format)
