@@ -143,13 +143,9 @@ class ConvExtractor(nn.Module):
                 raise e
         else:
             try:
-                self.convnet = create_feature_extractor(
-                    model=model, return_nodes=return_nodes
-                )
+                self.convnet = create_feature_extractor(model=model, return_nodes=return_nodes)
             except ValueError as e:
-                logger.error(
-                    f"Could not create feature extractor. Possible layer names: {get_graph_node_names(model)}"
-                )
+                logger.error(f"Could not create feature extractor. Possible layer names: {get_graph_node_names(model)}")
                 logger.error("See model architecture below")
                 logger.info(model)
                 raise e
@@ -167,15 +163,9 @@ class ConvExtractor(nn.Module):
             self.output_channels[pipeline_name] = num_channels
 
         # Create a ModuleDict to register add-on layers as submodules, or simply use a single add-on module
-        self.add_on = (
-            nn.ModuleDict(add_ons)
-            if self.num_pipelines > 1
-            else add_ons[next(iter(add_ons))]
-        )
+        self.add_on = nn.ModuleDict(add_ons) if self.num_pipelines > 1 else add_ons[next(iter(add_ons))]
 
-    def forward(
-        self, x: torch.Tensor, **kwargs
-    ) -> torch.Tensor | dict[str, torch.Tensor]:
+    def forward(self, x: torch.Tensor, **kwargs) -> torch.Tensor | dict[str, torch.Tensor]:
         r"""Computes convolutional features.
 
         Args:
@@ -200,9 +190,7 @@ class ConvExtractor(nn.Module):
         return features
 
     @staticmethod
-    def create_add_on(
-        config: dict[str, dict] | None, in_channels: int
-    ) -> Tuple[nn.Sequential | None, int]:
+    def create_add_on(config: dict[str, dict] | None, in_channels: int) -> Tuple[nn.Sequential | None, int]:
         r"""Builds add-on layers based on configuration.
 
         Args:
@@ -225,9 +213,7 @@ class ConvExtractor(nn.Module):
             if key == "init_mode":
                 # Extract initialisation mode
                 if val not in layer_init_functions:
-                    raise ValueError(
-                        f"Unsupported add_on layers initialisation mode {val}"
-                    )
+                    raise ValueError(f"Unsupported add_on layers initialisation mode {val}")
                 init_mode = val
                 continue
             if not hasattr(nn, val["type"]):

@@ -44,24 +44,20 @@ class ONNXVariantsHandler:
         self.original_path = original_path
         self.variants: Dict[str, onnx.ModelProto] = {}
 
-    def register_and_save_variant(self, name:str, model:onnx.ModelProto):
+    def register_and_save_variant(self, name: str, model: onnx.ModelProto):
         """Register a variant from a name and a model. Perform ONNX saving."""
         if name not in self.variants:
             self.variants[name] = model
-            savepath = PurePath(
-                "_".join([PurePath(self.original_path).stem, name, ".onnx"])
-            )
+            savepath = PurePath("_".join([PurePath(self.original_path).stem, name, ".onnx"]))
             onnx.save_model(model, savepath)
             logger.info(f"Saved result of morphed ONNX at {savepath}")
         else:
             logger.warning(f"Error, variant {name} already registered, doing nothing")
             pass
 
-    def get_variant_path(self, name:str) -> PurePath:
+    def get_variant_path(self, name: str) -> PurePath:
         if name in self.variants:
-            return PurePath(
-                "_".join([PurePath(self.original_path).stem, name, ".onnx"])
-            )
+            return PurePath("_".join([PurePath(self.original_path).stem, name, ".onnx"]))
         else:
             logger.error(
                 f"Warning, ONNX variant {name} not registered in ONNX handler. Trying to load non-existing file. Aborting "
@@ -77,9 +73,7 @@ class ONNXVariantsHandler:
                 f"Warning, ONNX variant {name} not registered in ONNX handler. Trying to load non-existing model. Aborting "
             )
 
-    def safe_onnx_compute(
-        self, f: Callable[..., onnx.ModelProto], variant_name: str, **kwargs
-    ):
+    def safe_onnx_compute(self, f: Callable[..., onnx.ModelProto], variant_name: str, **kwargs):
         r"""Given a function f that performs a modification on the original
             model, compute f and automatically register the result.
 
@@ -133,14 +127,10 @@ class GenericONNXModel(nn.Module):
         model = onnx.load(onnx_purepath)
         onnx.checker.check_model(model)
         model = onnx.shape_inference.infer_shapes(model)
-        logger.info(
-            f"Loaded ONNX model located at {onnx_purepath} and performed sanity checks on it."
-        )
+        logger.info(f"Loaded ONNX model located at {onnx_purepath} and performed sanity checks on it.")
         self.variants.register_and_save_variant(self.variants.original_name, model)
 
-    def get_output_shape_of_node(
-        self, node: onnx.ValueInfoProto
-    ) -> Tuple[Union[int, str], int, int, int]:
+    def get_output_shape_of_node(self, node: onnx.ValueInfoProto) -> Tuple[Union[int, str], int, int, int]:
         assert len(node.type.tensor_type.shape.dim) == 4
         [b, x, y, z] = node.type.tensor_type.shape.dim
         if hasattr(b, "dim_param"):
@@ -155,9 +145,7 @@ class GenericONNXModel(nn.Module):
     ) -> Tuple[Union[int, str], int, int, int]:
         # shape inference must have been run beforehand
         assert len(model.graph.value_info) > 0
-        node_candidates = [
-            x for x in model.graph.value_info if x.name.__contains__(layer_cut)
-        ]
+        node_candidates = [x for x in model.graph.value_info if x.name.__contains__(layer_cut)]
         # otherwise, layer_cut is underspecified
         assert len(node_candidates) == 1
         return self.get_output_shape_of_node(node_candidates[0])
