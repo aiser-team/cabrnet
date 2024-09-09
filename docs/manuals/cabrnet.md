@@ -48,8 +48,6 @@ standard error output).
 - `--dataset|-d </path/to/file.yml>` indicates how to [load and prepare the data for training](data.md).
 - `--training|-t </path/to/file.yml>` indicates the [training parameters of the model](training.md).
 - `--save-best|-b <metric> <min/max>` indicates how to determine the "best" model.
-- `--patience|-p <num_epochs>` indicates how many epochs without any progress are acceptable before the application ends
-the training process (early stop).
 - `--output-dir|-o <path/to/output/directory>` indicates where to store the model checkpoints during training.
 
 Note: If all configuration files are located in the same directory, it is possible to start the training using the 
@@ -273,8 +271,6 @@ Similar to `cabrnet train`, the tool uses the following options:
   - the [global optimization objective](training.md#defining-the-training--optimization-objectives) for the hyperparameters.
   - the definition of the [search space](training.md#defining-the-search-space).
   - the number of trials in the Bayesian optimization search.
-- `--patience|-p <num_epochs>` indicates how many epochs without any progress are acceptable before each trial ends
-the training process (early stop).
 - `--output-dir|-o <path/to/output/directory>` indicates where to store the model checkpoints during training, as well 
 as the results of each trial (located in the `test_experiment` sub-folder).
 

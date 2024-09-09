@@ -57,15 +57,6 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         help="optimize hyperparameters based on chosen metric",
     )
     parser.add_argument(
-        "-p",
-        "--patience",
-        type=int,
-        required=False,
-        default=-1,
-        metavar="num_epochs",
-        help="stop training if not better model was found during the last X epochs",
-    )
-    parser.add_argument(
         "-o",
         "--output-dir",
         type=str,
@@ -272,7 +263,6 @@ def execute(args: Namespace) -> None:
                 maximize=train_maximize,
                 best_metric=(0.0 if train_maximize else float("inf")),
                 num_epochs=num_epochs,
-                patience=args.patience,
                 save_final=True,
                 model_arch=self.model_arch,
                 training_config=self.training_config,

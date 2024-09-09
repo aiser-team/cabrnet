@@ -28,7 +28,6 @@ def training_loop(
     model_arch: dict[str, Any] | str,
     training_config: dict[str, Any] | str,
     dataset_config: dict[str, Any] | str,
-    patience: int = -1,
     save_final: bool = True,
     checkpoint_frequency: int | None = None,
     resume_dir: str | None = None,
@@ -53,7 +52,6 @@ def training_loop(
         model_arch (dict | str): Path to model configuration file, or configuration dictionary.
         training_config (dict | str): Path to training configuration file, or configuration dictionary.
         dataset_config (dict | str): Path to dataset configuration file, or configuration dictionary.
-        patience (int, optional): Stop training after <patience> epochs without improvements. Default: -1.
         save_final (bool, optional): If True, saves the final model after epilogue. Default: True.
         checkpoint_frequency (int, optional): Save training checkpoint every <checkpoint_frequency> epochs.
             Default: None.
@@ -81,8 +79,8 @@ def training_loop(
 
     for epoch in epoch_range:
         # Handle early abort
-        if epochs_since_best == patience:
-            logger.warning(f"Ran out of patience after {patience} epochs.")
+        if epochs_since_best >= optimizer_mngr.get_patience(epoch):
+            logger.warning(f"Ran out of patience after {optimizer_mngr.get_patience(epoch)} epochs.")
             break
         epochs_since_best += 1
 
