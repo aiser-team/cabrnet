@@ -8,9 +8,12 @@ import onnx_graphsurgeon as gs
 import onnxruntime as rt
 import torch
 import torch.nn as nn
+from torchvision.models._api import register_model
 
 
 from pathlib import PurePath
+
+__all__ = ["generic_onnx_model", "GenericONNXModel"]
 
 """
 TODO:
@@ -253,3 +256,8 @@ class GenericONNXModel(nn.Module):
             ort_sessions[variant].run_with_iobinding(bind)
             outputs[variant] = out_tensor
         return outputs
+
+
+@register_model()
+def generic_onnx_model(onnx_path: str) -> GenericONNXModel:
+    return GenericONNXModel(onnx_path=onnx_path)

@@ -14,8 +14,7 @@ from torchvision.models.feature_extraction import (
 
 from cabrnet.core.utils.exceptions import check_mandatory_fields
 from cabrnet.core.utils.init import layer_init_functions
-
-from .onnx_backbone import GenericONNXModel
+from cabrnet.archs.custom_extractors import *
 
 warnings.filterwarnings("ignore")
 
@@ -70,48 +69,36 @@ class ConvExtractor(nn.Module):
         weights = backbone_config["weights"]
 
         # Check that model architecture is supported
-        assert arch.lower() in (
-            torch_models.list_models() + ["genericonnxmodel"]
-        ), f"Unsupported model architecture: {arch}"
+        assert arch.lower() in torch_models.list_models(), f"Unsupported model architecture: {arch}"
 
-        if arch.lower() == "genericonnxmodel":
-            onnx_path = backbone_config["onnx_path"]
-            model = GenericONNXModel(onnx_path=onnx_path)
-        else:
+        if weights == "None":
+            weights = ""
 
-            if weights is None:
-                weights = ""
-
-            if os.path.isfile(weights):
-                if not ignore_weight_errors:
-                    logger.info(f"Loading state dict for feature extractor: {weights}")
-                loaded_weights = torch.load(weights, map_location="cpu")
-                model = torch_models.get_model(arch, **arch_params)
-                if isinstance(loaded_weights, dict):
-                    model.load_state_dict(loaded_weights)
-                elif isinstance(loaded_weights, nn.Module):
-                    model.load_state_dict(loaded_weights.state_dict(), strict=False)
-                else:
-                    raise ValueError(
-                        f"Unsupported weights type: {type(loaded_weights)}"
-                    )
-            elif hasattr(torch_models.get_model_weights(arch), weights):
-                if not ignore_weight_errors:
-                    logger.info(f"Loading pytorch weights: {weights}")
-                loaded_weights = getattr(torch_models.get_model_weights(arch), weights)
-                model = torch_models.get_model(
-                    arch, weights=loaded_weights, **arch_params
-                )
-            elif ignore_weight_errors:
-                logger.warning(
-                    f"Could not load initial weights for the feature extractor. "
-                    f"This might be OK if the model state dictionary is loaded afterwards."
-                )
-                model = torch_models.get_model(arch, **arch_params)
+        if os.path.isfile(weights):
+            if not ignore_weight_errors:
+                logger.info(f"Loading state dict for feature extractor: {weights}")
+            loaded_weights = torch.load(weights, map_location="cpu")
+            model = torch_models.get_model(arch, **arch_params)
+            if isinstance(loaded_weights, dict):
+                model.load_state_dict(loaded_weights)
+            elif isinstance(loaded_weights, nn.Module):
+                model.load_state_dict(loaded_weights.state_dict(), strict=False)
             else:
-                raise ValueError(
-                    f"Cannot load weights {weights} for model of type {arch}. Possible typo or missing file."
-                )
+                raise ValueError(f"Unsupported weights type: {type(loaded_weights)}")
+        elif weights and hasattr(torch_models.get_model_weights(arch), weights):
+            if not ignore_weight_errors:
+                logger.info(f"Loading pytorch weights: {weights}")
+            loaded_weights = getattr(torch_models.get_model_weights(arch), weights)
+            model = torch_models.get_model(arch, weights=loaded_weights, **arch_params)
+        elif not weights or ignore_weight_errors:
+            logger.warning(
+                "Could not load initial weights for the feature extractor. "
+                "This might be OK if the model state dictionary is loaded afterwards, "
+                "or the model is in ONNX format and all parameters are provided in the ONNX file."
+            )
+            model = torch_models.get_model(arch, **arch_params)
+        else:
+            raise ValueError(f"Cannot load weights {weights} for model of type {arch}. Possible typo or missing file.")
 
         if seed is not None:
             # Reset random generator (compatibility tests only)
@@ -131,8 +118,7 @@ class ConvExtractor(nn.Module):
 
         # Reverse mapping between pipeline names and source layers to build return nodes
         return_nodes = {val: key for key, val in self.source_layers.items()}
-        if arch.lower() == "genericonnxmodel":
-            assert isinstance(model, GenericONNXModel)
+        if isinstance(model, GenericONNXModel):
             try:
                 model.trim_model(return_nodes)
                 self.convnet = model
