@@ -199,6 +199,7 @@ class OptimizerManager:
                         "epoch_range",
                         "optimizers",
                         "freeze",
+                        "patience",
                     ], f"Unknown period configuration parameter {key}."
 
                 # Update configuration if necessary

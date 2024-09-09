@@ -49,6 +49,7 @@ periods:
   main_training:
     freeze: last_layer
     optimizers: joint_optimizer
+    patience: 5
 
 auxiliary_info:
   loss_coefficients:
