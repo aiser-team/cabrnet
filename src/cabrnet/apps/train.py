@@ -42,15 +42,6 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         help="save best model based on chosen metric and mode (min or max)",
     )
     parser.add_argument(
-        "-p",
-        "--patience",
-        type=int,
-        required=False,
-        default=-1,
-        metavar="num_epochs",
-        help="stop training if no better model was found during the last X epochs",
-    )
-    parser.add_argument(
         "-o",
         "--output-dir",
         type=str,
@@ -258,7 +249,6 @@ def execute(args: Namespace) -> None:
         maximize=maximize,
         best_metric=best_metric,
         num_epochs=num_epochs,
-        patience=args.patience,
         save_final=True,
         checkpoint_frequency=args.checkpoint_frequency,
         model_arch=model_arch,

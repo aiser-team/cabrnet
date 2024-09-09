@@ -262,10 +262,8 @@ def check_docstrings(dir_path: str, ignore_imperative_warnings: bool, quiet: boo
     Raises:
         DocStringFormatError when DocString format does not comply with policy.
     """
-    for filename in os.listdir(dir_path):
-        if not filename.endswith(".py"):
-            continue
-        filepath = os.path.join(dir_path, filename)
+
+    def check_file(filepath: str):
         with open(filepath, "r") as fin:
             if not parse_ast(
                 ast_module=ast.parse(fin.read()),
@@ -275,6 +273,18 @@ def check_docstrings(dir_path: str, ignore_imperative_warnings: bool, quiet: boo
                 logger.error(f"Errors found in {filepath}")
             elif not quiet:
                 logger.success(f"File {filepath} complies with docstring policy")
+
+    for filename in os.listdir(dir_path):
+        path = os.path.join(dir_path, filename)
+        if os.path.isfile(path) and path.endswith(".py"):
+            check_file(filepath=path)
+        elif os.path.isdir(path):
+            # Recursive call
+            check_docstrings(
+                dir_path=path,
+                ignore_imperative_warnings=ignore_imperative_warnings,
+                quiet=quiet,
+            )
 
 
 def main():

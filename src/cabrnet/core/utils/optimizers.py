@@ -186,6 +186,7 @@ class OptimizerManager:
                     "epoch_range": [0, num_epochs - 1],
                     "freeze": None,
                     "optimizers": self.optimizers.keys(),
+                    "patience": float("inf"),
                 }
             }
         else:
@@ -210,6 +211,9 @@ class OptimizerManager:
                     period_config["epoch_range"] = [current_epoch, num_epochs - 1]
                 if period_config.get("optimizers") is None:
                     raise ValueError(f"Missing optimizer for training period {period_name}")
+                if period_config.get("patience") is None:
+                    # By default, patience is infinite
+                    period_config["patience"] = float("inf")
                 self.periods[period_name] = period_config
                 if isinstance(self.periods[period_name]["optimizers"], str):
                     self.periods[period_name]["optimizers"] = [self.periods[period_name]["optimizers"]]
@@ -322,6 +326,18 @@ class OptimizerManager:
             period_config = self.periods[period_name]
             for optim_name in period_config["optimizers"]:
                 self.optimizers[optim_name].step()
+
+    def get_patience(self, epoch: int) -> float | int:
+        r"""Returns the patience threshold of the current period.
+        WARNING: In case multiple periods are overlapping, returns the patience of the first period.
+
+        Args:
+            epoch (int): Current epoch.
+        """
+        for period_name in self.get_active_periods(epoch):
+            period_config = self.periods[period_name]
+            return period_config["patience"]
+        return 0
 
     def scheduler_step(self, epoch: int):
         r"""Applies learning rate scheduler step depending on current epoch.

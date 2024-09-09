@@ -78,11 +78,17 @@ periods:
     epoch_range: [<FIRST_EPOCH_INDEX>, <LAST_EPOCH_INDEX] # LAST_EPOCH_INDEX is included
     optimizers: <OPTIMIZER_NAME_1> or [<OPTIMIZER_NAME_1>, <OPTIMIZER_NAME_2>, ...]
     freeze: <GROUP_NAME_1> or [<GROUP_NAME_1>, <GROUP_NAME_2>, ...]
+    patience: <NUMBER_OF_EPOCHS> # Optional
   <PERIOD_NAME_2>:
     ...
 ```
 When no period matches the current epoch index, all optimizers are used for each training epoch and 
 no parameter groups are frozen. It is also true in the particular case when no period is specified.
+
+The optional `patience` keyword indicates how many epochs without any progress are acceptable before the training
+process ends (early stop). **If not specified, patience is infinite**. 
+Note that the definition of "progress" depends on the overall training objective, as
+defined [here](cabrnet.md#defining-the-objective-function). 
 
 As an alternative to `epoch_range`, it is possible to define the number of epochs *per period* using the
 `num_epochs` keyword inside the period definition. In this case, periods are treated one after another (no overlap is possible), *e.g.*
