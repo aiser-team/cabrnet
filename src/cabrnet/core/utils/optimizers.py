@@ -337,7 +337,7 @@ class OptimizerManager:
         for period_name in self.get_active_periods(epoch):
             period_config = self.periods[period_name]
             return period_config["patience"]
-        return 0
+        raise ValueError(f"No active period for epoch {epoch}")
 
     def scheduler_step(self, epoch: int):
         r"""Applies learning rate scheduler step depending on current epoch.
