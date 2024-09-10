@@ -1,21 +1,20 @@
 train_set:
-  # module: torchvision.datasets.stanford_cars # The dataset used to be available here
   module: torchvision.datasets # Module name
   name: ImageFolder # Class name
   params: # How to initialize the dataset
-    root: data/stanford_cars/dataset/train
+    root: data/CUB_200_2011/dataset/train_corners
     transform:
       resize:
         type: Resize
         params:
-          size: [256, 256]
-      random_order:
+          size: [224, 224]
+      compose:
         type: RandomOrder
         transforms:
           rnd_perspective:
             type: RandomPerspective
             params:
-              distortion_scale: 0.5
+              distortion_scale: 0.2
               p: 0.5
           color_jitter:
             type: ColorJitter
@@ -23,19 +22,15 @@ train_set:
               brightness: [0.6, 1.4]
               contrast: [0.6, 1.4]
               saturation: [0.6, 1.4]
-              hue: [-0.4, 0.4]
+              hue: [-0.02, 0.02]
           hflip:
-            module: torchvision.transforms # Optional [by default, will call torchvision]
             type: RandomHorizontalFlip
           affine:
             type: RandomAffine
             params:
-              degrees: 15
+              degrees: 10
               shear: [-2, 2]
-      rnd_crop:
-        type: RandomCrop
-        params:
-          size: [224, 224]
+              translate: [0.05, 0.05]
       to_tensor:
         type: ToTensor
       normalize:
@@ -47,10 +42,10 @@ train_set:
   shuffle: True
 
 projection_set:
-  module: torchvision.datasets
-  name: ImageFolder
-  params:
-    root: data/stanford_cars/dataset/train
+  module: torchvision.datasets # Module name
+  name: ImageFolder # Class name
+  params: # How to initialize the dataset
+    root: data/CUB_200_2011/dataset/train_full
     transform:
       resize:
         type: Resize
@@ -67,10 +62,10 @@ projection_set:
   shuffle: False
 
 test_set:
-  module: torchvision.datasets
-  name: ImageFolder
-  params:
-    root: data/stanford_cars/dataset/test
+  module: torchvision.datasets # Module name
+  name: ImageFolder # Class name
+  params: # How to initialize the dataset
+    root: data/CUB_200_2011/dataset/test_full
     transform:
       resize:
         type: Resize
