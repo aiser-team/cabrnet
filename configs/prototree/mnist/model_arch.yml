@@ -19,7 +19,7 @@ extractor:
       type: Sigmoid
 
 similarity:
-  name: LegacyProtoTreeSimilarity
+  name: ProtoTreeSimilarity
 
 classifier:
   module: cabrnet.archs.prototree.decision

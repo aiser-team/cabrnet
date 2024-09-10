@@ -1,0 +1,94 @@
+train_set:
+  module: torchvision.datasets.mnist
+  name: MNIST
+  params:
+    root: data
+    download: true
+    transform:
+      convert:
+        module: cabrnet.core.utils.custom_preprocess
+        type: convert_to_rgb
+      resize:
+        type: Resize
+        params:
+          size: [128, 128]
+      random_order:
+        type: RandomOrder
+        transforms:
+          rnd_perspective:
+            type: RandomPerspective
+            params:
+              distortion_scale: 0.5
+              p: 0.5
+          color_jitter:
+            type: ColorJitter
+            params:
+              brightness: [0.6, 1.4]
+              contrast: [0.6, 1.4]
+              saturation: [0.6, 1.4]
+              hue: [-0.4, 0.4]
+          hflip:
+            module: torchvision.transforms
+            type: RandomHorizontalFlip
+          affine:
+            type: RandomAffine
+            params:
+              degrees: 15
+              shear: [-2, 2]
+      to_tensor:
+        type: ToTensor
+      normalize:
+        type: Normalize
+        params:
+          mean: [0.485, 0.456, 0.406]
+          std: [0.229, 0.224, 0.225]
+  batch_size: 16
+  shuffle: true
+
+projection_set:
+  module: torchvision.datasets.mnist
+  name: MNIST
+  params:
+    root: data/
+    download: true
+    transform:
+      convert:
+        module: cabrnet.core.utils.custom_preprocess
+        type: convert_to_rgb
+      resize:
+        type: Resize
+        params:
+          size: [128, 128]
+      to_tensor:
+        type: ToTensor
+      normalize:
+        type: Normalize
+        params:
+          mean: [0.485, 0.456, 0.406]
+          std: [0.229, 0.224, 0.225]
+  batch_size: 16
+  shuffle: false
+
+test_set:
+  module: torchvision.datasets.mnist
+  name: MNIST
+  params:
+    root: data
+    download: true
+    transform:
+      convert:
+        module: cabrnet.core.utils.custom_preprocess
+        type: convert_to_rgb
+      resize:
+        type: Resize
+        params:
+          size: [128, 128]
+      to_tensor:
+        type: ToTensor
+      normalize:
+        type: Normalize
+        params:
+          mean: [0.485, 0.456, 0.406]
+          std: [0.229, 0.224, 0.225]
+  batch_size: 16
+  shuffle: false

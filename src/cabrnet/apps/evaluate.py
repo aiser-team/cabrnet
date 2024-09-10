@@ -32,6 +32,16 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         metavar="/path/to/checkpoint/dir",
         help="path to a checkpoint directory (alternative to --model-arch, --model-state-dict and --dataset)",
     )
+    parser.add_argument(
+        "-t",
+        "--targets",
+        type=str,
+        nargs="+",
+        default=["test_set"],
+        required=False,
+        metavar="dataset-name",
+        help="name of the target dataset(s). Default: test_set",
+    )
     return parser
 
 
@@ -83,8 +93,15 @@ def execute(args: Namespace) -> None:
     dataloaders = DatasetManager.get_dataloaders(config=args.dataset)
     model.to(args.device)
 
-    stats = model.evaluate(
-        dataloader=dataloaders["test_set"], device=args.device, tqdm_position=0, verbose=args.verbose
-    )
-    for name, value in stats.items():
-        logger.info(f"{name}: {value:.2f}")
+    # Check relevance of all targets first
+    for target in args.targets:
+        if not dataloaders.get(target):
+            raise ArgumentError(f"Unknown target dataset: {target}")
+
+    for target in args.targets:
+        logger.info(f"Target: {target}")
+        stats = model.evaluate(
+            dataloader=dataloaders[target], device=args.device, tqdm_position=0, verbose=args.verbose
+        )
+        for name, value in stats.items():
+            logger.info(f"{name}: {value:.2f}")

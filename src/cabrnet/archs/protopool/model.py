@@ -6,6 +6,13 @@ import graphviz
 import numpy as np
 import torch
 import torch.nn as nn
+
+from cabrnet.archs.generic.decision import CaBRNetClassifier
+from cabrnet.archs.generic.model import CaBRNet
+from cabrnet.core.utils.data import batch_mixup
+from cabrnet.core.utils.optimizers import OptimizerManager
+from cabrnet.core.visualization.explainer import ExplanationGraph
+from cabrnet.core.visualization.visualizer import SimilarityVisualizer
 from loguru import logger
 from PIL import Image
 from torch.utils.data import DataLoader
@@ -13,42 +20,37 @@ from torchvision.transforms import ToTensor
 from tqdm import tqdm
 import time
 
-from cabrnet.archs.generic.decision import CaBRNetClassifier
-from cabrnet.archs.generic.model import CaBRNet
-from cabrnet.core.utils.optimizers import OptimizerManager
-from cabrnet.core.visualization.explainer import ExplanationGraph
-from cabrnet.core.visualization.visualizer import SimilarityVisualizer
 
-
-class ProtoPNet(CaBRNet):
-    r"""CaBRNet model implementing the ProtoPNet architecture.
+class ProtoPool(CaBRNet):
+    r"""CaBRNet model implementing the ProtoPool architecture.
 
     Attributes:
         extractor: Model used to extract convolutional features from the input image.
         classifier: Model used to compute the classification, based on similarity scores with a set of prototypes.
+        training_config: Parameters controlling the training process.
         loss_coefficients: Parameters of the loss function used during training.
-        projection_config: Parameters of the projection function used during training.
     """
 
     def __init__(self, extractor: nn.Module, classifier: CaBRNetClassifier, **kwargs):
-        r"""Builds a ProtoPNet.
+        r"""Builds a ProtoPool.
 
         Args:
             extractor (Module): Feature extractor.
             classifier (CaBRNetClassifier): Classification based on extracted features.
         """
-        super(ProtoPNet, self).__init__(extractor, classifier, **kwargs)
+        super(ProtoPool, self).__init__(extractor, classifier, **kwargs)
 
-        # Default training configuration
+        # Additional training configuration
         self.loss_coefficients = {
             "clustering": 0.8,
             "separability": -0.08,
             "regularization": 0.0001,
         }
-        self.projection_config = {
-            "start_epoch": 10,
-            "frequency": 10,
-            "num_ft_epochs": 20,
+        self.training_config = {
+            "gumbel_min_scale": 1.3,
+            "gumbel_max_scale": 10**3,
+            "gumbel_epochs": 10,
+            "use_mix_up": True,
         }
 
     def _load_legacy_state_dict(self, legacy_state: dict[str, Any]) -> None:
@@ -69,7 +71,9 @@ class ProtoPNet(CaBRNet):
         legacy_to_cabrnet = {
             "last_layer.weight": "classifier.last_layer.weight",
             "prototype_vectors": "classifier.prototypes",
+            "proto_presence": "classifier.proto_slot_map",
             "ones": "classifier.similarity_layer._summation_kernel",
+            "alfa": None,
         }
 
         for legacy_key in legacy_keys:
@@ -93,7 +97,10 @@ class ProtoPNet(CaBRNet):
             elif legacy_key in legacy_to_cabrnet.keys():
                 cbrn_key = legacy_to_cabrnet[legacy_key]
             else:
-                final_state[legacy_key] = torch.unsqueeze(final_state[legacy_key], 0)
+                raise ValueError(f"Unmatched key in legacy state: {legacy_key}")
+
+            if not cbrn_key:
+                continue
 
             # Update state
             if cbrn_state[cbrn_key].size() != final_state[legacy_key].size():
@@ -116,71 +123,104 @@ class ProtoPNet(CaBRNet):
             logger.info("Legacy state dictionary detected, performing import.")
             self._load_legacy_state_dict(state_dict)
         else:
-            # Due to prototype pruning, some tensors might be smaller than expected
-            if state_dict["classifier.prototypes"].shape != self.classifier.prototypes.shape:
-                updated_num_prototypes = state_dict["classifier.prototypes"].shape[0]
-                logger.warning(
-                    f"Adjusting number of prototypes from {self.num_prototypes} to {updated_num_prototypes} "
-                    f"to match model state"
-                )
-                # self.num_prototypes is automatically updated after changing the prototype tensor
-                self.classifier.prototypes = nn.Parameter(  # type: ignore
-                    torch.zeros((updated_num_prototypes, self.classifier.num_features, 1, 1)), requires_grad=True
-                )
-                # Update shape of all other relevant tensors
-                self.classifier.proto_class_map = torch.zeros(self.num_prototypes, self.classifier.num_classes)
-                if hasattr(self.classifier.similarity_layer, "_summation_kernel"):
-                    self.classifier.similarity_layer.register_buffer(
-                        "_summation_kernel", torch.ones((self.num_prototypes, self.classifier.num_features, 1, 1))
-                    )
-                pruned_last_layer = nn.Linear(
-                    in_features=self.num_prototypes, out_features=self.classifier.num_classes, bias=False
-                )
-                self.classifier.last_layer = pruned_last_layer
             # Load state dictionary
             super().load_state_dict(state_dict, **kwargs)
 
-    def loss(self, model_output: Any, label: torch.Tensor, **kwargs) -> tuple[torch.Tensor, dict[str, float]]:
+    def loss(
+        self,
+        model_output: Any,
+        label: torch.Tensor,
+        mixed_label: torch.Tensor | None = None,
+        mix_percentage: float = 1.0,
+        **kwargs,
+    ) -> tuple[torch.Tensor, dict[str, float]]:
         r"""Loss function.
 
         Args:
             model_output (Any): Model output, in this case a tuple containing the prediction and the minimum distances.
-            label (tensor): Batch labels.
+            label (tensor): Original batch labels.
+            mixed_label (tensor, optional): Mixed batch labels. Default: None.
+            mix_percentage (float, optional): Mix percentage. A value 1.0 indicates that no mix was performed.
+                Default: 1.0
 
         Returns:
             Loss tensor and batch statistics.
         """
-        output, min_distances = model_output
+        output, min_distances, proto_slot_probs = model_output
 
         # Cross-entropy loss
-        cross_entropy = torch.nn.functional.cross_entropy(output, label)
+        if mixed_label is None:
+            mixed_label = label
+        cross_entropy = torch.nn.functional.cross_entropy(output, label) * mix_percentage + (
+            1 - mix_percentage
+        ) * torch.nn.functional.cross_entropy(output, mixed_label)
 
-        def distance_loss(dists: torch.Tensor, proto_selection: torch.Tensor) -> torch.Tensor:
-            r"""Returns the average minimum distance across a batch, w.r.t. a selection of valid prototypes.
+        # L1 regularization of the parameters of the last layer
+        l1_mask = 1 - torch.t(self.classifier.slot_class_map)
+        l1 = (self.classifier.last_layer.weight * l1_mask).norm(p=1)
+
+        if self._compatibility_mode:
+            # Orthogonal loss, computed using the cosine similarity on the non-normalized proto_slot_map vectors (?)
+            orthogonal_loss = torch.nn.functional.cosine_similarity(
+                self.classifier.proto_slot_map.unsqueeze(2), self.classifier.proto_slot_map.unsqueeze(-1), dim=1
+            ).sum()
+            orthogonal_loss = orthogonal_loss / (self.classifier.num_slots_per_class * self.classifier.num_classes) - 1
+        else:
+            # Orthogonal loss, computed using the cosine similarity on the distribution vectors (after Gumbel-Softmax)
+            # Take absolute value of the similarity (to avoid optimization towards -1 !!!)
+            mat = torch.nn.functional.cosine_similarity(
+                proto_slot_probs.unsqueeze(2), proto_slot_probs.unsqueeze(-1), dim=1
+            ).abs()  # Shape (K x S x S)
+            # Remove diagonals (all ones) and compute the sum of all pairwise cosine similarity scores
+            mat = mat * (1.0 - torch.eye(self.classifier.num_slots_per_class, dtype=mat.dtype, device=mat.device))
+            orthogonal_loss = mat.sum()
+            # Normalize
+            orthogonal_loss = orthogonal_loss / (self.classifier.num_classes * self.classifier.num_slots_per_class**2)
+
+        def distance_loss(dists: torch.Tensor, proto_slot_dists: torch.Tensor, num_prototypes: int):
+            r"""Returns the average minimum distance across a batch, based on the *num_prototypes* most relevant
+            prototypes for each sample.
 
             Args:
                 dists (tensor): Tensor of distances to all prototypes. Shape: N x P.
-                proto_selection (tensor): For each sample, binary vector corresponding to the list of prototypes
-                    associated with the sample class. Shape: N x P.
+                proto_slot_dists (tensor): For each sample, and each slot, probability that the prototype is allocated
+                    to that slot. Shape: N x P x S.
+                num_prototypes (int): Number of relevant prototypes to consider.
             """
+            # Aggregate relevance of each prototype across all slots
+            proto_relevance = proto_slot_dists.sum(dim=2).detach()  # Shape N x P
+
+            # Select ONLY the num_prototypes most relevant prototypes (no duplicates allowed)
+            indices = torch.topk(input=proto_relevance, k=num_prototypes, dim=1).indices  # Shape N x num_prototypes
+            # For each sample, and each prototype, proto_selection is equal to 1 iff the prototype is relevant.
+            proto_selection = torch.zeros_like(proto_relevance)
+            proto_selection.scatter_(1, src=torch.ones_like(proto_relevance), index=indices)  # Shape N x P
+
             # Arbitrary high value to select min distances from masked vector
             max_dist = self.classifier.num_features
             # Min distance among the selected prototypes
             inverted_distances = torch.max((max_dist - dists) * proto_selection, dim=1).values
             return torch.mean(max_dist - inverted_distances)
 
-        prototypes_of_correct_class = torch.t(torch.index_select(self.classifier.proto_class_map, 1, label))
-        cluster_cost = distance_loss(min_distances, prototypes_of_correct_class)
-        separation_cost = distance_loss(min_distances, 1 - prototypes_of_correct_class)
+        proto_slot_probs_per_sample = torch.index_select(input=proto_slot_probs, dim=0, index=label)  # type: ignore
 
-        l1_mask = 1 - torch.t(self.classifier.proto_class_map)
-        l1 = (self.classifier.last_layer.weight * l1_mask).norm(p=1)
+        cluster_cost = distance_loss(
+            dists=min_distances,
+            proto_slot_dists=proto_slot_probs_per_sample,
+            num_prototypes=self.classifier.num_slots_per_class,
+        )
+        separation_cost = distance_loss(
+            dists=min_distances,
+            proto_slot_dists=1 - proto_slot_probs_per_sample,
+            num_prototypes=self.num_prototypes - self.classifier.num_slots_per_class,
+        )
 
         loss = (
             cross_entropy
             + self.loss_coefficients["clustering"] * cluster_cost
             + self.loss_coefficients["separability"] * separation_cost
             + self.loss_coefficients["regularization"] * l1
+            + orthogonal_loss
         )
 
         batch_accuracy = torch.sum(torch.eq(torch.argmax(output, dim=1), label)).item() / len(label)
@@ -190,30 +230,29 @@ class ProtoPNet(CaBRNet):
             "cross_entropy": cross_entropy.item(),
             "cluster_cost": cluster_cost.item(),
             "separation_cost": separation_cost.item(),
+            "orthogonal_loss": orthogonal_loss.item(),
             "l1": l1.item(),
         }
 
         return loss, stats
 
-    def _train_epoch(
+    def train_epoch(
         self,
         dataloaders: dict[str, DataLoader],
         optimizer_mngr: OptimizerManager | torch.optim.Optimizer,
         device: str | torch.device = "cuda:0",
         tqdm_position: int = 0,
-        tqdm_title: str = "",
         epoch_idx: int = 0,
         verbose: bool = False,
         max_batches: int | None = None,
     ) -> dict[str, float]:
-        r"""Internal function: trains the model for exactly one epoch.
+        r"""Trains a ProtoPool model for one epoch, performing prototype projection and fine-tuning if necessary.
 
         Args:
             dataloaders (dictionary): Dictionary of dataloaders.
             optimizer_mngr (OptimizerManager): Optimizer manager.
             device (str | device, optional): Hardware device. Default: cuda:0.
             tqdm_position (int, optional): Position of the progress bar. Default: 0.
-            tqdm_title (str, optional): Progress bar title. Default: "".
             epoch_idx (int, optional): Epoch index. Default: 0.
             verbose (bool, optional): Display progress bar. Default: False.
             max_batches (int, optional): Max number of batches (early stop for small compatibility tests).
@@ -233,13 +272,24 @@ class ProtoPNet(CaBRNet):
         total_batch_time = 0.0
         total_data_time = 0.0
 
+        gumbel_scale = 0
+        training_config = self.training_config
+        if training_config["gumbel_epochs"]:
+            min_scale, max_scale, gumbel_epochs = (
+                training_config["gumbel_min_scale"],
+                training_config["gumbel_max_scale"],
+                training_config["gumbel_epochs"],
+            )
+            alpha = (max_scale / min_scale) ** 2 / gumbel_epochs
+            gumbel_scale = min_scale * np.sqrt(alpha * epoch_idx) if epoch_idx < gumbel_epochs else max_scale
+
         # Use training dataloader
         train_loader = dataloaders["train_set"]
 
         # Show progress on progress bar if needed
         train_iter = tqdm(
             enumerate(train_loader),
-            desc=tqdm_title,
+            desc=f"Training epoch {epoch_idx}",
             total=len(train_loader),
             leave=False,
             position=tqdm_position,
@@ -255,9 +305,14 @@ class ProtoPNet(CaBRNet):
             optimizer_mngr.zero_grad()
             xs, ys = xs.to(device), ys.to(device)
 
+            # Mix-up data
+            xs, ys_mix, mix_percentage = batch_mixup(
+                data=xs, labels=ys, alpha=0.5 if training_config["use_mix_up"] else 0
+            )
+
             # Perform inference and compute loss
-            ys_pred, distances = self.forward(xs)
-            batch_loss, batch_stats = self.loss((ys_pred, distances), ys)
+            ys_pred, distances, proto_slot_probs = self.forward(xs, gumbel_scale=gumbel_scale)
+            batch_loss, batch_stats = self.loss((ys_pred, distances, proto_slot_probs), ys, ys_mix, mix_percentage)
 
             # Compute the gradient and update parameters
             batch_loss.backward()
@@ -292,7 +347,7 @@ class ProtoPNet(CaBRNet):
         # Clean gradients after last batch
         optimizer_mngr.zero_grad()
 
-        train_info = {key: value / nb_inputs for key, value in train_info.items()}
+        train_info = {f"train/{key}": value / nb_inputs for key, value in train_info.items()}
 
         # Update batch_num with effective value
         batch_num = batch_idx + 1
@@ -304,77 +359,6 @@ class ProtoPNet(CaBRNet):
         )
         return train_info
 
-    def train_epoch(
-        self,
-        dataloaders: dict[str, DataLoader],
-        optimizer_mngr: OptimizerManager,
-        device: str | torch.device = "cuda:0",
-        tqdm_position: int = 0,
-        epoch_idx: int = 0,
-        verbose: bool = False,
-        max_batches: int | None = None,
-    ) -> dict[str, float]:
-        r"""Trains a ProtoPNet model for one epoch, performing prototype projection and fine-tuning if necessary.
-
-        Args:
-            dataloaders (dictionary): Dictionary of dataloaders.
-            optimizer_mngr (OptimizerManager): Optimizer manager.
-            device (str | device, optional): Hardware device. Default: cuda:0.
-            tqdm_position (int, optional): Position of the progress bar. Default: 0.
-            epoch_idx (int, optional): Epoch index. Default: 0.
-            verbose (bool, optional): Display progress bar. Default: False.
-            max_batches (int, optional): Max number of batches (early stop for small compatibility tests).
-                Default: None.
-
-        Returns:
-            Dictionary containing learning statistics.
-        """
-        # Train for exactly one epoch using the OptimizerManager
-        train_info = self._train_epoch(
-            dataloaders=dataloaders,
-            optimizer_mngr=optimizer_mngr,
-            device=device,
-            tqdm_position=tqdm_position,
-            tqdm_title=f"Training epoch {epoch_idx}",
-            epoch_idx=epoch_idx,
-            verbose=verbose,
-            max_batches=max_batches,
-        )
-        # Perform prototype projection if necessary
-        if (
-            epoch_idx >= self.projection_config["start_epoch"]
-            and (epoch_idx - self.projection_config["start_epoch"]) % self.projection_config["frequency"] == 0
-        ):
-            self.project(
-                dataloader=dataloaders["projection_set"],
-                device=device,
-                verbose=verbose,
-                tqdm_position=tqdm_position,
-            )
-            # Freeze all parameters except last layer
-            optimizer_mngr.freeze_non_associated_groups(optim_name="last_layer_optimizer")
-
-            fine_tuning_progress = tqdm(
-                range(self.projection_config["num_ft_epochs"]),
-                desc="Fine-tuning last layer",
-                leave=False,
-                position=tqdm_position,
-                disable=not verbose,
-            )
-            for ft_epoch_idx in fine_tuning_progress:
-                train_info = self._train_epoch(
-                    dataloaders=dataloaders,
-                    optimizer_mngr=optimizer_mngr.optimizers["last_layer_optimizer"],
-                    device=device,
-                    tqdm_position=tqdm_position + 1,
-                    tqdm_title=f"Fine-tuning epoch {ft_epoch_idx}",
-                    epoch_idx=epoch_idx,
-                    verbose=verbose,
-                    max_batches=max_batches,
-                )
-
-        return train_info
-
     def epilogue(
         self,
         dataloaders: dict[str, DataLoader],
@@ -382,10 +366,7 @@ class ProtoPNet(CaBRNet):
         output_dir: str,
         device: str | torch.device = "cuda:0",
         verbose: bool = False,
-        pruning_threshold: int = 3,
-        num_nearest_patches: int = 0,
-        num_fine_tuning_epochs: int = 20,
-        disable_pruned_prototypes: bool = False,
+        num_fine_tuning_epochs: int = 25,
         tqdm_position: int = 0,
         **kwargs,
     ) -> dict[int, dict[str, int | float]]:
@@ -397,12 +378,8 @@ class ProtoPNet(CaBRNet):
             output_dir (str): Unused.
             device (str | device, optional): Hardware device. Default: cuda:0.
             verbose (bool, optional): Display progress bar. Default: False.
-            pruning_threshold (int, optional): Pruning threshold. Default: 3.
-            num_nearest_patches (int, optional): Number of patches near the prototype to look at.
-                Default: 0 (pruning disabled).
-            num_fine_tuning_epochs (int, optional): Number of fine-tuning epochs to perform after pruning. Default: 20.
-            disable_pruned_prototypes (bool, optional): If True, only disables prototypes instead of deleting them
-                during pruning. Default: False.
+            num_fine_tuning_epochs (int, optional): Number of fine-tuning epochs to perform after projection.
+                Default: 25.
             tqdm_position (int, optional): Position of the progress bar. Default: 0.
 
         Returns:
@@ -414,172 +391,80 @@ class ProtoPNet(CaBRNet):
             device=device,
             verbose=verbose,
         )
-
         eval_info = self.evaluate(dataloader=dataloaders["test_set"], device=device, verbose=verbose)
         logger.info(
             f"After projection. Average loss: {eval_info['loss']:.2f}. "
             f"Average accuracy: {eval_info['accuracy']:.2f}."
         )
+        if not self._compatibility_mode:
+            self.prune(device=device)
+            # Freeze all other parameter groups before fine-tuning
+            optimizer_mngr.freeze_non_associated_groups("last_layer_optimizer")
 
-        if num_nearest_patches > 0:
-            # Prune weak prototypes
-            self.prune(
-                dataloader=dataloaders["projection_set"],
-                pruning_threshold=pruning_threshold,
-                num_nearest_patches=num_nearest_patches,
-                disable_pruned_prototypes=disable_pruned_prototypes,
+        # Last layer fine-tuning
+        fine_tuning_progress = tqdm(
+            range(num_fine_tuning_epochs),
+            desc="Fine-tuning last layer",
+            leave=False,
+            position=tqdm_position,
+            disable=not verbose,
+        )
+        for _ in fine_tuning_progress:
+            self.train_epoch(
+                dataloaders=dataloaders,
+                optimizer_mngr=optimizer_mngr.optimizers["last_layer_optimizer"],
                 device=device,
+                tqdm_position=tqdm_position + 1,
                 verbose=verbose,
-                tqdm_position=0,
             )
-
-            if self._compatibility_mode or not disable_pruned_prototypes:
-                # Perform second projection to take into account deleted prototypes
-                # This operation should not change the model parameters but will rebuild an updated projection information
-                projection_info = self.project(
-                    dataloader=dataloaders["projection_set"],
-                    device=device,
-                    verbose=verbose,
-                )
-
-            # Last layer fine-tuning
-            fine_tuning_progress = tqdm(
-                range(num_fine_tuning_epochs),
-                desc="Fine-tuning last layer after pruning",
-                leave=False,
-                position=tqdm_position,
-                disable=not verbose,
-            )
-
-            if not self._compatibility_mode:
-                # Freeze all other parameter groups before fine-tuning
-                optimizer_mngr.freeze_non_associated_groups("last_layer_optimizer")
-
-            for ft_epoch_idx in fine_tuning_progress:
-                self._train_epoch(
-                    dataloaders=dataloaders,
-                    optimizer_mngr=optimizer_mngr.optimizers["last_layer_optimizer"],
-                    device=device,
-                    tqdm_position=tqdm_position + 1,
-                    tqdm_title=f"Fine-tuning epoch {ft_epoch_idx}",
-                    verbose=verbose,
-                )
 
         return projection_info
 
     def prune(
         self,
-        dataloader: DataLoader,
-        pruning_threshold: int = 3,
-        num_nearest_patches: int = 6,
-        disable_pruned_prototypes: bool = False,
         device: str | torch.device = "cuda:0",
-        verbose: bool = False,
-        tqdm_position: int = 0,
-    ) -> None:
-        r"""Prunes prototypes based on a threshold.
+    ):
+        r"""Performs prototype pruning after training.
 
         Args:
-            dataloader (DataLoader): Dataloader containing projection images.
-            pruning_threshold (int, optional): Pruning threshold. Default: 3.
-            num_nearest_patches (int, optional): Number of patches near the prototype to look at. Default: 6.
-            disable_pruned_prototypes (bool, optional): If True, only disables prototypes instead of deleting them
-                during pruning. Default: False.
             device (str | device, optional): Hardware device. Default: cuda:0.
-            verbose (bool, optional): Display progress bar. Default: False.
-            tqdm_position (int, optional): Position of the progress bar. Default: 0.
+
         """
-        logger.info("Performing prototypes pruning")
+        logger.info("Performing prototype pruning")
         self.eval()
         self.to(device)
 
-        # map each prototype to its class
-        class_mapping = torch.argmax(self.classifier.proto_class_map, dim=1).detach().cpu()
-
-        data_iter = tqdm(
-            dataloader,
-            total=len(dataloader),
-            leave=False,
-            position=tqdm_position,
-            disable=not verbose,
-            desc="Prototypes pruning",
-        )
-
-        prune_info = {proto_idx: [] for proto_idx in range(self.num_prototypes)}
+        logger.info(f"Model statistics before pruning: {self.num_prototypes} prototypes.")
 
         with torch.no_grad():
-            for xs, ys in data_iter:
-                xs = xs.to(device)
-                distances = self.distances(xs)
-                min_dist, _ = torch.min(distances.view(distances.shape[:2] + (-1,)), dim=2)
+            if self._compatibility_mode:
+                # Makes the computation of the class mapping deterministic
+                torch.manual_seed(0)
+            normalized_proto_slot_map = (
+                nn.functional.gumbel_softmax(self.classifier.proto_slot_map * 1e4, tau=0.5, dim=1).detach().cpu()
+            )  # Shape C x P x S
+            # For each class, keep track of the related prototypes (one for each slot)
+            class_mapping = torch.argmax(normalized_proto_slot_map, dim=1).cpu().numpy()  # Shape C x S
 
-                for img_idx, (_, y) in enumerate(zip(xs, ys)):
-                    for proto_idx in range(self.num_prototypes):
-                        if len(prune_info[proto_idx]) < num_nearest_patches:
-                            prune_info[proto_idx].append(
-                                {"dist": min_dist[img_idx, proto_idx].item(), "class": y.item()}
-                            )
-                            # sort the dictionary by distance every time a new value is added
-                            prune_info[proto_idx] = sorted(prune_info[proto_idx], key=lambda d: d["dist"])
-                        else:
-                            if min_dist[img_idx, proto_idx].item() < prune_info[proto_idx][-1]["dist"]:
-                                prune_info[proto_idx][-1] = {
-                                    "dist": min_dist[img_idx, proto_idx].item(),
-                                    "class": y.item(),
-                                }
-                            # sort the dictionary by distance every time a new value is added
-                            prune_info[proto_idx] = sorted(prune_info[proto_idx], key=lambda d: d["dist"])
+        active_prototypes = torch.tensor(list(set(class_mapping.reshape(-1).tolist()))).to(device)
 
-        logger.info(f"Model statistics before pruning: {self.num_prototypes} prototypes.")
-        index_prototypes_to_keep = []
-        index_prototypes_to_prune = []
-        for proto_idx, proto_info in prune_info.items():
-            # we count the number of patches of the CORRECT class
-            counter = sum([1 for patch in proto_info if patch["class"] == class_mapping[proto_idx]])
-            if counter >= pruning_threshold:
-                index_prototypes_to_keep.append(proto_idx)
-            else:
-                index_prototypes_to_prune.append(proto_idx)
+        # Overwrite prototypes and class slots with selected subset (self.num_prototypes is updated automatically)
+        self.classifier.prototypes = nn.Parameter(  # type: ignore
+            torch.index_select(input=self.classifier.prototypes, dim=0, index=active_prototypes),
+            requires_grad=True,
+        )
+        self.classifier.proto_slot_map = nn.Parameter(
+            torch.index_select(input=self.classifier.proto_slot_map, dim=1, index=active_prototypes),
+            requires_grad=True,
+        )
 
-        if self._compatibility_mode or not disable_pruned_prototypes:
-            index_prototypes_to_keep = torch.tensor(index_prototypes_to_keep).to(device)
-
-            # overwrite prototypes with selected subset (self.num_prototypes is updated automatically)
-            self.classifier.prototypes = nn.Parameter(  # type: ignore
-                torch.index_select(input=self.classifier.prototypes, dim=0, index=index_prototypes_to_keep),
-                requires_grad=True,
-            )
-
-            # update last layer
-            pruned_last_layer = nn.Linear(
-                in_features=self.num_prototypes, out_features=self.classifier.num_classes, bias=False
-            )
-            pruned_last_layer.weight.data.copy_(
-                torch.index_select(input=self.classifier.last_layer.weight.data, dim=1, index=index_prototypes_to_keep)
-            )
-            self.classifier.last_layer = pruned_last_layer
-
-            # update shape of similarity layer for computation purposes
+        # Update shape of similarity layer for computation purposes
+        if hasattr(self.classifier.similarity_layer, "_summation_kernel"):
             self.classifier.similarity_layer.register_buffer(
                 "_summation_kernel", torch.ones((self.num_prototypes, self.classifier.num_features, 1, 1))
             )
 
-            # update mapping between prototypes and classes
-            self.classifier.proto_class_map = torch.index_select(
-                input=self.classifier.proto_class_map, dim=0, index=index_prototypes_to_keep
-            )
-            logger.info(f"Model statistics after pruning: {self.num_prototypes} prototypes.")
-        else:
-            last_layer_weights = self.classifier.last_layer.weight.data
-            for p_index in index_prototypes_to_prune:
-                last_layer_weights[:, p_index] = 0
-                # Detach prototype from all classes
-                self.classifier.proto_class_map[p_index, :] = 0
-            self.classifier.last_layer.weight.data.copy_(last_layer_weights)
-            logger.info(
-                f"Model statistics after pruning: "
-                f"{self.num_prototypes-len(index_prototypes_to_prune)} (active) prototypes."
-            )
+        logger.info(f"Model statistics after pruning: {self.num_prototypes} prototypes.")
 
     def project(
         self,
@@ -603,13 +488,17 @@ class ProtoPNet(CaBRNet):
         self.eval()
         self.to(device)
 
-        # For each class, keep track of the related prototypes
-        np_proto_class_map = self.classifier.proto_class_map.detach().cpu().numpy()
-        class_mapping = {c: list(np.nonzero(np_proto_class_map[:, c])[0]) for c in range(self.classifier.num_classes)}
-        # Sanity check to ensure that each class is associated with at least one prototype
-        for class_idx in range(self.classifier.num_classes):
-            if class_idx not in class_mapping:
-                logger.error(f"Inaccessible class {class_idx}!")
+        # Compute mapping between classes and prototypes
+        class_mapping = self.classifier.class_mapping
+
+        with torch.no_grad():
+            if not self._compatibility_mode:
+                # Hard assignment of prototypes to slots using one-hot distributions
+                hard_proto_slot_map = torch.zeros_like(self.classifier.proto_slot_map).to(device)
+                for c in range(self.classifier.num_classes):
+                    for s in range(self.classifier.num_slots_per_class):
+                        hard_proto_slot_map[c, class_mapping[c, s], s] = 1.0
+                self.classifier.proto_slot_map.copy_(hard_proto_slot_map)
 
         # Show progress on progress bar if needed
         data_iter = tqdm(
@@ -652,9 +541,6 @@ class ProtoPNet(CaBRNet):
                 min_dist, min_dist_idxs = torch.min(distances.view(distances.shape[:2] + (-1,)), dim=2)
 
                 for img_idx, (_, y) in enumerate(zip(xs, ys)):
-                    if y.item() not in class_mapping:
-                        # Class is not associated with any prototype (this is bad...)
-                        continue
                     for proto_idx in class_mapping[y.item()]:
                         # For each entry, only check prototypes that lead to the corresponding class
                         if min_dist[img_idx, proto_idx] < projection_info[proto_idx]["dist"]:
@@ -713,6 +599,9 @@ class ProtoPNet(CaBRNet):
         """
         self.eval()
 
+        # Compute mapping between classes and prototypes
+        class_mapping = self.classifier.class_mapping
+
         if isinstance(img, str):
             img = Image.open(img)
 
@@ -729,14 +618,14 @@ class ProtoPNet(CaBRNet):
         img_tensor = img_tensor.to(device)
 
         # Perform inference and get minimum distance to each prototype
-        prediction, min_distances = self.forward(img_tensor)
+        prediction, min_distances, _ = self.forward(img_tensor)
         class_idx = torch.argmax(prediction, dim=1)[0]
         min_distances = min_distances[0]
 
         # Ignore distances to pruned/non-class specific prototypes
         for proto_idx in range(self.num_prototypes):
             if not self.classifier.prototype_is_active(proto_idx) or (
-                class_specific and self.classifier.proto_class_map[proto_idx, class_idx] == 0
+                class_specific and proto_idx not in class_mapping[class_idx]
             ):
                 min_distances[proto_idx] = float("inf")
 
@@ -757,20 +646,21 @@ class ProtoPNet(CaBRNet):
                 # Not enough relevant prototypes
                 break
             score = self.classifier.similarity_layer.distances_to_similarities(min_distance).item()
-            most_relevant_prototypes.append((proto_idx, score, True))  # ProtoPNet only considers positive similarities
+            most_relevant_prototypes.append((proto_idx, score, True))  # ProtoPool only considers positive similarities
             # Recover path to prototype image
             prototype_image_path = os.path.join(prototype_dir, f"prototype_{proto_idx}.png")
-            prototype_class_idx = int(torch.argmax(self.classifier.proto_class_map[proto_idx]))
             # Generate test image patch
             patch_image_path = os.path.join(output_dir, "test_patches", f"proto_similarity_{proto_idx}.png")
             if not disable_rendering:
                 patch_image = visualizer.forward(img=img, img_tensor=img_tensor, proto_idx=proto_idx, device=device)
                 patch_image.save(patch_image_path)
+            in_class_slot = proto_idx in class_mapping[class_idx]
             explanation.add_similarity(
                 prototype_img_path=prototype_image_path,
                 test_patch_img_path=patch_image_path,
-                label=f"Prototype {proto_idx}\n(class {prototype_class_idx}, score: {score:.2f})",
-                font_color="black" if class_idx == prototype_class_idx else "red",
+                label=f"Prototype {proto_idx}\n"
+                f"({'not ' if not in_class_slot else ''}in class slot, score: {score:.2f})",
+                font_color="black" if in_class_slot else "red",
             )
             # "Disable" prototype from search
             min_distances[proto_idx] = float("inf")
@@ -787,8 +677,8 @@ class ProtoPNet(CaBRNet):
             output_dir (str): Path to output directory.
             output_format (str, optional): Output file format. Default: pdf.
         """
-        proto_class_map = self.classifier.proto_class_map.detach().cpu().numpy()
-        class_mapping = {c: list(np.nonzero(proto_class_map[:, c])[0]) for c in range(self.classifier.num_classes)}
+        # Compute mapping between classes and prototypes
+        class_mapping = self.classifier.class_mapping
 
         explanation_graph = graphviz.Graph()
         explanation_graph.attr(layout="circo")
@@ -805,13 +695,13 @@ class ProtoPNet(CaBRNet):
             for prototype in class_mapping[class_idx]:
                 img_path = os.path.abspath(os.path.join(prototype_dir, f"prototype_{prototype}.png"))
                 graph.node(
-                    name=f"P{prototype}",
+                    name=f"P{prototype}_C{class_idx}",
                     shape="plaintext",
                     xlabel=f"P{prototype}",
                     image=img_path,
                     imagescale="true",
                 )
-                graph.edge(f"C{class_idx}", f"P{prototype}")
+                graph.edge(f"C{class_idx}", f"P{prototype}_C{class_idx}")
             return graph
 
         for class_idx in range(self.classifier.num_classes):

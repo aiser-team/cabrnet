@@ -118,7 +118,7 @@ Note that the `num_epochs` field is optional for the last period (in this case, 
 of epochs, as given in the global `num_epochs` field).
 
 ## Configuring the epilogue
-Specific architectures such as ProtoPNet or ProtoTree can end the training process with an additional step, 
+Specific architectures (*e.g.* ProtoPNet, ProtoTree, ProtoPool) can end the training process with an additional step, 
 called the epilogue, in which operations such as prototype pruning are performed. The configuration of this step
 is specific to each architecture but follows the same format:
 ```yaml
@@ -132,9 +132,9 @@ epilogue:
 CaBRNet provides a class [OptimizerManager](https://github.com/aiser-team/cabrnet/tree/main/src/cabrnet/utils/optimizers.py) in charge of parsing the configuration file 
 and handling optimizers/schedulers during the training process.
 ```python
-from cabrnet.utils.optimizers import OptimizerManager
-from cabrnet.utils.parser import load_config
-from cabrnet.generic.model import CaBRNet
+from cabrnet.core.utils.optimizers import OptimizerManager
+from cabrnet.core.utils.parser import load_config
+from cabrnet.archs.generic.model import CaBRNet
 
 model = CaBRNet.build_from_config(config="<path/to/model/configuration/file.yml") 
 training_config = load_config(config_file="<path/to/training/configuration/file.yml>")
@@ -174,12 +174,12 @@ For example, given the following configuration files:
 ```yaml
 <model_arch.yml>
 top_arch:
-  module: cabrnet.protopnet.model
+  module: cabrnet.archs.protopnet.model
   name: ProtoPNet
 extractor: ...
 similarity: ...
 classifier:
-  module: cabrnet.protopnet.decision
+  module: cabrnet.archs.protopnet.decision
   name: ProtoPNetClassifier
   params:
     num_classes: 10
@@ -236,7 +236,6 @@ training:
             lr: [0.001, 0.0001, 0.0005]
             momentum: [0.9, 0.5]
       joint_optimizer:
-        type: Adam
         groups:
           backbone:
             lr: [0.001, 0.01]

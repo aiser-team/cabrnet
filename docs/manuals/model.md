@@ -201,6 +201,7 @@ similarity:
 ```
 Currently, CaBRNet supports the following similarity layers:
 - `LegacyProtoPNetSimilarity`: implements all operations performed in the original ProtoPNet code, in the same order.
+Note that the same implementation is used in ProtoPool.
 - `LegacyProtoTreeSimilarity`: implements all operations performed in the original ProtoTree code, in the same order.
 - `ProtoPNetSimilarity`: updated version of LegacyProtoPNetSimilarity that uses the [`torch.cdist`](https://pytorch.org/docs/stable/generated/torch.cdist.html) function.
 - `ProtoTreeSimilarity`: updated version of LegacyProtoTreeSimilarity that uses the [`torch.cdist`](https://pytorch.org/docs/stable/generated/torch.cdist.html) function.
@@ -262,6 +263,17 @@ class SimilarityLayer(nn.Module, ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def distances_to_similarities(self, distances: Tensor, **kwargs) -> Tensor:
+        r"""Converts a tensor of distances into a tensor of similarity scores.
+
+        Args:
+            distances (tensor): Input tensor. Any shape.
+
+        Returns:
+             Similarity score corresponding to the provided distances. Same shape as input.
+        """
+        raise NotImplementedError
+
     def similarities(self, features: Tensor, prototypes: Tensor, **kwargs) -> Tensor:
         r"""Computes pairwise similarity scores between a tensor of features and a tensor of prototypes.
 
@@ -272,7 +284,9 @@ class SimilarityLayer(nn.Module, ABC):
         Returns:
             Tensor of similarity scores. Shape (N, P, H, W).
         """
-        raise NotImplementedError
+        # By default, similarity scores are computed from the distances
+        distances = self.distances(features=features, prototypes=prototypes, **kwargs)
+        return self.distances_to_similarities(distances=distances, **kwargs)
 
     def forward(self, features: Tensor, prototypes: Tensor, **kwargs) -> Tensor:
         r"""Return pairwise similarity scores between a tensor of features and a tensor of prototypes.
@@ -308,8 +322,8 @@ The classifier must inherit from the `CaBRNetGenericClassifier` class as follows
 ```python
 import torch.nn as nn
 from typing import Any
-from cabrnet.utils.prototypes import init_prototypes
-from cabrnet.generic.decision import CaBRNetClassifier
+from cabrnet.core.utils.prototypes import init_prototypes
+from cabrnet.archs.generic.decision import CaBRNetClassifier
 
 
 class ArchNameClassifier(CaBRNetClassifier):
@@ -321,6 +335,7 @@ class ArchNameClassifier(CaBRNetClassifier):
         num_classes: int,
         num_features: int,
         proto_init_mode: str = "SHIFTED_NORMAL",
+        **kwargs
     ) -> None:
         r"""Initializes a ArchName classifier.
 
@@ -379,7 +394,7 @@ class ArchNameClassifier(CaBRNetClassifier):
 ## Defining a new top-module
 The module in charge of combining the feature extractor and the classifier should be
 placed inside a dedicated file in `src/cabrnet/<ARCH_NAME>/model.py` (*e.g.* [src/cabrnet/prototree/model.py](https://github.com/aiser-team/cabrnet/blob/main/src/cabrnet/prototree/model.py)).
-The top-module class should inherit from the generic class [CaBRNet](https://github.com/aiser-team/cabrnet/blob/main/src/cabrnet/generic/model.py), and implements
+The top-module class should inherit from the generic class [CaBRNet](https://github.com/aiser-team/cabrnet/blob/main/src/cabrnet/archs/generic/model.py), and implements
 some mandatory functions as illustrated below.
 ```python
 import torch.nn.functional
@@ -387,14 +402,14 @@ from torch.utils.data import DataLoader
 from typing import Any, Callable
 from tqdm import tqdm
 from PIL import Image
-from cabrnet.generic.model import CaBRNet
-from cabrnet.utils.optimizers import OptimizerManager
-from cabrnet.visualization.visualizer import SimilarityVisualizer
+from cabrnet.archs.generic.model import CaBRNet
+from cabrnet.core.utils.optimizers import OptimizerManager
+from cabrnet.core.visualization.visualizer import SimilarityVisualizer
 
 
 class ArchName(CaBRNet):
     def loss(
-        self, model_output: Any, label: torch.Tensor
+        self, model_output: Any, label: torch.Tensor, **kwargs
     ) -> tuple[torch.Tensor, dict[str, float]]:
         r"""Loss function.
 
@@ -490,6 +505,7 @@ class ArchName(CaBRNet):
         device: str | torch.device = "cuda:0",
         tqdm_position: int = 0,
         verbose: bool = False,
+        **kwargs,
     ) -> dict[str, float]:
         r"""Evaluates the model.
 

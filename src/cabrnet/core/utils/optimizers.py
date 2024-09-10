@@ -192,6 +192,16 @@ class OptimizerManager:
         else:
             current_epoch = 0
             for period_name, period_config in self.config["periods"].items():
+                # Sanity check on keys
+                for key in period_config.keys():
+                    assert key in [
+                        "num_epochs",
+                        "epoch_range",
+                        "optimizers",
+                        "freeze",
+                        "patience",
+                    ], f"Unknown period configuration parameter {key}."
+
                 # Update configuration if necessary
                 if period_config.get("num_epochs") is not None:
                     if period_config.get("epoch_range") is not None:
@@ -310,6 +320,17 @@ class OptimizerManager:
 
         for group_name in self.param_groups:
             self.freeze_group(name=group_name, freeze=(group_name in groups_to_freeze))
+
+    def freeze_non_associated_groups(self, optim_name: str):
+        r"""Freezes all groups that are not associated to a given optimizer.
+
+        Args:
+            optim_name (str): Optimizer name.
+        """
+        assert optim_name in self.optimizers.keys(), f"Unknown optimizer {optim_name}"
+        associated_groups = list(self.config["optimizers"][optim_name].get("groups", {"main": None}).keys())
+        for group_name in self.param_groups:
+            self.freeze_group(name=group_name, freeze=(group_name not in associated_groups))
 
     def zero_grad(self):
         r"""Resets all optimizer gradients."""

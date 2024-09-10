@@ -126,7 +126,19 @@ class CaBRNet(nn.Module):
         Args:
             training_config (dictionary): Dictionary containing training configuration.
         """
-        pass
+        if training_config.get("auxiliary_info") is None:
+            logger.warning("Empty auxiliary training configuration. Using default values")
+            return
+        aux_training_params = training_config["auxiliary_info"]
+
+        for attribute_name, attribute_dict in aux_training_params.items():
+            if not hasattr(self, attribute_name):
+                raise ValueError(f"Unknown attribute name '{attribute_name}' in training configuration.")
+            for key, val in attribute_dict.items():
+                # Overwrite default loss coefficients
+                if key not in getattr(self, attribute_name).keys():
+                    raise ValueError(f"Unknown parameter name '{key}' in attribute '{attribute_name}'")
+            getattr(self, attribute_name).update(attribute_dict)
 
     @staticmethod
     def create_parser(
@@ -176,7 +188,7 @@ class CaBRNet(nn.Module):
             config (str|dict): Path to configuration file, or configuration dictionary.
             seed (int, optional): Random seed (used only to resynchronise random number generators in
                 compatibility tests). Default: None.
-            compatibility_mode (bool, optional): Compatibility mode with legacy architectures. Default: False.
+            compatibility_mode (bool, optional): Force compatibility mode with legacy architectures. Default: False.
             state_dict_path (str, optional): Path to model state dictionary. Default: None.
 
         Returns:
@@ -198,6 +210,11 @@ class CaBRNet(nn.Module):
         extractor_config = config_dict["extractor"]
         classifier_config = config_dict["classifier"]
         arch_config = config_dict["top_arch"]
+
+        # Compatibility mode may also be enabled in the classifier configuration
+        compatibility_mode = compatibility_mode or config_dict["classifier"].get("params", {}).get(
+            "compatibility_mode", False
+        )
 
         # Backward compatibility
         if config_dict.get("similarity") is None:
@@ -261,6 +278,10 @@ class CaBRNet(nn.Module):
                 f"but feature extractor outputs {num_features['convnet']} channels"
             )
 
+        # Update compatibility mode if necessary
+        if compatibility_mode:
+            classifier_config["params"].update({"compatibility_mode": compatibility_mode})
+
         # Load classifier module
         classifier_module = importlib.import_module(classifier_config["module"])
         classifier = getattr(classifier_module, classifier_config["name"])(
@@ -292,7 +313,7 @@ class CaBRNet(nn.Module):
 
         return model
 
-    def loss(self, model_output: Any, label: torch.Tensor) -> tuple[torch.Tensor, dict[str, float]]:
+    def loss(self, model_output: Any, label: torch.Tensor, **kwargs) -> tuple[torch.Tensor, dict[str, float]]:
         r"""Computes the loss and statistics over a batch of model outputs.
 
         Args:
@@ -360,6 +381,7 @@ class CaBRNet(nn.Module):
         device: str | torch.device = "cuda:0",
         tqdm_position: int = 0,
         verbose: bool = False,
+        **kwargs,
     ) -> dict[str, float]:
         r"""Evaluates the model.
 
@@ -395,7 +417,7 @@ class CaBRNet(nn.Module):
                 xs, ys = xs.to(device), ys.to(device)
 
                 # Perform inference and compute loss
-                ys_pred = self.forward(xs)
+                ys_pred = self.forward(xs, **kwargs)
                 batch_loss, batch_stats = self.loss(ys_pred, ys)
                 batch_accuracy = batch_stats["accuracy"]
 

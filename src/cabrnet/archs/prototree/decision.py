@@ -44,6 +44,7 @@ class ProtoTreeClassifier(CaBRNetClassifier):
         leaves_init_mode: str = "ZEROS",
         proto_init_mode: str = "SHIFTED_NORMAL",
         log_probabilities: bool = False,
+        **kwargs,
     ) -> None:
         r"""Initializes a ProtoTree classifier.
 

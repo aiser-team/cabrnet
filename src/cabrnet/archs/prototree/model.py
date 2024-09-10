@@ -168,7 +168,7 @@ class ProtoTree(CaBRNet):
             f"({len(remaining_leaves)/self.classifier.tree.num_leaves*100:.1f}%)"
         )
 
-    def loss(self, model_output: Any, label: torch.Tensor) -> tuple[torch.Tensor, dict[str, float]]:
+    def loss(self, model_output: Any, label: torch.Tensor, **kwargs) -> tuple[torch.Tensor, dict[str, float]]:
         r"""Loss function.
 
         Args:
@@ -307,8 +307,8 @@ class ProtoTree(CaBRNet):
         train_info = {key: value / nb_inputs for key, value in train_info.items()}
         train_info.update(
             {
-                "batch_time": total_batch_time / batch_num,
-                "data_time": total_data_time / batch_num,
+                "time/batch": total_batch_time / batch_num,
+                "time/data": total_data_time / batch_num,
             }
         )
         return train_info

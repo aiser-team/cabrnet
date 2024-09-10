@@ -1,6 +1,6 @@
 top_arch:
-  module: cabrnet.archs.protopnet.model
-  name: ProtoPNet
+  module: cabrnet.archs.protopool.model
+  name: ProtoPool
 
 extractor:
   backbone:
@@ -12,19 +12,22 @@ extractor:
     conv1:
       type: Conv2d
       params:
-        out_channels: 128
+        out_channels: 256
         kernel_size: 1
         bias: False
     sigmoid1:
       type: Sigmoid
 
 similarity:
-  name: ProtoPNetSimilarity
+  name: LegacyProtoPNetSimilarity
 
 classifier:
-  module: cabrnet.archs.protopnet.decision
-  name: ProtoPNetClassifier
+  module: cabrnet.archs.protopool.decision
+  name: ProtoPoolClassifier
   params:
     num_classes: 10
-    num_proto_per_class: 10
-    proto_init_mode: SHIFTED_NORMAL
+    num_prototypes: 30
+    num_slots_per_class: 5
+    proto_init_mode: UNIFORM
+    compatibility_mode: True
+
