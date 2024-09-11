@@ -48,17 +48,16 @@
     rec {
       packages = rec {
         pname = "cabrnet";
-        version = "0.2";
-        default = self.packages.${system}.cabrnet;
-        # Dummy CaBRNet package, as we are only interested into having a
-        # development shell with necessary dependencies
-        cabrnet = pythonPkgs.buildPythonPackage
+        version = "1.0";
+        default = self.packages.${system}.cabrnetWithoutGUI;
+        # CaBRNet package without GUI, as it is intended for CI usage only
+        cabrnetWithoutGUI = pythonPkgs.buildPythonPackage
           {
             inherit pname version;
             pyproject = true;
             src = sources.python;
             build-system = with pythonPkgs; [ setuptools wheel ];
-            buildInputs = with pythonPkgs; [
+            propagatedBuildInputs = with pythonPkgs; [
               torch
               torchvision
               numpy
@@ -75,6 +74,21 @@
               pydocstyle
               captum.packages.${system}.default
               pandas
+              pythonRelaxDepsHook
+              py-cpuinfo
+            ];
+            pythonRelaxDeps = [
+              "tensorboard"
+              "torchvision"
+              "setuptools"
+            ];
+            # Not needed for non-gui CI or access the internet
+            pythonRemoveDeps = [
+              "gradio"
+              "ray"
+              "optuna"
+              "zenodo-get"
+              "opencv-python-headless"
             ];
             nativeCheckInputs = [ pkgs.pyright pythonPkgs.black ];
             importCheck = with pythonPkgs; [ scipy torch numpy ];
@@ -86,7 +100,6 @@
             inherit version;
             pname = "cabrnet-doc";
             src = sources.python;
-            #nativeBuildInputs = [pydoc-markdown.packages.${system}.default];
             nativeBuildInputs = with pkgs; [
               pandoc
               python3Minimal

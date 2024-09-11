@@ -8,12 +8,12 @@
       },
       "locked": {
         "lastModified": 1,
-        "narHash": "sha256-8wwzrako0aMzyAfXU6bz9L8/cJ7Tk/sBb7mpnmrhBj8=",
-        "path": "/nix/store/l078nqiwqldnh7n8b19ib364y2lyxwn0-source/ci/vendor/captum",
+        "narHash": "sha256-TlsV13nUs4zhoBteTF1IHP/LQPI1p81kxIzk0u/89Ug=",
+        "path": "/nix/store/vdsk4zk6bkwivd37r955j8iwipnpr00x-source/ci/vendor/captum",
         "type": "path"
       },
       "original": {
-        "path": "/nix/store/l078nqiwqldnh7n8b19ib364y2lyxwn0-source/ci/vendor/captum",
+        "path": "/nix/store/vdsk4zk6bkwivd37r955j8iwipnpr00x-source/ci/vendor/captum",
         "type": "path"
       }
     },
