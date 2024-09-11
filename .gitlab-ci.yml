@@ -1,15 +1,14 @@
 # Prototype for CaBRNet CI
 
 variables:
-  CABRNET_VERSION: "0.2"
-  TAG: "0.2"
+  CABRNET_VERSION: "1.0"
+  TAG: "1.0"
 
 default:
   interruptible: true
   tags: [ pub-nix ]
 
 stages:
-  - dependencies # in charge of downloading the correct set of dependencies
   - build # in charge of running the proper setup tool to build the archive
   - formatting # in charge of ensuring the correct style of docstrings and code
   - typing # in charge of typechecking using mypy
@@ -17,11 +16,6 @@ stages:
   - tests # in charge of running unit tests
 #  - install # in charge of checking that the soft can be released proper
 #  - mirror # in charge of replicating the state of this repo on others
-
-dependencies:
-  stage : dependencies
-  script:
-    - nix --extra-experimental-features "nix-command flakes" develop -L --command python3 -m pip install -r requirements.txt
 
 build:
   stage : build

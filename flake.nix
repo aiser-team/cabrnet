@@ -4,10 +4,10 @@
 {
   description = "CaBRNet Nix flake.";
   inputs = {
-    flake-utils.url = "github:numtide/flake-utils";
-    nix-filter.url = "github:numtide/nix-filter";
-    nixpkgs.url = "nixpkgs";
     captum.url = "./ci/vendor/captum/"; # relative path for flake is a best effort, see https://github.com/NixOS/nix/issues/9339
+    nixpkgs.follows = "captum/nixpkgs";
+    nix-filter.follows = "captum/nix-filter";
+    flake-utils.follows = "captum/flake-utils";
     # pydoc-markdown.url = "./ci/vendor/pydoc-markdown/";
     # disabled for now as more work is needed for the generation of
     # documentation in pure nix
