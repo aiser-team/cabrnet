@@ -333,7 +333,6 @@ class CaBRNet(nn.Module):
         tqdm_position: int = 0,
         epoch_idx: int = 0,
         verbose: bool = False,
-        max_batches: int | None = None,
     ) -> dict[str, float]:
         r"""Trains the model for one epoch.
 
@@ -344,8 +343,6 @@ class CaBRNet(nn.Module):
             tqdm_position (int, optional): Position of the progress bar. Default: 0.
             epoch_idx (int, optional): Epoch index. Default: 0.
             verbose (bool, optional): Display progress bar. Default: False.
-            max_batches (int, optional): Max number of batches (early stop for small compatibility tests).
-                Default: None.
 
         Returns:
             Dictionary containing learning statistics.

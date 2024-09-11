@@ -34,7 +34,6 @@ def training_loop(
     seed: int = 42,
     device: str | torch.device = "cuda:0",
     verbose: bool = False,
-    sanity_check: bool = False,
     logger_level: str | None = None,
 ) -> dict[str, Any]:
     r"""Implements the main training loop for CaBRNet models.
@@ -59,8 +58,6 @@ def training_loop(
         seed (int, optional): Initial random seed. Default: 42.
         device (str | device, optional): Hardware device. Default: cuda:0.
         verbose (bool, optional): If True, enables verbose mode. Default: False.
-        sanity_check (bool, optional): If True, enables sanity check mode (training on a reduced number of batches).
-            Default: False.
         logger_level (str, optional): If given, change logger level inside function. Default: None.
 
     Returns:
@@ -95,7 +92,6 @@ def training_loop(
             device=device,
             tqdm_position=1,
             epoch_idx=epoch,
-            max_batches=(5 if sanity_check else None),
             verbose=verbose,
         )
         # Apply scheduler

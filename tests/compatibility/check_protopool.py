@@ -8,7 +8,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 
 
-from compatibility_tester import CaBRNetCompatibilityTester, setup_rng
+from compatibility_tester import CaBRNetCompatibilityTester, setup_rng, SAMPLING_RATIO
 from cabrnet.archs.generic.model import CaBRNet
 from cabrnet.archs.protopool.model import ProtoPool
 from cabrnet.core.utils.parser import load_config
@@ -246,14 +246,13 @@ class TestProtoPoolCompatibility(CaBRNetCompatibilityTester):
         )
 
     def test_train(self):
-        max_batches = 5
         # CaBRNet
         setup_rng(self.seed)
         cabrnet_model = CaBRNet.build_from_config(self.model_config_file, seed=self.seed, compatibility_mode=True)
         training_config = load_config(self.training_config_file)
         cabrnet_model.register_training_params(training_config)
         optimizer_mngr = OptimizerManager.build_from_config(self.training_config_file, cabrnet_model)
-        dataloaders = DatasetManager.get_dataloaders(config=self.dataset_config_file)
+        dataloaders = DatasetManager.get_dataloaders(config=self.dataset_config_file, sampling_ratio=SAMPLING_RATIO)
         num_epochs = training_config["num_epochs"]
         for epoch in tqdm(range(num_epochs), desc="Training CaBRNet model", disable=not self.verbose):
             optimizer_mngr.freeze(epoch=epoch)
@@ -263,7 +262,6 @@ class TestProtoPoolCompatibility(CaBRNetCompatibilityTester):
                 optimizer_mngr=optimizer_mngr,
                 device=self.device,
                 tqdm_position=1,
-                max_batches=max_batches,
                 verbose=self.verbose,
             )
             optimizer_mngr.scheduler_step(epoch=epoch)
@@ -322,9 +320,6 @@ class TestProtoPoolCompatibility(CaBRNetCompatibilityTester):
                 loss.backward()
                 optimizer.step()
 
-                if i == max_batches:
-                    break
-
             if steps and lr_scheduler is not None:
                 lr_scheduler.step()
 
@@ -334,6 +329,7 @@ class TestProtoPoolCompatibility(CaBRNetCompatibilityTester):
         self.assertGenericEqual(
             last_layer_optimizer.state_dict(), optimizer_mngr.optimizers["last_layer_optimizer"].state_dict()
         )
+        self.assertIsNotNone(lr_scheduler)
         self.assertGenericEqual(lr_scheduler.state_dict(), optimizer_mngr.schedulers["joint_optimizer"].state_dict())
         self.assertModelEqual(legacy_model, cabrnet_model)
 
@@ -341,7 +337,7 @@ class TestProtoPoolCompatibility(CaBRNetCompatibilityTester):
         # CaBRNet
         setup_rng(self.seed)
         cabrnet_model = CaBRNet.build_from_config(self.model_config_file, seed=self.seed, compatibility_mode=True)
-        dataloaders = DatasetManager.get_dataloaders(config=self.dataset_config_file)
+        dataloaders = DatasetManager.get_dataloaders(config=self.dataset_config_file, sampling_ratio=SAMPLING_RATIO)
         cabrnet_model.project(
             dataloader=dataloaders["projection_set"],
             device=self.device,
@@ -365,7 +361,7 @@ class TestProtoPoolCompatibility(CaBRNetCompatibilityTester):
         cabrnet_model.load_state_dict(torch.load(self.legacy_state_dict, map_location="cpu"))
 
         # Get batch of images
-        dataloaders = DatasetManager.get_dataloaders(config=self.dataset_config_file)
+        dataloaders = DatasetManager.get_dataloaders(config=self.dataset_config_file, sampling_ratio=SAMPLING_RATIO)
         xs, ys = next(iter(dataloaders["train_set"]))
 
         # Compare outputs and loss values

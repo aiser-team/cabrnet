@@ -156,55 +156,30 @@ index 495984a..ee80405 100644
 -        del projection
  
      return global_min_info, tree
-diff --git a/prototree/train.py b/prototree/train.py
-index 995680b..3160286 100644
---- a/prototree/train.py
-+++ b/prototree/train.py
-@@ -17,6 +17,7 @@ def train_epoch(tree: ProtoTree,
-                 epoch: int,
-                 disable_derivative_free_leaf_optim: bool,
-                 device,
-+                max_batches: int | None = None,
-                 log: Log = None,
-                 log_prefix: str = 'log_train_epochs',
-                 progress_prefix: str = 'Train Epoch'
-@@ -102,6 +103,10 @@ def train_epoch(tree: ProtoTree,
-         if log is not None:
-             log.log_values(log_loss, epoch, i + 1, loss.item(), acc)
- 
-+        if max_batches is not None and i == max_batches:
-+            # Early abort when checking compatibility with CaBRNet
-+            break
-+
-     train_info['loss'] = total_loss/float(i+1)
-     train_info['train_accuracy'] = total_acc/float(i+1)
-     return train_info
-@@ -113,6 +118,7 @@ def train_epoch_kontschieder(tree: ProtoTree,
-                 epoch: int,
-                 disable_derivative_free_leaf_optim: bool,
-                 device,
-+                max_batches: int | None = None,
-                 log: Log = None,
-                 log_prefix: str = 'log_train_epochs',
-                 progress_prefix: str = 'Train Epoch'
-@@ -185,7 +191,11 @@ def train_epoch_kontschieder(tree: ProtoTree,
- 
-         if log is not None:
-             log.log_values(log_loss, epoch, i + 1, loss.item(), acc)
--        
-+
-+        if max_batches is not None and i == max_batches:
-+            # Early abort when checking compatibility with CaBRNet
-+            break
-+
-     train_info['loss'] = total_loss/float(i+1)
-     train_info['train_accuracy'] = total_acc/float(i+1)
-     return train_info
 diff --git a/util/data.py b/util/data.py
-index 21deaaf..27b8949 100644
+index 21deaaf..70f9cd8 100644
 --- a/util/data.py
 +++ b/util/data.py
-@@ -52,7 +52,7 @@ def get_dataloaders(args: argparse.Namespace):
+@@ -33,6 +33,18 @@ def get_dataloaders(args: argparse.Namespace):
+     """
+     # Obtain the dataset
+     trainset, projectset, testset, classes, shape  = get_data(args)
++
++    def get_subset(dataset, sampling_ratio: int):
++        if sampling_ratio > 1:
++            # Apply data sub-selection
++            selected_indices = [idx for idx in range(len(dataset))][::sampling_ratio]  # type: ignore
++            return torch.utils.data.Subset(dataset=dataset, indices=selected_indices)
++        return dataset
++
++    trainset = get_subset(trainset, args.sampling_ratio)
++    projectset = get_subset(projectset, args.sampling_ratio)
++    testset = get_subset(testset, args.sampling_ratio)
++
+     c, w, h = shape
+     # Determine if GPU should be used
+     cuda = not args.disable_cuda and torch.cuda.is_available()
+@@ -52,7 +64,7 @@ def get_dataloaders(args: argparse.Namespace):
                                               shuffle=False,
                                               pin_memory=cuda
                                               )

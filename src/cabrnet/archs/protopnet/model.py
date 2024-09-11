@@ -204,7 +204,6 @@ class ProtoPNet(CaBRNet):
         tqdm_title: str = "",
         epoch_idx: int = 0,
         verbose: bool = False,
-        max_batches: int | None = None,
     ) -> dict[str, float]:
         r"""Internal function: trains the model for exactly one epoch.
 
@@ -216,8 +215,6 @@ class ProtoPNet(CaBRNet):
             tqdm_title (str, optional): Progress bar title. Default: "".
             epoch_idx (int, optional): Epoch index. Default: 0.
             verbose (bool, optional): Display progress bar. Default: False.
-            max_batches (int, optional): Max number of batches (early stop for small compatibility tests).
-                Default: None.
 
         Returns:
             Dictionary containing learning statistics.
@@ -286,9 +283,6 @@ class ProtoPNet(CaBRNet):
             total_data_time += data_time
             ref_time = time.time()
 
-            if max_batches is not None and batch_idx == max_batches:
-                break
-
         # Clean gradients after last batch
         optimizer_mngr.zero_grad()
 
@@ -312,7 +306,6 @@ class ProtoPNet(CaBRNet):
         tqdm_position: int = 0,
         epoch_idx: int = 0,
         verbose: bool = False,
-        max_batches: int | None = None,
     ) -> dict[str, float]:
         r"""Trains a ProtoPNet model for one epoch, performing prototype projection and fine-tuning if necessary.
 
@@ -323,8 +316,6 @@ class ProtoPNet(CaBRNet):
             tqdm_position (int, optional): Position of the progress bar. Default: 0.
             epoch_idx (int, optional): Epoch index. Default: 0.
             verbose (bool, optional): Display progress bar. Default: False.
-            max_batches (int, optional): Max number of batches (early stop for small compatibility tests).
-                Default: None.
 
         Returns:
             Dictionary containing learning statistics.
@@ -338,7 +329,6 @@ class ProtoPNet(CaBRNet):
             tqdm_title=f"Training epoch {epoch_idx}",
             epoch_idx=epoch_idx,
             verbose=verbose,
-            max_batches=max_batches,
         )
         # Perform prototype projection if necessary
         if (
@@ -370,7 +360,6 @@ class ProtoPNet(CaBRNet):
                     tqdm_title=f"Fine-tuning epoch {ft_epoch_idx}",
                     epoch_idx=epoch_idx,
                     verbose=verbose,
-                    max_batches=max_batches,
                 )
 
         return train_info

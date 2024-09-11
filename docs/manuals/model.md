@@ -432,7 +432,6 @@ class ArchName(CaBRNet):
         tqdm_position: int = 0,
         epoch_idx: int = 0,
         verbose: bool = False,
-        max_batches: int | None = None,
     ) -> dict[str, float]:
         r"""Trains the model for one epoch.
 
@@ -443,8 +442,6 @@ class ArchName(CaBRNet):
             tqdm_position (int, optional): Position of the progress bar. Default: 0.
             epoch_idx (int, optional): Epoch index. Default: 0.
             verbose (bool, optional): Display progress bar. Default: False.
-            max_batches (int, optional): Max number of batches (early stop for small compatibility tests).
-                Default: None.
 
         Returns:
             Dictionary containing learning statistics.
@@ -488,10 +485,6 @@ class ArchName(CaBRNet):
                 for key, value in batch_stats.items():
                     train_info[key] += value * xs.size(0)
             nb_inputs += xs.size(0)
-
-            if max_batches is not None and batch_idx == max_batches:
-                # Early stop for small tests and sanity checks
-                break
 
         # Clean gradients after last batch
         optimizer_mngr.zero_grad()
