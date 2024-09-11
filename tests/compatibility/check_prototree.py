@@ -6,7 +6,7 @@ from argparse import Namespace
 import torch
 import torch.nn as nn
 
-from compatibility_tester import CaBRNetCompatibilityTester, DummyLogger, setup_rng
+from compatibility_tester import CaBRNetCompatibilityTester, DummyLogger, setup_rng, SAMPLING_RATIO
 from cabrnet.archs.generic.model import CaBRNet
 from cabrnet.core.utils.parser import load_config
 from cabrnet.core.utils.data import DatasetManager
@@ -55,6 +55,7 @@ def legacy_get_namespace(config_dict: dict[str, str]) -> Namespace:
             "W1": 1,
             "state_dict_dir_tree": "",
             "state_dict_dir_net": "",
+            "sampling_ratio": SAMPLING_RATIO,
         }
     )
 
@@ -164,7 +165,7 @@ class TestProtoTreeCompatibility(CaBRNetCompatibilityTester):
     def test_dataloaders(self):
         # CaBRNet
         setup_rng(self.seed)
-        dataloaders = DatasetManager.get_dataloaders(config=self.dataset_config_file)
+        dataloaders = DatasetManager.get_dataloaders(config=self.dataset_config_file, sampling_ratio=SAMPLING_RATIO)
         xc_train, yc_train = next(iter(dataloaders["train_set"]))
         xc_test, yc_test = next(iter(dataloaders["test_set"]))
         xc_proj, yc_proj = next(iter(dataloaders["projection_set"]))
@@ -219,7 +220,7 @@ class TestProtoTreeCompatibility(CaBRNetCompatibilityTester):
         # CaBRNet
         setup_rng(self.seed)
         cabrnet_model = CaBRNet.build_from_config(self.model_config_file, seed=self.seed, compatibility_mode=True)
-        dataloaders = DatasetManager.get_dataloaders(config=self.dataset_config_file)
+        dataloaders = DatasetManager.get_dataloaders(config=self.dataset_config_file, sampling_ratio=SAMPLING_RATIO)
         optimizer_mngr = OptimizerManager.build_from_config(self.training_config_file, cabrnet_model)
         trainer = load_config(self.training_config_file)
         num_epochs = trainer["num_epochs"]
@@ -230,7 +231,6 @@ class TestProtoTreeCompatibility(CaBRNetCompatibilityTester):
                 optimizer_mngr=optimizer_mngr,
                 epoch_idx=epoch,
                 device=self.device,
-                max_batches=5,
                 verbose=True,
             )
             optimizer_mngr.scheduler_step(epoch=epoch)
@@ -262,7 +262,6 @@ class TestProtoTreeCompatibility(CaBRNetCompatibilityTester):
                 epoch=epoch,
                 disable_derivative_free_leaf_optim=False,
                 device=self.device,
-                max_batches=5,
             )
             legacy_scheduler.step()
 
@@ -305,7 +304,7 @@ class TestProtoTreeCompatibility(CaBRNetCompatibilityTester):
         setup_rng(self.seed)
         legacy_model = legacy_get_model(args=self.legacy_params, seed=self.seed)
         legacy_model.load_state_dict(torch.load(self.legacy_state_dict, map_location="cpu"))
-        legacy_prune.prune(tree=legacy_model, pruning_threshold_leaves=0.01, log=DummyLogger())
+        legacy_prune.prune(tree=legacy_model, pruning_threshold_leaves=0.01, log=DummyLogger())  # type: ignore
 
         self.assertModelEqual(cabrnet_model, legacy_model)
 
@@ -313,7 +312,7 @@ class TestProtoTreeCompatibility(CaBRNetCompatibilityTester):
         # CaBRNet
         setup_rng(self.seed)
         cabrnet_model = CaBRNet.build_from_config(self.model_config_file, seed=self.seed, compatibility_mode=True)
-        dataloaders = DatasetManager.get_dataloaders(config=self.dataset_config_file)
+        dataloaders = DatasetManager.get_dataloaders(config=self.dataset_config_file, sampling_ratio=30)
         cabrnet_model.load_state_dict(torch.load(self.legacy_state_dict, map_location="cpu"))
         cabrnet_model.prune(pruning_threshold=0.01)
         cabrnet_projection_info = cabrnet_model.project(
@@ -325,7 +324,10 @@ class TestProtoTreeCompatibility(CaBRNetCompatibilityTester):
         # Legacy
         setup_rng(self.seed)
         legacy_model = legacy_get_model(args=self.legacy_params, seed=self.seed)
+        # Edit sampling ratio dynamically
+        self.legacy_params.sampling_ratio = 30
         _, project_loader, _, _, _ = legacy_data.get_dataloaders(args=self.legacy_params)
+        self.legacy_params.sampling_ratio = SAMPLING_RATIO
         legacy_model.load_state_dict(torch.load(self.legacy_state_dict, map_location="cpu"))
         legacy_prune.prune(tree=legacy_model, pruning_threshold_leaves=0.01, log=DummyLogger())
         legacy_projection_info, _ = legacy_project.project_with_class_constraints(

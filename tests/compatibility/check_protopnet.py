@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 
-from compatibility_tester import CaBRNetCompatibilityTester, DummyLogger, setup_rng
+from compatibility_tester import CaBRNetCompatibilityTester, DummyLogger, setup_rng, get_subset, SAMPLING_RATIO
 from cabrnet.archs.generic.model import CaBRNet
 from cabrnet.core.utils.parser import load_config
 from cabrnet.core.utils.data import DatasetManager
@@ -36,7 +36,7 @@ def legacy_get_model(seed: int) -> nn.Module:
     )
 
 
-def legacy_get_dataloaders(dataset_config: str) -> tuple[DataLoader, DataLoader, DataLoader]:
+def legacy_get_dataloaders(dataset_config: str, sampling_ratio: int) -> tuple[DataLoader, DataLoader, DataLoader]:
     dataset_info = load_config(dataset_config)
     train_dir = dataset_info["train_set"]["params"]["root"]
     train_push_dir = dataset_info["projection_set"]["params"]["root"]
@@ -56,10 +56,12 @@ def legacy_get_dataloaders(dataset_config: str) -> tuple[DataLoader, DataLoader,
         ]
     )
     train_dataset = datasets.ImageFolder(train_dir, legacy_transforms)
+    train_dataset = get_subset(train_dataset, sampling_ratio)
     # Reduce all batch sizes
     batch_size = 16
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=False)
     train_push_dataset = datasets.ImageFolder(train_push_dir, legacy_transforms_no_normalization)
+    train_push_dataset = get_subset(train_push_dataset, sampling_ratio)
     train_push_loader = DataLoader(
         train_push_dataset,
         batch_size=batch_size,
@@ -68,6 +70,7 @@ def legacy_get_dataloaders(dataset_config: str) -> tuple[DataLoader, DataLoader,
         pin_memory=False,
     )
     test_dataset = datasets.ImageFolder(test_dir, legacy_transforms)
+    test_dataset = get_subset(test_dataset, sampling_ratio)
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=4, pin_memory=False)
     return train_loader, test_loader, train_push_loader
 
@@ -128,13 +131,13 @@ class TestProtoPNetCompatibility(CaBRNetCompatibilityTester):
     def test_dataloaders(self):
         # CaBRNet
         setup_rng(self.seed)
-        dataloaders = DatasetManager.get_dataloaders(config=self.dataset_config_file)
+        dataloaders = DatasetManager.get_dataloaders(config=self.dataset_config_file, sampling_ratio=SAMPLING_RATIO)
         xc_train, yc_train = next(iter(dataloaders["train_set"]))
         xc_test, yc_test = next(iter(dataloaders["test_set"]))
 
         # Legacy
         setup_rng(self.seed)
-        train_loader, test_loader, _ = legacy_get_dataloaders(self.dataset_config_file)
+        train_loader, test_loader, _ = legacy_get_dataloaders(self.dataset_config_file, sampling_ratio=SAMPLING_RATIO)
         xl_train, yl_train = next(iter(train_loader))
         xl_test, yl_test = next(iter(test_loader))
 
@@ -166,14 +169,13 @@ class TestProtoPNetCompatibility(CaBRNetCompatibilityTester):
         )
 
     def test_train(self):
-        max_batches = 5
         # CaBRNet
         setup_rng(self.seed)
         cabrnet_model = CaBRNet.build_from_config(self.model_config_file, seed=self.seed, compatibility_mode=True)
         training_config = load_config(self.training_config_file)
         cabrnet_model.register_training_params(training_config)
         optimizer_mngr = OptimizerManager.build_from_config(self.training_config_file, cabrnet_model)
-        dataloaders = DatasetManager.get_dataloaders(config=self.dataset_config_file)
+        dataloaders = DatasetManager.get_dataloaders(config=self.dataset_config_file, sampling_ratio=SAMPLING_RATIO)
         num_epochs = training_config["num_epochs"]
         for epoch in tqdm(range(num_epochs), desc="Training CaBRNet model", disable=not self.verbose):
             optimizer_mngr.freeze(epoch=epoch)
@@ -183,7 +185,6 @@ class TestProtoPNetCompatibility(CaBRNetCompatibilityTester):
                 optimizer_mngr=optimizer_mngr,
                 device=self.device,
                 tqdm_position=1,
-                max_batches=max_batches,
                 verbose=self.verbose,
             )
             optimizer_mngr.scheduler_step(epoch=epoch)
@@ -192,7 +193,9 @@ class TestProtoPNetCompatibility(CaBRNetCompatibilityTester):
         setup_rng(self.seed)
         legacy_model = legacy_get_model(self.seed)
         warm_optimizer, joint_optimizer, last_layer_optimizer, joint_lr_scheduler = legacy_get_optimizers(legacy_model)
-        train_loader, _, train_push_loader = legacy_get_dataloaders(self.dataset_config_file)
+        train_loader, _, train_push_loader = legacy_get_dataloaders(
+            self.dataset_config_file, sampling_ratio=SAMPLING_RATIO
+        )
         legacy_model_multi = nn.DataParallel(legacy_model)
         push_start = cabrnet_model.projection_config["start_epoch"]
         push_frequency = cabrnet_model.projection_config["frequency"]
@@ -206,7 +209,6 @@ class TestProtoPNetCompatibility(CaBRNetCompatibilityTester):
                     optimizer=warm_optimizer,
                     class_specific=True,
                     coefs=legacy_settings.coefs,
-                    max_batches=max_batches,
                     log=DummyLogger(),
                 )
             else:
@@ -218,7 +220,6 @@ class TestProtoPNetCompatibility(CaBRNetCompatibilityTester):
                     class_specific=True,
                     coefs=legacy_settings.coefs,
                     log=DummyLogger(),
-                    max_batches=max_batches,
                 )
                 joint_lr_scheduler.step()
                 if epoch in push_epochs:
@@ -245,7 +246,6 @@ class TestProtoPNetCompatibility(CaBRNetCompatibilityTester):
                             class_specific=True,
                             coefs=legacy_settings.coefs,
                             log=DummyLogger(),
-                            max_batches=max_batches,
                         )
 
         # Compare
@@ -276,7 +276,7 @@ class TestProtoPNetCompatibility(CaBRNetCompatibilityTester):
         # CaBRNet
         setup_rng(self.seed)
         cabrnet_model = CaBRNet.build_from_config(self.model_config_file, seed=self.seed, compatibility_mode=True)
-        dataloaders = DatasetManager.get_dataloaders(config=self.dataset_config_file)
+        dataloaders = DatasetManager.get_dataloaders(config=self.dataset_config_file, sampling_ratio=SAMPLING_RATIO)
         cabrnet_model.project(
             dataloader=dataloaders["projection_set"],
             device=self.device,
@@ -286,7 +286,7 @@ class TestProtoPNetCompatibility(CaBRNetCompatibilityTester):
         # Legacy
         setup_rng(self.seed)
         legacy_model = legacy_get_model(seed=self.seed)
-        _, _, push_loader = legacy_get_dataloaders(self.dataset_config_file)
+        _, _, push_loader = legacy_get_dataloaders(self.dataset_config_file, sampling_ratio=SAMPLING_RATIO)
         legacy_model_multi = nn.DataParallel(legacy_model)
         legacy_push.push_prototypes(
             dataloader=push_loader,
@@ -313,7 +313,7 @@ class TestProtoPNetCompatibility(CaBRNetCompatibilityTester):
         cabrnet_model.load_state_dict(torch.load(self.legacy_state_dict, map_location="cpu"))
 
         # Get batch of images
-        dataloaders = DatasetManager.get_dataloaders(config=self.dataset_config_file)
+        dataloaders = DatasetManager.get_dataloaders(config=self.dataset_config_file, sampling_ratio=SAMPLING_RATIO)
         xs, ys = next(iter(dataloaders["train_set"]))
 
         # Compare outputs and loss values
@@ -333,7 +333,7 @@ class TestProtoPNetCompatibility(CaBRNetCompatibilityTester):
         setup_rng(self.seed)
         cabrnet_model = CaBRNet.build_from_config(self.model_config_file, seed=self.seed, compatibility_mode=True)
         cabrnet_model.load_state_dict(torch.load(self.legacy_state_dict, map_location=self.device))
-        dataloaders = DatasetManager.get_dataloaders(config=self.dataset_config_file)
+        dataloaders = DatasetManager.get_dataloaders(config=self.dataset_config_file, sampling_ratio=10)
         training_config = load_config(self.training_config_file)
         cabrnet_model.prune(
             dataloader=dataloaders["projection_set"],
@@ -347,7 +347,7 @@ class TestProtoPNetCompatibility(CaBRNetCompatibilityTester):
         legacy_model = legacy_get_model(seed=self.seed)
         legacy_model.load_state_dict(torch.load(self.legacy_state_dict, map_location=self.device))
         legacy_model_multi = nn.DataParallel(legacy_model)
-        _, _, push_loader = legacy_get_dataloaders(self.dataset_config_file)
+        _, _, push_loader = legacy_get_dataloaders(self.dataset_config_file, sampling_ratio=10)
         legacy_prune.prune_prototypes(
             dataloader=push_loader,
             prototype_network_parallel=legacy_model_multi,

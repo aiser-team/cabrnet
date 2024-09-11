@@ -9,6 +9,10 @@ from typing import Any
 from cabrnet.archs.generic.model import CaBRNet
 from cabrnet.core.utils.data import DatasetManager
 from cabrnet.core.utils.optimizers import OptimizerManager
+from torch.utils.data import Dataset, Subset
+
+# Global sampling ratio used to speed up verification
+SAMPLING_RATIO = 6000
 
 
 class DummyLogger:
@@ -28,6 +32,14 @@ def setup_rng(seed: int):
     torch.manual_seed(seed)
     np.random.seed(seed)
     random.seed(seed)
+
+
+def get_subset(dataset: Dataset, sampling_ratio: int) -> Dataset | Subset:
+    if sampling_ratio > 1:
+        # Apply data sub-selection
+        selected_indices = [idx for idx in range(len(dataset))][::sampling_ratio]  # type: ignore
+        return Subset(dataset=dataset, indices=selected_indices)
+    return dataset
 
 
 class CaBRNetCompatibilityTester(unittest.TestCase):

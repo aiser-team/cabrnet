@@ -167,10 +167,10 @@ index f3eb146..4c36e47 100644
  # push each prototype to the nearest patch in the training set
  def push_prototypes(dataloader, # pytorch dataloader (must be unnormalized in [0,1])
 diff --git a/train_and_test.py b/train_and_test.py
-index cb8c1c8..669223e 100644
+index cb8c1c8..0e42254 100644
 --- a/train_and_test.py
 +++ b/train_and_test.py
-@@ -1,9 +1,10 @@
+@@ -1,7 +1,7 @@
  import time
  import torch
  
@@ -178,34 +178,4 @@ index cb8c1c8..669223e 100644
 +from .helpers import list_of_distances, make_one_hot
  
  def _train_or_test(model, dataloader, optimizer=None, class_specific=True, use_l1_mask=True,
-+                   max_batches: int | None = None,  # Enable early abort for retrocompatibility tests
                     coefs=None, log=print):
-     '''
-     model: the multi-gpu model
-@@ -106,6 +107,10 @@ def _train_or_test(model, dataloader, optimizer=None, class_specific=True, use_l
-         del predicted
-         del min_distances
- 
-+        if max_batches is not None and i == max_batches:
-+           # Early abort when checking compatibility with CaBRNet
-+           break
-+
-     end = time.time()
- 
-     log('\ttime: \t{0}'.format(end -  start))
-@@ -124,13 +129,13 @@ def _train_or_test(model, dataloader, optimizer=None, class_specific=True, use_l
-     return n_correct / n_examples
- 
- 
--def train(model, dataloader, optimizer, class_specific=False, coefs=None, log=print):
-+def train(model, dataloader, optimizer, class_specific=False, coefs=None, max_batches=None, log=print):
-     assert(optimizer is not None)
-     
-     log('\ttrain')
-     model.train()
-     return _train_or_test(model=model, dataloader=dataloader, optimizer=optimizer,
--                          class_specific=class_specific, coefs=coefs, log=log)
-+                          class_specific=class_specific, max_batches=max_batches, coefs=coefs, log=log)
- 
- 
- def test(model, dataloader, class_specific=False, log=print):

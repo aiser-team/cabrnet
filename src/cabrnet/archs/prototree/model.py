@@ -195,7 +195,6 @@ class ProtoTree(CaBRNet):
         tqdm_position: int = 0,
         epoch_idx: int = 0,
         verbose: bool = False,
-        max_batches: int | None = None,
     ) -> dict[str, float]:
         r"""Trains the model for one epoch.
 
@@ -206,8 +205,6 @@ class ProtoTree(CaBRNet):
             tqdm_position (int, optional): Position of the progress bar. Default: 0.
             epoch_idx (int, optional): Epoch index. Default: 0.
             verbose (bool, optional): Display progress bar. Default: False.
-            max_batches (int, optional): Max number of batches (early stop for small compatibility tests).
-                Default: None.
 
         Returns:
             Dictionary containing learning statistics.
@@ -296,9 +293,6 @@ class ProtoTree(CaBRNet):
             total_batch_time += batch_time
             total_data_time += data_time
             ref_time = time.time()
-
-            if max_batches is not None and batch_idx == max_batches:
-                break
 
         # Clean gradients after last batch
         optimizer_mngr.zero_grad()
