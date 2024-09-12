@@ -26,7 +26,7 @@ file_list = [
         "description": "ProtoPNet models trained using CaBRNet on CUB200 "
         "(with ResNet50 backbone pretrained on INaturalist)",
         "type": "zenodo",
-        "record": "12610876",
+        "record": "13604245",
         "dir": "trained_models",
         "file": "cabrnet_protopnet_cub200_resnet50.zip",
     },
@@ -44,7 +44,7 @@ file_list = [
         "description": "ProtoPNet models trained using CaBRNet on Stanford Cars "
         "(with ResNet50 backbone pretrained on ImageNet)",
         "type": "zenodo",
-        "record": "12610808",
+        "record": "13611658",
         "dir": "trained_models",
         "file": "cabrnet_protopnet_stanfordcars_resnet50.zip",
     },
@@ -53,7 +53,7 @@ file_list = [
         "description": "ProtoTree models trained using CaBRNet on Stanford Cars "
         "(with ResNet50 backbone pretrained on ImageNet)",
         "type": "zenodo",
-        "record": "12610556",
+        "record": "13611890",
         "dir": "trained_models",
         "file": "cabrnet_prototree_stanfordcars_resnet50_depth9.zip",
     },
@@ -62,7 +62,7 @@ file_list = [
         "description": "ProtoTree models trained using CaBRNet on CUB200 "
         "(with ResNet50 backbone pretrained on INaturalist and depth 9)",
         "type": "zenodo",
-        "record": "13305449",
+        "record": "13593120",
         "dir": "trained_models",
         "file": "prototree_cub200_resnet50_depth9.zip",
     },
@@ -71,7 +71,7 @@ file_list = [
         "description": "ProtoTree models trained using CaBRNet on CUB200 "
         "(with ResNet50 backbone pretrained on INaturalist and depth 10)",
         "type": "zenodo",
-        "record": "13305449",
+        "record": "13593120",
         "dir": "trained_models",
         "file": "prototree_cub200_resnet50_depth10.zip",
     },
