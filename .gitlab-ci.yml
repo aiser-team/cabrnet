@@ -9,6 +9,7 @@ default:
   tags: [ pub-nix ]
 
 stages:
+  - prepare # setting up some env variables
   - build # in charge of running the proper setup tool to build the archive
   - formatting # in charge of ensuring the correct style of docstrings and code
   - typing # in charge of typechecking using mypy
@@ -17,10 +18,20 @@ stages:
 #  - install # in charge of checking that the soft can be released proper
 #  - mirror # in charge of replicating the state of this repo on others
 
+env:
+  stage: prepare
+  script:
+    - export NIXPKGS_ALLOW_UNFREE=1
+    - echo "NIXPKGS_ALLOW_UNFREE=$NIXPKGS_ALLOW_UNFREE" >> build.env
+    - cat build.env
+  artifacts:
+    reports:
+      dotenv: build.env
+
 build:
   stage : build
   script:
-    - nix --extra-experimental-features "nix-command flakes" build -L
+    - nix --extra-experimental-features "nix-command flakes" build --impure -L
 
 code:
   stage : formatting
@@ -28,25 +39,25 @@ code:
   script:
     # only focusing on x86_64 linux systems as of now it is not possible to run
     # checks on multiple systems
-    - nix --extra-experimental-features "nix-command flakes" build -L .#checks.x86_64-linux.formattingCode
+    - nix --extra-experimental-features "nix-command flakes" build --impure -L .#checks.x86_64-linux.formattingCode
 
 docstrings:
   stage : formatting
   allow_failure: true
   script:
-    - nix --extra-experimental-features "nix-command flakes" build -L .#checks.x86_64-linux.formattingDocstring
+    - nix --extra-experimental-features "nix-command flakes" build --impure -L .#checks.x86_64-linux.formattingDocstring
 
 typing:
   stage : typing
   allow_failure: true
   script:
-    - nix --extra-experimental-features "nix-command flakes" build -L .#checks.x86_64-linux.typing
+    - nix --extra-experimental-features "nix-command flakes" build --impure -L .#checks.x86_64-linux.typing
 
 user_manual:
   stage : doc
   allow_failure: true
   script:
-    - nix --extra-experimental-features "nix-command flakes" build -L .#cabrnet-doc
+    - nix --extra-experimental-features "nix-command flakes" build --impure -L .#cabrnet-doc
   artifacts:
    paths:
      - result/docs/manuals/user_manual.pdf
@@ -55,4 +66,4 @@ loading_modules:
   stage: tests
   allow_failure: true
   script:
-    - nix --extra-experimental-features "nix-command flakes" build -L .#checks.x86_64-linux.testLoadingModules
+    - nix --extra-experimental-features "nix-command flakes" build --impure -L .#checks.x86_64-linux.testLoadingModules
