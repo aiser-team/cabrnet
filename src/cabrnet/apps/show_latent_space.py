@@ -56,8 +56,10 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     )
     parser.add_argument(
         "--closest",
-        action="store_true",
-        help="for each image, only plot the feature vectors closest to the prototypes",
+        type=float,
+        metavar="threshold",
+        default=-float("inf"),
+        help="only plot feature vectors that have a similarity with at least one prototype higher than a threshold",
     )
     return parser
 
@@ -100,7 +102,7 @@ def draw_latent(
     dataloader: DataLoader,
     output_file: str,
     algorithm: str,
-    closest_features_only: bool,
+    similarity_threshold: float,
     device: str = "cuda:0",
     seed: int = 42,
     verbose: bool = False,
@@ -113,7 +115,7 @@ def draw_latent(
         dataloader (DataLoader): Dataloader containing the dataset.
         output_file (str): Path to the output file.
         algorithm (str): Dimensionality reduction algorithm. Options: tSNE, PaCMAP or PCA.
-        closest_features_only (bool): If True, only consider the closest feature vectors to each prototype.
+        similarity_threshold (float): Only consider vectors with a similarity greater than this threshold.
         device (str, optional): Hardware device. Default: "cuda:0".
         seed (int, optional): Random seed. Default: 42.
         verbose (bool, optional): If True, enables verbose mode. Default: False.
@@ -140,29 +142,15 @@ def draw_latent(
             xs, ys = xs.to(device), ys.to(device)
             feats = model.extractor(xs)  # (N, D, H, W)
             N, D, H, W = feats.shape
+            max_similarities = torch.max(model.classifier.similarities(feats), dim=1).values.view(N, -1)  # (N, HxW)
+            feats = torch.transpose(feats.view((N, D, -1)), 1, 2)  # (N, HxW, D)
+            batch_labels = ys.unsqueeze(-1).tile(1, H * W)  # Copy/paste labels to shape (N, HxW)
+            # Select feature vectors and labels with max similarity greater than threshold
+            features.append(feats[max_similarities > similarity_threshold].cpu().numpy())
+            labels.append(batch_labels[max_similarities > similarity_threshold].cpu().numpy())
 
-            if closest_features_only:
-                distances = model.classifier.distances(feats)  # (N, P, H, W)
-                min_dists_index = (
-                    torch.min(distances.view((N, model.num_prototypes, -1)), dim=-1).indices.cpu().numpy()
-                )  # Shape (N, P)
-                feats = feats.view((N, D, -1)).cpu().numpy()  # Shape (N, D, HxW)
-                for iidx in range(N):
-                    for fidx in set(min_dists_index[iidx]):  # Remove duplicates
-                        features.append(feats[iidx, :, fidx])
-                        labels.append(ys[iidx].item())
-            else:
-                feats = torch.transpose(feats, 1, 3)  # (N, W, H, D)
-                feats = feats.reshape((-1, D)).cpu().numpy()
-                features.append(feats)
-                ys = ys.reshape(ys.shape + (1,)).repeat(1, H * W).reshape((ys.shape[0] * H * W,))
-                labels.append(ys.cpu().numpy())
-    if not closest_features_only:
-        features = np.concatenate(features, axis=0)
-        labels = np.concatenate(labels, axis=0)
-    else:
-        features = np.array(features)
-        labels = np.array(labels)
+    features = np.concatenate(features, axis=0)
+    labels = np.concatenate(labels, axis=0)
 
     # Get the features of the prototypes
     proto_features = model.classifier.prototypes.view(model.num_prototypes, -1).detach().cpu().numpy()
@@ -195,11 +183,11 @@ def draw_latent(
             feature_embeddings[labels == label, 0],
             feature_embeddings[labels == label, 1],
             c=labels[labels == label],
-            cmap="viridis",
+            cmap="jet",
             norm=norm,
             label=f"Label {label}",
         )
-    plt.scatter(proto_embeddings[:, 0], proto_embeddings[:, 1], marker="^", c="red", label="Prototypes")
+    plt.scatter(proto_embeddings[:, 0], proto_embeddings[:, 1], marker="^", c="black", label="Prototypes")
     plt.title("Latent space")
     plt.legend()
     plt.savefig(output_file)
@@ -227,7 +215,7 @@ def execute(args: Namespace) -> None:
         dataloader=dataloaders["train_set"],
         output_file=output_file,
         algorithm=args.algorithm,
-        closest_features_only=args.closest,
+        similarity_threshold=args.closest,
         device=args.device,
         seed=args.seed,
         verbose=args.verbose,
