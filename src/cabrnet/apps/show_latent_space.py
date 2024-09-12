@@ -54,6 +54,11 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         metavar="algorithm",
         help="algorithm to use for dimensionality reduction method. Choices are tSNE, PaCMAP and PCA",
     )
+    parser.add_argument(
+        "--closest",
+        action="store_true",
+        help="for each image, only plot the feature vectors closest to the prototypes",
+    )
     return parser
 
 
@@ -95,6 +100,7 @@ def draw_latent(
     dataloader: DataLoader,
     output_file: str,
     algorithm: str,
+    closest_features_only: bool,
     device: str = "cuda:0",
     seed: int = 42,
     verbose: bool = False,
@@ -107,6 +113,7 @@ def draw_latent(
         dataloader (DataLoader): Dataloader containing the dataset.
         output_file (str): Path to the output file.
         algorithm (str): Dimensionality reduction algorithm. Options: tSNE, PaCMAP or PCA.
+        closest_features_only (bool): If True, only consider the closest feature vectors to each prototype.
         device (str, optional): Hardware device. Default: "cuda:0".
         seed (int, optional): Random seed. Default: 42.
         verbose (bool, optional): If True, enables verbose mode. Default: False.
@@ -132,15 +139,30 @@ def draw_latent(
         for xs, ys in data_iter:
             xs, ys = xs.to(device), ys.to(device)
             feats = model.extractor(xs)  # (N, D, H, W)
-            feats = torch.transpose(feats, 1, 3)  # (N, W, H, D)
-            N, W, H, D = feats.shape
-            feats = feats.reshape((N * W * H, D)).cpu().numpy()
-            features.append(feats)
-            # features.append(feats.view(feats.size(0), -1).cpu().numpy())
-            ys = ys.reshape(ys.shape + (1,)).repeat(1, H * W).reshape((ys.shape[0] * H * W,))
-            labels.append(ys.cpu().numpy())
-    features = np.concatenate(features, axis=0)
-    labels = np.concatenate(labels, axis=0)
+            N, D, H, W = feats.shape
+
+            if closest_features_only:
+                distances = model.classifier.distances(feats)  # (N, P, H, W)
+                min_dists_index = (
+                    torch.min(distances.view((N, model.num_prototypes, -1)), dim=-1).indices.cpu().numpy()
+                )  # Shape (N, P)
+                feats = feats.view((N, D, -1)).cpu().numpy()  # Shape (N, D, HxW)
+                for iidx in range(N):
+                    for fidx in set(min_dists_index[iidx]):  # Remove duplicates
+                        features.append(feats[iidx, :, fidx])
+                        labels.append(ys[iidx].item())
+            else:
+                feats = torch.transpose(feats, 1, 3)  # (N, W, H, D)
+                feats = feats.reshape((-1, D)).cpu().numpy()
+                features.append(feats)
+                ys = ys.reshape(ys.shape + (1,)).repeat(1, H * W).reshape((ys.shape[0] * H * W,))
+                labels.append(ys.cpu().numpy())
+    if not closest_features_only:
+        features = np.concatenate(features, axis=0)
+        labels = np.concatenate(labels, axis=0)
+    else:
+        features = np.array(features)
+        labels = np.array(labels)
 
     # Get the features of the prototypes
     proto_features = model.classifier.prototypes.view(model.num_prototypes, -1).detach().cpu().numpy()
@@ -165,7 +187,7 @@ def draw_latent(
     proto_embeddings = embeddings[len(features) :]  # type: ignore
 
     # Plot the latent space with features and prototypes
-    plt.figure(figsize=(10, 10))
+    plt.figure(figsize=(50, 50))
     unique_labels = np.unique(labels)
     norm = Normalize(vmin=labels.min(), vmax=labels.max())
     for label in unique_labels:
@@ -205,6 +227,7 @@ def execute(args: Namespace) -> None:
         dataloader=dataloaders["train_set"],
         output_file=output_file,
         algorithm=args.algorithm,
+        closest_features_only=args.closest,
         device=args.device,
         seed=args.seed,
         verbose=args.verbose,
