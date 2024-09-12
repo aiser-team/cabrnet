@@ -31,12 +31,20 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     parser = CaBRNet.create_parser(parser)
     parser = DatasetManager.create_parser(parser)
     parser.add_argument(
+        "-c",
+        "--checkpoint-dir",
+        type=str,
+        required=False,
+        metavar="/path/to/checkpoint/dir",
+        help="path to a checkpoint directory (alternative to --model-arch, --model-state-dict, --dataset)",
+    )
+    parser.add_argument(
         "-o",
         "--output-file",
         type=str,
         required=True,
         metavar="path/to/file",
-        help="file where the image will be saved",
+        help="path to output file",
     )
     parser.add_argument(
         "-a",
@@ -49,7 +57,37 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     return parser
 
 
-DEFAULT_METHOD = "tsne"
+def check_args(args: Namespace) -> Namespace:
+    r"""Checks the validity of the arguments and updates the namespace if necessary.
+
+    Args:
+        args (Namespace): Parsed arguments.
+
+    Returns:
+        Modified argument namespace.
+    """
+    if args.checkpoint_dir is not None:
+        # Fetch all files from directory
+        for param, name in zip(
+            [args.model_arch, args.model_state_dict, args.dataset],
+            ["--model-arch", "--model-state-dict", "--dataset"],
+        ):
+            if param is not None:
+                raise ArgumentError(f"Cannot specify both options {name} and --checkpoint-dir")
+        args.model_arch = os.path.join(args.checkpoint_dir, CaBRNet.DEFAULT_MODEL_CONFIG)
+        args.model_state_dict = os.path.join(args.checkpoint_dir, CaBRNet.DEFAULT_MODEL_STATE)
+        args.dataset = os.path.join(args.checkpoint_dir, DatasetManager.DEFAULT_DATASET_CONFIG)
+
+    # Check configuration completeness
+    for param, name, option in zip(
+        [args.model_arch, args.model_state_dict, args.dataset],
+        ["model configuration", "state dictionary", "dataset configuration"],
+        ["-m", "-s", "-d"],
+    ):
+        if param is None:
+            raise ArgumentError(f"Missing {name} file (option {option}).")
+
+    return args
 
 
 def draw_latent(
@@ -153,8 +191,8 @@ def execute(args: Namespace) -> None:
         args (Namespace): Parsed arguments.
 
     """
-    device = args.device
-    method = str.lower(args.type)
+    # Check and post-process options
+    args = check_args(args)
 
     # Build model and load state dictionary
     model = CaBRNet.build_from_config(config=args.model_arch, state_dict_path=args.model_state_dict)
