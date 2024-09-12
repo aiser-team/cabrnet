@@ -1,6 +1,6 @@
 import torch
 import numpy as np
-import pacmap
+from pacmap import PaCMAP, PCA
 from argparse import ArgumentParser, Namespace
 from cabrnet.archs.generic.model import CaBRNet
 from cabrnet.core.utils.data import DatasetManager
@@ -9,8 +9,9 @@ from matplotlib import pyplot as plt
 from matplotlib.colors import Normalize
 from torch.utils.data import DataLoader
 from sklearn.manifold import TSNE
-from cabrnet.utils.exceptions import ArgumentError
-
+from cabrnet.core.utils.exceptions import ArgumentError
+from tqdm import tqdm
+import os
 
 description = "visualizes the latent space"
 
@@ -38,12 +39,12 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         help="file where the image will be saved",
     )
     parser.add_argument(
-        "-t",
-        "--type",
+        "-a",
+        "--algorithm",
         type=str,
-        required=False,
-        metavar="tsne|pacmap",
-        help="Dimensionality reduction method (default is 'tsne')",
+        choices=["tSNE", "PaCMAP", "PCA"],
+        metavar="algorithm",
+        help="algorithm to use for dimensionality reduction method. Choices are tSNE, PaCMAP and PCA",
     )
     return parser
 
@@ -52,23 +53,28 @@ DEFAULT_METHOD = "tsne"
 
 
 def draw_latent(
-    model: CaBRNet, dataloader: DataLoader, output_file: str, method: str = DEFAULT_METHOD, device: str = "cuda:0"
+    model: CaBRNet,
+    dataloader: DataLoader,
+    output_file: str,
+    algorithm: str,
+    device: str = "cuda:0",
+    seed: int = 42,
+    verbose: bool = False,
 ):
-    """
-    Plots the latent space of the dataset and prototypes in a 2D plot using t-SNE or PaCMAP for dimensionality reduction.
+    r"""Plots the latent space of the dataset and prototypes in a 2D plot
+    using t-SNE, PaCMAP or PCA for dimensionality reduction.
 
     Args:
-        model (CaBRNet): The CaBRNet model.
+        model (CaBRNet): Target CaBRNet model.
         dataloader (DataLoader): Dataloader containing the dataset.
-        method (str): Dimensionality reduction method. Options: "tsne" (default), "pacmap".
-        device (str): Target device. Default: "cuda:0".
         output_file (str): Path to the output file.
-
-    Returns:
-        None
+        algorithm (str): Dimensionality reduction algorithm. Options: tSNE, PaCMAP or PCA.
+        device (str, optional): Hardware device. Default: "cuda:0".
+        seed (int, optional): Random seed. Default: 42.
+        verbose (bool, optional): If True, enables verbose mode. Default: False.
 
     Raises:
-        ValueError: If an invalid dimensionality reduction method is provided.
+        ValueError: If an invalid dimensionality reduction algorithm is provided.
     """
     logger.info("Plotting latent space")
     model.eval()
@@ -78,7 +84,14 @@ def draw_latent(
     features = []  # (N*H*W, D)
     labels = []
     with torch.no_grad():
-        for xs, ys in dataloader:
+        data_iter = tqdm(
+            dataloader,
+            desc="Feature extraction",
+            total=len(dataloader),
+            leave=False,
+            disable=not verbose,
+        )
+        for xs, ys in data_iter:
             xs, ys = xs.to(device), ys.to(device)
             feats = model.extractor(xs)  # (N, D, H, W)
             feats = torch.transpose(feats, 1, 3)  # (N, W, H, D)
@@ -98,20 +111,20 @@ def draw_latent(
     combined_data = np.vstack((features, proto_features))
 
     # Perform dimensionality reduction on the combined dataset
-    if method is None:
-        logger.warning(f"Using default method: {DEFAULT_METHOD}")
-        method = DEFAULT_METHOD
-    if method == "tsne":
-        projection_method = TSNE(n_components=2, random_state=0)
-    elif method == "pacmap":
-        projection_method = pacmap.PaCMAP(n_components=2, MN_ratio=0.5, FP_ratio=2.0)
-    else:
-        raise ValueError(f"Invalid dimensionality reduction method: {method}")
+    match algorithm:
+        case "tSNE":
+            projection_method = TSNE(n_components=2, random_state=seed)
+        case "PaCMAP":
+            projection_method = PaCMAP(n_components=2, MN_ratio=0.5, FP_ratio=2.0, random_state=seed)
+        case "PCA":
+            projection_method = PCA(n_components=2, random_state=seed)
+        case _:
+            raise ValueError(f"Invalid dimensionality reduction algorithm: {algorithm}")
     embeddings = projection_method.fit_transform(combined_data)
 
     # Separate the embeddings back into features and prototypes
-    feature_embeddings = embeddings[: len(features)]
-    proto_embeddings = embeddings[len(features) :]
+    feature_embeddings = embeddings[: len(features)]  # type: ignore
+    proto_embeddings = embeddings[len(features) :]  # type: ignore
 
     # Plot the latent space with features and prototypes
     plt.figure(figsize=(10, 10))
@@ -130,12 +143,11 @@ def draw_latent(
     plt.title("Latent space")
     plt.legend()
     plt.savefig(output_file)
-    pass
 
 
 def execute(args: Namespace) -> None:
-    r"""TODO--- Rewrite the comment
-    Creates a CaBRNet model, then trains it.
+    r"""Plot extracted features from a dataset inside the latent space of a CaBRNet model,
+    using an algorithm for dimensionality reduction.
 
     Args:
         args (Namespace): Parsed arguments.
@@ -144,17 +156,18 @@ def execute(args: Namespace) -> None:
     device = args.device
     method = str.lower(args.type)
 
-    model = CaBRNet.build_from_config(args.model_config, state_dict_path=args.model_state_dict)
-    model.eval()
+    # Build model and load state dictionary
+    model = CaBRNet.build_from_config(config=args.model_arch, state_dict_path=args.model_state_dict)
 
-    dataloaders = DatasetManager.get_dataloaders(config=args.dataset)
+    dataloaders = DatasetManager.get_dataloaders(config=args.dataset, sampling_ratio=args.sampling_ratio)
     output_file = args.output_file
 
-    if "latent_repr" in dataloaders:
-        key = "latent_repr"
-    elif "train_set" in dataloaders:
-        logger.warning("No `latent_repr' in dataset.yml. Using `train_set' instead.")
-        key = "train_set"
-    else:
-        raise ArgumentError("'latent_repr' not found in dataloaders")
-    draw_latent(model=model, dataloader=dataloaders[key], method=method, device=device, output_file=output_file)
+    draw_latent(
+        model=model,
+        dataloader=dataloaders["train_set"],
+        output_file=output_file,
+        algorithm=args.algorithm,
+        device=args.device,
+        seed=args.seed,
+        verbose=args.verbose,
+    )
