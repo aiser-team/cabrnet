@@ -55,11 +55,23 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         help="algorithm to use for dimensionality reduction method. Choices are tSNE, PaCMAP and PCA",
     )
     parser.add_argument(
-        "--closest",
+        "--similarity-threshold",
         type=float,
         metavar="threshold",
         default=-float("inf"),
         help="only plot feature vectors that have a similarity with at least one prototype higher than a threshold",
+    )
+    parser.add_argument(
+        "--show-class",
+        type=int,
+        metavar="index",
+        help="highlight feature vectors of the chosen class only",
+    )
+    parser.add_argument(
+        "--plot-class",
+        type=int,
+        metavar="index",
+        help="plot feature vectors in relation to a chosen class (overrides --show-class)",
     )
     return parser
 
@@ -94,6 +106,11 @@ def check_args(args: Namespace) -> Namespace:
         if param is None:
             raise ArgumentError(f"Missing {name} file (option {option}).")
 
+    if args.plot_class is not None:
+        if args.show_class is not None:
+            logger.warning("Overriding option --show-class with --plot-class")
+        args.show_class = args.plot_class
+
     return args
 
 
@@ -103,6 +120,8 @@ def draw_latent(
     output_file: str,
     algorithm: str,
     similarity_threshold: float,
+    plot_class: int | None,
+    show_class: int | None,
     device: str = "cuda:0",
     seed: int = 42,
     verbose: bool = False,
@@ -116,6 +135,8 @@ def draw_latent(
         output_file (str): Path to the output file.
         algorithm (str): Dimensionality reduction algorithm. Options: tSNE, PaCMAP or PCA.
         similarity_threshold (float): Only consider vectors with a similarity greater than this threshold.
+        plot_class (int | None): If given, plot the latent space in relation to this class only.
+        show_class (int | None): If given, highlights feature vectors of this class against all others.
         device (str, optional): Hardware device. Default: "cuda:0".
         seed (int, optional): Random seed. Default: 42.
         verbose (bool, optional): If True, enables verbose mode. Default: False.
@@ -123,9 +144,16 @@ def draw_latent(
     Raises:
         ValueError: If an invalid dimensionality reduction algorithm is provided.
     """
-    logger.info("Plotting latent space")
     model.eval()
     model.to(device)
+
+    # Recover mapping between prototypes and classes
+    proto_class_mapping = model.prototype_class_mapping
+    plot_prototypes = list(
+        np.where(proto_class_mapping[:, plot_class] == 1)[0] if plot_class is not None else range(model.num_prototypes)
+    )
+    if plot_class is not None:
+        logger.info(f"Reference prototypes related to class {plot_class}: {plot_prototypes}")
 
     # Get the features of the dataset
     features = []  # (N*H*W, D)
@@ -142,7 +170,9 @@ def draw_latent(
             xs, ys = xs.to(device), ys.to(device)
             feats = model.extractor(xs)  # (N, D, H, W)
             N, D, H, W = feats.shape
-            max_similarities = torch.max(model.classifier.similarities(feats), dim=1).values.view(N, -1)  # (N, HxW)
+            similarities = model.classifier.similarities(feats)  # (N, P, H, W)
+            similarities = similarities[:, plot_prototypes]  # Select only relevant prototypes
+            max_similarities = torch.max(similarities, dim=1).values.view(N, -1)  # (N, HxW)
             feats = torch.transpose(feats.view((N, D, -1)), 1, 2)  # (N, HxW, D)
             batch_labels = ys.unsqueeze(-1).tile(1, H * W)  # Copy/paste labels to shape (N, HxW)
             # Select feature vectors and labels with max similarity greater than threshold
@@ -154,6 +184,7 @@ def draw_latent(
 
     # Get the features of the prototypes
     proto_features = model.classifier.prototypes.view(model.num_prototypes, -1).detach().cpu().numpy()
+    proto_features = proto_features[plot_prototypes]
 
     # Combine features and prototypes
     combined_data = np.vstack((features, proto_features))
@@ -176,18 +207,37 @@ def draw_latent(
 
     # Plot the latent space with features and prototypes
     plt.figure(figsize=(50, 50))
-    unique_labels = np.unique(labels)
-    norm = Normalize(vmin=labels.min(), vmax=labels.max())
-    for label in unique_labels:
-        plt.scatter(
-            feature_embeddings[labels == label, 0],
-            feature_embeddings[labels == label, 1],
-            c=labels[labels == label],
-            cmap="jet",
-            norm=norm,
-            label=f"Label {label}",
-        )
-    plt.scatter(proto_embeddings[:, 0], proto_embeddings[:, 1], marker="^", c="black", label="Prototypes")
+
+    if show_class is not None:
+        # Change labels to split between the target class and all others
+        labels[labels != show_class] = -1
+        for v, color in zip([-1, show_class], ["red", "blue"]):
+            plt.scatter(
+                feature_embeddings[labels == v, 0],
+                feature_embeddings[labels == v, 1],
+                c=color,
+                label=f"Class {v}" if v == show_class else "Other classes",
+            )
+    else:
+        unique_labels = np.unique(labels)
+        norm = Normalize(vmin=labels.min(), vmax=labels.max())
+        for label in unique_labels:
+            plt.scatter(
+                feature_embeddings[labels == label, 0],
+                feature_embeddings[labels == label, 1],
+                c=labels[labels == label],
+                cmap="jet",
+                norm=norm,
+                label=f"Label {label}",
+            )
+    plt.scatter(
+        proto_embeddings[:, 0],
+        proto_embeddings[:, 1],
+        marker="^",
+        c="black",
+        s=100,  # Make prototypes slightly bigger than data points
+        label="Prototypes",
+    )
     plt.title("Latent space")
     plt.legend()
     plt.savefig(output_file)
@@ -215,7 +265,9 @@ def execute(args: Namespace) -> None:
         dataloader=dataloaders["train_set"],
         output_file=output_file,
         algorithm=args.algorithm,
-        similarity_threshold=args.closest,
+        similarity_threshold=args.similarity_threshold,
+        plot_class=args.plot_class,
+        show_class=args.show_class,
         device=args.device,
         seed=args.seed,
         verbose=args.verbose,
