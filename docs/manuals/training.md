@@ -161,14 +161,22 @@ configuration file* (usually `search_space.yml`), according to the following for
 
 ```yaml
 model:
-  <KEY_INSIDE_MODEL_CONFIG>: [VALUE1, VALUE2, ...]
+  <KEY_INSIDE_MODEL_CONFIG>: [ DIST_TYPE, VALUE1, VALUE2, ... ]
 
 training:
-  <KEY_INSIDE_TRAINING_CONFIG>: [VALUE1, VALUE2, ...]
-  
+  <KEY_INSIDE_TRAINING_CONFIG>: [ DIST_TYPE, VALUE1, VALUE2, ... ]
+
 dataset:
-  <KEY_INSIDE_DATASET_CONFIG>: [VALUE1, VALUE2, ...]
+  <KEY_INSIDE_DATASET_CONFIG>: [ DIST_TYPE, VALUE1, VALUE2, ... ]
 ```
+
+where `DIST_TYPE` corresponds to one of the following [distributions](https://docs.ray.io/en/latest/tune/api/search_space.html) 
+implemented in Ray-Tune:
+
+- `randint <min> <max>`: random integer between `min` and `max` (see )
+- `qrandint <min> <max> <step>`: random integer between `min` and `max`, with step `step`
+- `uniform <min> <max>`: uniform distribution between `min` and `max`
+- `choice <choice_1> <choice_2> ...`: random selection among multiple choices
 
 For example, given the following configuration files:
 ```yaml
@@ -227,27 +235,25 @@ it possible to define the search space of various parameters as follows:
 model:
     classifier:
       params:
-        num_proto_per_class: [5, 10, 15] # List of possible values to explore
+        num_proto_per_class: [randint, 5, 15]
 training:
     optimizers:
       warmup_optimizer:
         groups:
           main_layers:
-            lr: [0.001, 0.0001, 0.0005]
-            momentum: [0.9, 0.5]
+            lr: [uniform, 0.0001, 0.0001]
+            momentum: [uniform, 0.5, 0.9]
       joint_optimizer:
         groups:
           backbone:
-            lr: [0.001, 0.01]
+            lr: [uniform, 0.01, 0.001]
     
-    num_epochs: [100, 150]
+    num_epochs: [qrandint, 100, 150, 10]
     
     periods:
       warmup:
-        epoch_num : [10, 20, 50]
+        epoch_num : [choice, 10, 20, 50]
 ```
-Currently, CaBRNet only supports lists of explicit values that can be tested for each parameter
-(using [`tune.choice`](https://docs.ray.io/en/latest/tune/api/doc/ray.tune.choice.html)).
 
 ## Defining the training / optimization objectives
 For each trial (corresponding to one particular point inside the search space), CaBRNet models are optimized

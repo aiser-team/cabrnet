@@ -285,7 +285,18 @@ def execute(args: Namespace) -> None:
             if isinstance(value, dict):
                 config[key] = tune_search_space(config.get(key, {}))
             elif isinstance(value, list):
-                config[key] = tune.choice(value)
+                dist_type = value[0]
+                match dist_type:
+                    case "uniform":
+                        config[key] = tune.uniform(float(value[1]), float(value[2]))
+                    case "randint":
+                        config[key] = tune.randint(int(value[1]), int(value[2]))
+                    case "qrandint":
+                        config[key] = tune.qrandint(int(value[1]), int(value[2]), int(value[3]))
+                    case "choice":
+                        config[key] = tune.choice(value[1:])
+                    case _:
+                        raise ValueError(f"Unsupported distribution type {dist_type}")
             else:
                 raise ValueError(f"Unsupported type in search space definition: {config[key]}")
         return config
