@@ -90,7 +90,7 @@ def execute(args: Namespace) -> None:
     model.eval()
 
     # Dataloaders
-    dataloaders = DatasetManager.get_dataloaders(config=args.dataset)
+    dataloaders = DatasetManager.get_dataloaders(config=args.dataset, sampling_ratio=args.sampling_ratio)
     model.to(args.device)
 
     # Check relevance of all targets first

@@ -549,9 +549,10 @@ class ProtoPNet(CaBRNet):
             self.classifier.last_layer = pruned_last_layer
 
             # update shape of similarity layer for computation purposes
-            self.classifier.similarity_layer.register_buffer(
-                "_summation_kernel", torch.ones((self.num_prototypes, self.classifier.num_features, 1, 1))
-            )
+            if hasattr(self.classifier.similarity_layer, "_summation_kernel"):
+                self.classifier.similarity_layer.register_buffer(
+                    "_summation_kernel", torch.ones((self.num_prototypes, self.classifier.num_features, 1, 1))
+                )
 
             # update mapping between prototypes and classes
             self.classifier.proto_class_map = torch.index_select(

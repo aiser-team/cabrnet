@@ -35,11 +35,16 @@ class ParserWithHelper(ArgumentParser):
     """Helper class for better parser errors."""
 
     def __init__(self, **kwargs):
+        r"""Creates a parser with default arguments."""
         super().__init__(**kwargs)
         self.add_argument("-V", "--version", action="version", version=importlib.metadata.version("cabrnet"))
 
     def error(self, message: str | None = None):
-        r"""Overrides default error message in argparse to print help menu."""
+        r"""Overrides default error message in argparse to print help menu.
+
+        Args:
+            message (str, optional): Error message. Default: None.
+        """
         if message is not None:
             self._print_message(f"Error: {message}\n", sys.stderr)
         self.print_help(sys.stderr)
