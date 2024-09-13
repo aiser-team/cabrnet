@@ -4,12 +4,12 @@ All CaBRNet applications are accessible through a single front-end script. To li
 cabrnet --help
 ```
 ```
-usage: cabrnet [-h] [--version] {evaluate,train,import,explain_local,explain_global,benchmark} ...
+usage: cabrnet [-h] [--version] {evaluate,train,import,explain_local,explain_global,benchmark,bayesian_optimizer,show_latent_space} ...
 
 CaBRNet front-end
 
 positional arguments:
-  {evaluate,train,import,explain,explain_global}
+  {explain_local,bayesian_optimizer,benchmark,show_latent_space,evaluate,train,import,explain_global}
                         sub-command help
     evaluate            evaluates a CaBRNet classifier
     train               trains a CaBRNet classifier
@@ -17,12 +17,14 @@ positional arguments:
     explain_local       explains the decision of a CaBRNet classifier
     explain_global      explains the global behaviour of a CaBRNet classifier
     benchmark           computes a set of evaluation metrics on a CaBRNet model
+    bayesian_optimizer  performs hyperparameter tuning on a CaBRNet model using Bayesian Optimization
+    show_latent_space   visualizes the latent space
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
 ```
-To obtain the documentation for a specific application, simple enter `cabrnet <app_name> --help`, *e.g.*:
+To obtain the documentation for a specific application, simply enter `cabrnet <app_name> --help`, *e.g.*:
 ```bash
 cabrnet train --help
 ```
@@ -260,6 +262,33 @@ As in `cabrnet evaluate`, the `--checkpoint-dir <dir>` option is equivalent to:
 - `--model-arch <dir>/model_arch.yml`
 - `--model-state-dict <dir>/model_state.pth`
 - `--dataset <dir>/dataset.yml`
+
+### Visualizing the feature space
+A visualization of the feature space created by a trained CaBRNet model is generated
+using the `show_latent_space` application, with the following options:
+
+- `--model-arch </path/to/file.yml>` indicates how to [build the model](model.md).
+- `--model-state-dict </path/to/model/state.pth>` indicates
+the location of a CaBRNet or legacy state dictionary that should be used to initialize the model.
+- `--dataset|-d </path/to/file.yml>` indicates how to [load and prepare the training data](data.md).
+- `--output-dir <path/to/output/directory>` indicates where to store the visualization.
+- `--algorithm <name>` indicates which algorithm should be used for the dimensionality reduction.
+- `--plot-class <index>` indicates which class prototypes should be used as reference points in the
+visualization of the feature space. If not specified, all prototypes are used.
+- `--similarity-threshold <value>` indicates the minimum similarity value to the target prototypes, used to 
+select the subset of most relevant feature vectors.
+- `--show-class <index>` indicates which class feature vectors should be highlighted in the final visualization.
+
+For more on the use of these options, see [here](visualize.md#visualizing-the-feature-space).
+
+Similar to the `--config-dir` option in `cabrnet train`, the `--checkpoint-dir <dir>` option is equivalent to:
+
+- `--model-arch <dir>/model_arch.yml`
+- `--model-state-dict <dir>/model_state.pth`
+- `--dataset <dir>/dataset.yml`
+
+Finally, similar to `cabrnet train`, the `--sampling-ratio` option allows for a control of the portion of 
+data that is processed.
 
 ## Hyperparameter tuning using Bayesian optimization
 Hyperparameter tuning is performed using the ` bayesian_optimizer` application (see the [MNIST example](mnist.md)). 
