@@ -40,6 +40,8 @@ dependencies = [
     "tensorboard>=2.17.0",
     "ray[tune]~=2.34.0",
     "optuna~=3.6.1",
+    "pacmap~=0.7.3",
+    "scikit-learn~=1.5.1",
 ]
 
 [project.optional-dependencies]

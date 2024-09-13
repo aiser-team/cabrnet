@@ -10,6 +10,7 @@ import torch
 import torch.nn as nn
 from loguru import logger
 from PIL import Image
+import numpy as np
 from torch import Tensor
 from torch.utils.data import DataLoader
 from tqdm import tqdm
@@ -110,6 +111,15 @@ class CaBRNet(nn.Module):
             proto_idx (int): Prototype index.
         """
         return self.classifier.prototype_is_active(proto_idx)
+
+    @property
+    def prototype_class_mapping(self) -> np.ndarray:
+        r"""Mapping between prototypes and classes.
+
+        Returns:
+            Binary array of shape (P, C)
+        """
+        return self.classifier.prototype_class_mapping
 
     def _load_legacy_state_dict(self, legacy_state: dict[str, Any]) -> None:
         r"""Loads a state dictionary in legacy format.

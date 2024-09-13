@@ -109,6 +109,20 @@ class ProtoPoolClassifier(CaBRNetClassifier):
         """
         return proto_idx in list(self.class_mapping.reshape(-1))
 
+    @property
+    def prototype_class_mapping(self) -> np.ndarray:
+        r"""Mapping between prototypes and classes.
+        
+        Returns:
+            Binary array of shape (P, C)
+        """
+        slot_class_mapping = self.class_mapping  # Shape C x S
+        proto_class_map = np.zeros((self.num_prototypes, self.num_classes))
+        for cidx in range(self.num_classes):
+            for pidx in slot_class_mapping[cidx]:
+                proto_class_map[pidx, cidx] = 1
+        return proto_class_map
+
     def forward(self, features: Tensor, gumbel_scale: int = 0, **kwargs) -> tuple[Tensor, Tensor, Tensor]:
         r"""Performs classification using a linear layer and based on the slot assignments.
 
