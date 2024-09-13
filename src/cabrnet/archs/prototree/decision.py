@@ -104,9 +104,10 @@ class ProtoTreeClassifier(CaBRNetClassifier):
         r"""Mapping between prototypes and classes.
 
         Returns:
-            Binary array of shape (P, C)
+            Binary array of shape (P, C).
         """
         mapping = self.tree.get_mapping(mode=MappingMode.PROTOTYPE_TO_CLASS)
+        assert mapping is not None, "Failed to map prototypes and classes"
         proto_class_map = np.zeros((self.num_prototypes, self.num_classes))
         for pidx, class_indices in mapping.items():
             for cidx in class_indices:

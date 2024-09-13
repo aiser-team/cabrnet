@@ -112,9 +112,9 @@ class ProtoPoolClassifier(CaBRNetClassifier):
     @property
     def prototype_class_mapping(self) -> np.ndarray:
         r"""Mapping between prototypes and classes.
-        
+
         Returns:
-            Binary array of shape (P, C)
+            Binary array of shape (P, C).
         """
         slot_class_mapping = self.class_mapping  # Shape C x S
         proto_class_map = np.zeros((self.num_prototypes, self.num_classes))

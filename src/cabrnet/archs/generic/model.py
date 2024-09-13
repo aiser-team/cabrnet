@@ -117,7 +117,7 @@ class CaBRNet(nn.Module):
         r"""Mapping between prototypes and classes.
 
         Returns:
-            Binary array of shape (P, C)
+            Binary array of shape (P, C).
         """
         return self.classifier.prototype_class_mapping
 

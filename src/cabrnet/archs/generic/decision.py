@@ -121,8 +121,8 @@ class CaBRNetClassifier(nn.Module, ABC):
     @property
     def prototype_class_mapping(self) -> np.ndarray:
         r"""Mapping between prototypes and classes.
-        
+
         Returns:
-            Binary array of shape (P, C)
+            Binary array of shape (P, C).
         """
         raise NotImplementedError

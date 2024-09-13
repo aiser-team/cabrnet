@@ -90,7 +90,7 @@ class ProtoPNetClassifier(CaBRNetClassifier):
         r"""Mapping between prototypes and classes.
 
         Returns:
-            Binary array of shape (P, C)
+            Binary array of shape (P, C).
         """
         return self.proto_class_map.detach().cpu().numpy()
 
