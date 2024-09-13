@@ -6,10 +6,11 @@ from typing import Any
 import torch
 import torch.nn as nn
 from torch import Tensor
+import numpy as np
 
 from cabrnet.archs.generic.decision import CaBRNetClassifier
 from cabrnet.core.utils.prototypes import init_prototypes
-from cabrnet.core.utils.tree import BinaryNode
+from cabrnet.core.utils.tree import BinaryNode, MappingMode
 
 
 class SamplingStrategy(Enum):
@@ -97,6 +98,20 @@ class ProtoTreeClassifier(CaBRNetClassifier):
             proto_idx (int): Prototype index.
         """
         return proto_idx in self._active_prototypes
+
+    @property
+    def prototype_class_mapping(self) -> np.ndarray:
+        r"""Mapping between prototypes and classes.
+
+        Returns:
+            Binary array of shape (P, C)
+        """
+        mapping = self.tree.get_mapping(mode=MappingMode.PROTOTYPE_TO_CLASS)
+        proto_class_map = np.zeros((self.num_prototypes, self.num_classes))
+        for pidx, class_indices in mapping.items():
+            for cidx in class_indices:
+                proto_class_map[pidx, cidx] = 1
+        return proto_class_map
 
     def forward(
         self, features: Tensor, strategy: SamplingStrategy = SamplingStrategy.DISTRIBUTED, **kwargs

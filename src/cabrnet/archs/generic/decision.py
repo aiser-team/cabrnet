@@ -2,6 +2,7 @@ import importlib
 from abc import ABC, abstractmethod
 from typing import Any
 
+import numpy as np
 import torch.nn as nn
 from torch import Tensor
 
@@ -116,3 +117,12 @@ class CaBRNetClassifier(nn.Module, ABC):
             Tensor of distances.
         """
         return self.similarity_layer.distances(features, self.prototypes, **kwargs)
+
+    @property
+    def prototype_class_mapping(self) -> np.ndarray:
+        r"""Mapping between prototypes and classes.
+        
+        Returns:
+            Binary array of shape (P, C)
+        """
+        raise NotImplementedError

@@ -321,6 +321,7 @@ The following code provides a minimal example on how to define a new classifier.
 The classifier must inherit from the `CaBRNetGenericClassifier` class as follows:
 ```python
 import torch.nn as nn
+import numpy as np
 from typing import Any
 from cabrnet.core.utils.prototypes import init_prototypes
 from cabrnet.archs.generic.decision import CaBRNetClassifier
@@ -370,6 +371,15 @@ class ArchNameClassifier(CaBRNetClassifier):
         r"""Is the prototype *proto_idx* active or disabled?
         Args:
             proto_idx (int): Prototype index.
+        """
+        ...
+
+    @property
+    def prototype_class_mapping(self) -> np.ndarray:
+        r"""Mapping between prototypes and classes.
+
+        Returns:
+            Binary array of shape (P, C),
         """
         ...
 

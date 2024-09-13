@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+import numpy as np
 import torch
 import torch.nn as nn
 from torch import Tensor
@@ -83,6 +84,15 @@ class ProtoPNetClassifier(CaBRNetClassifier):
             proto_idx (int): Prototype index.
         """
         return not (int(torch.max(self.proto_class_map[proto_idx])) == 0)
+
+    @property
+    def prototype_class_mapping(self) -> np.ndarray:
+        r"""Mapping between prototypes and classes.
+
+        Returns:
+            Binary array of shape (P, C)
+        """
+        return self.proto_class_map.detach().cpu().numpy()
 
     def forward(self, features: Tensor, **kwargs) -> tuple[Tensor, Tensor]:
         r"""Performs classification using a linear layer.
