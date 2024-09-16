@@ -34,7 +34,7 @@ class TestImports(unittest.TestCase):
         """
         Tests the import of cabrnet evaluation module.
         """
-        import cabrnet.evaluation
+        import cabrnet.core.evaluation
 
     def test_cabrnet_visualization(self):
         """

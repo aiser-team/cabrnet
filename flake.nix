@@ -188,7 +188,7 @@
                 doCheck = true;
                 name = "check-${oldAttrs.name}-unittests";
                 checkPhase = ''
-                  python -m tests/loading.py
+                  python -m unittest tests/imports.py
                 '';
               });
           typing =
