@@ -2,17 +2,19 @@
 
 import csv
 import os
+from pathlib import PurePath
 import pickle
 import random
 import shutil
 from typing import Any
 
+from loguru import logger
 import numpy as np
 import pandas as pd
 import torch
 import yaml
-from loguru import logger
 
+from cabrnet.archs.custom_extractors.onnx_backbone import GenericONNXModel
 from cabrnet.archs.generic.model import CaBRNet
 from cabrnet.core.utils.data import DatasetManager
 from cabrnet.core.utils.optimizers import OptimizerManager
@@ -106,6 +108,19 @@ def save_checkpoint(
     # Save projection information if it exists
     if projection_info is not None:
         save_projection_info(projection_info, os.path.join(directory_path, CaBRNet.DEFAULT_PROJECTION_INFO))
+
+    # Save ONNX model if it exists
+    # Important assertion: the same onnx model is used for all pipelines
+    if model.extractor.arch_name == "generic_onnx_model":
+        extractor_pipelines = list(model.extractor.named_modules())
+        _, extractor_model = extractor_pipelines[1]
+        assert isinstance(extractor_model, GenericONNXModel)
+        original_path: PurePath = extractor_model.get_original_onnx_model_path()
+        saved_path_dir = os.path.join(directory_path, original_path.parent)
+        saved_path = os.path.join(saved_path_dir, original_path.name)
+        os.makedirs(saved_path_dir, exist_ok=True)
+        safe_copy(src=str(original_path), dst=saved_path)
+        logger.info(f"Successfully saved ONNX model at {saved_path}.")
 
     logger.info(f"Successfully saved checkpoint at epoch {epoch}.")
 

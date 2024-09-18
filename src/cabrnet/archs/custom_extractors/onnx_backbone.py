@@ -173,6 +173,10 @@ class GenericONNXModel(nn.Module):
         logger.info(f"Loaded ONNX model located at {onnx_purepath} and performed sanity checks on it.")
         self.variants.register_and_save_variant(self.variants.original_name, model)
 
+    def get_original_onnx_model_path(self) -> PurePath:
+        r"""Returns the original ONNX model path."""
+        return self.variants.original_path
+
     def get_output_shape_of_node(self, node: onnx.ValueInfoProto) -> Tuple[Union[int, str], int, int, int]:
         r"""Returns the output shape of a given ONNX node. The shape is assumed
                 to have 4 dimensions.
