@@ -1,0 +1,36 @@
+top_arch:
+  module: cabrnet.archs.protopnet.model
+  name: ProtoPNet
+
+extractor:
+  backbone:
+    arch: generic_onnx_model
+    # Generated from torch.onnx.export on a torchvision resnet18 with a random
+    # input of size 1,3,224,224 and dynamic shapes enabled
+    # Not necessary for ONNX models
+    weights: None
+    params:
+      onnx_path: examples/resnet18.onnx
+  convnet:
+    source_layer: /layer4/layer4.0/conv2/Conv
+    add_on:
+    init_mode: XAVIER
+    conv1:
+      type: Conv2d
+      params:
+        out_channels: 128
+        kernel_size: 1
+        bias: False
+    sigmoid1:
+      type: Sigmoid
+
+similarity:
+  name: ProtoPNetSimilarity
+
+classifier:
+  module: cabrnet.archs.protopnet.decision
+  name: ProtoPNetClassifier
+  params:
+    num_classes: 10
+    num_proto_per_class: 10
+    proto_init_mode: SHIFTED_NORMAL

@@ -1,5 +1,5 @@
 top_arch: # Optional
-  module: cabrnet.prototree.model
+  module: cabrnet.archs.prototree.model
   name: ProtoTree # Take "extractor" and "classifier", implement the generic class ProtoClassifier
 
 extractor: # How to build the feature extractor
@@ -18,8 +18,11 @@ extractor: # How to build the feature extractor
     sigmoid1:
       type: Sigmoid
 
+similarity:
+  name: LegacyProtoTreeSimilarity
+
 classifier: # How to compute the decision from the features
-  module: cabrnet.prototree.decision
+  module: cabrnet.archs.prototree.decision
   name: ProtoTreeClassifier
   params:
     num_features: 128

@@ -4,26 +4,66 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cabrnet"
-version = "1.0"
+version = "1.1"
 authors = [
     { name = "Romain Xu-Darme", email = "romain.xu-darme@cea.fr" },
     { name = "Aymeric Varasse", email = "aymeric.varasse@cea.fr" },
+]
+maintainers = [
+    { name = "Romain Xu-Darme", email = "romain.xu-darme@cea.fr" },
+    { name = "Aymeric Varasse", email = "aymeric.varasse@cea.fr" },
+    { name = "Julien Girard-Satabin", email = "julien.girard2@cea.fr" },
+    { name = "Alban Grastien", email = "alban.grastien@cea.fr" },
 ]
 description = "Generic library for prototype-based classifiers"
 readme = "README.md"
 requires-python = ">=3.10"
 classifiers = [
     "Programming Language :: Python :: 3",
-    "License :: LGPLv2.1",
+    "License :: OSI Approved :: GNU Lesser General Public License v2 (LGPLv2)",
     "Operating System :: OS Independent",
 ]
+dependencies = [
+    "torch>=2.0.0",
+    "torchvision>=0.13.0",
+    "numpy>=1.19.5",
+    "setuptools>=70.0.0",
+    "tqdm>=4.66.3",
+    "scipy>=1.11.3",
+    "loguru>=0.7.2",
+    "zenodo-get>=1.5.1",
+    "graphviz>=0.20.1",
+    "opencv-python-headless",
+    "captum>=0.7.0",
+    "py-cpuinfo~=9.0.0",
+    "gradio~=4.33.0",
+    "tensorboard>=2.17.0",
+    "ray[tune]~=2.34.0",
+    "optuna~=3.6.1",
+    "onnxruntime~=1.19.0",
+    "onnx_graphsurgeon~=0.5.2",
+    "pacmap~=0.7.3",
+    "scikit-learn~=1.5.1",
+]
+
+[project.optional-dependencies]
+dev = ["black", "build", "pyright", "twine"]
+doc = ["mkdocs", "pydoc-markdown", "pymdown-extensions", "python-markdown-math"]
+legacy = ["gdown~=4.7.1", "requests~=2.32.0", "Augmentor~=0.2.12"]
+
+[project.urls]
+Homepage = "https://github.com/aiser-team/cabrnet"
+Issues = "https://github.com/aiser-team/cabrnet/issues"
 
 [project.scripts]
-cabrnet = "main:main"
+cabrnet = "cabrnet.main:main"
+cabrnet-gui = "cabrnet.main_gui:main"
 
 [tool.black]
 line-length = 120
 
-[[tool.mypy.overrides]]
-module = ["gdown", "torch.*", "torchvision.*"]
-ignore_missing_imports = true
+[tool.pyright]
+pythonVersion = "3.10"
+typeCheckingMode = "basic"
+reportMissingTypeStubs = true
+reportMissingImports = true

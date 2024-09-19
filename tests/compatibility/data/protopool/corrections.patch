@@ -1,0 +1,144 @@
+diff --git a/main.py b/main.py
+index 72bbf17..8b9247f 100644
+--- a/main.py
++++ b/main.py
+@@ -10,13 +10,13 @@ from torch.utils.data import DataLoader
+ from torch.utils.tensorboard import SummaryWriter
+ from torchvision import transforms, datasets
+ 
+-from model import PrototypeChooser
+-from utils import mixup_data, find_high_activation_crop
++from .model import PrototypeChooser
++from .utils import mixup_data, find_high_activation_crop
+ import os
+ import matplotlib.pyplot as plt
+ import cv2
+ 
+-from utils import mixup_data, compute_proto_layer_rf_info_v2, compute_rf_prototype
++from .utils import mixup_data, compute_proto_layer_rf_info_v2, compute_rf_prototype
+ 
+ 
+ 
+diff --git a/model.py b/model.py
+index bda590f..b819f42 100644
+--- a/model.py
++++ b/model.py
+@@ -7,13 +7,13 @@ import torch.nn.functional as F
+ from torch.nn.functional import gumbel_softmax
+ 
+ 
+-from resnet_features import resnet18_features, resnet34_features, resnet50_features, resnet101_features, resnet152_features
+-from densenet_features import densenet121_features, densenet161_features, densenet169_features, densenet201_features
+-from vgg_features import vgg11_features, vgg11_bn_features, vgg13_features, vgg13_bn_features, vgg16_features, vgg16_bn_features,\
++from .resnet_features import resnet18_features, resnet34_features, resnet50_features, resnet101_features, resnet152_features
++from .densenet_features import densenet121_features, densenet161_features, densenet169_features, densenet201_features
++from .vgg_features import vgg11_features, vgg11_bn_features, vgg13_features, vgg13_bn_features, vgg16_features, vgg16_bn_features,\
+                          vgg19_features, vgg19_bn_features
+ import numpy as np
+ 
+-from utils import compute_proto_layer_rf_info_v2
++from .utils import compute_proto_layer_rf_info_v2
+ 
+ base_architecture_to_features = {'resnet18': resnet18_features,
+                                  'resnet34': resnet34_features,
+@@ -39,7 +39,7 @@ class PrototypeChooser(nn.Module):
+     def __init__(self, num_prototypes: int, num_descriptive: int, num_classes: int,
+                  use_thresh: bool = False, arch: str = 'resnet34', pretrained: bool = True,
+                  add_on_layers_type: str = 'linear', prototype_activation_function: str = 'log',
+-                 proto_depth: int = 128, use_last_layer: bool = False, inat: bool = False) -> None:
++                 proto_depth: int = 128, use_last_layer: bool = False, inat: bool = False, seed: int | None = None) -> None:
+         super().__init__()
+         self.num_classes = num_classes
+         self.epsilon = 1e-4
+@@ -59,12 +59,6 @@ class PrototypeChooser(nn.Module):
+             self.alfa = 1
+             self.beta = 0
+ 
+-        self.proto_presence = torch.zeros(num_classes, num_prototypes, num_descriptive)  # [c, p, n]
+-        # for j in range(num_classes):
+-        #     for k in range(num_descriptive):
+-        #         self.proto_presence[j, j * num_descriptive + k, k] = 1
+-        self.proto_presence = Parameter(self.proto_presence, requires_grad=True)
+-        nn.init.xavier_normal_(self.proto_presence, gain=1.0)
+         if self.inat:
+             self.features = base_architecture_to_features['resnet50'](pretrained=pretrained, inat=True)
+         else:
+@@ -80,6 +74,10 @@ class PrototypeChooser(nn.Module):
+         else:
+             raise Exception('other base base_architecture NOT implemented')
+ 
++        if seed is not None:
++            # For RNG synchronisation with CaBRNet
++            torch.manual_seed(seed)
++
+         if add_on_layers_type == 'bottleneck':
+             raise NotImplementedError
+         else:
+@@ -93,17 +91,15 @@ class PrototypeChooser(nn.Module):
+ 
+             self.add_on_layers = nn.Sequential(*add_on_layers)
+ 
++        # Postpone initialization for compatibility with CaBRNet
++        self.proto_presence = torch.zeros(num_classes, num_prototypes, num_descriptive)  # [c, p, n]
++        self.proto_presence = Parameter(self.proto_presence, requires_grad=True)
++        nn.init.xavier_normal_(self.proto_presence, gain=1.0)
++
+         self.prototype_vectors = nn.Parameter(torch.rand(self.prototype_shape), requires_grad=True)
+ 
+         self.ones = nn.Parameter(torch.ones(self.prototype_shape), requires_grad=False)
+ 
+-        # initial weights
+-        for m in self.add_on_layers.modules():
+-            if isinstance(m, (nn.Linear, nn.Conv2d)):
+-                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+-                if m.bias is not None:
+-                    nn.init.constant_(m.bias, 0)
+-
+         self.use_last_layer = use_last_layer
+         if self.use_last_layer:
+             self.prototype_class_identity = torch.zeros(self.num_descriptive * self.num_classes, self.num_classes)
+@@ -122,6 +118,13 @@ class PrototypeChooser(nn.Module):
+         else:
+             self.last_layer = nn.Identity()
+ 
++        # Postpone weight initialization for compatibility with CaBRNet
++        for m in self.add_on_layers.modules():
++            if isinstance(m, (nn.Linear, nn.Conv2d)):
++                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
++                if m.bias is not None:
++                    nn.init.constant_(m.bias, 0)
++
+     def fine_tune_last_only(self):
+         for p in self.features.parameters():
+             p.requires_grad = False
+@@ -220,6 +223,8 @@ class PrototypeChooser(nn.Module):
+             raise NotImplementedError
+ 
+     def get_map_class_to_prototypes(self):
++        # Makes the function deterministic
++        torch.manual_seed(0)
+         pp = gumbel_softmax(self.proto_presence * 10e3, dim=1, tau=0.5).detach()
+         return np.argmax(pp.cpu().numpy(), axis=1)
+ 
+diff --git a/resnet_features.py b/resnet_features.py
+index 0e5a366..1e8f957 100644
+--- a/resnet_features.py
++++ b/resnet_features.py
+@@ -10,7 +10,7 @@ model_urls = {
+     'resnet50': 'https://download.pytorch.org/models/resnet50-19c8e357.pth',
+     'resnet101': 'https://download.pytorch.org/models/resnet101-5d3b4d8f.pth',
+     'resnet152': 'https://download.pytorch.org/models/resnet152-b121ed2d.pth',
+-    'resnet50Nat': '~/resnet50_iNaturalist.pth',
++    'resnet50Nat': 'examples/pretrained_conv_extractors/resnet50_inat.pth',
+ }
+ 
+ model_dir = './pretrained_models'
+@@ -278,7 +278,7 @@ def resnet50_features(pretrained=False, inat=False, **kwargs):
+                     del new_model[k]
+                 elif k.startswith('module.classifier'):
+                     del new_model[k]
+-            model.load_state_dict(new_model, strict=True)
++            model.load_state_dict(new_model, strict=False)
+         else:
+             my_dict = model_zoo.load_url(model_urls['resnet50'], model_dir=model_dir)
+             my_dict.pop('fc.weight')

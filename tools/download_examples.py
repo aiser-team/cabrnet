@@ -15,11 +15,65 @@ file_list = [
     },
     {
         "identifier": "legacy_models",
-        "description": "Legacy models trained using ProtoPNet and ProtoTree on CUB200",
+        "description": "Legacy models trained using ProtoPNet, ProtoTree and ProtoPool on CUB200",
         "type": "zenodo",
-        "record": "11284813",
-        "dir": "src/legacy/compatibility_tests",
+        "record": "13740627",
+        "dir": "tests/compatibility/data",
         "file": "cabrnet_legacy_models.zip",
+    },
+    {
+        "identifier": "cabrnet_protopnet_cub200_resnet50",
+        "description": "ProtoPNet models trained using CaBRNet on CUB200 "
+        "(with ResNet50 backbone pretrained on INaturalist)",
+        "type": "zenodo",
+        "record": "13604245",
+        "dir": "trained_models",
+        "file": "cabrnet_protopnet_cub200_resnet50.zip",
+    },
+    {
+        "identifier": "cabrnet_protopool_cub200_resnet50",
+        "description": "ProtoPool models trained using CaBRNet on CUB200 "
+        "(with ResNet50 backbone pretrained on INaturalist)",
+        "type": "zenodo",
+        "record": "13736403",
+        "dir": "trained_models",
+        "file": "cabrnet_protopool_cub200_resnet50.zip",
+    },
+    {
+        "identifier": "cabrnet_protopnet_stanfordcars_resnet50",
+        "description": "ProtoPNet models trained using CaBRNet on Stanford Cars "
+        "(with ResNet50 backbone pretrained on ImageNet)",
+        "type": "zenodo",
+        "record": "13611658",
+        "dir": "trained_models",
+        "file": "cabrnet_protopnet_stanfordcars_resnet50.zip",
+    },
+    {
+        "identifier": "cabrnet_prototree_stanfordcars_resnet50",
+        "description": "ProtoTree models trained using CaBRNet on Stanford Cars "
+        "(with ResNet50 backbone pretrained on ImageNet)",
+        "type": "zenodo",
+        "record": "13611890",
+        "dir": "trained_models",
+        "file": "cabrnet_prototree_stanfordcars_resnet50_depth9.zip",
+    },
+    {
+        "identifier": "cabrnet_prototree_cub200_resnet50_depth9",
+        "description": "ProtoTree models trained using CaBRNet on CUB200 "
+        "(with ResNet50 backbone pretrained on INaturalist and depth 9)",
+        "type": "zenodo",
+        "record": "13593120",
+        "dir": "trained_models",
+        "file": "prototree_cub200_resnet50_depth9.zip",
+    },
+    {
+        "identifier": "cabrnet_prototree_cub200_resnet50_depth10",
+        "description": "ProtoTree models trained using CaBRNet on CUB200 "
+        "(with ResNet50 backbone pretrained on INaturalist and depth 10)",
+        "type": "zenodo",
+        "record": "13593120",
+        "dir": "trained_models",
+        "file": "prototree_cub200_resnet50_depth10.zip",
     },
 ]
 

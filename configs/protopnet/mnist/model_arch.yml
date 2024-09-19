@@ -1,5 +1,5 @@
 top_arch:
-  module: cabrnet.protopnet.model
+  module: cabrnet.archs.protopnet.model
   name: ProtoPNet
 
 extractor:
@@ -18,12 +18,13 @@ extractor:
     sigmoid1:
       type: Sigmoid
 
+similarity:
+  name: ProtoPNetSimilarity
+
 classifier:
-  module: cabrnet.protopnet.decision
+  module: cabrnet.archs.protopnet.decision
   name: ProtoPNetClassifier
   params:
     num_classes: 10
     num_proto_per_class: 10
     proto_init_mode: SHIFTED_NORMAL
-    compatibility_mode: True
-

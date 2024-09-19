@@ -6,7 +6,7 @@ train_set:
     download: true
     transform:
       convert:
-        module: cabrnet.utils.custom_preprocess
+        module: cabrnet.core.utils.custom_preprocess
         type: convert_to_rgb
       resize:
         type: Resize
@@ -53,7 +53,7 @@ projection_set:
     download: true
     transform:
       convert:
-        module: cabrnet.utils.custom_preprocess
+        module: cabrnet.core.utils.custom_preprocess
         type: convert_to_rgb
       resize:
         type: Resize
@@ -77,7 +77,7 @@ test_set:
     download: true
     transform:
       convert:
-        module: cabrnet.utils.custom_preprocess
+        module: cabrnet.core.utils.custom_preprocess
         type: convert_to_rgb
       resize:
         type: Resize

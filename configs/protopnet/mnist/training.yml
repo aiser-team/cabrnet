@@ -30,7 +30,7 @@ num_epochs: 1
 
 periods:
   main_training:
-    epoch_range: [1, 1]
+    epoch_range: [0, 1]
     optimizers: joint_optimizer
 
 auxiliary_info:

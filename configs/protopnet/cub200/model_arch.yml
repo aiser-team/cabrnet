@@ -1,5 +1,5 @@
 top_arch:
-  module: cabrnet.protopnet.model
+  module: cabrnet.archs.protopnet.model
   name: ProtoPNet
 
 extractor: # How to build the feature extractor
@@ -26,8 +26,11 @@ extractor: # How to build the feature extractor
     act2:
       type: Sigmoid
 
+similarity:
+  name: LegacyProtoPNetSimilarity
+
 classifier:
-  module: cabrnet.protopnet.decision
+  module: cabrnet.archs.protopnet.decision
   name: ProtoPNetClassifier
   params:
     num_classes: 200

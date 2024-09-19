@@ -11,10 +11,11 @@ local_perturbation_analysis:
   contrast_factor: 0.2 # A value of 0.3 means contrast is (locally) reduced by 70%
   saturation_factor: 0.3 # A value of 0.3 means saturation is (locally) reduced by 70%
   hue_factor: 0.2 # A value of 0.2 means a (local) shift of 20% on the hue scale
-  gaussian_noise_ksize: 21 # Size of the kernel to apply gaussian noise
-  gaussian_noise_sigma: 2.0 # Standard deviation of the gaussian noise
+  gaussian_blur_ksize: 21 # Size of the kernel to apply gaussian blur
+  gaussian_blur_sigma: 2.0 # Standard deviation of the gaussian blur
   distortion_periods: 5 # Controls the frequency of the (local) sinus distortion
   distortion_amplitude: 7 # Controls the amplitude of the (local) sinus distortion
+  distortion_direction: both # Controls the direction of the (local) sinus distortion
 
 relevance_analysis:
   prototype_info_db: prototype_info_db.csv # Path to CSV file containing raw analysis per prototype
