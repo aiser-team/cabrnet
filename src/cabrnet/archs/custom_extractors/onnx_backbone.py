@@ -18,7 +18,7 @@ class ONNXVariantsHandler:
     r"""A class handling multiple variations of a base ONNX file.
 
     Attributes:
-        original_path (str): the original path of provided ONNX file. Not
+        original_path (PurePath): the original path of provided ONNX file. Not
         modified during inference.
 
         variants (dict[str, onnx.ModelProto]): A registry
