@@ -59,3 +59,9 @@ cabrnet-gui = "cabrnet.main_gui:main"
 
 [tool.black]
 line-length = 120
+
+[tool.pyright]
+pythonVersion = "3.10"
+typeCheckingMode = "basic"
+reportMissingTypeStubs = true
+reportMissingImports = true
