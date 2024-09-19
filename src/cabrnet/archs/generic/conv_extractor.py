@@ -1,12 +1,12 @@
-import os
-import warnings
 from collections import OrderedDict
+import os
 from typing import Tuple
+import warnings
 
+from loguru import logger
 import torch
 import torch.nn as nn
 import torchvision.models as torch_models
-from loguru import logger
 from torchvision.models.feature_extraction import (
     create_feature_extractor,
     get_graph_node_names,
@@ -14,6 +14,7 @@ from torchvision.models.feature_extraction import (
 
 from cabrnet.core.utils.exceptions import check_mandatory_fields
 from cabrnet.core.utils.init import layer_init_functions
+from cabrnet.archs.custom_extractors import *
 
 warnings.filterwarnings("ignore")
 
@@ -51,7 +52,11 @@ class ConvExtractor(nn.Module):
         super(ConvExtractor, self).__init__()
 
         # Check mandatory fields
-        check_mandatory_fields(config_dict=config, mandatory_fields=["backbone"], location="extractor configuration")
+        check_mandatory_fields(
+            config_dict=config,
+            mandatory_fields=["backbone"],
+            location="extractor configuration",
+        )
         backbone_config = config["backbone"]
         check_mandatory_fields(
             config_dict=backbone_config,
@@ -66,7 +71,7 @@ class ConvExtractor(nn.Module):
         # Check that model architecture is supported
         assert arch.lower() in torch_models.list_models(), f"Unsupported model architecture: {arch}"
 
-        if weights is None:
+        if weights == "None":
             weights = ""
 
         if os.path.isfile(weights):
@@ -80,15 +85,16 @@ class ConvExtractor(nn.Module):
                 model.load_state_dict(loaded_weights.state_dict(), strict=False)
             else:
                 raise ValueError(f"Unsupported weights type: {type(loaded_weights)}")
-        elif hasattr(torch_models.get_model_weights(arch), weights):
+        elif weights and hasattr(torch_models.get_model_weights(arch), weights):
             if not ignore_weight_errors:
                 logger.info(f"Loading pytorch weights: {weights}")
             loaded_weights = getattr(torch_models.get_model_weights(arch), weights)
             model = torch_models.get_model(arch, weights=loaded_weights, **arch_params)
-        elif ignore_weight_errors:
+        elif not weights or ignore_weight_errors:
             logger.warning(
-                f"Could not load initial weights for the feature extractor. "
-                f"This might be OK if the model state dictionary is loaded afterwards."
+                "Could not load initial weights for the feature extractor. "
+                "This might be OK if the model state dictionary is loaded afterwards, "
+                "or the model is in ONNX format and all parameters are provided in the ONNX file."
             )
             model = torch_models.get_model(arch, **arch_params)
         else:
@@ -112,13 +118,23 @@ class ConvExtractor(nn.Module):
 
         # Reverse mapping between pipeline names and source layers to build return nodes
         return_nodes = {val: key for key, val in self.source_layers.items()}
-        try:
-            self.convnet = create_feature_extractor(model=model, return_nodes=return_nodes)
-        except ValueError as e:
-            logger.error(f"Could not create feature extractor. Possible layer names: {get_graph_node_names(model)}")
-            logger.error("See model architecture below")
-            logger.info(model)
-            raise e
+        if isinstance(model, GenericONNXModel):
+            try:
+                model.trim_model(return_nodes)
+                self.convnet = model
+            except ValueError as e:
+                logger.error(
+                    f"Could not create feature extractor from ONNX model. Possible layer names: {model.available_node_names()}"
+                )
+                raise e
+        else:
+            try:
+                self.convnet = create_feature_extractor(model=model, return_nodes=return_nodes)
+            except ValueError as e:
+                logger.error(f"Could not create feature extractor. Possible layer names: {get_graph_node_names(model)}")
+                logger.error("See model architecture below")
+                logger.info(model)
+                raise e
         # Dummy inference to recover number of output channels from the feature extractor
         self.convnet.eval()
         output_tensors = self.convnet(torch.zeros((1, 3, 224, 224)))
@@ -126,7 +142,8 @@ class ConvExtractor(nn.Module):
         add_ons, self.output_channels = {}, {}
         for pipeline_name in self.source_layers.keys():
             layer, num_channels = self.create_add_on(
-                config=config[pipeline_name].get("add_on"), in_channels=output_tensors[pipeline_name].size(1)
+                config=config[pipeline_name].get("add_on"),
+                in_channels=output_tensors[pipeline_name].size(1),
             )
             add_ons[pipeline_name] = layer
             self.output_channels[pipeline_name] = num_channels

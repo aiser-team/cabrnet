@@ -155,6 +155,8 @@
                 "optuna"
                 "zenodo-get"
                 "opencv-python-headless"
+                "onnxruntime"
+                "onnx-graphsurgeon"
               ];
               nativeCheckInputs = [ pkgs.pyright pythonPkgs.black ];
               # importCheck = with pythonPkgs; [ scipy torch numpy ];
