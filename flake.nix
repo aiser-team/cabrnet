@@ -82,6 +82,23 @@
               tensorboard = tensorboardWithoutTests;
             }
           );
+          pacmap = (pythonPkgs.buildPythonPackage
+            rec {
+              pname = "pacmap";
+              version = "0.7.3";
+              src = pythonPkgs.fetchPypi {
+                inherit pname version;
+                hash = "sha256-RQ7R/VcsB+Cyv2asTaLpW1BlSVyEowRaQ1Qmm6yUxHM=";
+              };
+              doCheck = false;
+              pytestCheckPhase = false;
+              pyproject = true;
+              build-system = with pythonPkgs; [
+                setuptools
+                wheel
+              ];
+              buildInputs = with pythonPkgs; [ scikit-learn numba annoy numpy ];
+            });
           cabrnetWithoutGUI = pythonPkgs.buildPythonPackage
             {
               inherit pname version;
@@ -99,6 +116,8 @@
                   scipy
                   graphviz
                   opencv4
+                  scikit-learn
+                  pacmap
                   # Not launching costly tests of several dependencies
                   # in Frama-C CI
                   (loguru.overridePythonAttrs
@@ -127,6 +146,7 @@
               pythonRelaxDeps = [
                 "tensorboard"
                 "setuptools"
+                "scikit-learn"
               ];
               # Not needed for non-gui CI or access the internet
               pythonRemoveDeps = [

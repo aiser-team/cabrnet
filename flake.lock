@@ -9,11 +9,11 @@
       "locked": {
         "lastModified": 1,
         "narHash": "sha256-JAxPyhRzAJJuZViiirbEOUiQ7TZ5p0bW0I169uiUF9o=",
-        "path": "/nix/store/53iyfbsay7rk6d1ciw49g4smxpjd31xx-source/ci/vendor/captum",
+        "path": "/nix/store/xyq1amrhi6msk2rip614lc2ayzncl0dw-source/ci/vendor/captum",
         "type": "path"
       },
       "original": {
-        "path": "/nix/store/53iyfbsay7rk6d1ciw49g4smxpjd31xx-source/ci/vendor/captum",
+        "path": "/nix/store/xyq1amrhi6msk2rip614lc2ayzncl0dw-source/ci/vendor/captum",
         "type": "path"
       }
     },
