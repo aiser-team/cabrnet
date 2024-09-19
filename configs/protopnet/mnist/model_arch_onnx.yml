@@ -11,7 +11,6 @@ extractor:
     weights: None
     params:
       onnx_path: examples/resnet18.onnx
-
   convnet:
     source_layer: /layer4/layer4.0/conv2/Conv
     add_on:
@@ -26,7 +25,7 @@ extractor:
       type: Sigmoid
 
 similarity:
-  name: LegacyProtoPNetSimilarity
+  name: ProtoPNetSimilarity
 
 classifier:
   module: cabrnet.archs.protopnet.decision
@@ -35,5 +34,3 @@ classifier:
     num_classes: 10
     num_proto_per_class: 10
     proto_init_mode: SHIFTED_NORMAL
-    compatibility_mode: True
-

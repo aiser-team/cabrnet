@@ -13,19 +13,6 @@ from torchvision.models._api import register_model
 
 __all__ = ["generic_onnx_model", "GenericONNXModel"]
 
-"""
-TODO:
-* [x] path sanitization and file permissions for ONNX models generation
-      (the ONNX file handler class)
-* [x] Saving generated ONNX models
-* [ ] Copying generated ONNX models with the rest of the configuration
-      once generated to enable reproduceability
-* [x] Create a collection of ORT running sessions with provided layer keys,
-      mirroring the ConvExtractor class capability to provide multi-output
-      models
-* [ ] type sanitization conversions for the ONNX sessions bindings
-"""
-
 
 class ONNXVariantsHandler:
     r"""A class handling multiple variations of a base ONNX file.
@@ -293,11 +280,15 @@ class GenericONNXModel(nn.Module):
                 A dictionary of (variant_name (str), output_tensor (Tensor)).
         """
         device = x.device
-        providers = ["CPUExecutionProvider", "CUDAExecutionProvider"]
+        # Only supports CPU execution
+        providers = ["CPUExecutionProvider"]
         if device == torch.device("cpu"):
             device_type = "cpu"
         else:
-            device_type = "cuda"
+            logger.error(
+                f"Error, unable to perform a forward pass on a ONNX backbone with device {torch.device}. Expects cpu. "
+            )
+            raise NotImplemented
         ort_sessions = {}
         outputs = {}
         batch_size = x.size()[0]
