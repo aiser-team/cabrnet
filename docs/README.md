@@ -13,7 +13,7 @@ Recognition](https://openaccess.thecvf.com/content/CVPR2021/papers/Nauta_Neural_
 2021 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR), pages 14928–14938, 2021.
 - **ProtoPool**, as described in *Dawid Rymarczyk, Lukasz Struski, Michal Gorszczak, Koryna Lewandowska, Jacek Tabor and Bartosz Zielinski.* 
 [Interpretable Image Classification with Differentiable Prototypes Assignment](https://www.ecva.net/papers/eccv_2022/papers_ECCV/papers/136720346.pdf). 
-2021 European Conference on Computer Vision (ECCV).*
+2021 European Conference on Computer Vision (ECCV).
 
 # Index
 - [Build and install](manuals/install.md)
