@@ -95,7 +95,8 @@ def create_visualization_gui(
         # Common attribution options
         single_location = gr.Checkbox(label="Max similarity score only", value=True, key="gradient_max_similarity")
         normalize = gr.Checkbox(label="Normalize", value=True, key="gradient_normalize")
-        components.update([single_location, normalize])
+        overwrite = gr.Checkbox(label="Overwrite results", value=False, key="overwrite")
+        components.update([single_location, normalize, overwrite])
 
         # Select viewing method
         with gr.Row():
@@ -145,7 +146,7 @@ def get_visualization_config(gradio_config: dict[str, Any]) -> dict[str, Any]:
     Returns:
         Visualization configuration.
     """
-    return {
+    config_dict = {
         "attribution": {
             "type": gradio_config["attribution_select"],
             "params": {
@@ -156,7 +157,6 @@ def get_visualization_config(gradio_config: dict[str, Any]) -> dict[str, Any]:
                 "gaussian_ksize": gradio_config["gradient_gaussian_ksize"],
                 "grads_x_input": gradio_config["gradient_x_input"],
                 "similarity_threshold": gradio_config["gradient_similarity_threshold"],
-                "location": "max" if gradio_config["gradient_max_similarity"] else None,
                 "normalize": gradio_config["gradient_normalize"],
             },
         },
@@ -169,3 +169,6 @@ def get_visualization_config(gradio_config: dict[str, Any]) -> dict[str, Any]:
             },
         },
     }
+    if gradio_config["gradient_max_similarity"]:
+        config_dict["attribution"]["params"]["location"] = "max"
+    return config_dict

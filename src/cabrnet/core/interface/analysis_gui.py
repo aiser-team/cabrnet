@@ -149,22 +149,23 @@ class CaBRNetAnalysisGUI:
             # Update prototype directory
             self._prototype_dir = os.path.join(self._output_dir, "prototypes")
 
-            # Build prototypes
-            self.model.extract_prototypes(
-                dataloader_raw=self.dataloaders["projection_set_raw"],
-                dataloader=self.dataloaders["projection_set"],
-                projection_info=self.projection_info,
-                visualizer=visualizer,
-                dir_path=self._prototype_dir,
-                device=self.device,
-                verbose=True,
-            )
-
-            # Save visualization config
-            with open(
-                os.path.join(self._prototype_dir, SimilarityVisualizer.DEFAULT_VISUALIZATION_CONFIG), "w"
-            ) as fout:
-                yaml.dump(visualization_config, fout)
+            if gradio_config["overwrite"] or not os.path.exists(self._prototype_dir):
+                # Build prototypes
+                self.model.extract_prototypes(
+                    dataloader_raw=self.dataloaders["projection_set_raw"],
+                    dataloader=self.dataloaders["projection_set"],
+                    projection_info=self.projection_info,
+                    visualizer=visualizer,
+                    dir_path=self._prototype_dir,
+                    device=self.device,
+                    verbose=True,
+                )
+    
+                # Save visualization config
+                with open(
+                    os.path.join(self._prototype_dir, SimilarityVisualizer.DEFAULT_VISUALIZATION_CONFIG), "w"
+                ) as fout:
+                    yaml.dump(visualization_config, fout)
 
             # Generate explanation
             self.model.explain_global(
