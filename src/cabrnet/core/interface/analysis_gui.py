@@ -42,7 +42,7 @@ class CaBRNetAnalysisGUI:
         device: Hardware device.
         visualizer: Current patch visualizer.
     """
-    DEFAULT_CHECKPOINT_DIR: str = "trained_models/ProtoTree/prototree_cub200_resnet50_depth9_s0_imported/imported/"
+    DEFAULT_CHECKPOINT_DIR: str = "."
     DEFAULT_WORKING_DIR: str = "working_dir"
 
     def __init__(self):
@@ -77,7 +77,6 @@ class CaBRNetAnalysisGUI:
                 # Load the datasets
                 self.dataloaders = DatasetManager.get_dataloaders(
                     config=os.path.join(checkpoint_path, DatasetManager.DEFAULT_DATASET_CONFIG),
-                    load_segmentation=True,
                 )
 
                 # Load projection info
@@ -290,7 +289,7 @@ class CaBRNetAnalysisGUI:
                         key="checkpoint",
                     )
                     stats = gr.Textbox(label="Statistics", interactive=False)
-                evaluate_button = gr.Button(value="Evaluate", icon="docs/logos/cabrnet.svg")
+                evaluate_button = gr.Button(value="Evaluate")
                 evaluate_button.click(self.evaluate_callback(), outputs=[stats])
                 output_select = create_browse_folder_component(
                     label="Working directory",
@@ -305,7 +304,7 @@ class CaBRNetAnalysisGUI:
             with gr.Group():
                 # Global explanation
                 visualization_gui = create_visualization_gui(default_attribution="prp")
-                explain_button = gr.Button("Generate global explanation", icon="docs/logos/cabrnet.svg")
+                explain_button = gr.Button("Generate global explanation")
                 global_explanation = gr.Image(label="Global explanation", interactive=False)
                 explain_button.click(
                     self.global_explanation_callback(), inputs=visualization_gui, outputs=global_explanation
@@ -365,7 +364,7 @@ class CaBRNetAnalysisGUI:
                     outputs=[object_segmentation],
                 )
                 explanation = gr.Image(label="Local explanation", height=400, interactive=False)
-                explain_button = gr.Button("Generate local explanation", icon="docs/logos/cabrnet.svg")
+                explain_button = gr.Button("Generate local explanation")
                 local_explanation_inputs: set[Component] = {input_image}
                 local_explanation_inputs.update(visualization_gui)
                 explain_button.click(
@@ -390,7 +389,7 @@ class CaBRNetAnalysisGUI:
                     interactive=True,
                     key="num_prototypes",
                 )
-                analyze_button = gr.Button("Analyze", icon="docs/logos/cabrnet.svg")
+                analyze_button = gr.Button("Analyze")
 
                 # Add configuration for benchmark
                 with gr.Row():

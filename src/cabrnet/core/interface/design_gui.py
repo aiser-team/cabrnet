@@ -491,7 +491,7 @@ class CaBRNetDesignGUI:
                     output_file.change(self.load_output_file_callback(), outputs=result)
 
             # Save YAML file on click
-            generate = gr.Button(value="Generate configuration file", icon="docs/logos/cabrnet.svg")
+            generate = gr.Button(value="Generate configuration file")
             generate.click(self.save_callback(), outputs=result)
 
         return block
