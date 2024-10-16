@@ -431,9 +431,8 @@ class CaBRNet(nn.Module):
                 # Update all metrics
                 if not stats:
                     stats = batch_stats
-                else:
-                    for key, value in batch_stats.items():
-                        stats[key] += value * xs.size(0)
+                for key, value in batch_stats.items():
+                    stats[key] += value * xs.size(0)
 
                 # Update progress bar
                 postfix_str = f"Batch loss: {batch_loss.item():.3f}, Acc: {batch_accuracy:.3f}"

@@ -94,6 +94,9 @@ def main():
 
     args = parser.parse_args()
 
+    if "cuda" in args.device and not torch.cuda.is_available():
+        raise ArgumentError("No available CUDA device on host. Use `--device cpu` option instead.")
+
     # Set random seeds
     seed = args.seed
     torch.use_deterministic_algorithms(mode=True)

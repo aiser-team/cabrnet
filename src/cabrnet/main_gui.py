@@ -28,6 +28,7 @@ from loguru import logger
 
 from cabrnet.core.interface.analysis_gui import main as analysis_main
 from cabrnet.core.interface.design_gui import main as design_main
+from cabrnet.core.utils.exceptions import ArgumentError
 from cabrnet.core.utils.system_info import get_hardware_info
 
 
@@ -75,6 +76,9 @@ def main():
     subparsers.add_parser("design", help="Design dashboard for CaBRNet models").set_defaults(func=design_main)
 
     args = parser.parse_args()
+
+    if "cuda" in args.device and not torch.cuda.is_available():
+        raise ArgumentError("No available CUDA device on host. Use `--device cpu` option instead.")
 
     # Set random seeds
     seed = args.seed

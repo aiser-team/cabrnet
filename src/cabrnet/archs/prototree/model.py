@@ -287,9 +287,9 @@ class ProtoTree(CaBRNet):
             # Update all metrics
             if not train_info:
                 train_info = batch_stats
-            else:
-                for key, value in batch_stats.items():
-                    train_info[key] += value * xs.size(0)
+            for key, value in batch_stats.items():
+                train_info[key] += value * xs.size(0)
+
             total_batch_time += batch_time
             total_data_time += data_time
             ref_time = time.time()
