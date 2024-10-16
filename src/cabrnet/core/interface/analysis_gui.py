@@ -160,7 +160,7 @@ class CaBRNetAnalysisGUI:
                     device=self.device,
                     verbose=True,
                 )
-    
+
                 # Save visualization config
                 with open(
                     os.path.join(self._prototype_dir, SimilarityVisualizer.DEFAULT_VISUALIZATION_CONFIG), "w"
