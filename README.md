@@ -35,3 +35,7 @@ publication of trained models:
 - Jules Soria (CEA-LIST)
 - Alban Grastien (CEA-LIST)
 - Romain Xu-Darme (CEA-LIST)
+
+This library is built upon previous work done in collaboration 
+with the [MRIM team](https://www.liglab.fr/fr/recherche/equipes-recherche/mrim)
+(Laboratoire d'Informatique de Grenoble).

@@ -122,7 +122,7 @@ def draw_latent(
     similarity_threshold: float,
     plot_class: int | None,
     show_class: int | None,
-    device: str = "cuda:0",
+    device: str | torch.device = "cuda:0",
     seed: int = 42,
     verbose: bool = False,
 ):
