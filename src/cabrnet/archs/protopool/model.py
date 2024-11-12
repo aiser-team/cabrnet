@@ -379,6 +379,16 @@ class ProtoPool(CaBRNet):
         Returns:
             Projection information.
         """
+        # Hard assignment of prototypes to slots using one-hot distributions
+        class_mapping = self.class_mapping
+        with torch.no_grad():
+            if not self._compatibility_mode:
+                hard_proto_slot_map = torch.zeros_like(self.classifier.proto_slot_map).to(device)
+                for c in range(self.classifier.num_classes):
+                    for s in range(self.classifier.num_slots_per_class):
+                        hard_proto_slot_map[c, class_mapping[c, s], s] = 1.0
+                self.classifier.proto_slot_map.copy_(hard_proto_slot_map)
+
         # Perform projection
         projection_info = self.project(
             dataloader=dataloaders["projection_set"],
@@ -459,102 +469,6 @@ class ProtoPool(CaBRNet):
             )
 
         logger.info(f"Model statistics after pruning: {self.num_prototypes} prototypes.")
-
-    def project(
-        self,
-        dataloader: DataLoader,
-        device: str | torch.device = "cuda:0",
-        verbose: bool = False,
-        tqdm_position: int = 0,
-    ) -> dict[int, dict[str, int | float]]:
-        r"""Performs prototype projection after training.
-
-        Args:
-            dataloader (DataLoader): Dataloader containing projection data.
-            device (str | device, optional): Hardware device. Default: cuda:0.
-            verbose (bool, optional): Display progress bar. Default: False.
-            tqdm_position (int, optional): Position of the progress bar. Default: 0.
-
-        Returns:
-            Dictionary containing projection information for each prototype.
-        """
-        logger.info("Performing prototype projection")
-        self.eval()
-        self.to(device)
-
-        # Compute mapping between classes and prototypes
-        class_mapping = self.classifier.class_mapping
-
-        with torch.no_grad():
-            if not self._compatibility_mode:
-                # Hard assignment of prototypes to slots using one-hot distributions
-                hard_proto_slot_map = torch.zeros_like(self.classifier.proto_slot_map).to(device)
-                for c in range(self.classifier.num_classes):
-                    for s in range(self.classifier.num_slots_per_class):
-                        hard_proto_slot_map[c, class_mapping[c, s], s] = 1.0
-                self.classifier.proto_slot_map.copy_(hard_proto_slot_map)
-
-        # Show progress on progress bar if needed
-        data_iter = tqdm(
-            enumerate(dataloader),
-            desc="Prototype projection",
-            total=len(dataloader),
-            leave=False,
-            position=tqdm_position,
-            disable=not verbose,
-        )
-
-        # Number of prototypes and prototype length
-        num_prototypes, proto_dim = self.num_prototypes, self.classifier.num_features
-
-        # For each prototype, keep track of:
-        #   - the index of the closest projection image
-        #   - the coordinates of the vector inside the latent representation of that image
-        #   - the corresponding distance
-        #   - the corresponding vector
-        projection_info = {
-            proto_idx: {
-                "img_idx": -1,
-                "h": -1,
-                "w": -1,
-                "dist": float("inf"),
-            }
-            for proto_idx in range(num_prototypes)
-        }
-        projection_vectors = torch.zeros_like(self.classifier.prototypes)
-
-        with torch.no_grad():
-            for batch_idx, (xs, ys) in data_iter:
-                # Map to device and perform inference
-                xs = xs.to(device)
-                feats = self.extractor(xs)  # Shape N x D x H x W
-                _, W = feats.shape[2], feats.shape[3]
-                distances = self.classifier.similarity_layer.distances(
-                    feats, self.classifier.prototypes
-                )  # Shape (N, P, H, W)
-                min_dist, min_dist_idxs = torch.min(distances.view(distances.shape[:2] + (-1,)), dim=2)
-
-                for img_idx, (_, y) in enumerate(zip(xs, ys)):
-                    for proto_idx in class_mapping[y.item()]:
-                        # For each entry, only check prototypes that lead to the corresponding class
-                        if min_dist[img_idx, proto_idx] < projection_info[proto_idx]["dist"]:
-                            h, w = (
-                                min_dist_idxs[img_idx, proto_idx].item() // W,
-                                min_dist_idxs[img_idx, proto_idx].item() % W,
-                            )
-                            batch_size = 1 if dataloader.batch_size is None else dataloader.batch_size
-                            projection_info[proto_idx] = {
-                                "img_idx": batch_idx * batch_size + img_idx,
-                                "h": h,
-                                "w": w,
-                                "dist": min_dist[img_idx, proto_idx].item(),
-                            }
-                            projection_vectors[proto_idx] = feats[img_idx, :, h, w].view(proto_dim, 1, 1).cpu()
-
-            # Update prototype vectors
-            self.classifier.prototypes.copy_(projection_vectors)
-
-        return projection_info
 
     def explain(
         self,

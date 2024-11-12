@@ -106,7 +106,7 @@ def save_checkpoint(
         pickle.dump(state, file)
 
     # Save projection information if it exists
-    if projection_info is not None:
+    if projection_info:
         save_projection_info(projection_info, os.path.join(directory_path, CaBRNet.DEFAULT_PROJECTION_INFO))
 
     # Save ONNX model if it exists

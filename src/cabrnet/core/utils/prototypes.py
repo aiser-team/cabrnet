@@ -1,7 +1,7 @@
 import torch
 from torch import Tensor
 
-prototype_init_modes = ["NORMAL", "SHIFTED_NORMAL", "UNIFORM"]
+prototype_init_modes = ["NORMAL", "SHIFTED_NORMAL", "UNIFORM", "XAVIER"]
 
 
 def init_prototypes(
@@ -22,6 +22,10 @@ def init_prototypes(
         return torch.rand((num_prototypes, num_features, 1, 1), requires_grad=True)
     elif init_mode == "NORMAL":
         return torch.randn((num_prototypes, num_features, 1, 1), requires_grad=True)
+    elif init_mode == "XAVIER":
+        prototypes = torch.randn((num_prototypes, num_features, 1, 1), requires_grad=True)
+        torch.nn.init.xavier_normal_(prototypes)
+        return prototypes
     else:  # SHIFTED_NORMAL
         prototypes = torch.randn((num_prototypes, num_features, 1, 1), requires_grad=True)
         torch.nn.init.normal_(prototypes, mean=0.5, std=0.1)

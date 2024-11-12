@@ -14,6 +14,7 @@ import numpy as np
 from torch import Tensor
 from torch.utils.data import DataLoader
 from tqdm import tqdm
+import time
 
 from cabrnet.archs.generic.conv_extractor import ConvExtractor, layer_init_functions
 from cabrnet.archs.generic.decision import CaBRNetClassifier
@@ -75,6 +76,14 @@ class CaBRNet(nn.Module):
         x = self.extractor(x, **kwargs)
         return self.classifier(x, **kwargs)
 
+    def features(self, x: Tensor, **kwargs) -> Tensor:
+        r"""Computes convolutional features only.
+
+        Args:
+            x (tensor): Input tensor.
+        """
+        return self.extractor(x, **kwargs)
+
     def similarities(self, x: Tensor, **kwargs) -> Tensor:
         r"""Returns similarity scores.
 
@@ -84,7 +93,7 @@ class CaBRNet(nn.Module):
         Returns:
             Tensor of similarity scores.
         """
-        x = self.extractor(x, **kwargs)
+        x = self.features(x, **kwargs)
         return self.classifier.similarities(x, **kwargs)
 
     def distances(self, x: Tensor, **kwargs) -> Tensor:
@@ -96,7 +105,7 @@ class CaBRNet(nn.Module):
         Returns:
             Tensor of distances.
         """
-        x = self.extractor(x, **kwargs)
+        x = self.features(x, **kwargs)
         return self.classifier.distances(x, **kwargs)
 
     @property
@@ -357,7 +366,113 @@ class CaBRNet(nn.Module):
         Returns:
             Dictionary containing learning statistics.
         """
-        raise NotImplementedError
+        return self._train_epoch(dataloaders, optimizer_mngr, device, tqdm_position, epoch_idx, verbose)
+
+    def _train_epoch(
+        self,
+        dataloaders: dict[str, DataLoader],
+        optimizer_mngr: OptimizerManager | torch.optim.Optimizer,
+        device: str | torch.device = "cuda:0",
+        tqdm_position: int = 0,
+        epoch_idx: int = 0,
+        verbose: bool = False,
+        tqdm_title: str | None = None,
+    ) -> dict[str, float]:
+        r"""Internal function: trains the model for exactly one epoch.
+
+        Args:
+            dataloaders (dictionary): Dictionary of dataloaders.
+            optimizer_mngr (OptimizerManager): Optimizer manager.
+            device (str | device, optional): Hardware device. Default: cuda:0.
+            tqdm_position (int, optional): Position of the progress bar. Default: 0.
+            epoch_idx (int, optional): Epoch index. Default: 0.
+            verbose (bool, optional): Display progress bar. Default: False.
+            tqdm_title (str, optional): Progress bar title. Default: "Training epoch {epoch_idx".
+
+        Returns:
+            Dictionary containing learning statistics.
+        """
+        self.train()
+        self.to(device)
+
+        if tqdm_title is None:
+            tqdm_title = f"Training epoch {epoch_idx}"
+
+        # Training stats
+        train_info = {}
+        nb_inputs = 0
+
+        # Capture data fetch time relative to total batch time to ensure that there is no bottleneck here
+        total_batch_time = 0.0
+        total_data_time = 0.0
+
+        # Use training dataloader
+        train_loader = dataloaders["train_set"]
+
+        # Show progress on progress bar if needed
+        train_iter = tqdm(
+            enumerate(train_loader),
+            desc=tqdm_title,
+            total=len(train_loader),
+            leave=False,
+            position=tqdm_position,
+            disable=not verbose,
+        )
+        ref_time = time.time()
+        batch_idx = 0
+        for batch_idx, (xs, ys) in train_iter:
+            data_time = time.time() - ref_time
+            nb_inputs += xs.size(0)
+
+            # Reset gradients and map the data on the target device
+            optimizer_mngr.zero_grad()
+            xs, ys = xs.to(device), ys.to(device)
+
+            # Perform inference and compute loss
+            model_output = self.forward(xs)
+            batch_loss, batch_stats = self.loss(model_output, ys)
+
+            # Compute the gradient and update parameters
+            batch_loss.backward()
+            if isinstance(optimizer_mngr, OptimizerManager):
+                optimizer_mngr.optimizer_step(epoch=epoch_idx)
+            else:  # Simple optimizer
+                optimizer_mngr.step()
+
+            # Update progress bar
+            batch_time = time.time() - ref_time
+            batch_stats_str = ", ".join([f"{loss}: {value:.2f}" for (loss, value) in batch_stats.items()])
+            postfix_str = (
+                f"batch [{batch_idx + 1}/{len(train_loader)}], "
+                + batch_stats_str
+                + f", time: {batch_time:.2f}s (data: {data_time:.2f})"
+            )
+            train_iter.set_postfix_str(postfix_str)
+
+            # Update all metrics
+            if not train_info:
+                train_info = batch_stats
+            for key, value in batch_stats.items():
+                train_info[key] += value * xs.size(0)
+
+            total_batch_time += batch_time
+            total_data_time += data_time
+            ref_time = time.time()
+
+        # Clean gradients after last batch
+        optimizer_mngr.zero_grad()
+
+        train_info = {key: value / nb_inputs for key, value in train_info.items()}
+
+        # Update batch_num with effective value
+        batch_num = batch_idx + 1
+        train_info.update(
+            {
+                "time/batch": total_batch_time / batch_num,
+                "time/data": total_data_time / batch_num,
+            }
+        )
+        return train_info
 
     def epilogue(
         self,
@@ -426,7 +541,6 @@ class CaBRNet(nn.Module):
                 # Perform inference and compute loss
                 ys_pred = self.forward(xs, **kwargs)
                 batch_loss, batch_stats = self.loss(ys_pred, ys)
-                batch_accuracy = batch_stats["accuracy"]
 
                 # Update all metrics
                 if not stats:
@@ -435,7 +549,7 @@ class CaBRNet(nn.Module):
                     stats[key] += value * xs.size(0)
 
                 # Update progress bar
-                postfix_str = f"Batch loss: {batch_loss.item():.3f}, Acc: {batch_accuracy:.3f}"
+                postfix_str = ", ".join([f"{loss}: {value:.2f}" for (loss, value) in batch_stats.items()])
                 data_iter.set_postfix_str(postfix_str)
 
         stats = {key: value / nb_inputs for key, value in stats.items()}
@@ -467,19 +581,98 @@ class CaBRNet(nn.Module):
         device: str | torch.device = "cuda:0",
         verbose: bool = False,
         tqdm_position: int = 0,
+        update_prototypes: bool = True,
     ) -> dict[int, dict[str, int | float]]:
-        r"""Performs prototype projection after training.
+        r"""Performs prototype projection (maximum similarity) after training.
+        Warning: depending on float approximations, the results might be slightly different for legacy codes using
+        minimum distance instead of maximum similarity.
 
         Args:
             dataloader (DataLoader): Dataloader containing projection data.
             device (str | device, optional): Hardware device. Default: cuda:0.
             verbose (bool, optional): Display progress bar. Default: False.
             tqdm_position (int, optional): Position of the progress bar. Default: 0.
+            update_prototypes (bool, optional): If True, update prototypes with their closest vectors. Default: True.
 
         Returns:
             Dictionary containing projection information for each prototype.
         """
-        raise NotImplementedError
+        self.eval()
+        self.to(device)
+
+        # Mapping between classes and prototypes
+        proto_class_map = self.classifier.prototype_class_mapping
+        class_mapping = {c: list(np.nonzero(proto_class_map[:, c])[0]) for c in range(self.classifier.num_classes)}
+
+        # Sanity check to ensure that each class is associated with at least one prototype
+        for class_idx in range(self.classifier.num_classes):
+            if class_idx not in class_mapping:
+                logger.error(f"Inaccessible class {class_idx}!")
+
+        # Show progress on progress bar if needed
+        data_iter = tqdm(
+            enumerate(dataloader),
+            desc="Prototype projection",
+            total=len(dataloader),
+            leave=False,
+            position=tqdm_position,
+            disable=not verbose,
+        )
+
+        # For each prototype, keep track of:
+        #   - the index of the closest projection image
+        #   - the coordinates of the vector inside the latent representation of that image
+        #   - the corresponding distance
+        #   - the corresponding vector
+        projection_info = {
+            proto_idx: {
+                "img_idx": -1,
+                "h": -1,
+                "w": -1,
+                "score": -float("inf"),
+            }
+            for proto_idx in range(self.num_prototypes)
+        }
+        projection_vectors = (
+            self.classifier.prototypes.clone()  # Not all prototypes will necessarily be updated
+            if not self._compatibility_mode
+            else torch.zeros_like(self.classifier.prototypes)
+        )
+
+        with torch.no_grad():
+            for batch_idx, (xs, ys) in data_iter:
+                # Map to device and perform inference
+                xs = xs.to(device)
+                feats = self.features(xs)  # Shape N x D x H x W
+                W = feats.size(-1)
+
+                similarities = self.classifier.similarities(feats)  # Shape (N, P, H, W)
+                best_score, best_score_loc = torch.max(similarities.flatten(start_dim=2), dim=2)
+
+                for img_idx, label in enumerate(ys):
+                    # Some architectures simply ignore the class index
+                    class_idx = label.item() if self.classifier.num_classes > 1 else 0
+
+                    for proto_idx in class_mapping[class_idx]:
+                        # For each entry, only check prototypes that lead to the corresponding class
+                        if best_score[img_idx, proto_idx] > projection_info[proto_idx]["score"]:
+                            h, w = (
+                                best_score_loc[img_idx, proto_idx].item() // W,
+                                best_score_loc[img_idx, proto_idx].item() % W,
+                            )
+                            batch_size = 1 if dataloader.batch_size is None else dataloader.batch_size
+                            projection_info[proto_idx] = {
+                                "img_idx": batch_idx * batch_size + img_idx,
+                                "h": h,
+                                "w": w,
+                                "score": best_score[img_idx, proto_idx].item(),
+                            }
+                            projection_vectors[proto_idx] = feats[img_idx, :, h : h + 1, w : w + 1].cpu()
+
+            if update_prototypes:
+                self.classifier.prototypes.copy_(projection_vectors)
+
+        return projection_info
 
     def extract_prototypes(
         self,
