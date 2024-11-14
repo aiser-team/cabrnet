@@ -451,7 +451,7 @@ class CaBRNet(nn.Module):
 
             # Update all metrics
             if not train_info:
-                train_info = batch_stats
+                train_info = {key: 0.0 for key in batch_stats}
             for key, value in batch_stats.items():
                 train_info[key] += value * xs.size(0)
 
@@ -544,7 +544,7 @@ class CaBRNet(nn.Module):
 
                 # Update all metrics
                 if not stats:
-                    stats = batch_stats
+                    stats = {key: 0.0 for key in batch_stats}
                 for key, value in batch_stats.items():
                     stats[key] += value * xs.size(0)
 

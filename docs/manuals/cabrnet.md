@@ -187,14 +187,28 @@ Similar to the option in `cabrnet train`, the `--config-dir <dir>` option is equ
 - `--training <dir>/training.yml`
 
 ## Evaluating a CaBRNet model
+### Basic evaluation
 After training, it is possible to evaluate the loss and accuracy of a model using the `cabrnet evaluate` tool. 
 To evaluate a model, the tool uses the following options:
 
 - `--model-arch </path/to/file.yml>` indicates how to [build the model](model.md).
 - `--model-state-dict </path/to/model/state.pth>` indicates
 the location of a CaBRNet or legacy state dictionary that should be used to initialize the model.
+- `--training|-t </path/to/file.yml>` indicates the [optional parameters of the loss function](training.md) (if any).
 - `--dataset|-d </path/to/file.yml>` indicates how to [load and prepare the test data for the evaluation](data.md).
+- `--targets <dataset_name_1> ...` indicates which dataset(s) to evaluate (as described in the dataset file).
+- 
+Similar to the `--config-dir` option in `cabrnet train`, the `--checkpoint-dir <dir>` option is equivalent to:
 
+- `--model-arch <dir>/model_arch.yml`
+- `--model-state-dict <dir>/model_state.pth`
+- `--dataset <dir>/dataset.yml`
+- `--training <dir>/training.yml`
+
+Finally, similar to `cabrnet train`, the `--sampling-ratio` option allows for a control of the portion of 
+data that is processed.
+
+### Custom CBR metrics
 To compute dedicated metrics for case-based reasoning models, the `cabrnet benchmark` tool uses the following options:
 
 - `--model-arch </path/to/file.yml>` indicates how to [build the model](model.md).
