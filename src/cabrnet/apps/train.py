@@ -88,7 +88,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     parser.add_argument(
         "--epilogue",
         action="store_true",
-        help="skip training and go to epilogue.",
+        help="skip training and go to epilogue (requires `--resume-from` option).",
     )
     return parser
 
@@ -161,6 +161,8 @@ def check_args(args: Namespace) -> Namespace:
         # In sanity check mode, increase the sampling ratio
         args.sampling_ratio = 100
 
+    if args.epilogue and args.resume_from is None:
+        raise ArgumentError("Option --epilogue requires option -r (--resume-from)")
     return args
 
 

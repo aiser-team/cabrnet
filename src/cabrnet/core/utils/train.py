@@ -74,6 +74,29 @@ def training_loop(
     epochs_since_best = 0
     trained = False
 
+    # Save initial model before training
+    if next(iter(epoch_range)) == 0 and checkpoint_frequency is not None:
+        train_info = model.evaluate(dataloader=dataloaders["train_set"], device=device, verbose=verbose)
+
+        # Add all stats to Tensorboard
+        for key, value in train_info.items():
+            writer.add_scalar(key, value, 0)
+        writer.flush()
+
+        save_checkpoint(
+            directory_path=os.path.join(working_dir, "init"),
+            model=model,
+            model_arch=model_arch,
+            optimizer_mngr=optimizer_mngr,
+            training_config=training_config,
+            dataset_config=dataset_config,
+            projection_info=None,
+            epoch="init",
+            seed=seed,
+            device=device,
+            stats=train_info,
+        )
+
     for epoch in epoch_range:
         # Handle early abort
         if epochs_since_best >= optimizer_mngr.get_patience(epoch):

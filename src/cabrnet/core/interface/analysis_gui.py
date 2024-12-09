@@ -65,7 +65,7 @@ class CaBRNetAnalysisGUI:
             self.dataloaders = None
             self.projection_info = None
 
-            try:
+            try:  # Mandatory content
                 # Load the model
                 self.model = CaBRNet.build_from_config(
                     config=os.path.join(checkpoint_path, CaBRNet.DEFAULT_MODEL_CONFIG),
@@ -78,16 +78,20 @@ class CaBRNetAnalysisGUI:
                 self.dataloaders = DatasetManager.get_dataloaders(
                     config=os.path.join(checkpoint_path, DatasetManager.DEFAULT_DATASET_CONFIG),
                 )
+            except FileNotFoundError as e:
+                logger.warning(e)
+                return gr.update(root_dir=None)
 
+            try:  # Optional content of the directory
                 # Load projection info
                 self.projection_info = load_projection_info(
                     filename=os.path.join(checkpoint_path, CaBRNet.DEFAULT_PROJECTION_INFO)
                 )
-                return gr.update(root_dir=self.dataloaders["test_set"].dataset.root)  # type: ignore
-
             except FileNotFoundError as e:
                 logger.warning(e)
                 pass
+
+            return gr.update(root_dir=self.dataloaders["test_set"].dataset.root)  # type: ignore
 
         return callback
 
@@ -135,8 +139,11 @@ class CaBRNetAnalysisGUI:
         r"""Returns a callback for generating the global explanation of a model."""
 
         def callback(gradio_outputs: dict[Component, Any]) -> str | None:
-            if self.model is None or self.dataloaders is None or self.projection_info is None:
+            if self.model is None or self.dataloaders is None:
                 logger.warning("No checkpoint loaded (yet).")
+                return None
+            if self.projection_info is None:
+                logger.warning("Missing projection information.")
                 return None
 
             # Extract configuration
@@ -181,9 +188,12 @@ class CaBRNetAnalysisGUI:
         r"""Returns a callback for generating the local explanation of a model."""
 
         def callback(gradio_outputs: dict[Component, Any]) -> Image.Image | None:
-            if self.model is None or self.dataloaders is None or self.projection_info is None:
+            if self.model is None or self.dataloaders is None:
                 logger.warning("No checkpoint loaded (yet).")
                 return None
+            if self.projection_info is None:
+                # Not mandatory, especially when analysing models before the epilogue
+                logger.warning("Missing projection information.")
 
             # Extract configuration
             gradio_config = gradio_convert_outputs(gradio_outputs=gradio_outputs)

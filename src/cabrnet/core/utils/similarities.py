@@ -363,8 +363,8 @@ class CosineSimilarity(SimilarityLayer):
         """
         # Compute pairwise similarity manually since torch does not offer this feature yet
         scalar_product = torch.conv2d(features, prototypes)  # Shape (N, P, H, W)
-        f_norm = torch.sqrt(torch.sum(features * features, dim=1, keepdim=True))  # Shape N, 1, H, W
-        p_norm = torch.sqrt(torch.sum(prototypes * prototypes, dim=1, keepdim=True)).swapaxes(0, 1)  # Shape 1, P, 1, 1
+        f_norm = torch.linalg.vector_norm(features, dim=1, keepdim=True)  # Shape (N, 1, H, W)
+        p_norm = torch.linalg.vector_norm(prototypes, dim=1, keepdim=True).swapaxes(0, 1)  # Shape (1, P, 1, 1)
         cosine_sim = scalar_product / ((f_norm * p_norm) + self.stability_factor)  # Between [-1, 1]
         return 1 - cosine_sim
 
