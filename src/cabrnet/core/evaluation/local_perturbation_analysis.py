@@ -106,6 +106,7 @@ def _compute_perturbations(
     distortion_periods: int = 5,
     distortion_amplitude: float = 7.0,
     distortion_direction: str = "both",
+    **kwargs,
 ) -> dict[str, dict[str, Any]]:
     r"""Applies a set of perturbations on an image.
 
@@ -448,10 +449,6 @@ def execute(
     device: str | torch.device,
     verbose: bool,
     info_db: str = "local_perturbation_analysis.csv",
-    global_stats: str = "global_stats.csv",
-    distribution_img: str = "local_perturbation_analysis.png",
-    quiet: bool = False,
-    enable_dual_mode: bool = True,
     sampling_ratio: int = 1,
     debug_mode: bool = False,
     prototype_dir: str = "",
@@ -470,11 +467,6 @@ def execute(
         verbose (bool): Verbose mode.
         info_db (str, optional): Path to CSV file containing raw analysis per test image.
             Default: local_perturbation_analysis.csv.
-        global_stats (str, optional): Path to CSV file containing general global stats. Default: global_stats.csv.
-        distribution_img (str, optional): Path to output image showing distribution of max similarity drops.
-            Default: local_perturbation_analysis.png.
-        quiet (bool, optional): If True, does not show the distribution image. Default: False.
-        enable_dual_mode (bool, optional): Enable dual perturbations. Default: True.
         sampling_ratio (int, optional): Ratio of test images to use during evaluation (e.g. 10 means only
             one image in ten is used). Default: 1.
         debug_mode (bool, optional): If True, enables debug mode for visualizing image analysis. Default: False.
@@ -542,8 +534,6 @@ def execute(
             preprocess=preprocess,
             visualizer=visualizer,
             device=device,
-            num_prototypes=1,
-            enable_dual_mode=enable_dual_mode,
             debug_dir=debug_dir if debug_mode else None,
             prototype_dir=prototype_dir,
             **kwargs,
@@ -561,23 +551,17 @@ def execute(
             writer.writeheader()
             writer.writerows(stats)
 
-    show_results(
-        model=model,
-        src_path=os.path.join(output_dir, info_db),
-        output_dir=output_dir,
-        global_stats=global_stats,
-        distribution_img=distribution_img,
-        quiet=quiet,
-    )
+    show_results(model=model, src_path=os.path.join(output_dir, info_db), output_dir=output_dir, **kwargs)
 
 
 def show_results(
     model: CaBRNet,
     src_path: str,
     output_dir: str,
-    global_stats: str,
-    distribution_img: str,
+    global_stats: str = "global_stats.csv",
+    distribution_img: str = "max_similarity_dist.png",
     quiet: bool = False,
+    **kwargs,
 ) -> None:
     r"""Shows results of analysis.
 
@@ -585,8 +569,8 @@ def show_results(
         model (Module): Target model.
         src_path (str): Path to input file containing statistics per test image.
         output_dir (str): Output directory.
-        global_stats (str): Name of output CSV file containing global statistics.
-        distribution_img (str): Mame of output distribution graph.
+        global_stats (str, optional): Name of output CSV file containing global statistics. Default: "global_stats.csv".
+        distribution_img (str, optional): Name of output distribution graph. Default: "max_similarity_dist.png".
         quiet (bool, optional): If True, does not display analysis results. Default: False.
     """
     if src_path.lower().endswith(tuple(["pickle", "pkl"])):

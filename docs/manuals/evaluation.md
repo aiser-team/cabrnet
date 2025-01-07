@@ -78,6 +78,7 @@ relevance_analysis:
   area_percentage: <val> # Percentage of image area to keep when using a threshold during the pointing game
   debug_mode: <True|False> # If True, saves debug images
   sampling_ratio: <val> # Sampling ratio: only 1 in X images is analyzed
+  num_prototypes: <val> # Maximum number of relevant prototypes to analyze per test image
 ```
 
 
@@ -162,6 +163,7 @@ local_perturbation_analysis:
   info_db: <path_to_file> # Path to CSV file containing raw analysis per test image
   global_stats: <path_to_file> # Path to CSV file containing general global stats
   sampling_ratio: <X> # Sampling ratio: only 1 in X images is analyzed
+  num_prototypes: <val> # Maximum number of relevant prototypes to analyze per test image
   enable_dual_mode: <True|False> # If True, compute sensitivity test on dual perturbation
   distribution_img: <path_to_image> # Path to output image showing distribution of max similarity drops
   quiet: <True|False> # If True, does not show the distribution image
