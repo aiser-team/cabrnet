@@ -39,3 +39,12 @@ publication of trained models:
 This library is built upon previous work done in collaboration 
 with the [MRIM team](https://www.liglab.fr/fr/recherche/equipes-recherche/mrim)
 (Laboratoire d'Informatique de Grenoble).
+
+# Acknowledgments
+
+This work  was partly supported by French government grants managed by 
+the Agence Nationale de la Recherche under the France 2030 program 
+with the references ANR-23-DEGR-0001 (DeepGreen)
+and ANR-23-PEIA-0006 (PEPR SAIF),
+as well as a Research and Innovation Action under the Horizon Europe Framework 
+with grant agreement Nr.101070038 (Trumpet).
