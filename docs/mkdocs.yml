@@ -1,7 +1,8 @@
 site_name: CaBRNet documentation
-repo_url: https://git.frama-c.com/pub/cabrnet
+repo_url: https://github.com/aiser-team/cabrnet/
 repo_name: GitLab
 docs_dir: manuals
+use_directory_urls: false
 site_dir: ../website
 markdown_extensions:
   - pymdownx.arithmatex:

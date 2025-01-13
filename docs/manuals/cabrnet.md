@@ -43,7 +43,7 @@ CaBRNet uses [loguru](https://loguru.readthedocs.io/en/stable/) for logging mess
 standard error output). 
 - `-v, --verbose` enables [tqdm](https://tqdm.github.io/) progression bars during long operations.
 
-## Training 
+## Training
 `cabrnet train` is used to train a prototype-based model.
 
 - `--model-arch|-m </path/to/file.yml>` indicates how to [build and initialize the model](model.md).
@@ -312,7 +312,7 @@ Similar to `cabrnet train`, the tool uses the following options:
 - `--training|-t </path/to/file.yml>` indicates the default [training parameters of the model](training.md).
 - `--save-best|-b <metric> <min/max>` indicates how to determine the "best" model for each trial (see [here](#defining-the-objective-function)).
 - `--search-space|-s <metric> <min/max> </path/to/file.yml> <num_trials`> indicates:
-  - the [global optimization objective](training.md#defining-the-training--optimization-objectives) for the hyperparameters.
+  - the [global optimization objective](training.md#defining-the-training-and-optimization-objectives) for the hyperparameters.
   - the definition of the [search space](training.md#defining-the-search-space).
   - the number of trials in the Bayesian optimization search.
 - `--output-dir|-o <path/to/output/directory>` indicates where to store the model checkpoints during training, as well 

@@ -17,7 +17,17 @@ Recognition](https://openaccess.thecvf.com/content/CVPR2021/papers/Nauta_Neural_
 
 # Index
 - [Build and install](docs/manuals/install.md)
-- [Quickstart](docs/README.md)
+- [Overview](docs/manuals/cabrnet.md)
+- Configuration files:
+    - [Model configuration](docs/manuals/model.md)
+    - [Data configuration](docs/manuals/data.md)
+    - [Training configuration](docs/manuals/training.md)
+    - [Visualization configuration](docs/manuals/visualize.md)
+- [Example: MNIST](docs/manuals/mnist.md)
+- [Benchmark](docs/manuals/evaluation.md)
+- [Compatibility with legacy codes](docs/manuals/legacy.md)
+- [Downloading pre-trained models](docs/manuals/download.md)
+
 
 # Authors
 This library is collaboratively maintained by members of CEA-LIST. 
