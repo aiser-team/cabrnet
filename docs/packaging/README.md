@@ -1,4 +1,4 @@
-![cabrnet banner](imgs/banner.png)
+![cabrnet logo](https://github.com/aiser-team/cabrnet/blob/main/docs/manuals/imgs/banner.png?raw=True)
 
 CaBRNet is an open source library that offers an API to use state-of-the-art
 prototype-based architectures (also called case-based reasoning models), or easily add a new one.
@@ -15,15 +15,51 @@ Recognition](https://openaccess.thecvf.com/content/CVPR2021/papers/Nauta_Neural_
 [Interpretable Image Classification with Differentiable Prototypes Assignment](https://www.ecva.net/papers/eccv_2022/papers_ECCV/papers/136720346.pdf). 
 2021 European Conference on Computer Vision (ECCV).
 
-# Index
-- [Build and install](install.md)
-- [CaBRNet application overview](cabrnet.md)
-- Configuration files:
-    - [Model configuration](model.md)
-    - [Data configuration](data.md)
-    - [Training configuration](training.md)
-    - [Visualization configuration](visualize.md)
-- [Example: MNIST](mnist.md)
-- [Benchmark](evaluation.md)
-- [Compatibility with legacy codes](legacy.md)
-- [Downloading pre-trained models](download.md)
+# Install
+- To install the package:
+
+```bash
+python3 -m pip install --upgrade cabrnet
+```
+- To install development related dependencies
+
+```bash
+python3 -m pip install --upgrade cabrnet[dev]
+```
+
+- To install documentation related dependencies
+
+```bash
+python3 -m pip install --upgrade cabrnet[doc]
+```
+
+- To install legacy testing related dependencies
+
+```bash
+python3 -m pip install --upgrade cabrnet[legacy]
+```
+
+
+# Links
+- [Documentation](https://github.com/aiser-team/cabrnet/blob/main/README.md)
+- [GitHub Repository](https://github.com/aiser-team/cabrnet)
+
+# Authors
+This library is collaboratively maintained by members of CEA-LIST. 
+The current point of contact is Romain Xu-Darme. The following authors contributed in a significant manner
+to the code base and/or the documentation of the library:
+
+- Romain Xu-Darme (CEA-LIST)
+- Aymeric Varasse (CEA-LIST)
+- Alban Grastien (CEA-LIST)
+- Julien Girard-Satabin (CEA-LIST)
+
+The following authors contributed in a significant manner to the experiments and the
+publication of trained models:
+
+- Jules Soria (CEA-LIST)
+- Alban Grastien (CEA-LIST)
+- Romain Xu-Darme (CEA-LIST)
+
+# License
+This project is licensed under the [LGPL-2.1 license](https://github.com/aiser-team/cabrnet/blob/main/COPYING.LESSER).

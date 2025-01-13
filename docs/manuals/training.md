@@ -64,7 +64,7 @@ The total number of training epochs is given using the `num_epochs` keyword, as 
 ```yaml
 num_epochs: <VALUE>
 ```
-Note that, as an option of the [train](cabrnet.md#training-) application, it is possible to 
+Note that, as an option of the [train](cabrnet.md#training) application, it is possible to 
 define an early stop condition based on the number of epochs spent without finding a better model
 (`--patience` option).
 
@@ -255,7 +255,7 @@ training:
         epoch_num : [choice, 10, 20, 50]
 ```
 
-## Defining the training / optimization objectives
+## Defining the training and optimization objectives
 For each trial (corresponding to one particular point inside the search space), CaBRNet models are optimized
 *w.r.t.* a given metric (*e.g.* average loss) that is usually computed on the training set and specified by the `--save-best` option 
 (see [here](cabrnet.md#defining-the-objective-function)).
