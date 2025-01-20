@@ -51,9 +51,3 @@ local_perturbation_analysis:
         distortion_amplitude: 7 # Controls the amplitude of the (local) sinus distortion
         distortion_direction: both # Controls the direction of the (local) sinus distortion
 
-relevance_analysis:
-  prototype_info_db: prototype_info_db.csv # Path to CSV file containing raw analysis per prototype
-  patch_info_db: patch_info_db.csv # Path to CSV file containing raw analysis per test image
-  area_percentage: 0.1 # Percentage of image area to keep when using a threshold during the pointing game
-  debug_mode: False # If True, saves debug images
-  num_prototypes: 10 # Maximum number of relevant prototypes to analyze per test image
