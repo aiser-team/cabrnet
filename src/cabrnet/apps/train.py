@@ -11,7 +11,7 @@ from cabrnet.core.utils.optimizers import OptimizerManager
 from cabrnet.core.utils.parser import load_config
 from cabrnet.core.utils.save import load_checkpoint
 from cabrnet.core.utils.system_info import get_parent_directory
-from cabrnet.core.utils.train import training_loop
+from cabrnet.core.utils.train import training_loop, latest_dir, backup_dir
 
 description = "trains a CaBRNet model"
 
@@ -141,16 +141,16 @@ def check_args(args: Namespace) -> Namespace:
     # In full training mode (all epochs), or when the output directory is different from the checkpoint parent directory
     # (resume mode), check that the best model directory is available
     best_model_path = os.path.join(args.output_dir, "best")
-    if (
-        os.path.exists(best_model_path)
-        and not args.overwrite
-        and not args.epilogue
-        and (args.resume_from is None or get_parent_directory(args.resume_from) != args.output_dir)
-    ):
-        raise ArgumentError(
-            f"Output directory {best_model_path} is not empty. "
-            f"To overwrite existing results, use --overwrite option."
-        )
+    for dir in [best_model_path, latest_dir(args.output_dir), backup_dir(args.output_dir)]:
+        if (
+            os.path.exists(dir)
+            and not args.overwrite
+            and not args.epilogue
+            and (args.resume_from is None or get_parent_directory(args.resume_from) != args.output_dir)
+        ):
+            raise ArgumentError(
+                f"Output directory {dir} is not empty. To overwrite existing results, use --overwrite option."
+            )
     final_model_path = os.path.join(args.output_dir, "final")
     if args.epilogue and os.path.exists(final_model_path) and not args.overwrite:
         raise ArgumentError(
@@ -225,7 +225,7 @@ def execute(args: Namespace) -> None:
         logger.warning(f"{'=' * 20} GOING STRAIGHT TO EPILOGUE {'=' * 20}")
         epoch_select = []
     elif sanity_check_only:
-        logger.warning(f"{'='*20} SANITY CHECK MODE: THE TRAINING WILL NOT BE FULLY PERFORMED {'='*20}")
+        logger.warning(f"{'=' * 20} SANITY CHECK MODE: THE TRAINING WILL NOT BE FULLY PERFORMED {'=' * 20}")
         # Only perform one epoch per training period
         epoch_select = [optimizer_mngr.periods[p_name]["epoch_range"][0] for p_name in optimizer_mngr.periods]
         epoch_select = (
