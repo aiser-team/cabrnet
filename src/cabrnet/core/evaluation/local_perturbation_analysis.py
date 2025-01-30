@@ -77,7 +77,7 @@ def _wave_distortion(
         attribution (Numpy array): Attribution map.
         num_periods (int): Number of periods for the sinus distortion.
         amplitude (float): Amplitude factor of the sinus distortion.
-        direction (str): Direction of the perturbation (either "horizontal", "vertical" or "both")..
+        direction (str): Direction of the perturbation (either "horizontal", "vertical" or "both").
         percentile (float, optional): Hard threshold used to calibrate the sinus deformation. Default: 0.7.
 
     Returns:
@@ -111,7 +111,7 @@ class _SinDistortion:
         attribution: A ndarray that represents the attribution map of the prototype.
         periods: Number of periods for the sinus distortion.
         amplitude: Amplitude factor of the sinus distortion.
-        direction: Direction of the perturbation (either "horizontal", "vertical" or "both")..
+        direction: Direction of the perturbation (either "horizontal", "vertical" or "both").
     """
 
     def __init__(self, attribution: np.ndarray, periods: int, amplitude: float, direction: str):
@@ -121,7 +121,7 @@ class _SinDistortion:
             attribution (ndarray): Attribution map of the prototype.
             periods (int): Number of periods for the sinus distortion.
             amplitude (float): Amplitude factor of the sinus distortion.
-            direction (str): Direction of the perturbation (either "horizontal", "vertical" or "both")..
+            direction (str): Direction of the perturbation (either "horizontal", "vertical" or "both").
         """
         self.attribution = attribution
         self.periods = periods
@@ -416,6 +416,8 @@ def analyze(
                     "description": perturbed_imgs[pert_name]["description"],
                     "squared_distance": squared_distances["focus"],
                     "dual_squared_distance": squared_distances["dual"] if enable_dual_mode else None,
+                    "h": h_max,
+                    "w": w_max,
                 }
             )
     if debug_mode:
@@ -597,5 +599,5 @@ def show_results(
         for perturbation in perturbations:
             pert_df = df.query(f"perturbation == '{perturbation}'")
             avg_drop = (pert_df["original_score"] - pert_df["score_after_perturbation"]) / pert_df["original_score"]
-            print(f"Average similarity drop for {pert_df.iloc[0]['description']}: {sum(avg_drop)/len(avg_drop):.2f}")
+            print(f"Average similarity drop for {pert_df.iloc[0]['description']}: {sum(avg_drop) / len(avg_drop):.2f}")
             writer.writerow([perturbation, sum(avg_drop) / len(avg_drop)])
