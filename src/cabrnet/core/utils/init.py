@@ -12,6 +12,16 @@ def init_weights_xavier(module: nn.Module):
         nn.init.xavier_normal_(module.weight, gain=nn.init.calculate_gain("sigmoid"))
 
 
+def init_weights_xavier_uniform(module: nn.Module):
+    r"""Xavier initialization (used in PIPNet).
+
+    Args:
+        module (module): Target module.
+    """
+    if isinstance(module, nn.Conv2d):
+        nn.init.xavier_uniform_(module.weight, gain=nn.init.calculate_gain("sigmoid"))
+
+
 def init_weights_kaiming_normal(module: nn.Module):
     r"""Kaiming initialization (used in ProtoPNet).
 
@@ -46,6 +56,7 @@ def init_weights_protopnet(module: nn.Module):
 
 
 layer_init_functions = {
+    "XAVIER_UNIFORM": init_weights_xavier_uniform,
     "XAVIER": init_weights_xavier,
     "PROTOPNET": init_weights_protopnet,
 }

@@ -366,23 +366,26 @@ class CaBRNet(nn.Module):
         Returns:
             Dictionary containing learning statistics.
         """
-        return self._train_epoch(dataloaders, optimizer_mngr, device, tqdm_position, epoch_idx, verbose)
+        return self._train_epoch(dataloaders, optimizer_mngr, "train_set", device, tqdm_position, epoch_idx, verbose)
 
     def _train_epoch(
         self,
         dataloaders: dict[str, DataLoader],
         optimizer_mngr: OptimizerManager | torch.optim.Optimizer,
+        dataset_name: str = "train_set",
         device: str | torch.device = "cuda:0",
         tqdm_position: int = 0,
         epoch_idx: int = 0,
         verbose: bool = False,
         tqdm_title: str | None = None,
+        **kwargs,
     ) -> dict[str, float]:
         r"""Internal function: trains the model for exactly one epoch.
 
         Args:
             dataloaders (dictionary): Dictionary of dataloaders.
             optimizer_mngr (OptimizerManager): Optimizer manager.
+            dataset_name (str, optional): Name of the dataset used for training. Default: train_set.
             device (str | device, optional): Hardware device. Default: cuda:0.
             tqdm_position (int, optional): Position of the progress bar. Default: 0.
             epoch_idx (int, optional): Epoch index. Default: 0.
@@ -407,7 +410,7 @@ class CaBRNet(nn.Module):
         total_data_time = 0.0
 
         # Use training dataloader
-        train_loader = dataloaders["train_set"]
+        train_loader = dataloaders[dataset_name]
 
         # Show progress on progress bar if needed
         train_iter = tqdm(
@@ -421,16 +424,16 @@ class CaBRNet(nn.Module):
         ref_time = time.time()
         batch_idx = 0
         for batch_idx, (xs, ys) in train_iter:
-            data_time = time.time() - ref_time
             nb_inputs += xs.size(0)
 
             # Reset gradients and map the data on the target device
             optimizer_mngr.zero_grad()
             xs, ys = xs.to(device), ys.to(device)
+            data_time = time.time() - ref_time
 
             # Perform inference and compute loss
             model_output = self.forward(xs)
-            batch_loss, batch_stats = self.loss(model_output, ys)
+            batch_loss, batch_stats = self.loss(model_output, ys, **kwargs)
 
             # Compute the gradient and update parameters
             batch_loss.backward()
@@ -462,7 +465,7 @@ class CaBRNet(nn.Module):
         # Clean gradients after last batch
         optimizer_mngr.zero_grad()
 
-        train_info = {key: value / nb_inputs for key, value in train_info.items()}
+        train_info = {f"{dataset_name}/{key}": value / nb_inputs for key, value in train_info.items()}
 
         # Update batch_num with effective value
         batch_num = batch_idx + 1
@@ -499,7 +502,8 @@ class CaBRNet(nn.Module):
 
     def evaluate(
         self,
-        dataloader: DataLoader,
+        dataloaders: dict[str, DataLoader],
+        dataset_name: str = "test_set",
         device: str | torch.device = "cuda:0",
         tqdm_position: int = 0,
         verbose: bool = False,
@@ -508,7 +512,8 @@ class CaBRNet(nn.Module):
         r"""Evaluates the model.
 
         Args:
-            dataloader (DataLoader): Dataloader containing evaluation data.
+            dataloaders (dictionary): Dictionary of dataloaders.
+            dataset_name (str, optional): Name of the dataset used for evaluation. Default: test_set.
             device (str | device, optional): Hardware device. Default: cuda:0.
             tqdm_position (int, optional): Position of the progress bar. Default: 0.
             verbose (bool, optional): Display progress bar. Default: 0.
@@ -525,6 +530,7 @@ class CaBRNet(nn.Module):
         nb_inputs = 0
 
         # Show progress on progress bar if needed
+        dataloader = dataloaders[dataset_name]
         data_iter = tqdm(
             dataloader,
             desc="Model evaluation",
@@ -534,9 +540,11 @@ class CaBRNet(nn.Module):
             disable=not verbose,
         )
         with torch.no_grad():
+            ref_time = time.time()
             for xs, ys in data_iter:
                 nb_inputs += xs.size(0)
                 xs, ys = xs.to(device), ys.to(device)
+                data_time = time.time() - ref_time
 
                 # Perform inference and compute loss
                 ys_pred = self.forward(xs, **kwargs)
@@ -549,10 +557,13 @@ class CaBRNet(nn.Module):
                     stats[key] += value * xs.size(0)
 
                 # Update progress bar
-                postfix_str = ", ".join([f"{loss}: {value:.2f}" for (loss, value) in batch_stats.items()])
+                batch_time = time.time() - ref_time
+                batch_stats_str = ", ".join([f"{loss}: {value:.2f}" for (loss, value) in batch_stats.items()])
+                postfix_str = batch_stats_str + f", time: {batch_time:.2f}s (data: {data_time:.2f})"
                 data_iter.set_postfix_str(postfix_str)
+                ref_time = time.time()
 
-        stats = {key: value / nb_inputs for key, value in stats.items()}
+        stats = {f"{dataset_name}/{key}": value / nb_inputs for key, value in stats.items()}
         return stats
 
     def train(self, mode: bool = True) -> nn.Module:

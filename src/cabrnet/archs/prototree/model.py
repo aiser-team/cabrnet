@@ -187,30 +187,38 @@ class ProtoTree(CaBRNet):
         batch_accuracy = torch.sum(torch.eq(torch.argmax(ys_pred, dim=1), label)).item() / len(label)
         return batch_loss, {"loss": batch_loss.item(), "accuracy": batch_accuracy}
 
-    def train_epoch(
+    def _train_epoch(
         self,
         dataloaders: dict[str, DataLoader],
-        optimizer_mngr: OptimizerManager,
+        optimizer_mngr: OptimizerManager | torch.optim.Optimizer,
+        dataset_name: str = "train_set",
         device: str | torch.device = "cuda:0",
         tqdm_position: int = 0,
         epoch_idx: int = 0,
         verbose: bool = False,
+        tqdm_title: str | None = None,
+        **kwargs,
     ) -> dict[str, float]:
         r"""Trains the model for one epoch.
 
         Args:
             dataloaders (dictionary): Dictionary of dataloaders.
             optimizer_mngr (OptimizerManager): Optimizer manager.
+            dataset_name (str, optional): Name of the dataset used for training. Default: train_set.
             device (str | device, optional): Hardware device. Default: cuda:0.
             tqdm_position (int, optional): Position of the progress bar. Default: 0.
             epoch_idx (int, optional): Epoch index. Default: 0.
             verbose (bool, optional): Display progress bar. Default: False.
+            tqdm_title (str, optional): Progress bar title. Default: "Training epoch {epoch_idx".
 
         Returns:
             Dictionary containing learning statistics.
         """
         self.train()
         self.to(device)
+
+        if tqdm_title is None:
+            tqdm_title = f"Training epoch {epoch_idx}"
 
         # Training stats
         train_info = {}
@@ -227,12 +235,12 @@ class ProtoTree(CaBRNet):
                 old_dist_params[leaf.node_id] = leaf._relative_distribution.detach().clone()
 
         # Use training dataloader
-        train_loader = dataloaders["train_set"]
+        train_loader = dataloaders[dataset_name]
 
         # Show progress on progress bar if needed
         train_iter = tqdm(
             enumerate(train_loader),
-            desc=f"Training epoch {epoch_idx}",
+            desc=tqdm_title,
             total=len(train_loader),
             leave=False,
             position=tqdm_position,
@@ -255,7 +263,10 @@ class ProtoTree(CaBRNet):
 
             # Compute the gradient and update parameters
             batch_loss.backward()
-            optimizer_mngr.optimizer_step(epoch=epoch_idx)
+            if isinstance(optimizer_mngr, OptimizerManager):
+                optimizer_mngr.optimizer_step(epoch=epoch_idx)
+            else:  # Simple optimizer
+                optimizer_mngr.step()
 
             # Update leaves with derivative-free algorithm
             # Convert integer label into on-hot encoding
@@ -296,9 +307,11 @@ class ProtoTree(CaBRNet):
 
         # Clean gradients after last batch
         optimizer_mngr.zero_grad()
+
+        train_info = {f"{dataset_name}/{key}": value / nb_inputs for key, value in train_info.items()}
+
         # Update batch_num with effective value
         batch_num = batch_idx + 1
-        train_info = {key: value / nb_inputs for key, value in train_info.items()}
         train_info.update(
             {
                 "time/batch": total_batch_time / batch_num,
@@ -338,10 +351,10 @@ class ProtoTree(CaBRNet):
             device=device,
             verbose=verbose,
         )
-        eval_info = self.evaluate(dataloader=dataloaders["test_set"], device=device, verbose=verbose)
+        eval_info = self.evaluate(dataloaders=dataloaders, dataset_name="test_set", device=device, verbose=verbose)
         logger.info(
-            f"After projection. Average loss: {eval_info['loss']:.2f}. "
-            f"Average accuracy: {eval_info['accuracy']:.2f}."
+            f"After projection. Average loss: {eval_info['test_set/loss']:.2f}. "
+            f"Average accuracy: {eval_info['test_set/accuracy']:.2f}."
         )
 
         if pruning_threshold <= 0.0:

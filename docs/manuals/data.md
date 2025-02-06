@@ -12,8 +12,10 @@ preprocessing operations that should be applied to these datasets.
   module: <MODULE_NAME> # Name of the module containing the dataset class (e.g. torchvision.datasets) 
   name: <CLASS_NAME> # Class name of the dataset (e.g. ImageFolder)
   num_workers: <NUM> # Optional: number of worker processes for data preprocessing 
+  drop_last: <BOOL> # Optional: drop last incomplete batch
   batch_size: <BATCH_SIZE> # Size of each batch
   shuffle: <True | False> # Should data be shuffled (should be True for train_set)
+  pin_memory: <BOOL> # Optional: pin dataset to memory
   params: # How to initialize the dataset
     <CLASS_PARAM_1>: <VALUE>
     <CLASS_PARAM_2>: <VALUE>

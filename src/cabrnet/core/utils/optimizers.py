@@ -5,6 +5,8 @@ from typing import Any
 
 import torch
 import torch.nn as nn
+from torch.optim.lr_scheduler import ReduceLROnPlateau
+
 from cabrnet.core.utils.parser import load_config
 from loguru import logger
 
@@ -107,7 +109,7 @@ class OptimizerManager:
                             self.param_groups[group_name].append(param)
                             covered_names.append(name)
                     if not match_found:
-                        logger.warning(f"No parameter matching keyword {submodule_name} in model")
+                        raise ValueError(f"No parameter matching keyword {submodule_name} in model")
             else:
                 start = group_value.get("start")
                 stop = group_value.get("stop")
@@ -125,8 +127,11 @@ class OptimizerManager:
                         covered_names.append(name)
                     if stop and name.startswith(stop):
                         stop_found = True
-            if not self.param_groups[group_name]:
-                logger.warning(f"Empty parameter group {group_name}.")
+                if stop and not stop_found:
+                    raise ValueError(f"Unknown parameter group boundary: {stop}")
+            if group_value and not self.param_groups[group_name]:
+                # Parameter group is empty but should not be
+                raise ValueError(f"Unexpected empty parameter group {group_name}.")
 
         # Check which model parameters are not covered by any group
         not_covered_count = 0
@@ -360,18 +365,22 @@ class OptimizerManager:
             return period_config["patience"]
         raise ValueError(f"No active period for epoch {epoch}")
 
-    def scheduler_step(self, epoch: int):
+    def scheduler_step(self, epoch: int, metric: Any):
         r"""Applies learning rate scheduler step depending on current epoch.
 
         Args:
             epoch (int): Current epoch.
+            metric (any): Target metric (used for ReduceLROnPlateau).
         """
         for period_name in self.get_active_periods(epoch):
             period_config = self.periods[period_name]
             for optim_name in period_config["optimizers"]:
                 # Not all optimizers are associated with a scheduler
                 if self.schedulers.get(optim_name) is not None:
-                    self.schedulers[optim_name].step()
+                    if isinstance(self.schedulers[optim_name], ReduceLROnPlateau):
+                        self.schedulers[optim_name].step(metric)
+                    else:
+                        self.schedulers[optim_name].step()
 
     def to(self, device: str | torch.device):
         r"""Moves OptimizerManager to a given device.

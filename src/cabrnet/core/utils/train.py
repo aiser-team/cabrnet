@@ -94,19 +94,20 @@ def training_loop(
     projection_info = None  # Default value used by subroutine [save]. Might be a parameter of [save] instead.
     train_info = None
 
-    def save(dir_name: str, epoch: int | str) -> None:
+    def save(dir_name: str, epoch: int | str, optimizer: OptimizerManager | None) -> None:
         r"""Saves the model by calling :func:`~cabrnet.core.utils.save.save_checkpoint`. Most parameters are already known
         in [training_loop], which is why they do not need to be repeated when calling this subroutine.
 
         Args:
             dir_name (str): The name of the folder in which the model is saved.  This is added to the working dir.
             epoch (int|str): The epoch parameter of :func:`~cabrnet.core.utils.save.save_checkpoint`.
+            optimizer (OptimizerManager): Current optimizer (if any).
         """
         save_checkpoint(
             directory_path=os.path.join(working_dir, dir_name),
             model=model,
             model_arch=model_arch,
-            optimizer_mngr=optimizer_mngr,
+            optimizer_mngr=optimizer,
             training_config=training_config,
             dataset_config=dataset_config,
             projection_info=projection_info,
@@ -129,14 +130,14 @@ def training_loop(
 
     # Save initial model before training
     if next(iter(epoch_range)) == 0 and checkpoint_frequency is not None:
-        train_info = model.evaluate(dataloader=dataloaders["train_set"], device=device, verbose=verbose)
+        train_info = model.evaluate(dataloaders=dataloaders, dataset_name="train_set", device=device, verbose=verbose)
 
         # Add all stats to Tensorboard
         for key, value in train_info.items():
             writer.add_scalar(key, value, 0)
         writer.flush()
 
-        save(dir_name="init", epoch="init")
+        save(dir_name="init", epoch="init", optimizer=optimizer_mngr)
 
     for epoch in epoch_range:
         # Handle early abort
@@ -159,7 +160,7 @@ def training_loop(
             verbose=verbose,
         )
         # Apply scheduler
-        optimizer_mngr.scheduler_step(epoch=epoch)
+        optimizer_mngr.scheduler_step(epoch=epoch, metric=train_info.get(metric))
 
         # Add all stats to Tensorboard
         for key, value in train_info.items():
@@ -178,18 +179,18 @@ def training_loop(
         train_info[f"best_{metric}"] = best_metric
         logger.info(f"Metrics at epoch {epoch}: {metrics_to_str(train_info)}")
 
-        # Backup old latest, save latest, and delete back-up
+        # Backup old latest, save latest, and delete backup
         if os.path.exists(latest_dir(working_dir)):
             os.rename(latest_dir(working_dir), backup_dir(working_dir))
-        save(dir_name="latest", epoch=epoch)
+        save(dir_name="latest", epoch=epoch, optimizer=optimizer_mngr)
         if os.path.exists(backup_dir(working_dir)):
             rmtree(backup_dir(working_dir))
 
         if save_best_checkpoint:
             logger.success(f"Better model found at epoch {epoch}. Saving checkpoint.")
-            save(dir_name="best", epoch=epoch)
+            save(dir_name="best", epoch=epoch, optimizer=optimizer_mngr)
         if checkpoint_frequency is not None and (epoch % checkpoint_frequency == 0):
-            save(dir_name=f"epoch_{epoch}", epoch=epoch)
+            save(dir_name=f"epoch_{epoch}", epoch=epoch, optimizer=optimizer_mngr)
     writer.close()
 
     if trained:
@@ -220,9 +221,8 @@ def training_loop(
     )
 
     # Evaluate model
-    eval_info = model.evaluate(dataloader=dataloaders["test_set"], device=device, verbose=verbose)
+    eval_info = model.evaluate(dataloaders=dataloaders, dataset_name="test_set", device=device, verbose=verbose)
     logger.info(f"Metrics on test set: {metrics_to_str(eval_info)}")
     if save_final:
-        optimizer_mngr = None
-        save(dir_name="final", epoch=num_epochs)
+        save(dir_name="final", epoch=num_epochs, optimizer=None)
     return eval_info

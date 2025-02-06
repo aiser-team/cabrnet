@@ -12,7 +12,8 @@ from compatibility_tester import CaBRNetCompatibilityTester, setup_rng, SAMPLING
 from cabrnet.archs.generic.model import CaBRNet
 from cabrnet.archs.protopool.model import ProtoPool
 from cabrnet.core.utils.parser import load_config
-from cabrnet.core.utils.data import DatasetManager, batch_mixup
+from cabrnet.core.utils.data import DatasetManager
+from cabrnet.core.utils.custom_preprocess import batch_mixup
 from cabrnet.core.utils.optimizers import OptimizerManager
 
 from protopool_legacy.model import PrototypeChooser
@@ -169,9 +170,9 @@ def legacy_push_prototypes(model: nn.Module, projection_loader: DataLoader, verb
     return global_min_proto_dist
 
 
-class TestProtoPoolCompatibility(CaBRNetCompatibilityTester):
+class Tester(CaBRNetCompatibilityTester):
     def __init__(self, methodName: str = "runTest"):
-        super(TestProtoPoolCompatibility, self).__init__(arch="protopool", methodName=methodName)
+        super(Tester, self).__init__(arch="protopool", methodName=methodName)
 
     def test_model_init(self):
         # CaBRNet
@@ -256,7 +257,7 @@ class TestProtoPoolCompatibility(CaBRNetCompatibilityTester):
         num_epochs = training_config["num_epochs"]
         for epoch in tqdm(range(num_epochs), desc="Training CaBRNet model", disable=not self.verbose):
             optimizer_mngr.freeze(epoch=epoch)
-            cabrnet_model.train_epoch(
+            train_infos = cabrnet_model.train_epoch(
                 epoch_idx=epoch,
                 dataloaders=dataloaders,
                 optimizer_mngr=optimizer_mngr,
@@ -264,7 +265,7 @@ class TestProtoPoolCompatibility(CaBRNetCompatibilityTester):
                 tqdm_position=1,
                 verbose=self.verbose,
             )
-            optimizer_mngr.scheduler_step(epoch=epoch)
+            optimizer_mngr.scheduler_step(epoch=epoch, metric=train_infos["train_set/accuracy"])
 
         # Legacy
         setup_rng(self.seed)
@@ -330,7 +331,7 @@ class TestProtoPoolCompatibility(CaBRNetCompatibilityTester):
             last_layer_optimizer.state_dict(), optimizer_mngr.optimizers["last_layer_optimizer"].state_dict()
         )
         self.assertIsNotNone(lr_scheduler)
-        self.assertGenericEqual(lr_scheduler.state_dict(), optimizer_mngr.schedulers["joint_optimizer"].state_dict())
+        self.assertGenericEqual(lr_scheduler.state_dict(), optimizer_mngr.schedulers["joint_optimizer"].state_dict())  # type: ignore
         self.assertModelEqual(legacy_model, cabrnet_model)
 
     def test_push_prototypes(self):

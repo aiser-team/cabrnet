@@ -6,7 +6,6 @@ import numpy as np
 import torch.nn as nn
 from torch import Tensor
 
-from cabrnet.core.utils.prototypes import prototype_init_modes
 from cabrnet.core.utils.similarities import SimilarityLayer
 
 
@@ -17,38 +16,31 @@ class CaBRNetClassifier(nn.Module, ABC):
         num_classes: Number of output classes.
         num_features: Size of the features extracted by the convolutional extractor.
         prototypes: Tensor of prototypes.
-        prototypes_init_mode: Initialization mode for the tensor of prototypes.
         similarity_layer: Layer used to compute similarity scores between the prototypes and the convolutional features.
     """
 
-    prototypes: nn.Parameter
+    prototypes: Tensor
     similarity_layer: SimilarityLayer
 
     def __init__(
         self,
         num_classes: int,
         num_features: int,
-        proto_init_mode: str = "SHIFTED_NORMAL",
     ) -> None:
         r"""Initializes a CaBRNetClassifier.
 
         Args:
             num_classes (int): Number of classes.
             num_features (int): Number of features (size of each prototype).
-            proto_init_mode (str, optional): Init mode for prototypes. Default: Shifted normal distribution.
         """
         super().__init__()
 
         # Sanity check on all parameters
         assert num_classes > 1, f"Invalid number of classes: {num_classes}"
         assert num_features > 0, f"Invalid number of features: {num_features}"
-        assert (
-            proto_init_mode in prototype_init_modes
-        ), f"Unsupported prototype initialization mode: {proto_init_mode}. Choices are: {prototype_init_modes}"
 
         self.num_classes = num_classes
         self.num_features = num_features
-        self.prototypes_init_mode = proto_init_mode
 
     def build_similarity(self, config: dict[str, Any]) -> None:
         r"""Builds the similarity layer based on information regarding the decision process.
@@ -117,6 +109,17 @@ class CaBRNetClassifier(nn.Module, ABC):
             Tensor of distances.
         """
         return self.similarity_layer.distances(features, self.prototypes, **kwargs)
+
+    def distances_to_similarities(self, distances: Tensor, **kwargs) -> Tensor:
+        r"""Converts a tensor of distances into a tensor of similarity scores.
+
+        Args:
+            distances (tensor): Input tensor. Any shape.
+
+        Returns:
+             Similarity score corresponding to the provided distances. Same shape as input.
+        """
+        return self.similarity_layer.distances_to_similarities(distances, **kwargs)
 
     @property
     def prototype_class_mapping(self) -> np.ndarray:

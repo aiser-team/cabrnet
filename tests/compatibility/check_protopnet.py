@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 
-from compatibility_tester import CaBRNetCompatibilityTester, DummyLogger, setup_rng, get_subset, SAMPLING_RATIO
+from compatibility_tester import CaBRNetCompatibilityTester, Log, setup_rng, get_subset, SAMPLING_RATIO
 from cabrnet.archs.generic.model import CaBRNet
 from cabrnet.core.utils.parser import load_config
 from cabrnet.core.utils.data import DatasetManager
@@ -113,9 +113,9 @@ def legacy_get_optimizers(
     return warm_optimizer, joint_optimizer, last_layer_optimizer, joint_lr_scheduler
 
 
-class TestProtoPNetCompatibility(CaBRNetCompatibilityTester):
+class Tester(CaBRNetCompatibilityTester):
     def __init__(self, methodName: str = "runTest"):
-        super(TestProtoPNetCompatibility, self).__init__(arch="protopnet", methodName=methodName)
+        super(Tester, self).__init__(arch="protopnet", methodName=methodName)
 
     def test_model_init(self):
         # CaBRNet
@@ -179,7 +179,7 @@ class TestProtoPNetCompatibility(CaBRNetCompatibilityTester):
         num_epochs = training_config["num_epochs"]
         for epoch in tqdm(range(num_epochs), desc="Training CaBRNet model", disable=not self.verbose):
             optimizer_mngr.freeze(epoch=epoch)
-            _ = cabrnet_model.train_epoch(
+            train_infos = cabrnet_model.train_epoch(
                 epoch_idx=epoch,
                 dataloaders=dataloaders,
                 optimizer_mngr=optimizer_mngr,
@@ -187,7 +187,7 @@ class TestProtoPNetCompatibility(CaBRNetCompatibilityTester):
                 tqdm_position=1,
                 verbose=self.verbose,
             )
-            optimizer_mngr.scheduler_step(epoch=epoch)
+            optimizer_mngr.scheduler_step(epoch=epoch, metric=train_infos["train_set/accuracy"])
 
         # Legacy
         setup_rng(self.seed)
@@ -202,24 +202,24 @@ class TestProtoPNetCompatibility(CaBRNetCompatibilityTester):
         push_epochs = [epoch for epoch in range(push_start, num_epochs) if (epoch - push_start) % push_frequency == 0]
         for epoch in tqdm(range(num_epochs), desc="Training legacy model", disable=not self.verbose):
             if epoch < legacy_settings.num_warm_epochs:
-                legacy_tnt.warm_only(model=legacy_model_multi, log=DummyLogger())
+                legacy_tnt.warm_only(model=legacy_model_multi, log=Log())
                 _ = legacy_tnt.train(
                     model=legacy_model_multi,
                     dataloader=train_loader,
                     optimizer=warm_optimizer,
                     class_specific=True,
                     coefs=legacy_settings.coefs,
-                    log=DummyLogger(),
+                    log=Log(),
                 )
             else:
-                legacy_tnt.joint(model=legacy_model_multi, log=DummyLogger())
+                legacy_tnt.joint(model=legacy_model_multi, log=Log())
                 _ = legacy_tnt.train(
                     model=legacy_model_multi,
                     dataloader=train_loader,
                     optimizer=joint_optimizer,
                     class_specific=True,
                     coefs=legacy_settings.coefs,
-                    log=DummyLogger(),
+                    log=Log(),
                 )
                 joint_lr_scheduler.step()
                 if epoch in push_epochs:
@@ -235,9 +235,9 @@ class TestProtoPNetCompatibility(CaBRNetCompatibilityTester):
                         prototype_self_act_filename_prefix=None,
                         proto_bound_boxes_filename_prefix=None,
                         save_prototype_class_identity=True,
-                        log=DummyLogger(),
+                        log=Log(),
                     )
-                    legacy_tnt.last_only(model=legacy_model_multi, log=DummyLogger())
+                    legacy_tnt.last_only(model=legacy_model_multi, log=Log())
                     for _ in range(cabrnet_model.projection_config["num_ft_epochs"]):
                         _ = legacy_tnt.train(
                             model=legacy_model_multi,
@@ -245,7 +245,7 @@ class TestProtoPNetCompatibility(CaBRNetCompatibilityTester):
                             optimizer=last_layer_optimizer,
                             class_specific=True,
                             coefs=legacy_settings.coefs,
-                            log=DummyLogger(),
+                            log=Log(),
                         )
 
         # Compare
@@ -300,7 +300,7 @@ class TestProtoPNetCompatibility(CaBRNetCompatibilityTester):
             prototype_self_act_filename_prefix=None,
             proto_bound_boxes_filename_prefix=None,
             save_prototype_class_identity=True,
-            log=DummyLogger(),
+            log=Log(),
         )
         self.assertModelEqual(legacy_model, cabrnet_model)
 
@@ -356,7 +356,7 @@ class TestProtoPNetCompatibility(CaBRNetCompatibilityTester):
             preprocess_input_function=legacy_preprocess.preprocess_input_function,
             original_model_dir="/tmp/",
             epoch_number=None,
-            log=DummyLogger(),
+            log=Log(),
             copy_prototype_imgs=False,
         )
 

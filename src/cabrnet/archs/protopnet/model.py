@@ -124,7 +124,7 @@ class ProtoPNet(CaBRNet):
                     f"to match model state"
                 )
                 # self.num_prototypes is automatically updated after changing the prototype tensor
-                self.classifier.prototypes = nn.Parameter(  # type: ignore
+                self.classifier.prototypes = nn.Parameter(
                     torch.zeros((updated_num_prototypes, self.classifier.num_features, 1, 1)), requires_grad=True
                 )
                 # Update shape of all other relevant tensors
@@ -302,10 +302,10 @@ class ProtoPNet(CaBRNet):
             verbose=verbose,
         )
 
-        eval_info = self.evaluate(dataloader=dataloaders["test_set"], device=device, verbose=verbose)
+        eval_info = self.evaluate(dataloaders=dataloaders, dataset_name="test_set", device=device, verbose=verbose)
         logger.info(
-            f"After projection. Average loss: {eval_info['loss']:.2f}. "
-            f"Average accuracy: {eval_info['accuracy']:.2f}."
+            f"After projection. Average loss: {eval_info['test_set/loss']:.2f}. "
+            f"Average accuracy: {eval_info['test_set/accuracy']:.2f}."
         )
 
         if num_nearest_patches > 0:
@@ -432,7 +432,7 @@ class ProtoPNet(CaBRNet):
             index_prototypes_to_keep = torch.tensor(index_prototypes_to_keep).to(device)
 
             # overwrite prototypes with selected subset (self.num_prototypes is updated automatically)
-            self.classifier.prototypes = nn.Parameter(  # type: ignore
+            self.classifier.prototypes = nn.Parameter(
                 torch.index_select(input=self.classifier.prototypes, dim=0, index=index_prototypes_to_keep),
                 requires_grad=True,
             )

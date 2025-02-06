@@ -19,7 +19,6 @@ class ProtoPNetClassifier(CaBRNetClassifier):
         num_features: Size of the features extracted by the convolutional extractor.
         num_proto_per_class: Initial number of prototypes per class.
         prototypes: Tensor of prototypes.
-        prototypes_init_mode: Initialization mode for the tensor of prototypes.
         similarity_layer: Layer used to compute similarity scores between the prototypes and the convolutional features.
         last_layer: Linear layer in charge of weighting similarity scores and computing the final logit vector.
     """
@@ -49,14 +48,14 @@ class ProtoPNetClassifier(CaBRNetClassifier):
             compatibility_mode (bool, optional): If True, enables compatibility mode with legacy ProtoPNet.
                 Default: False.
         """
-        super().__init__(num_classes=num_classes, num_features=num_features, proto_init_mode=proto_init_mode)
+        super().__init__(num_classes=num_classes, num_features=num_features)
 
         assert num_proto_per_class > 0, f"Invalid number of prototypes per class: {num_proto_per_class}"
         self.num_proto_per_class = num_proto_per_class
         self._compatibility_mode = compatibility_mode
 
         # Init prototypes
-        self.prototypes = nn.Parameter(  # type: ignore
+        self.prototypes = nn.Parameter(
             init_prototypes(
                 num_prototypes=num_proto_per_class * num_classes,
                 num_features=self.num_features,
@@ -104,8 +103,8 @@ class ProtoPNetClassifier(CaBRNetClassifier):
             Vector of logits. Shape (N, C).
             Tensor of min distances. Shape (N, P).
         """
-        similarities = self.similarity_layer.similarities(features, self.prototypes)  # Shape (N, P, H, W)
-        distances = self.similarity_layer.distances(features, self.prototypes)  # Shape (N, P, H, W)
+        similarities = self.similarities(features)  # Shape (N, P, H, W)
+        distances = self.distances(features)  # Shape (N, P, H, W)
         if self._compatibility_mode:
             # Reproduce legacy ProtoPNet operations
             min_distances = -torch.nn.functional.max_pool2d(

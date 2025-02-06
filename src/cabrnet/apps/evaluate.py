@@ -110,7 +110,7 @@ def execute(args: Namespace) -> None:
     for target in args.targets:
         logger.info(f"Target: {target}")
         stats = model.evaluate(
-            dataloader=dataloaders[target], device=args.device, tqdm_position=0, verbose=args.verbose
+            dataloaders=dataloaders, dataset_name=target, device=args.device, tqdm_position=0, verbose=args.verbose
         )
         for name, value in stats.items():
             logger.info(f"{name}: {value:.2f}")

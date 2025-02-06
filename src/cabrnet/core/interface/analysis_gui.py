@@ -111,7 +111,9 @@ class CaBRNetAnalysisGUI:
             if self.model is None or self.dataloaders is None:
                 logger.warning("No checkpoint loaded (yet).")
                 return None
-            stats = self.model.evaluate(dataloader=self.dataloaders["test_set"], device=self.device, verbose=True)
+            stats = self.model.evaluate(
+                dataloaders=self.dataloaders, dataset_name="test_set", device=self.device, verbose=True
+            )
             return metrics_to_str(stats)
 
         return callback
@@ -318,7 +320,7 @@ class CaBRNetAnalysisGUI:
                 explain_button = gr.Button("Generate global explanation")
                 global_explanation = gr.Image(label="Global explanation", interactive=False)
                 explain_button.click(
-                    self.global_explanation_callback(), inputs=visualization_gui, outputs=global_explanation
+                    self.global_explanation_callback(), inputs=visualization_gui, outputs=global_explanation  # type: ignore
                 )
                 model_select.change(
                     self.load_global_explanation_callback(),
@@ -379,7 +381,7 @@ class CaBRNetAnalysisGUI:
                 local_explanation_inputs: set[Component] = {input_image}
                 local_explanation_inputs.update(visualization_gui)
                 explain_button.click(
-                    self.local_explanation_callback(), inputs=local_explanation_inputs, outputs=explanation
+                    self.local_explanation_callback(), inputs=local_explanation_inputs, outputs=explanation  # type: ignore
                 )
 
             with gr.Group():

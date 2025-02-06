@@ -65,6 +65,33 @@ class SimilarityLayer(nn.Module, ABC):
         return self.similarities(features, prototypes, **kwargs)
 
 
+class SimilarityLayerStub(SimilarityLayer):
+    r"""Dummy layer for architectures that do not require a similarity layer."""
+
+    def distances(self, features: Tensor, prototypes: Tensor, **kwargs) -> Tensor:
+        r"""Raises an error when called.
+
+        Args:
+            features (tensor): Unused.
+            prototypes (tensor): Unused.
+
+        Returns:
+             Nothing.
+        """
+        raise NotImplementedError
+
+    def distances_to_similarities(self, distances: Tensor, **kwargs) -> Tensor:
+        r"""Raises an error when called.
+
+        Args:
+            distances (tensor): Unused.
+
+        Returns:
+             Nothing.
+        """
+        raise NotImplementedError
+
+
 class SquaredEuclideanDistance(SimilarityLayer):
     r"""Layer for computing Euclidean (L2) distances in the convolutional space."""
 

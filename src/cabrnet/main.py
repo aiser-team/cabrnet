@@ -99,7 +99,7 @@ def main():
 
     # Set random seeds
     seed = args.seed
-    torch.use_deterministic_algorithms(mode=True)
+    torch.use_deterministic_algorithms(mode=True, warn_only=True)
     torch.manual_seed(seed)
     np.random.seed(seed)
     random.seed(seed)

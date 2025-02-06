@@ -37,7 +37,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         type=str,
         required=False,
         nargs=2,
-        default=["accuracy", "max"],
+        default=["train_set/accuracy", "max"],
         metavar=("metric", "min/max"),
         help="save best model based on chosen metric and mode (min or max)",
     )
@@ -141,7 +141,7 @@ def check_args(args: Namespace) -> Namespace:
     # In full training mode (all epochs), or when the output directory is different from the checkpoint parent directory
     # (resume mode), check that the best model directory is available
     best_model_path = os.path.join(args.output_dir, "best")
-    for dir in [best_model_path, latest_dir(args.output_dir), backup_dir(args.output_dir)]:
+    for dir in [best_model_path, latest_dir(str(args.output_dir)), backup_dir(str(args.output_dir))]:
         if (
             os.path.exists(dir)
             and not args.overwrite

@@ -85,7 +85,7 @@ def legacy_get_namespace(config_dict: dict[str, str]) -> Namespace:
     return Namespace(**args)
 
 
-def legacy_get_model(args: Namespace, seed: int) -> nn.Module:
+def legacy_get_model(args: Namespace, seed: int) -> legacy_prototree.ProtoTree:
     # Build feature extractor
     net, add_on = legacy_net.get_network(
         num_in_channels=0,
@@ -108,9 +108,9 @@ def legacy_get_model(args: Namespace, seed: int) -> nn.Module:
     return tree
 
 
-class TestProtoTreeCompatibility(CaBRNetCompatibilityTester):
+class Tester(CaBRNetCompatibilityTester):
     def __init__(self, methodName: str = "runTest"):
-        super(TestProtoTreeCompatibility, self).__init__(arch="prototree", methodName=methodName)
+        super(Tester, self).__init__(arch="prototree", methodName=methodName)
 
         # Create a namespace with all legacy options
         self.legacy_params = legacy_get_namespace(
@@ -226,14 +226,14 @@ class TestProtoTreeCompatibility(CaBRNetCompatibilityTester):
         num_epochs = trainer["num_epochs"]
         for epoch in range(num_epochs):
             optimizer_mngr.freeze(epoch=epoch)
-            cabrnet_model.train_epoch(
+            train_infos = cabrnet_model.train_epoch(
                 dataloaders=dataloaders,
                 optimizer_mngr=optimizer_mngr,
                 epoch_idx=epoch,
                 device=self.device,
                 verbose=True,
             )
-            optimizer_mngr.scheduler_step(epoch=epoch)
+            optimizer_mngr.scheduler_step(epoch=epoch, metric=train_infos["train_set/accuracy"])
 
         # Legacy
         setup_rng(self.seed)
@@ -253,7 +253,7 @@ class TestProtoTreeCompatibility(CaBRNetCompatibilityTester):
                 params_to_freeze=params_to_freeze,
                 params_to_train=params_to_train,
                 args=self.legacy_params,
-                log=DummyLogger(),
+                log=DummyLogger(),  # type: ignore
             )
             _ = legacy_train.train_epoch(
                 tree=legacy_model,

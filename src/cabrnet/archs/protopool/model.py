@@ -9,7 +9,7 @@ import torch.nn as nn
 
 from cabrnet.archs.generic.decision import CaBRNetClassifier
 from cabrnet.archs.generic.model import CaBRNet
-from cabrnet.core.utils.data import batch_mixup
+from cabrnet.core.utils.custom_preprocess import batch_mixup
 from cabrnet.core.utils.optimizers import OptimizerManager
 from cabrnet.core.visualization.explainer import ExplanationGraph
 from cabrnet.core.visualization.visualizer import SimilarityVisualizer
@@ -202,7 +202,7 @@ class ProtoPool(CaBRNet):
             inverted_distances = torch.max((max_dist - dists) * proto_selection, dim=1).values
             return torch.mean(max_dist - inverted_distances)
 
-        proto_slot_probs_per_sample = torch.index_select(input=proto_slot_probs, dim=0, index=label)  # type: ignore
+        proto_slot_probs_per_sample = torch.index_select(input=proto_slot_probs, dim=0, index=label)
 
         cluster_cost = distance_loss(
             dists=min_distances,
@@ -236,30 +236,38 @@ class ProtoPool(CaBRNet):
 
         return loss, stats
 
-    def train_epoch(
+    def _train_epoch(
         self,
         dataloaders: dict[str, DataLoader],
         optimizer_mngr: OptimizerManager | torch.optim.Optimizer,
+        dataset_name: str = "train_set",
         device: str | torch.device = "cuda:0",
         tqdm_position: int = 0,
         epoch_idx: int = 0,
         verbose: bool = False,
+        tqdm_title: str | None = None,
+        **kwargs,
     ) -> dict[str, float]:
         r"""Trains a ProtoPool model for one epoch, performing prototype projection and fine-tuning if necessary.
 
         Args:
             dataloaders (dictionary): Dictionary of dataloaders.
             optimizer_mngr (OptimizerManager): Optimizer manager.
+            dataset_name (str, optional): Name of the dataset used for training. Default: train_set.
             device (str | device, optional): Hardware device. Default: cuda:0.
             tqdm_position (int, optional): Position of the progress bar. Default: 0.
             epoch_idx (int, optional): Epoch index. Default: 0.
             verbose (bool, optional): Display progress bar. Default: False.
+            tqdm_title (str, optional): Progress bar title. Default: "Training epoch {epoch_idx".
 
         Returns:
             Dictionary containing learning statistics.
         """
         self.train()
         self.to(device)
+
+        if tqdm_title is None:
+            tqdm_title = f"Training epoch {epoch_idx}"
 
         # Training stats
         train_info = {}
@@ -281,12 +289,12 @@ class ProtoPool(CaBRNet):
             gumbel_scale = min_scale * np.sqrt(alpha * epoch_idx) if epoch_idx < gumbel_epochs else max_scale
 
         # Use training dataloader
-        train_loader = dataloaders["train_set"]
+        train_loader = dataloaders[dataset_name]
 
         # Show progress on progress bar if needed
         train_iter = tqdm(
             enumerate(train_loader),
-            desc=f"Training epoch {epoch_idx}",
+            desc=tqdm_title,
             total=len(train_loader),
             leave=False,
             position=tqdm_position,
@@ -341,7 +349,7 @@ class ProtoPool(CaBRNet):
         # Clean gradients after last batch
         optimizer_mngr.zero_grad()
 
-        train_info = {f"train/{key}": value / nb_inputs for key, value in train_info.items()}
+        train_info = {f"{dataset_name}/{key}": value / nb_inputs for key, value in train_info.items()}
 
         # Update batch_num with effective value
         batch_num = batch_idx + 1
@@ -395,10 +403,10 @@ class ProtoPool(CaBRNet):
             device=device,
             verbose=verbose,
         )
-        eval_info = self.evaluate(dataloader=dataloaders["test_set"], device=device, verbose=verbose)
+        eval_info = self.evaluate(dataloaders=dataloaders, dataset_name="test_set", device=device, verbose=verbose)
         logger.info(
-            f"After projection. Average loss: {eval_info['loss']:.2f}. "
-            f"Average accuracy: {eval_info['accuracy']:.2f}."
+            f"After projection. Average loss: {eval_info['test_set/loss']:.2f}. "
+            f"Average accuracy: {eval_info['test_set/accuracy']:.2f}."
         )
         if not self._compatibility_mode:
             self.prune(device=device)
@@ -414,7 +422,7 @@ class ProtoPool(CaBRNet):
             disable=not verbose,
         )
         for _ in fine_tuning_progress:
-            self.train_epoch(
+            self._train_epoch(
                 dataloaders=dataloaders,
                 optimizer_mngr=optimizer_mngr.optimizers["last_layer_optimizer"],
                 device=device,
@@ -453,7 +461,7 @@ class ProtoPool(CaBRNet):
         active_prototypes = torch.tensor(list(set(class_mapping.reshape(-1).tolist()))).to(device)
 
         # Overwrite prototypes and class slots with selected subset (self.num_prototypes is updated automatically)
-        self.classifier.prototypes = nn.Parameter(  # type: ignore
+        self.classifier.prototypes = nn.Parameter(
             torch.index_select(input=self.classifier.prototypes, dim=0, index=active_prototypes),
             requires_grad=True,
         )

@@ -100,6 +100,27 @@ class ConvExtractor(nn.Module):
         else:
             raise ValueError(f"Cannot load weights {weights} for model of type {arch}. Possible typo or missing file.")
 
+        # Backbone post-processing (if any)
+        for op, op_config in backbone_config.get("postprocess", {}).items():
+            match op:
+                case "stride_divider":
+                    ratio = op_config["ratio"]
+                    min_channels = op_config["min_channels"]
+
+                    def divide_stride(module: nn.Module):
+                        if (
+                            isinstance(module, nn.Conv2d)
+                            and module.in_channels > min_channels
+                            and min(module.stride) >= ratio
+                        ):
+                            module.stride = tuple(s // ratio for s in module.stride)
+
+                    preprocess_fn = divide_stride
+                case _:
+                    raise ValueError(f"Unsupported preprocessing function {op}")
+
+            model.apply(preprocess_fn)
+
         if seed is not None:
             # Reset random generator (compatibility tests only)
             torch.manual_seed(seed)

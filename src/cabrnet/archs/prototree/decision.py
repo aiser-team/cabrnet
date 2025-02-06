@@ -28,7 +28,6 @@ class ProtoTreeClassifier(CaBRNetClassifier):
         num_classes: Number of output classes.
         num_features: Size of the features extracted by the convolutional extractor.
         prototypes: Tensor of prototypes.
-        prototypes_init_mode: Initialization mode for the tensor of prototypes.
         similarity_layer: Layer used to compute similarity scores between the prototypes and the convolutional features.
         tree: Decision tree used to compute the final logit vector.
         depth: Depth of the decision tree.
@@ -59,7 +58,7 @@ class ProtoTreeClassifier(CaBRNetClassifier):
             proto_init_mode (str, optional): Init mode for prototypes. Default: Shifted normal distribution.
             log_probabilities (bool, optional): If True, uses log of probabilities. Default: False.
         """
-        super().__init__(num_classes=num_classes, num_features=num_features, proto_init_mode=proto_init_mode)
+        super().__init__(num_classes=num_classes, num_features=num_features)
 
         # Sanity check
         assert depth > 0, f"Invalid tree depth: {depth}"
@@ -76,7 +75,7 @@ class ProtoTreeClassifier(CaBRNetClassifier):
 
         # Init prototypes
         num_prototypes = self.tree.num_prototypes
-        self.prototypes = nn.Parameter(  # type: ignore
+        self.prototypes = nn.Parameter(
             init_prototypes(num_prototypes=num_prototypes, num_features=self.num_features, init_mode=proto_init_mode)
         )
         self._active_prototypes = self.tree.active_prototypes
@@ -126,7 +125,7 @@ class ProtoTreeClassifier(CaBRNetClassifier):
         Returns:
             Vector of logits. Shape (N, C).
         """
-        similarities = self.similarity_layer(features, self.prototypes)  # Shape (N, P, H, W)
+        similarities = self.similarities(features)  # Shape (N, P, H, W)
         # Use only maximum similarity score for each prototype
         similarities = torch.max(similarities.view(similarities.shape[:2] + (-1,)), dim=2)[0]  # Shape (N, P)
 

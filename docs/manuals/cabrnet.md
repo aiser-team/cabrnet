@@ -84,7 +84,7 @@ option, that takes two values:
 - the optimization mode, either "`min`" or "`max`", indicating whether the chosen metric should be minimized or
   maximized.
 
-For example, `--save-best loss min` corresponds to the objective of minimizing the average loss.
+For example, `--save-best train_set/loss min` corresponds to the objective of minimizing the average loss on the training set.
 
 Note that this metric is used to select the best model after the specified number of training epochs, but **before** the
 epilogue takes place.
