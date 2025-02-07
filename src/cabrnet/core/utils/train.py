@@ -1,7 +1,7 @@
 import os
 import sys
 from typing import Any, Iterable
-from shutil import rmtree
+from shutil import rmtree, copytree
 
 import torch
 from loguru import logger
@@ -179,16 +179,21 @@ def training_loop(
         train_info[f"best_{metric}"] = best_metric
         logger.info(f"Metrics at epoch {epoch}: {metrics_to_str(train_info)}")
 
-        # Backup old latest, save latest, and delete backup
-        if os.path.exists(latest_dir(working_dir)):
-            os.rename(latest_dir(working_dir), backup_dir(working_dir))
-        save(dir_name="latest", epoch=epoch, optimizer=optimizer_mngr)
-        if os.path.exists(backup_dir(working_dir)):
-            rmtree(backup_dir(working_dir))
+        def safe_save(output_dir: str):
+            r"""Save checkpoint, with extra care to prevent data loss."""
+            rmtree(backup_dir(working_dir), ignore_errors=True)  # Delete old backup (if any)
+            if os.path.exists(output_dir):  # Backup exist directory (if any)
+                # Perform a copy rather than a renaming to maintain path to configuration files
+                # (in case computation is restarted from this directory)
+                copytree(output_dir, backup_dir(working_dir))
+            save(dir_name=output_dir, epoch=epoch, optimizer=optimizer_mngr)
+            rmtree(backup_dir(working_dir), ignore_errors=True)  # Delete backup (if any)
 
+        # Save latest checkpoint
+        safe_save("latest")
         if save_best_checkpoint:
             logger.success(f"Better model found at epoch {epoch}. Saving checkpoint.")
-            save(dir_name="best", epoch=epoch, optimizer=optimizer_mngr)
+            safe_save("best")
         if checkpoint_frequency is not None and (epoch % checkpoint_frequency == 0):
             save(dir_name=f"epoch_{epoch}", epoch=epoch, optimizer=optimizer_mngr)
     writer.close()

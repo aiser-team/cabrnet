@@ -11,7 +11,10 @@ from cabrnet.core.utils.optimizers import OptimizerManager
 from cabrnet.core.utils.parser import load_config
 from cabrnet.core.utils.save import load_checkpoint
 from cabrnet.core.utils.system_info import get_parent_directory
-from cabrnet.core.utils.train import training_loop, latest_dir, backup_dir
+from cabrnet.core.utils.train import training_loop, latest_dir
+from cabrnet.core.utils.system_info import get_hardware_info
+
+DEFAULT_LOGGER_FILE = "log.txt"
 
 description = "trains a CaBRNet model"
 
@@ -138,18 +141,26 @@ def check_args(args: Namespace) -> Namespace:
     if args.output_dir is None:
         raise ArgumentError("Missing path to output directory (option --output-dir)")
 
+    if args.logger_file is None:
+        # An explicit logger file should always be used during training
+        args.logger_file = os.path.join(args.output_dir, DEFAULT_LOGGER_FILE)
+        logger.warning(f"No log file specified. Using {args.logger_file}")
+        logger.add(sink=args.logger_file, level=args.logger_level)
+        # Record hardware information again so that it is present in the log file
+        logger.info(f"Hardware information: {get_hardware_info(args.device)}")
+
     # In full training mode (all epochs), or when the output directory is different from the checkpoint parent directory
     # (resume mode), check that the best model directory is available
     best_model_path = os.path.join(args.output_dir, "best")
-    for dir in [best_model_path, latest_dir(str(args.output_dir)), backup_dir(str(args.output_dir))]:
+    for dir_path in [best_model_path, latest_dir(str(args.output_dir))]:
         if (
-            os.path.exists(dir)
+            os.path.exists(dir_path)
             and not args.overwrite
             and not args.epilogue
             and (args.resume_from is None or get_parent_directory(args.resume_from) != args.output_dir)
         ):
             raise ArgumentError(
-                f"Output directory {dir} is not empty. To overwrite existing results, use --overwrite option."
+                f"Output directory {dir_path} is not empty. To overwrite existing results, use --overwrite option."
             )
     final_model_path = os.path.join(args.output_dir, "final")
     if args.epilogue and os.path.exists(final_model_path) and not args.overwrite:
