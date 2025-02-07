@@ -12,6 +12,9 @@ from cabrnet.core.utils.parser import load_config
 from cabrnet.core.utils.save import load_checkpoint
 from cabrnet.core.utils.system_info import get_parent_directory
 from cabrnet.core.utils.train import training_loop, latest_dir
+from cabrnet.core.utils.system_info import get_hardware_info
+
+DEFAULT_LOGGER_FILE = "log.txt"
 
 description = "trains a CaBRNet model"
 
@@ -137,6 +140,14 @@ def check_args(args: Namespace) -> Namespace:
         logger.warning(f"Using {args.output_dir} as default output directory based on checkpoint path")
     if args.output_dir is None:
         raise ArgumentError("Missing path to output directory (option --output-dir)")
+
+    if args.logger_file is None:
+        # An explicit logger file should always be used during training
+        args.logger_file = os.path.join(args.output_dir, DEFAULT_LOGGER_FILE)
+        logger.warning(f"No log file specified. Using {args.logger_file}")
+        logger.add(sink=args.logger_file, level=args.logger_level)
+        # Record hardware information again so that it is present in the log file
+        logger.info(f"Hardware information: {get_hardware_info(args.device)}")
 
     # In full training mode (all epochs), or when the output directory is different from the checkpoint parent directory
     # (resume mode), check that the best model directory is available
