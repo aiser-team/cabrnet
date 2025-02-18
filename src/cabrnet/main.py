@@ -53,6 +53,7 @@ def main():
     # Enumerate applications from apps directory
     apps_dir = os.path.join(os.path.dirname(__file__), "apps")
     apps = [os.path.splitext(file)[0] for file in os.listdir(apps_dir) if file.endswith(".py")]
+    apps.sort()
 
     # Create parser
     parser = ParserWithHelper(description="CaBRNet front-end")
