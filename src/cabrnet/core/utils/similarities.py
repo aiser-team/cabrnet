@@ -121,6 +121,7 @@ class ProtoPNetDistance(SimilarityLayer):
     Attributes:
         _summation_kernel: Accumulation tensor used to compute the Euclidean distance.
     """
+
     _summation_kernel: Tensor
 
     def __init__(self, num_prototypes: int, num_features: int, **kwargs) -> None:
@@ -164,6 +165,7 @@ class ProtoTreeDistance(SimilarityLayer):
     Attributes:
         _summation_kernel: Accumulation tensor used to compute the Euclidean distance.
     """
+
     _summation_kernel: Tensor
 
     def __init__(self, num_prototypes: int, num_features: int, **kwargs) -> None:

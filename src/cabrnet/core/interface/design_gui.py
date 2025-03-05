@@ -81,6 +81,7 @@ class CaBRNetDesignGUI:
         output_dir: Path to output directory.
         output_file: Output filename.
     """
+
     DEFAULT_WORKING_DIR: str = "working_dir"
     MAX_ADDON_LAYERS: int = 10
 

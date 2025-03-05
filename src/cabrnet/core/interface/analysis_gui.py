@@ -42,6 +42,7 @@ class CaBRNetAnalysisGUI:
         device: Hardware device.
         visualizer: Current patch visualizer.
     """
+
     DEFAULT_CHECKPOINT_DIR: str = "."
     DEFAULT_WORKING_DIR: str = "working_dir"
 

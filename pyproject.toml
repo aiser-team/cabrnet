@@ -47,7 +47,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["black", "build", "pyright", "twine"]
+dev = ["black==24.10.0", "build", "pyright", "twine"]
 doc = ["mkdocs", "pydoc-markdown", "pymdown-extensions", "python-markdown-math"]
 legacy = ["gdown~=4.7.1", "requests~=2.32.0", "Augmentor~=0.2.12"]
 
