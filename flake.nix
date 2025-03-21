@@ -4,10 +4,9 @@
 {
   description = "CaBRNet Nix flake.";
   inputs = {
-    captum.url = "./ci/vendor/captum/"; # relative path for flake is a best effort, see https://github.com/NixOS/nix/issues/9339
     flake-utils.url = "github:numtide/flake-utils";
     nix-filter.url = "github:numtide/nix-filter";
-    nixpkgs.url = "nixpkgs/24.05";
+    nixpkgs.url = "nixpkgs";
     # pydoc-markdown.url = "./ci/vendor/pydoc-markdown/";
     # disabled for now as more work is needed for the generation of
     # documentation in pure nix
@@ -17,16 +16,13 @@
     , flake-utils
     , nixpkgs
     , nix-filter
-    , captum
-      #, pydoc-markdown
     , ...
     }:
     flake-utils.lib.eachDefaultSystem
       (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
-        pythonPkgs = pkgs.python310Packages;
-        lib = pkgs.lib;
+        pythonPkgs = pkgs.python3Packages;
         sources = {
           python = nix-filter.lib {
             root = ./.;
@@ -41,12 +37,11 @@
               (nix-filter.lib.inDirectory "src")
               (nix-filter.lib.inDirectory "tests")
               (nix-filter.lib.inDirectory "tools")
-              (nix-filter.lib.inDirectory "website")
             ];
           };
         };
       in
-      rec {
+       {
         packages = rec {
           pname = "cabrnet";
           version = "1.0";
@@ -82,6 +77,23 @@
               tensorboard = tensorboardWithoutTests;
             }
           );
+          onnxGraphsurgeon = (pythonPkgs.buildPythonPackage
+          {
+              pname = "onnx_graphsurgeon";
+              version = "0.5.3";
+              buildInputs = with pythonPkgs; [onnx numpy];
+              src = pkgs.fetchFromGitHub {
+                owner = "NVIDIA";
+                repo = "TensorRT";
+                rev = "v10.9.0";
+                hash = "sha256-n19fgavWzByaPdY6Obv+NHI15HnU+NnkfNiSAQeeLJo=";
+                sparseCheckout = [
+                  "tools/onnx-graphsurgeon"
+                ];
+              };
+
+              preBuild = "cd tools/onnx-graphsurgeon";
+          });
           pacmap = (pythonPkgs.buildPythonPackage
             rec {
               pname = "pacmap";
@@ -99,14 +111,20 @@
               ];
               buildInputs = with pythonPkgs; [ scikit-learn numba annoy numpy ];
             });
-          cabrnetWithoutGUI = pythonPkgs.buildPythonPackage
-            {
-              inherit pname version;
-              pyproject = true;
-              src = sources.python;
-              build-system = with pythonPkgs; [ setuptools wheel ];
-              propagatedBuildInputs = with pythonPkgs;
-                [
+          loguruWithoutTests = (pythonPkgs.loguru.overridePythonAttrs
+                    (oldAttrs: {
+                      doCheck = false;
+                      pytestCheckPhase = false;
+                      disabledTests =
+                        [
+                          "test_file_buffering"
+                          "test_time_rotation"
+                          "test_rust_notify"
+                          "test_watch"
+                          "test_awatch_interrupt_raise"
+                        ];}));
+                   
+              allDeps = with pythonPkgs ; [
                   numpy
                   pillow
                   tqdm
@@ -118,35 +136,33 @@
                   opencv4
                   scikit-learn
                   pacmap
-                  # Not launching costly tests of several dependencies
-                  # in Frama-C CI
-                  (loguru.overridePythonAttrs
-                    (oldAttrs: {
-                      doCheck = false;
-                      pytestCheckPhase = false;
-                      disabledTests =
-                        [
-                          "test_file_buffering"
-                          "test_time_rotation"
-                          "test_rust_notify"
-                          "test_watch"
-                          "test_awatch_interrupt_raise"
-                        ];
-                    }))
-                  torchvision-bin
-                  torch-bin
-                  tensorboardWithoutTests
+                  loguru
+                  torchvision
                   mkdocs
                   pydocstyle
-                  captum.packages.${system}.default
+                  captum
                   pandas
                   pythonRelaxDepsHook
                   py-cpuinfo
-                ];
+                  onnx
+                  onnxruntime
+                  numba
+                  annoy
+                  onnxGraphsurgeon
+              ];
+          cabrnetWithoutGUI = pythonPkgs.buildPythonPackage
+            {
+              inherit pname version;
+              pyproject = true;
+              src = sources.python;
+              build-system = with pythonPkgs; [ setuptools wheel ];
+              buildInputs = allDeps;
+              propagatedBuildInputs = allDeps;
               pythonRelaxDeps = [
                 "tensorboard"
                 "setuptools"
                 "scikit-learn"
+                "onnx-graphsurgeon"
               ];
               # Not needed for non-gui CI or access the internet
               pythonRemoveDeps = [
@@ -156,7 +172,6 @@
                 "zenodo-get"
                 "opencv-python-headless"
                 "onnxruntime"
-                "onnx-graphsurgeon"
               ];
               nativeCheckInputs = [ pkgs.pyright pythonPkgs.black ];
               # importCheck = with pythonPkgs; [ scipy torch numpy ];
@@ -226,7 +241,7 @@
         };
         devShells =
           let venvDir = "./.cabrnet-venv-nix"; in
-          rec {
+           {
             default = self.devShells.${system}.install;
             inputsFrom = self.packages.${system}.default;
             install = pkgs.mkShell {
