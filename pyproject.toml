@@ -17,7 +17,7 @@ maintainers = [
 ]
 description = "Generic library for prototype-based classifiers"
 readme = "docs/packaging/README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.10,<3.13" # Ray-Tune currently only supports Python 3.12
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: GNU Lesser General Public License v2 (LGPLv2)",

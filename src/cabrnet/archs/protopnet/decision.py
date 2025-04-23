@@ -103,7 +103,6 @@ class ProtoPNetClassifier(CaBRNetClassifier):
             Vector of logits. Shape (N, C).
             Tensor of min distances. Shape (N, P).
         """
-        similarities = self.similarities(features)  # Shape (N, P, H, W)
         distances = self.distances(features)  # Shape (N, P, H, W)
         if self._compatibility_mode:
             # Reproduce legacy ProtoPNet operations
@@ -111,10 +110,14 @@ class ProtoPNetClassifier(CaBRNetClassifier):
                 -distances, kernel_size=(distances.size()[2], distances.size()[3])
             )
             min_distances = min_distances.view(-1, self.num_prototypes)
+            assert (min_distances + 1e-4 > 0).all(), (
+                "Numerical stability error in legacy ProtoPNet model. "
+                "Please disable compatibility mode for stable version."
+            )
             similarities = torch.log((min_distances + 1) / (min_distances + 1e-4))
         else:
-            min_distances = torch.min(distances.view(distances.shape[:2] + (-1,)), dim=2)[0]  # Shape (N, P)
-            similarities = torch.max(similarities.view(similarities.shape[:2] + (-1,)), dim=2)[0]  # Shape (N, P)
+            min_distances = torch.min(distances.flatten(start_dim=2), dim=2).values  # Shape (N, P)
+            similarities = self.similarity_layer.distances_to_similarities(min_distances)
         prediction = self.last_layer(similarities)
 
         return prediction, min_distances
