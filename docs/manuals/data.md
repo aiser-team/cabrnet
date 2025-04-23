@@ -86,3 +86,27 @@ More precisely, each dataset specified in the configuration file produces two da
     - `<DATASET_NAME>`: Dataloader returning preprocessed data
     - `<DATASET_NAME>_raw`: Dataloader returning raw data (see above)
 
+## Downloading datasets to reproduce experiments from the state of the art
+CaBRNet provides a tool to download and pre-process datasets as described in 
+ProtoPNet and ProtoTree.
+
+```bash
+python ./tools/download_datasets.py -h
+```
+
+```
+usage: download_datasets.py [-h] --target name [name ...] [--output-dir path/to/root/output/directory] [--use-segmentation]
+
+Download datasets and perform preprocessing for ProtoTree and ProtoPNet
+
+options:
+  -h, --help            show this help message and exit
+  --target name [name ...], -t name [name ...]
+                        Select target(s) to download
+                                CUB_200_2011 --> Caltech-UCSD Birds-200-2011 dataset, downloaded in <output_dir>/CUB_200_2011
+                                all --> everything above
+  --output-dir path/to/root/output/directory, -o path/to/root/output/directory
+                        path to root output directory (default: ./examples)
+  --use-segmentation, -s
+                        Download segmentation dataset alongside regular dataset
+```

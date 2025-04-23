@@ -46,9 +46,22 @@ publication of trained models:
 - Alban Grastien (CEA-LIST)
 - Romain Xu-Darme (CEA-LIST)
 
-This library is built upon previous work done in collaboration 
-with the [MRIM team](https://www.liglab.fr/fr/recherche/equipes-recherche/mrim)
-(Laboratoire d'Informatique de Grenoble).
+# Reference and Citation
+Please refer to our work when using CaBRNet:
+
+```
+Romain Xu-Darme, Aymeric Varasse, Alban Grastien, Julien Girard-Satabin, Zakaria Chihani. "CaBRNet, an open-source library for developing and evaluating Case-Based Reasoning Models", xAI-2024 Late-breaking Work, Demos and Doctoral Consortium at the 2nd World Conference on eXplainable Artificial Intelligence.
+```
+
+BibTex citation:
+```
+@article{xudarme2024cabrnet,
+  title={CaBRNet, an open-source library for developing and evaluating Case-Based Reasoning Models},
+  author={Romain Xu-Darme and Aymeric Varasse and Alban Grastien and Julien Girard and Zakaria Chihani},
+  booktitle={Proceedings of the xAI-2024 Late-breaking Work, Demos and Doctoral Consortium at the 2nd World Conference on eXplainable Artificial Intelligence},
+  year={2024},
+}
+```
 
 # Acknowledgments
 
@@ -58,3 +71,6 @@ with the references ANR-23-DEGR-0001 (DeepGreen)
 and ANR-23-PEIA-0006 (PEPR SAIF),
 as well as a Research and Innovation Action under the Horizon Europe Framework 
 with grant agreement Nr.101070038 (Trumpet).
+This library is built upon previous work done in collaboration
+with the [MRIM team](https://www.liglab.fr/fr/recherche/equipes-recherche/mrim)
+(Laboratoire d'Informatique de Grenoble).
