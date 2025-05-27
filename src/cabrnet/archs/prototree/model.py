@@ -16,6 +16,7 @@ from tqdm import tqdm
 from cabrnet.archs.generic.decision import CaBRNetClassifier
 from cabrnet.archs.generic.model import CaBRNet
 from cabrnet.archs.prototree.decision import ProtoTreeClassifier, SamplingStrategy
+from cabrnet.core.utils.image import open_image
 from cabrnet.core.utils.optimizers import OptimizerManager
 from cabrnet.core.utils.tree import MappingMode, TreeNode
 from cabrnet.core.visualization.explainer import ExplanationGraph
@@ -426,16 +427,7 @@ class ProtoTree(CaBRNet):
         """
         self.eval()
 
-        if isinstance(img, str):
-            img = Image.open(img)
-
-        if preprocess is None:
-            preprocess = ToTensor()
-
-        img_tensor = preprocess(img)
-        if img_tensor.dim() != 4:
-            # Fix number of dimensions if necessary
-            img_tensor = torch.unsqueeze(img_tensor, dim=0)
+        img, img_tensor = open_image(img, preprocess)
 
         # Map to device
         self.to(device)
