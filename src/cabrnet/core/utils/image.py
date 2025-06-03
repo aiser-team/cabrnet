@@ -1,4 +1,3 @@
-from contextlib import contextmanager
 from PIL import Image
 import torch
 from torchvision.transforms import ToTensor
@@ -18,8 +17,7 @@ def square_resize(img: Image.Image) -> Image.Image:
     return img.resize((final_size, final_size))
 
 
-@contextmanager
-class contextual_open_image:
+class safe_open_image:
     r"""Cleanly turns the specified image into a tensor within a `with` statement.
     This method ensures that the output tensor has shape `(1,C,H,W)`
     where `H` and `W` are the size of the image or the size specified by the preprocess.
@@ -37,7 +35,7 @@ class contextual_open_image:
 
     Args:
       input (str|Image.Image): Image as a PIL.Image or a filename.
-      preprocess (Callable[[Image],Image]): Preprocess to apply to the image.
+      preprocess (Callable[[Image],Image], optional): Preprocess to apply to the image.  Default: ToTensor()
       rgb (bool, Optional): If True, makes sure that the image is in RGB mode (ignores the issue otherwise).
 
     Returns:
@@ -45,7 +43,7 @@ class contextual_open_image:
     """
 
     def __init__(
-        self, input: str | Image.Image, preprocess: Callable[[Image.Image], Image.Image] | None, rgb: bool = True
+        self, input: str | Image.Image, preprocess: Callable[[Image.Image], Image.Image] | None = None, rgb: bool = True
     ):
         self._input = input
         self._preprocess = preprocess

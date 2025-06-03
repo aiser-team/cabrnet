@@ -10,13 +10,12 @@ import torch.nn.functional
 from loguru import logger
 from PIL import Image
 from torch.utils.data import DataLoader
-from torchvision.transforms import ToTensor
 from tqdm import tqdm
 
 from cabrnet.archs.generic.decision import CaBRNetClassifier
 from cabrnet.archs.generic.model import CaBRNet
 from cabrnet.archs.prototree.decision import ProtoTreeClassifier, SamplingStrategy
-from cabrnet.core.utils.image import open_image
+from cabrnet.core.utils.image import safe_open_image
 from cabrnet.core.utils.optimizers import OptimizerManager
 from cabrnet.core.utils.tree import MappingMode, TreeNode
 from cabrnet.core.visualization.explainer import ExplanationGraph
@@ -166,7 +165,7 @@ class ProtoTree(CaBRNet):
         ]
         logger.info(
             f"Remaining leaves after pruning with threshold {pruning_threshold}: {len(remaining_leaves)} "
-            f"({len(remaining_leaves)/self.classifier.tree.num_leaves*100:.1f}%)"
+            f"({len(remaining_leaves) / self.classifier.tree.num_leaves * 100:.1f}%)"
         )
 
     def loss(self, model_output: Any, label: torch.Tensor, **kwargs) -> tuple[torch.Tensor, dict[str, float]]:
@@ -386,9 +385,9 @@ class ProtoTree(CaBRNet):
         num_leaves = self.classifier.tree.num_leaves
         logger.info(
             f"Tree statistics after pruning: {num_leaves} leaves "
-            f"({(num_leaves_before-num_leaves)/num_leaves_before*100:.1f} % pruned), "
+            f"({(num_leaves_before - num_leaves) / num_leaves_before * 100:.1f} % pruned), "
             f"{num_prototypes} prototypes "
-            f"({(num_prototypes_before-num_prototypes)/num_prototypes_before*100:.1f} % pruned)."
+            f"({(num_prototypes_before - num_prototypes) / num_prototypes_before * 100:.1f} % pruned)."
         )
 
     def explain(
@@ -427,65 +426,66 @@ class ProtoTree(CaBRNet):
         """
         self.eval()
 
-        img, img_tensor = open_image(img, preprocess)
+        with safe_open_image(img, preprocess) as (img, img_tensor):
+            # Map to device
+            self.to(device)
+            img_tensor = img_tensor.to(device)
 
-        # Map to device
-        self.to(device)
-        img_tensor = img_tensor.to(device)
+            # Perform inference and get decision leaf
+            prediction, tree_info = self.forward(img_tensor, strategy=strategy)
+            leaf_id = tree_info["decision_leaf"][0]
 
-        # Perform inference and get decision leaf
-        prediction, tree_info = self.forward(img_tensor, strategy=strategy)
-        leaf_id = tree_info["decision_leaf"][0]
+            # Compute path to leaf  TODO: This could be done once during model construction, then after pruning
+            leaf_path = self.classifier.tree.get_mapping(mode=MappingMode.NODE_PATHS)[leaf_id]
 
-        # Compute path to leaf  TODO: This could be done once during model construction, then after pruning
-        leaf_path = self.classifier.tree.get_mapping(mode=MappingMode.NODE_PATHS)[leaf_id]
-
-        # Build explanation
-        img_path = os.path.join(output_dir, "original.png")
-        if not disable_rendering:
-            os.makedirs(os.path.join(output_dir, "test_patches"), exist_ok=exist_ok)
-            # Copy source image
-            img.save(img_path)
-        explanation = ExplanationGraph(output_dir=output_dir)
-        explanation.set_test_image(img_path=img_path)
-        prototype_mapping = self.classifier.tree.get_mapping(mode=MappingMode.NODE_TO_PROTOTYPE)
-        node_mapping = self.classifier.tree.get_mapping(mode=MappingMode.ID_TO_NODE)
-        parent_id = leaf_path[0]
-        proto_idx = prototype_mapping[leaf_path[0]][0]  # Index of the first prototype
-        most_relevant_prototypes = []  # Keep track of most relevant prototypes
-        for node_id in leaf_path[1:]:
-            # Recover path to prototype image
-            prototype_image_path = os.path.join(prototype_dir, f"prototype_{proto_idx}.png")
-            score = tree_info[node_id]["conditional_probability"].item()
-            if node_id == node_mapping[parent_id].get_submodule(f"{parent_id}_child_nsim").node_id:
-                # No similarity
-                most_relevant_prototypes.append((proto_idx, 1 - score, False))
-                if not disable_rendering:
+            # Build explanation
+            img_path = os.path.join(output_dir, "original.png")
+            if not disable_rendering:
+                os.makedirs(os.path.join(output_dir, "test_patches"), exist_ok=exist_ok)
+                # Copy source image
+                img.save(img_path)
+            explanation = ExplanationGraph(output_dir=output_dir)
+            explanation.set_test_image(img_path=img_path)
+            prototype_mapping = self.classifier.tree.get_mapping(mode=MappingMode.NODE_TO_PROTOTYPE)
+            node_mapping = self.classifier.tree.get_mapping(mode=MappingMode.ID_TO_NODE)
+            parent_id = leaf_path[0]
+            proto_idx = prototype_mapping[leaf_path[0]][0]  # Index of the first prototype
+            most_relevant_prototypes = []  # Keep track of most relevant prototypes
+            for node_id in leaf_path[1:]:
+                # Recover path to prototype image
+                prototype_image_path = os.path.join(prototype_dir, f"prototype_{proto_idx}.png")
+                score = tree_info[node_id]["conditional_probability"].item()
+                if node_id == node_mapping[parent_id].get_submodule(f"{parent_id}_child_nsim").node_id:
+                    # No similarity
+                    most_relevant_prototypes.append((proto_idx, 1 - score, False))
+                    if not disable_rendering:
+                        explanation.add_similarity(
+                            prototype_img_path=prototype_image_path,
+                            test_patch_img_path=img_path,
+                            label=f"Not similar\n (Score: {1 - score:.2f})",
+                        )
+                else:
+                    # Similarity
+                    most_relevant_prototypes.append((proto_idx, score, True))
+                    patch_image_path = os.path.join(output_dir, "test_patches", f"proto_similarity_{proto_idx}.png")
+                    if not disable_rendering:
+                        patch_image = visualizer.forward(
+                            img=img, img_tensor=img_tensor, proto_idx=proto_idx, device=device
+                        )
+                        patch_image.save(patch_image_path)
                     explanation.add_similarity(
                         prototype_img_path=prototype_image_path,
-                        test_patch_img_path=img_path,
-                        label=f"Not similar\n (Score: {1-score:.2f})",
+                        test_patch_img_path=patch_image_path,
+                        label=f"Similar\n (Score: {score:.2f})",
                     )
-            else:
-                # Similarity
-                most_relevant_prototypes.append((proto_idx, score, True))
-                patch_image_path = os.path.join(output_dir, "test_patches", f"proto_similarity_{proto_idx}.png")
-                if not disable_rendering:
-                    patch_image = visualizer.forward(img=img, img_tensor=img_tensor, proto_idx=proto_idx, device=device)
-                    patch_image.save(patch_image_path)
-                explanation.add_similarity(
-                    prototype_img_path=prototype_image_path,
-                    test_patch_img_path=patch_image_path,
-                    label=f"Similar\n (Score: {score:.2f})",
-                )
-            parent_id = node_id
-            if prototype_mapping[node_id] is None:
-                break
-            proto_idx = prototype_mapping[node_id][0]  # Update index of prototype associated with next node
-        explanation.add_prediction(int(torch.argmax(prediction).item()))
-        if not disable_rendering:
-            explanation.render(output_format=output_format)
-        return most_relevant_prototypes
+                parent_id = node_id
+                if prototype_mapping[node_id] is None:
+                    break
+                proto_idx = prototype_mapping[node_id][0]  # Update index of prototype associated with next node
+            explanation.add_prediction(int(torch.argmax(prediction).item()))
+            if not disable_rendering:
+                explanation.render(output_format=output_format)
+            return most_relevant_prototypes
 
     def explain_global(
         self,
