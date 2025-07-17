@@ -1,0 +1,64 @@
+param_groups:
+  backbone: extractor.convnet
+  addons: extractor.add_on
+  prototypes: classifier.prototypes
+  last_layer: classifier.last_layer
+
+optimizers:
+  # Optimizer used during the first epochs
+  warmup_optimizer:
+    type: Adam
+    groups:
+      addons:
+        lr: 0.003
+        weight_decay: 0.001
+      prototypes:
+        lr: 0.003
+
+  # Main optimizer
+  joint_optimizer:
+    type: Adam
+    groups:
+      backbone:
+        lr: 0.0001
+        weight_decay: 0.001
+      addons:
+        lr: 0.003
+        weight_decay: 0.001
+      prototypes:
+        lr: 0.003
+    scheduler:
+      type: StepLR
+      params:
+        step_size: 5
+        gamma: 0.1
+
+  # Optimizer used during the first epochs
+  last_layer_optimizer:
+    type: Adam
+    groups:
+      last_layer:
+        lr: 0.0001
+
+num_epochs: 100
+
+periods:
+  warmup:
+    epoch_range: [ 0, 9 ] # First and last epoch (included)
+    freeze: [ backbone, last_layer ]
+    optimizers: warmup_optimizer
+  main_training:
+    epoch_range: [ 10, 99 ]
+    freeze: last_layer
+    optimizers: joint_optimizer
+
+auxiliary_info:
+  loss_coefficients:
+    clustering: 0.8
+    separability: -0.08
+    regularization: 0.0001
+  projection_config:
+    start_epoch: 10 # First epoch for prototype projection
+    frequency: 10 # Projection frequency (in number of epochs)
+    num_ft_epochs: 20 # Number of fine-tuning epochs on the last layer
+
