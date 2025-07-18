@@ -304,6 +304,21 @@ def download_flowers(path: str, use_segmentation: bool) -> None:
         split="train",  # Download the training split
     )
 
+def download_pets(path: str, use_segmentation: bool) -> None:
+    """Downloads the Oxford Pets dataset.
+
+    Args:
+        path (str): Path where to download the dataset to.
+        use_segmentation (bool): Whether to download the segmentation dataset too. Deprecated, as no segmentation dataset is available.
+    """
+    from torchvision.datasets import OxfordIIITPet
+    _ = OxfordIIITPet(
+        root=path,
+        download=True,
+        transform=None,  # No transformation needed for downloading
+        split="trainval",  # Download the training split
+    )
+
 
 file_list = [
     {
@@ -318,6 +333,13 @@ file_list = [
         "description": "Oxford Flowers 102 dataset",
         "dir": "flowers-102",  # Standard directory from 'torchvision'
         "download_fn": download_flowers,
+        "preprocess_fn": None,  # No preprocessing needed for this dataset
+    },
+    {
+        "identifier": "oxford_iiit_pet",
+        "description": "Oxford IIIT Pets dataset",
+        "dir": "oxford-iiit-pet",  # Standard directory from 'torchvision'
+        "download_fn": download_pets,
         "preprocess_fn": None,  # No preprocessing needed for this dataset
     },
 ]
