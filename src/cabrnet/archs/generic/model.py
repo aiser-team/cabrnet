@@ -16,7 +16,7 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 import time
 
-from cabrnet.archs.generic.conv_extractor import ConvExtractor, layer_init_functions
+from cabrnet.archs.generic.conv_extractor import ConvExtractor, LAYER_INIT_FUNCTIONS
 from cabrnet.archs.generic.decision import CaBRNetClassifier
 from cabrnet.core.utils.exceptions import check_mandatory_fields
 from cabrnet.core.utils.optimizers import OptimizerManager
@@ -321,10 +321,10 @@ class CaBRNet(nn.Module):
         # Apply postponed add-on layer initialisation (compatibility mode only)
         if add_on_init_mode:
             if model.extractor.num_pipelines == 1:
-                model.extractor.add_on.apply(layer_init_functions[add_on_init_mode[next(iter(add_on_init_mode))]])
+                model.extractor.add_on.apply(LAYER_INIT_FUNCTIONS[add_on_init_mode[next(iter(add_on_init_mode))]])
             else:
                 for pipeline_name, init_function in add_on_init_mode.items():
-                    model.extractor.add_on[pipeline_name].apply(layer_init_functions[init_function])
+                    model.extractor.add_on[pipeline_name].apply(LAYER_INIT_FUNCTIONS[init_function])
 
         if state_dict_path is not None:
             logger.info(f"Loading model state from {state_dict_path}")
