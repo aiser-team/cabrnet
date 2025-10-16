@@ -117,7 +117,7 @@ class CaBRNetClassifier(nn.Module, ABC):
             distances (tensor): Input tensor. Any shape.
 
         Returns:
-             Similarity score corresponding to the provided distances. Same shape as input.
+            Similarity score corresponding to the provided distances. Same shape as input.
         """
         return self.similarity_layer.distances_to_similarities(distances, **kwargs)
 

@@ -55,7 +55,7 @@ def init_weights_protopnet(module: nn.Module):
     init_weights_batchnorm_identity(module)
 
 
-layer_init_functions = {
+LAYER_INIT_FUNCTIONS = {
     "XAVIER_UNIFORM": init_weights_xavier_uniform,
     "XAVIER": init_weights_xavier,
     "PROTOPNET": init_weights_protopnet,

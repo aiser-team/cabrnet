@@ -1,7 +1,7 @@
 import torch
 from torch import Tensor
 
-prototype_init_modes = ["NORMAL", "SHIFTED_NORMAL", "UNIFORM", "XAVIER"]
+PROTOTYPE_INIT_MODES = ["NORMAL", "SHIFTED_NORMAL", "UNIFORM", "XAVIER"]
 
 
 def init_prototypes(
@@ -16,7 +16,7 @@ def init_prototypes(
         num_features (int): Size of each prototype.
         init_mode (str, optional): Initialisation mode. Default: SHIFTED_NORMAL = N(0.5, 0.1).
     """
-    if init_mode not in prototype_init_modes:
+    if init_mode not in PROTOTYPE_INIT_MODES:
         raise ValueError(f"Unknown prototype initialisation mode {init_mode}.")
     if init_mode == "UNIFORM":
         return torch.rand((num_prototypes, num_features, 1, 1), requires_grad=True)

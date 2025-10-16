@@ -4,7 +4,7 @@ from argparse import ArgumentParser, RawTextHelpFormatter
 
 from zenodo_get import zenodo_get
 
-file_list = [
+FILE_LIST = [
     {
         "identifier": "resnet50_inat",
         "description": "ResNet50 pretrained on INaturalist dataset",
@@ -85,7 +85,7 @@ def show_file_list() -> str:
         List of files to download.
     """
     res = ""
-    for entry in file_list:
+    for entry in FILE_LIST:
         res += f"\t{entry['identifier']} --> {entry['description']}, downloaded in <output_dir>/{entry['dir']}\n"
     res += "\tall --> everything above"
     return res
@@ -105,7 +105,7 @@ def create_parser() -> ArgumentParser:
         required=True,
         metavar="name",
         nargs="+",
-        choices=["all"] + [entry["identifier"] for entry in file_list],
+        choices=["all"] + [entry["identifier"] for entry in FILE_LIST],
         help=f"Select target(s) to download\n{show_file_list()}",
     )
     return parser
@@ -118,9 +118,9 @@ def main() -> None:
 
     # Files to download
     files_to_download = (
-        file_list
+        FILE_LIST
         if "all" in args.target
-        else [file_entry for file_entry in file_list if file_entry["identifier"] in args.target]
+        else [file_entry for file_entry in FILE_LIST if file_entry["identifier"] in args.target]
     )
 
     for entry in files_to_download:
