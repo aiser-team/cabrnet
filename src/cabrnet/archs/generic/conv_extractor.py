@@ -13,7 +13,7 @@ from torchvision.models.feature_extraction import (
 )
 
 from cabrnet.core.utils.exceptions import check_mandatory_fields
-from cabrnet.core.utils.init import layer_init_functions
+from cabrnet.core.utils.init import LAYER_INIT_FUNCTIONS
 from cabrnet.archs.custom_extractors import *
 
 warnings.filterwarnings("ignore")
@@ -219,7 +219,7 @@ class ConvExtractor(nn.Module):
         for key, val in config.items():
             if key == "init_mode":
                 # Extract initialisation mode
-                if val not in layer_init_functions:
+                if val not in LAYER_INIT_FUNCTIONS:
                     raise ValueError(f"Unsupported add_on layers initialisation mode {val}")
                 init_mode = val
                 continue
@@ -245,6 +245,6 @@ class ConvExtractor(nn.Module):
 
         # Apply initialisation function (if any)
         if init_mode:
-            add_on.apply(layer_init_functions[init_mode])
+            add_on.apply(LAYER_INIT_FUNCTIONS[init_mode])
 
         return add_on, in_channels

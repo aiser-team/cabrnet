@@ -15,9 +15,9 @@ from cabrnet.core.utils.parser import load_config
 from cabrnet.core.visualization.gradients import prp, randgrad, saliency, smoothgrad
 from cabrnet.core.visualization.prp_utils import get_cabrnet_lrp_composite_model
 from cabrnet.core.visualization.upsampling import cubic_upsampling
-from cabrnet.core.visualization.view import supported_viewing_functions
+from cabrnet.core.visualization.view import SUPPORTED_VIEWING_FUNCTIONS
 
-supported_attribution_functions = {
+SUPPORTED_ATTRIBUTION_FUNCTIONS = {
     "cubic_upsampling": cubic_upsampling,
     "smoothgrad": smoothgrad,
     "saliency": saliency,
@@ -190,14 +190,14 @@ class SimilarityVisualizer(nn.Module):
         )
 
         # Visualization function
-        attribution_fn = supported_attribution_functions.get(config_dict["attribution"]["type"])
+        attribution_fn = SUPPORTED_ATTRIBUTION_FUNCTIONS.get(config_dict["attribution"]["type"])
         if attribution_fn is None:
             raise NotImplementedError(f"Unknown visualization function {config_dict['attribution']['type']}")
         attribution_params = config_dict["attribution"]["params"] if "params" in config_dict["attribution"] else None
 
         # Viewing function
-        if config_dict["view"]["type"] in supported_viewing_functions:
-            view_fn = supported_viewing_functions[config_dict["view"]["type"]]
+        if config_dict["view"]["type"] in SUPPORTED_VIEWING_FUNCTIONS:
+            view_fn = SUPPORTED_VIEWING_FUNCTIONS[config_dict["view"]["type"]]
         else:
             raise NotImplementedError(f"Unknown viewing function {config_dict['view']['type']}")
         view_params = config_dict["view"]["params"] if "params" in config_dict["view"] else None

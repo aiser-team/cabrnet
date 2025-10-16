@@ -2,8 +2,8 @@ from typing import Any
 
 import gradio as gr
 from cabrnet.core.interface.utils import change_visibility
-from cabrnet.core.visualization.view import supported_viewing_functions
-from cabrnet.core.visualization.visualizer import supported_attribution_functions
+from cabrnet.core.visualization.view import SUPPORTED_VIEWING_FUNCTIONS
+from cabrnet.core.visualization.visualizer import SUPPORTED_ATTRIBUTION_FUNCTIONS
 from gradio.components.base import Component
 
 
@@ -25,7 +25,7 @@ def create_visualization_gui(
         with gr.Row():
             # Select attribution method
             attribution_select = gr.Dropdown(
-                choices=list(supported_attribution_functions.keys()),
+                choices=list(SUPPORTED_ATTRIBUTION_FUNCTIONS.keys()),
                 value=default_attribution,
                 label="Attribution function",
                 key="attribution_select",
@@ -101,7 +101,7 @@ def create_visualization_gui(
         # Select viewing method
         with gr.Row():
             viewing_select = gr.Dropdown(
-                choices=list(supported_viewing_functions.keys()),
+                choices=list(SUPPORTED_VIEWING_FUNCTIONS.keys()),
                 value=default_viewing,
                 label="Viewing function",
                 key="viewing_select",

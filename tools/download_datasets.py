@@ -16,7 +16,7 @@ def show_file_list() -> str:
         List of files to download.
     """
     res = ""
-    for entry in file_list:
+    for entry in FILE_LIST:
         res += f"\t{entry['identifier']} --> {entry['description']}, downloaded in <output_dir>/{entry['dir']}\n"
     res += "\tall --> everything above"
     return res
@@ -39,7 +39,7 @@ def create_parser() -> ArgumentParser:
         required=True,
         metavar="name",
         nargs="+",
-        choices=["all"] + [entry["identifier"] for entry in file_list],
+        choices=["all"] + [entry["identifier"] for entry in FILE_LIST],
         help=f"Select target(s) to download\n{show_file_list()}",
     )
     parser.add_argument(
@@ -320,7 +320,7 @@ def download_pets(path: str, use_segmentation: bool) -> None:
     )
 
 
-file_list = [
+FILE_LIST = [
     {
         "identifier": "CUB_200_2011",
         "description": "Caltech-UCSD Birds-200-2011 dataset",
@@ -352,9 +352,9 @@ def main() -> None:
 
     # Files to download
     files_to_download = (
-        file_list
+        FILE_LIST
         if "all" in args.target
-        else [file_entry for file_entry in file_list if file_entry["identifier"] in args.target]
+        else [file_entry for file_entry in FILE_LIST if file_entry["identifier"] in args.target]
     )
 
     output_dir = args.output_dir

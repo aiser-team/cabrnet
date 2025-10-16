@@ -21,7 +21,7 @@ class SimilarityLayer(nn.Module, ABC):
             prototypes (tensor): Tensor of prototypes. Shape (P, D, 1, 1).
 
         Returns:
-             Distance between each feature vector and each prototype. Shape (N, P, H, W).
+            Distance between each feature vector and each prototype. Shape (N, P, H, W).
         """
         raise NotImplementedError
 
@@ -33,7 +33,7 @@ class SimilarityLayer(nn.Module, ABC):
             distances (tensor): Input tensor. Any shape.
 
         Returns:
-             Similarity score corresponding to the provided distances. Same shape as input.
+            Similarity score corresponding to the provided distances. Same shape as input.
         """
         raise NotImplementedError
 
@@ -76,7 +76,7 @@ class SimilarityLayerStub(SimilarityLayer):
             prototypes (tensor): Unused.
 
         Returns:
-             Nothing.
+            Nothing.
         """
         raise NotImplementedError
 
@@ -87,7 +87,7 @@ class SimilarityLayerStub(SimilarityLayer):
             distances (tensor): Unused.
 
         Returns:
-             Nothing.
+            Nothing.
         """
         raise NotImplementedError
 
@@ -226,7 +226,7 @@ class LogDistance(SimilarityLayer):
             distances (tensor): Input tensor. Any shape.
 
         Returns:
-             Similarity score corresponding to the provided distances. Same shape as input.
+            Similarity score corresponding to the provided distances. Same shape as input.
         """
         # Ensures that distances are greater than 0
         distances = torch.relu(distances)
@@ -262,7 +262,7 @@ class ExpDistance(SimilarityLayer):
             distances (tensor): Input tensor. Any shape.
 
         Returns:
-             Similarity score corresponding to the provided distances. Same shape as input.
+            Similarity score corresponding to the provided distances. Same shape as input.
         """
         distances = torch.sqrt(torch.abs(distances) + self.stability_factor)
         if self.log_probabilities:
@@ -405,6 +405,6 @@ class CosineSimilarity(SimilarityLayer):
             distances (tensor): Input tensor. Any shape.
 
         Returns:
-             Similarity score corresponding to the provided distances. Same shape as input.
+            Similarity score corresponding to the provided distances. Same shape as input.
         """
         return 1 - distances

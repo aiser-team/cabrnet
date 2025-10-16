@@ -9,7 +9,7 @@ import torch.nn as nn
 from loguru import logger
 from torch import Tensor
 
-leaf_init_modes = ["NORMAL", "ZEROS"]
+LEAF_INIT_MODES = ["NORMAL", "ZEROS"]
 
 
 class MappingMode(Enum):
@@ -554,7 +554,7 @@ class LeafNode(TreeNode):
             log_probabilities (bool, optional): If True, use log of probabilities. Default: False.
         """
         super().__init__(node_id)
-        if init_mode not in leaf_init_modes:
+        if init_mode not in LEAF_INIT_MODES:
             raise ValueError(f"Unknown leaf init mode {init_mode}")
         if init_mode == "ZEROS":
             self._relative_distribution = nn.Parameter(torch.zeros((1, num_classes)), requires_grad=True)
