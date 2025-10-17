@@ -82,6 +82,7 @@ const config = {
             label: 'API Documentation',
           },
           {to: '/blog', label: 'Blog', position: 'left'},
+          {to: '/publications', label: 'Publications', position: 'left'},
           // {
           //   href: 'https://github.com/facebook/docusaurus',
           //   label: 'GitHub',
