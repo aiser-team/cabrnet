@@ -63,7 +63,7 @@ supported_architectures = {
                 "num_features": ("number", 128),
                 "proto_init_mode": ("dropdown", "SHIFTED_NORMAL", PROTOTYPE_INIT_MODES),
                 "depth": ("slider", 9, 2, 15),
-                "leaves_init_mode": ("dropdown", "ZEROS", leaf_init_modes),
+                "leaves_init_mode": ("dropdown", "ZEROS", LEAF_INIT_MODES),
                 "log_probabilities": ("checkbox", False),
             },
         },
