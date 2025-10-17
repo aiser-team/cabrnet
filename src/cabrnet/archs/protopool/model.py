@@ -10,14 +10,13 @@ import torch.nn as nn
 from cabrnet.archs.generic.decision import CaBRNetClassifier
 from cabrnet.archs.generic.model import CaBRNet
 from cabrnet.core.utils.custom_preprocess import batch_mixup
-from cabrnet.core.utils.image import open_image
+from cabrnet.core.utils.image import safe_open_image
 from cabrnet.core.utils.optimizers import OptimizerManager
 from cabrnet.core.visualization.explainer import ExplanationGraph
 from cabrnet.core.visualization.visualizer import SimilarityVisualizer
 from loguru import logger
 from PIL import Image
 from torch.utils.data import DataLoader
-from torchvision.transforms import ToTensor
 from tqdm import tqdm
 import time
 
@@ -49,7 +48,7 @@ class ProtoPool(CaBRNet):
         }
         self.training_config = {
             "gumbel_min_scale": 1.3,
-            "gumbel_max_scale": 10**3,
+            "gumbel_max_scale": 10 ** 3,
             "gumbel_epochs": 10,
             "use_mix_up": True,
         }
@@ -176,7 +175,7 @@ class ProtoPool(CaBRNet):
             mat = mat * (1.0 - torch.eye(self.classifier.num_slots_per_class, dtype=mat.dtype, device=mat.device))
             orthogonal_loss = mat.sum()
             # Normalize
-            orthogonal_loss = orthogonal_loss / (self.classifier.num_classes * self.classifier.num_slots_per_class**2)
+            orthogonal_loss = orthogonal_loss / (self.classifier.num_classes * self.classifier.num_slots_per_class ** 2)
 
         def distance_loss(dists: torch.Tensor, proto_slot_dists: torch.Tensor, num_prototypes: int):
             r"""Returns the average minimum distance across a batch, based on the *num_prototypes* most relevant
@@ -519,63 +518,64 @@ class ProtoPool(CaBRNet):
         # Compute mapping between classes and prototypes
         class_mapping = self.classifier.class_mapping
 
-        img, img_tensor = open_image(img, preprocess)
+        with safe_open_image(img, preprocess) as (img, img_tensor):
+            # Map to device
+            self.to(device)
+            img_tensor = img_tensor.to(device)
 
-        # Map to device
-        self.to(device)
-        img_tensor = img_tensor.to(device)
+            # Perform inference and get minimum distance to each prototype
+            prediction, min_distances, _ = self.forward(img_tensor)
+            class_idx = torch.argmax(prediction, dim=1)[0]
+            min_distances = min_distances[0]
 
-        # Perform inference and get minimum distance to each prototype
-        prediction, min_distances, _ = self.forward(img_tensor)
-        class_idx = torch.argmax(prediction, dim=1)[0]
-        min_distances = min_distances[0]
+            # Ignore distances to pruned/non-class specific prototypes
+            for proto_idx in range(self.num_prototypes):
+                if not self.classifier.prototype_is_active(proto_idx) or (
+                    class_specific and proto_idx not in class_mapping[class_idx]
+                ):
+                    min_distances[proto_idx] = float("inf")
 
-        # Ignore distances to pruned/non-class specific prototypes
-        for proto_idx in range(self.num_prototypes):
-            if not self.classifier.prototype_is_active(proto_idx) or (
-                class_specific and proto_idx not in class_mapping[class_idx]
-            ):
-                min_distances[proto_idx] = float("inf")
-
-        # Build explanation
-        img_path = os.path.join(output_dir, "original.png")
-        if not disable_rendering:
-            os.makedirs(os.path.join(output_dir, "test_patches"), exist_ok=exist_ok)
-            # Copy source image
-            img.save(img_path)
-        explanation = ExplanationGraph(output_dir=output_dir)
-        explanation.set_test_image(img_path=img_path)
-        most_relevant_prototypes = []  # Keep track of most relevant prototypes
-
-        for _ in range(num_closest):
-            proto_idx = int(torch.argmin(min_distances).item())
-            min_distance = torch.min(min_distances)
-            if min_distance == float("inf"):
-                # Not enough relevant prototypes
-                break
-            score = self.classifier.similarity_layer.distances_to_similarities(min_distance).item()
-            most_relevant_prototypes.append((proto_idx, score, True))  # ProtoPool only considers positive similarities
-            # Recover path to prototype image
-            prototype_image_path = os.path.join(prototype_dir, f"prototype_{proto_idx}.png")
-            # Generate test image patch
-            patch_image_path = os.path.join(output_dir, "test_patches", f"proto_similarity_{proto_idx}.png")
+            # Build explanation
+            img_path = os.path.join(output_dir, "original.png")
             if not disable_rendering:
-                patch_image = visualizer.forward(img=img, img_tensor=img_tensor, proto_idx=proto_idx, device=device)
-                patch_image.save(patch_image_path)
-            in_class_slot = proto_idx in class_mapping[class_idx]
-            explanation.add_similarity(
-                prototype_img_path=prototype_image_path,
-                test_patch_img_path=patch_image_path,
-                label=f"Prototype {proto_idx}\n"
-                f"({'not ' if not in_class_slot else ''}in class slot, score: {score:.2f})",
-                font_color="black" if in_class_slot else "red",
-            )
-            # "Disable" prototype from search
-            min_distances[proto_idx] = float("inf")
-        explanation.add_prediction(int(torch.argmax(prediction).item()))
-        if not disable_rendering:
-            explanation.render(output_format=output_format)
-        return most_relevant_prototypes
+                os.makedirs(os.path.join(output_dir, "test_patches"), exist_ok=exist_ok)
+                # Copy source image
+                img.save(img_path)
+            explanation = ExplanationGraph(output_dir=output_dir)
+            explanation.set_test_image(img_path=img_path)
+            most_relevant_prototypes = []  # Keep track of most relevant prototypes
+
+            for _ in range(num_closest):
+                proto_idx = int(torch.argmin(min_distances).item())
+                min_distance = torch.min(min_distances)
+                if min_distance == float("inf"):
+                    # Not enough relevant prototypes
+                    break
+                score = self.classifier.similarity_layer.distances_to_similarities(min_distance).item()
+                most_relevant_prototypes.append(
+                    (proto_idx, score, True)
+                )  # ProtoPool only considers positive similarities
+                # Recover path to prototype image
+                prototype_image_path = os.path.join(prototype_dir, f"prototype_{proto_idx}.png")
+                # Generate test image patch
+                patch_image_path = os.path.join(output_dir, "test_patches", f"proto_similarity_{proto_idx}.png")
+                if not disable_rendering:
+                    patch_image = visualizer.forward(img=img, img_tensor=img_tensor, proto_idx=proto_idx, device=device)
+                    patch_image.save(patch_image_path)
+                in_class_slot = proto_idx in class_mapping[class_idx]
+                explanation.add_similarity(
+                    prototype_img_path=prototype_image_path,
+                    test_patch_img_path=patch_image_path,
+                    label=f"Prototype {proto_idx}\n"
+                    f"({'not ' if not in_class_slot else ''}in class slot, score: {score:.2f})",
+                    font_color="black" if in_class_slot else "red",
+                )
+                # "Disable" prototype from search
+                min_distances[proto_idx] = float("inf")
+            explanation.add_prediction(int(torch.argmax(prediction).item()))
+            if not disable_rendering:
+                explanation.render(output_format=output_format)
+            return most_relevant_prototypes
 
     def explain_global(self, prototype_dir: str, output_dir: str, output_format: str = "pdf", **kwargs) -> None:
         r"""Explains the global decision-making process of a CaBRNet model.
