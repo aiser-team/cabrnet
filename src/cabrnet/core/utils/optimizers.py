@@ -113,8 +113,9 @@ class OptimizerManager:
             else:
                 start = group_value.get("start")
                 stop = group_value.get("stop")
-                if start is None and stop is None:
-                    raise ValueError(f"Invalid format for group {group_name}: {group_value}.")
+                exclude = group_value.get("exclude", [])
+                if isinstance(exclude, str):
+                    exclude = [exclude]
                 record = start is None
                 stop_found = False
                 for name, param in module.named_parameters():
@@ -122,7 +123,7 @@ class OptimizerManager:
                         record = True
                     elif stop_found and not name.startswith(stop):
                         break
-                    if record:
+                    if record and not any(name.startswith(excl) for excl in exclude):
                         self.param_groups[group_name].append(param)
                         covered_names.append(name)
                     if stop and name.startswith(stop):
