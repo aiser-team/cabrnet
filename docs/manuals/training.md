@@ -7,10 +7,11 @@ For more examples, see the [ProtoPNet](https://github.com/aiser-team/cabrnet/tre
 Parameters of the model can be sorted into different groups, using the following formats:
 ```yaml
 param_groups:
-  <GROUP_NAME_1>: [<SUBMODULE_OR_PARAM_NAME_1>, <SUBMODULE_OR_PARAM_NAME_2>]
+  <GROUP_NAME_1>: [<SUBMODULE_OR_PARAM_NAME_1>, <SUBMODULE_OR_PARAM_NAME_4>]
   <GROUP_NAME_2>:
     start: <SUBMODULE_OR_PARAM_NAME_1> 
-    stop: <SUBMODULE_OR_PARAM_NAME_2>
+    stop: <SUBMODULE_OR_PARAM_NAME_4>
+    exclude: [<SUBMODULE_OR_PARAM_NAME_2>, <SUBMODULE_OR_PARAM_NAME_3>]
 ```
 In other words, parameter groups can be either defined as an explicit list of submodule/parameters names, 
 or as a range of submodules/parameters, where the names of the parameters can be found as follows:
@@ -22,7 +23,8 @@ Note that for ranges of parameters, either `start` or `stop` keywords can be omi
 
 - If the `start` keyword is omitted, the range starts from the first parameter of the model.
 - If the `stop` keyword is omitted, the range ends at the last parameter of the model.
-
+- If the `exclude` keyword is omitted, no intermediate layer is excluded from the optimizer.
+> Note: layers in the `exclude` line will not be updated by the optimizer identified.
 
 
 Finally, when no parameter group is specified, all model parameters are automatically regrouped into a `main` group. 
