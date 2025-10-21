@@ -116,7 +116,7 @@ def download_cub(path: str, use_segmentation: bool) -> None:
 
 
 def preprocess_cub(path: str) -> None:
-    """Preprocessing function to create proper datasets used by ProtoTree and ProtoPNet.
+    """Preprocesses data to create proper datasets used by ProtoTree and ProtoPNet.
 
     Args:
         path (str): Path where the dataset is located.
@@ -297,12 +297,49 @@ def download_flowers(path: str, use_segmentation: bool) -> None:
         use_segmentation (bool): Whether to download the segmentation dataset too. Deprecated, as no segmentation dataset is available.
     """
     from torchvision.datasets import Flowers102
-    _ = Flowers102(
-        root=path,
-        download=True,
-        transform=None,  # No transformation needed for downloading
-        split="train",  # Download the training split
-    )
+
+    logger.info("Downloading Oxford Flowers 102 dataset")
+    flowers_dataset = Flowers102(root=path, download=True)
+    logger.info("Oxford Flowers 102 dataset downloaded")
+
+    if use_segmentation:
+        logger.warning("Segmentation dataset is not available for Oxford Flowers 102. Skipping segmentation download.")
+
+
+def download_cifar10(path: str, use_segmentation: bool) -> None:
+    """Downloads the CIFAR-10 dataset.
+
+    Args:
+        path (str): Path where to download the dataset to.
+        use_segmentation (bool): Whether to download the segmentation dataset too. Deprecated, as no segmentation dataset is available.
+    """
+    from torchvision.datasets import CIFAR10
+
+    logger.info("Downloading CIFAR-10 dataset")
+    train_dataset = CIFAR10(root=path, train=True, download=True)
+    test_dataset = CIFAR10(root=path, train=False, download=True)
+    logger.info("CIFAR-10 dataset downloaded")
+
+    if use_segmentation:
+        logger.warning("Segmentation dataset is not available for CIFAR-10. Skipping segmentation download.")
+
+
+def download_cifar100(path: str, use_segmentation: bool) -> None:
+    """Downloads the CIFAR-100 dataset.
+
+    Args:
+        path (str): Path where to download the dataset to.
+        use_segmentation (bool): Whether to download the segmentation dataset too. Deprecated, as no segmentation dataset is available.
+    """
+    from torchvision.datasets import CIFAR100
+
+    logger.info("Downloading CIFAR-100 dataset")
+    train_dataset = CIFAR100(root=path, train=True, download=True)
+    test_dataset = CIFAR100(root=path, train=False, download=True)
+    logger.info("CIFAR-100 dataset downloaded")
+
+    if use_segmentation:
+        logger.warning("Segmentation dataset is not available for CIFAR-100. Skipping segmentation download.")
 
 def download_pets(path: str, use_segmentation: bool) -> None:
     """Downloads the Oxford Pets dataset.
@@ -342,11 +379,25 @@ FILE_LIST = [
         "download_fn": download_pets,
         "preprocess_fn": None,  # No preprocessing needed for this dataset
     },
+    {
+        "identifier": "cifar10",
+        "description": "CIFAR-10 dataset",
+        "dir": "cifar-10-batches-py",  # Standard directory from 'torchvision'
+        "download_fn": download_cifar10,
+        "preprocess_fn": None,  # No preprocessing needed for this dataset
+    },
+    {
+        "identifier": "cifar100",
+        "description": "CIFAR-100 dataset",
+        "dir": "cifar-100-python",  # Standard directory from 'torchvision'
+        "download_fn": download_cifar100,
+        "preprocess_fn": None,  # No preprocessing needed for this dataset
+    },
 ]
 
 
 def main() -> None:
-    """Main entry point of the tool."""
+    """Runs the tool."""
     parser = create_parser()
     args = parser.parse_args()
 
