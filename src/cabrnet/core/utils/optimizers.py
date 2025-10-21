@@ -93,29 +93,64 @@ class OptimizerManager:
             self.param_groups["main"] = [param for _, param in module.named_parameters()]
             return
 
-        covered_names = []
+        covered_names = set()
+
+        # Sounds silly but I made mistakes before
+        INCLUDE, INCLUDE_SUFFIX = "include", "include_suffix"
+        START, STOP = "start", "stop"
+        EXCLUDE, EXCLUDE_SUFFIX = "exclude", "exclude_suffix"
 
         for group_name, group_value in param_groups.items():
             self.param_groups[group_name] = []
-            if isinstance(group_value, list | str):
-                # Submodule or list of submodules
-                if isinstance(group_value, str):
-                    group_value = [group_value]
-                for submodule_name in group_value:
-                    match_found = False
-                    for name, param in module.named_parameters():
-                        if name.startswith(submodule_name):
-                            match_found = True
-                            self.param_groups[group_name].append(param)
-                            covered_names.append(name)
-                    if not match_found:
-                        raise ValueError(f"No parameter matching keyword {submodule_name} in model")
+            if isinstance(group_value, str | list):
+                group_value = {INCLUDE: group_value}
+            # group_value is now a dictionary
+
+            unknown_keys = set(group_value.keys())
+            unknown_keys = unknown_keys.difference({INCLUDE, INCLUDE_SUFFIX, START, STOP, EXCLUDE, EXCLUDE_SUFFIX})
+            if unknown_keys:
+                raise ValueError(
+                    f"Unknown key {list(unknown_keys)[0]}"
+                    + (f", ({len(unknown_keys) - 1} similar messages)." if len(unknown_keys) > 1 else "")
+                )
+
+            # INCLUDE or START
+            if (i := next((item for item in [INCLUDE, INCLUDE_SUFFIX] if item in group_value), None)):
+                if (s := next((item for item in [START, STOP] if item in group_value), None)):
+                    raise ValueError(f"Cannot use both keywords '{i}' and '{s}'")
+
+            exclude = group_value.get(EXCLUDE, [])
+            if isinstance(exclude, str):
+                exclude = [exclude]
+            exclude_suffix = group_value.get(EXCLUDE_SUFFIX, [])
+            if isinstance(exclude_suffix, str):
+                exclude_suffix = [exclude_suffix]
+
+            # Collect the names of the layers to keep in order to avoid duplicates
+            selected = set()
+            if (INCLUDE in group_value) or (INCLUDE_SUFFIX in group_value):
+                include = group_value.get(INCLUDE, [])
+                if isinstance(include, str):
+                    include = [include]
+                include_suffix = group_value.get(INCLUDE_SUFFIX, [])
+                if isinstance(include_suffix, str):
+                    include_suffix = [include_suffix]
+                for lst, is_suffix in [(include, False), (include_suffix, True)]:
+                    for pref_or_suff in lst:
+                        match_found = False
+                        for name, _ in module.named_parameters():
+                            if (not is_suffix and name.startswith(pref_or_suff)) or (
+                                is_suffix and name.endswith(pref_or_suff)
+                            ):
+                                match_found = True
+                                selected.add(name)
+                        if not match_found:
+                            raise ValueError(
+                                f"Group {group_name}: No parameter matching keyword {pref_or_suff} in model"
+                            )
             else:
-                start = group_value.get("start")
-                stop = group_value.get("stop")
-                exclude = group_value.get("exclude", [])
-                if isinstance(exclude, str):
-                    exclude = [exclude]
+                start = group_value.get(START)
+                stop = group_value.get(STOP)
                 record = start is None
                 stop_found = False
                 for name, param in module.named_parameters():
@@ -123,13 +158,22 @@ class OptimizerManager:
                         record = True
                     elif stop_found and not name.startswith(stop):
                         break
-                    if record and not any(name.startswith(excl) for excl in exclude):
-                        self.param_groups[group_name].append(param)
-                        covered_names.append(name)
+                    if record:
+                        selected.add(name)
                     if stop and name.startswith(stop):
                         stop_found = True
                 if stop and not stop_found:
                     raise ValueError(f"Unknown parameter group boundary: {stop}")
+
+            for name, param in module.named_parameters():
+                if name in selected:
+                    if any(name.startswith(prefix) for prefix in exclude) or any(
+                        name.endswith(suffix) for suffix in exclude_suffix
+                    ):
+                        continue
+                    covered_names.add(name)
+                    self.param_groups[group_name].append(param)
+
             if group_value and not self.param_groups[group_name]:
                 # Parameter group is empty but should not be
                 raise ValueError(f"Unexpected empty parameter group {group_name}.")
@@ -145,7 +189,7 @@ class OptimizerManager:
         if not_covered_count > 0:
             logger.warning(
                 f"{first_not_covered_param} does not belong to any parameter group "
-                f"({not_covered_count-1} similar messages)."
+                f"({not_covered_count - 1} similar messages)."
             )
 
     def _set_optimizers(self) -> None:
@@ -307,7 +351,7 @@ class OptimizerManager:
             name (str): Group name.
             freeze (bool): Whether this parameter should be frozen or unfrozen.
         """
-        logger.debug(f"Parameter group {name} is {'frozen' if freeze  else 'trainable'}")
+        logger.debug(f"Parameter group {name} is {'frozen' if freeze else 'trainable'}")
         for param in self.param_groups[name]:
             param.requires_grad = not freeze
 
