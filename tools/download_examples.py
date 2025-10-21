@@ -112,7 +112,7 @@ def create_parser() -> ArgumentParser:
 
 
 def main() -> None:
-    """Main entry point of the tool."""
+    """Runs the tool."""
     parser = create_parser()
     args = parser.parse_args()
 
