@@ -129,7 +129,7 @@ def training_loop(
     trained = False
 
     # Save initial model before training
-    if next(iter(epoch_range)) == 0 and checkpoint_frequency is not None:
+    if list(epoch_range) and next(iter(epoch_range)) == 0 and checkpoint_frequency is not None:
         train_info = model.evaluate(dataloaders=dataloaders, dataset_name="train_set", device=device, verbose=verbose)
 
         # Add all stats to Tensorboard
@@ -216,7 +216,7 @@ def training_loop(
         if isinstance(training_config, dict)
         else load_config(training_config).get("epilogue", {})
     )
-    projection_info = model.epilogue(
+    model.epilogue(
         dataloaders=dataloaders,
         optimizer_mngr=optimizer_mngr,
         output_dir=working_dir,

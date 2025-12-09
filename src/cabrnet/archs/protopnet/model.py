@@ -274,7 +274,7 @@ class ProtoPNet(CaBRNet):
         disable_pruned_prototypes: bool = False,
         tqdm_position: int = 0,
         **kwargs,
-    ) -> dict[int, dict[str, int | float]]:
+    ) -> list[dict]:
         r"""Function called after training, using information from the epilogue field in the training configuration.
 
         Args:
@@ -571,7 +571,7 @@ class ProtoPNet(CaBRNet):
             output_dir (str): Path to output directory.
             output_format (str, optional): Output file format. Default: pdf.
         """
-        proto_class_map = self.classifier.proto_class_map.detach().cpu().numpy()
+        proto_class_map = self.classifier.prototype_class_mapping
         class_mapping = {c: list(np.nonzero(proto_class_map[:, c])[0]) for c in range(self.classifier.num_classes)}
 
         explanation_graph = graphviz.Graph()

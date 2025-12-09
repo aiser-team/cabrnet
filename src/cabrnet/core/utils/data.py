@@ -207,11 +207,19 @@ class DatasetManager:
             drop_last = _safe_item_load(dconfig.get("drop_last", False), bool)
             pin_memory = _safe_item_load(dconfig.get("pin_memory", False), bool)
 
+            # Optional collate function
+            collate_fn = dconfig.get("collate_fn")
+            if collate_fn:
+                if collate_fn not in SUPPORTED_COLLATE_FUNCTIONS:
+                    raise ValueError(f"Unsupported collate function {collate_fn}")
+                collate_fn = SUPPORTED_COLLATE_FUNCTIONS[collate_fn]
+
             dataloaders[dataset_name] = DataLoader(
                 dataset=dataset,
                 batch_size=batch_size,
                 shuffle=shuffle,
                 num_workers=num_workers,
+                collate_fn=collate_fn,
                 drop_last=drop_last,
                 pin_memory=pin_memory,
             )

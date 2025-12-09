@@ -92,7 +92,7 @@ class SimilarityLayerStub(SimilarityLayer):
         raise NotImplementedError
 
 
-class SquaredEuclideanDistance(SimilarityLayer):
+class SquaredEuclideanDistance(SimilarityLayer, ABC):
     r"""Layer for computing Euclidean (L2) distances in the convolutional space."""
 
     def distances(self, features: Tensor, prototypes: Tensor, **kwargs) -> Tensor:
@@ -115,7 +115,7 @@ class SquaredEuclideanDistance(SimilarityLayer):
         return distances
 
 
-class ProtoPNetDistance(SimilarityLayer):
+class ProtoPNetDistance(SimilarityLayer, ABC):
     r"""Layer for computing Euclidean (L2) distances in the convolutional space (ProtoPNet original implementation).
 
     Attributes:
@@ -159,7 +159,7 @@ class ProtoPNetDistance(SimilarityLayer):
         return features_l2_squared + intermediate
 
 
-class ProtoTreeDistance(SimilarityLayer):
+class ProtoTreeDistance(SimilarityLayer, ABC):
     r"""Layer for computing Euclidean (L2) distances in the convolutional space (ProtoTree original implementation).
 
     Attributes:
@@ -202,7 +202,7 @@ class ProtoTreeDistance(SimilarityLayer):
         return features_l2_squared + prototypes_l2_squared - 2 * features_x_prototypes
 
 
-class LogDistance(SimilarityLayer):
+class LogDistance(SimilarityLayer, ABC):
     r"""Abstract layer for computing similarity scores based on the log of distances in the convolutional space.
 
     Attributes:
@@ -233,7 +233,7 @@ class LogDistance(SimilarityLayer):
         return torch.log((distances + 1) / (distances + self.stability_factor))
 
 
-class ExpDistance(SimilarityLayer):
+class ExpDistance(SimilarityLayer, ABC):
     r"""Abstract layer for computing similarity scores based on the exponential of distances in the convolutional space.
 
     Attributes:

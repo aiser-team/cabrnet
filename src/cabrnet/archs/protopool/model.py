@@ -304,11 +304,11 @@ class ProtoPool(CaBRNet):
         batch_idx = 0
         for batch_idx, (xs, ys) in train_iter:
             data_time = time.time() - ref_time
-            nb_inputs += xs.size(0)
+            nb_inputs += xs.size(0)  # type: ignore
 
             # Reset gradients and map the data on the target device
             optimizer_mngr.zero_grad()
-            xs, ys = xs.to(device), ys.to(device)
+            xs, ys = xs.to(device), ys.to(device)  # type: ignore
 
             # Mix-up data
             xs, ys_mix, mix_percentage = batch_mixup(
@@ -371,7 +371,7 @@ class ProtoPool(CaBRNet):
         num_fine_tuning_epochs: int = 25,
         tqdm_position: int = 0,
         **kwargs,
-    ) -> dict[int, dict[str, int | float]]:
+    ) -> list[dict]:
         r"""Function called after training, using information from the epilogue field in the training configuration.
 
         Args:

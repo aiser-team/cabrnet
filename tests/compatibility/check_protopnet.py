@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 
-from compatibility_tester import CaBRNetCompatibilityTester, Log, setup_rng, get_subset, SAMPLING_RATIO
+from compatibility_tester import CaBRNetCompatibilityTester, DummyLogger, setup_rng, get_subset, SAMPLING_RATIO
 from cabrnet.archs.generic.model import CaBRNet
 from cabrnet.core.utils.parser import load_config
 from cabrnet.core.utils.data import DatasetManager
@@ -202,24 +202,24 @@ class Tester(CaBRNetCompatibilityTester):
         push_epochs = [epoch for epoch in range(push_start, num_epochs) if (epoch - push_start) % push_frequency == 0]
         for epoch in tqdm(range(num_epochs), desc="Training legacy model", disable=not self.verbose):
             if epoch < legacy_settings.num_warm_epochs:
-                legacy_tnt.warm_only(model=legacy_model_multi, log=Log())
+                legacy_tnt.warm_only(model=legacy_model_multi, log=DummyLogger())
                 _ = legacy_tnt.train(
                     model=legacy_model_multi,
                     dataloader=train_loader,
                     optimizer=warm_optimizer,
                     class_specific=True,
                     coefs=legacy_settings.coefs,
-                    log=Log(),
+                    log=DummyLogger(),
                 )
             else:
-                legacy_tnt.joint(model=legacy_model_multi, log=Log())
+                legacy_tnt.joint(model=legacy_model_multi, log=DummyLogger())
                 _ = legacy_tnt.train(
                     model=legacy_model_multi,
                     dataloader=train_loader,
                     optimizer=joint_optimizer,
                     class_specific=True,
                     coefs=legacy_settings.coefs,
-                    log=Log(),
+                    log=DummyLogger(),
                 )
                 joint_lr_scheduler.step()
                 if epoch in push_epochs:
@@ -235,9 +235,9 @@ class Tester(CaBRNetCompatibilityTester):
                         prototype_self_act_filename_prefix=None,
                         proto_bound_boxes_filename_prefix=None,
                         save_prototype_class_identity=True,
-                        log=Log(),
+                        log=DummyLogger(),
                     )
-                    legacy_tnt.last_only(model=legacy_model_multi, log=Log())
+                    legacy_tnt.last_only(model=legacy_model_multi, log=DummyLogger())
                     for _ in range(cabrnet_model.projection_config["num_ft_epochs"]):
                         _ = legacy_tnt.train(
                             model=legacy_model_multi,
@@ -245,7 +245,7 @@ class Tester(CaBRNetCompatibilityTester):
                             optimizer=last_layer_optimizer,
                             class_specific=True,
                             coefs=legacy_settings.coefs,
-                            log=Log(),
+                            log=DummyLogger(),
                         )
 
         # Compare
@@ -300,7 +300,7 @@ class Tester(CaBRNetCompatibilityTester):
             prototype_self_act_filename_prefix=None,
             proto_bound_boxes_filename_prefix=None,
             save_prototype_class_identity=True,
-            log=Log(),
+            log=DummyLogger(),
         )
         self.assertModelEqual(legacy_model, cabrnet_model)
 
@@ -356,7 +356,7 @@ class Tester(CaBRNetCompatibilityTester):
             preprocess_input_function=legacy_preprocess.preprocess_input_function,
             original_model_dir="/tmp/",
             epoch_number=None,
-            log=Log(),
+            log=DummyLogger(),
             copy_prototype_imgs=False,
         )
 

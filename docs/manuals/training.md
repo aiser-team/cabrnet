@@ -14,18 +14,17 @@ param_groups:
   <GROUP_NAME_1>: [ <SUBMODULE_OR_PARAM_NAME>, ..., <SUBMODULE_OR_PARAM_NAME> ]
   <GROUP_NAME_2>:
     include: [ <SUBMODULE_OR_PARAM_NAME>, ..., <SUBMODULE_OR_PARAM_NAME> ]
-    include_suffix: [ <SUBMODULE_OR_PARAM_NAME>, ..., <SUBMODULE_OR_PARAM_NAME> ]
     exclude: [ <SUBMODULE_OR_PARAM_NAME>, ..., <SUBMODULE_OR_PARAM_NAME> ]
-    exclude_suffix: [ <SUBMODULE_OR_PARAM_NAME>, ..., <SUBMODULE_OR_PARAM_NAME> ]
+    type: [ <TYPE>, ...] # Eg. Conv2d
   <GROUP_NAME_3>:
     start: <SUBMODULE_OR_PARAM_NAME>
     stop: <SUBMODULE_OR_PARAM_NAME>
-    exclude: [ <SUBMODULE_OR_PARAM_NAME>, ..., <SUBMODULE_OR_PARAM_NAME> ]
-    exclude_suffix: [ <SUBMODULE_OR_PARAM_NAME>, ..., <SUBMODULE_OR_PARAM_NAME> ]
+    exclude_type: [ <TYPE>, ... ]
 ```
 
-In other words, parameter groups can be either defined as an explicit list of submodule/parameters names
-(cases 1 and 2),
+In other words, parameter groups can be either defined as an explicit list of submodule/parameters names/regular 
+expressions
+(see groups 1 and 2),
 or as a range of submodules/parameters, where the names of the parameters can be found as follows:
 
 ```python
@@ -38,15 +37,39 @@ Note that for ranges of parameters, either `start` or `stop` keywords can be omi
 - If the `start` keyword is omitted, the range starts from the first parameter of the model.
 - If the `stop` keyword is omitted, the range ends at the last parameter of the model.
 
-In case 2, it is also possible to include parameters through their suffix
-(for instance, include all the parameters of `bias`).
+It is possible to include parameters using a regular expression (groups 1 and 2):
+for instance, `*bias*` will include all the parameters containing the keyword `bias`.
 
-In cases 2 and 3, it is possible to exclude explicitly some layers,
-including based on their suffix. The `exclude` and `exclude_suffix` options are all optional.
+It is possible to exclude some layers, either explicitely or based on
+regular expressions (see group 2). Note that the `exclude` option is optional.
 
 The square brackets can be removed if there is a single `SUBMODULE_OR_PARAM_NAME`.
 
+It is possible to select parameters based on the type of layers, either
+using a list of authorized types (`type` keyword) **or** a list of unauthorized types (`exclude_type` keyword)
+
 Finally, when no parameter group is specified, all model parameters are automatically regrouped into a `main` group.
+
+Example of parameter groups when using the Muon optimizer:
+
+```yaml
+param_groups:
+  # Contains all parameters of all convolutional layers, except the first one
+  backbone_with_muon: 
+    include: extractor.convnet
+    type: [Conv2d]
+    exclude: extractor.convnet.conv1
+  # Contains all parameters of non-convolutional layers between BN1 and Layer4  
+  backbone_with_adam:
+    start: extractor.convnet.bn1
+    stop: extractor.convnet.layer4
+    exclude_type: [ Conv2d ]
+  # Contains only the first convolutional layer
+  first_layer_with_adam: extractor.convnet.conv1
+  ...
+
+```
+
 
 ## Configuring optimizers
 
@@ -70,6 +93,7 @@ optimizers:
       <OPTIMIZER_PARAM_2>: <value>
     scheduler:
       type: <lr_scheduler_function> # As given in torch.optim.lr_scheduler (e.g. StepLR)
+      trigger: <batch/epoch> # Optional. Default value: epoch
       params:
         <SCHEDULER_PARAM_1>: <value>
         <SCHEDULER_PARAM_2>: <value>
@@ -82,6 +106,9 @@ Hence, a single optimizer can be used for different parameter groups,
 with different configurations (*e.g.* learning rate) for each parameter group.
 
 Additionally, each optimizer can be associated with an **optional** learning rate scheduler.
+By default, the scheduler is called after **each epoch**. By specifying `trigger: batch`, CaBRNet assumes
+that the scheduler is called after **each batch**, in the 
+[`_training_batch_hook` method](model.md#defining-a-new-top-module) of the model.
 
 ## Specifying the number of training epochs
 

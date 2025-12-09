@@ -333,12 +333,13 @@ def proto_relevance_analysis(
 
     stats = []
 
-    for proto_idx in proto_iter:
+    for proto_info in proto_iter:
         # Recover source image for the prototype
-        img = projection_set[projection_info[proto_idx]["img_idx"]][0]  # type: ignore
-        h, w = int(projection_info[proto_idx]["h"]), int(projection_info[proto_idx]["w"])
+        proto_idx = proto_info["proto_idx"]
+        img = projection_set[proto_info["img_idx"]][0]  # type: ignore
+        h, w = int(proto_info["h"]), int(proto_info["w"])
 
-        seg = segmentation_set[projection_info[proto_idx]["img_idx"]][0]  # type: ignore
+        seg = segmentation_set[proto_info["img_idx"]][0]  # type: ignore
 
         stats += analyze(
             model=model,
@@ -347,7 +348,7 @@ def proto_relevance_analysis(
             preprocess=preprocess,
             visualizer=visualizer,
             device=device,
-            img_id=int(projection_info[proto_idx]["img_idx"]),
+            img_id=int(proto_info["img_idx"]),
             prototype_location=(proto_idx, h, w),
             **kwargs,
         )

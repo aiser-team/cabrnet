@@ -368,6 +368,36 @@ class CaBRNet(nn.Module):
         """
         return self._train_epoch(dataloaders, optimizer_mngr, "train_set", device, tqdm_position, epoch_idx, verbose)
 
+    def _training_batch_hook(
+        self,
+        batch_idx: int,
+        batch_num: int,
+        dataloaders: dict[str, DataLoader],
+        optimizer_mngr: OptimizerManager | torch.optim.Optimizer,
+        dataset_name: str = "train_set",
+        device: str | torch.device = "cuda:0",
+        tqdm_position: int = 0,
+        epoch_idx: int = 0,
+        verbose: bool = False,
+        tqdm_title: str | None = None,
+        **kwargs,
+    ) -> None:
+        r"""Internal function called after each batch in the training loop.
+
+        Args:
+            batch_idx (int): Current batch index.
+            batch_num (int): Total number of batches.
+            dataloaders (dictionary): Dictionary of dataloaders.
+            optimizer_mngr (OptimizerManager): Optimizer manager.
+            dataset_name (str, optional): Name of the dataset used for training. Default: train_set.
+            device (str | device, optional): Hardware device. Default: cuda:0.
+            tqdm_position (int, optional): Position of the progress bar. Default: 0.
+            epoch_idx (int, optional): Epoch index. Default: 0.
+            verbose (bool, optional): Display progress bar. Default: False.
+            tqdm_title (str, optional): Progress bar title. Default: "Training epoch {epoch_idx}".
+        """
+        pass
+
     def _train_epoch(
         self,
         dataloaders: dict[str, DataLoader],
@@ -390,7 +420,7 @@ class CaBRNet(nn.Module):
             tqdm_position (int, optional): Position of the progress bar. Default: 0.
             epoch_idx (int, optional): Epoch index. Default: 0.
             verbose (bool, optional): Display progress bar. Default: False.
-            tqdm_title (str, optional): Progress bar title. Default: "Training epoch {epoch_idx".
+            tqdm_title (str, optional): Progress bar title. Default: "Training epoch {epoch_idx}".
 
         Returns:
             Dictionary containing learning statistics.
@@ -411,6 +441,7 @@ class CaBRNet(nn.Module):
 
         # Use training dataloader
         train_loader = dataloaders[dataset_name]
+        batch_num = len(train_loader)
 
         # Show progress on progress bar if needed
         train_iter = tqdm(
@@ -424,11 +455,11 @@ class CaBRNet(nn.Module):
         ref_time = time.time()
         batch_idx = 0
         for batch_idx, (xs, ys) in train_iter:
-            nb_inputs += xs.size(0)
+            nb_inputs += xs.size(0)  # type: ignore
 
             # Reset gradients and map the data on the target device
             optimizer_mngr.zero_grad()
-            xs, ys = xs.to(device), ys.to(device)
+            xs, ys = xs.to(device), ys.to(device)  # type: ignore
             data_time = time.time() - ref_time
 
             # Perform inference and compute loss
@@ -462,6 +493,21 @@ class CaBRNet(nn.Module):
             total_data_time += data_time
             ref_time = time.time()
 
+            # Call hook
+            self._training_batch_hook(
+                batch_idx=batch_idx,
+                batch_num=batch_num,
+                dataloaders=dataloaders,
+                optimizer_mngr=optimizer_mngr,
+                dataset_name=dataset_name,
+                device=device,
+                tqdm_position=tqdm_position + 1,
+                epoch_idx=epoch_idx,
+                verbose=verbose,
+                tqdm_title="Batch hook",
+                **kwargs,
+            )
+
         # Clean gradients after last batch
         optimizer_mngr.zero_grad()
 
@@ -485,7 +531,7 @@ class CaBRNet(nn.Module):
         device: str | torch.device = "cuda:0",
         verbose: bool = False,
         **kwargs,
-    ) -> dict[int, dict[str, int | float]]:
+    ) -> list[dict]:
         r"""Function called after training, using information from the epilogue field in the training configuration.
 
         Args:
@@ -498,7 +544,7 @@ class CaBRNet(nn.Module):
         Returns:
             Projection information.
         """
-        return {}
+        return []
 
     def evaluate(
         self,
@@ -593,7 +639,7 @@ class CaBRNet(nn.Module):
         verbose: bool = False,
         tqdm_position: int = 0,
         update_prototypes: bool = True,
-    ) -> dict[int, dict[str, int | float]]:
+    ) -> list[dict]:
         r"""Performs prototype projection (maximum similarity) after training.
         Warning: depending on float approximations, the results might be slightly different for legacy codes using
         minimum distance instead of maximum similarity.
@@ -653,7 +699,7 @@ class CaBRNet(nn.Module):
         with torch.no_grad():
             for batch_idx, (xs, ys) in data_iter:
                 # Map to device and perform inference
-                xs = xs.to(device)
+                xs = xs.to(device)  # type: ignore
                 feats = self.features(xs)  # Shape N x D x H x W
                 W = feats.size(-1)
 
@@ -683,13 +729,14 @@ class CaBRNet(nn.Module):
             if update_prototypes:
                 self.classifier.prototypes.copy_(projection_vectors)
 
-        return projection_info
+        # Reshape projection info into a list of dictionary entries
+        return [projection_info[proto_idx] | {"proto_idx": proto_idx} for proto_idx in projection_info]
 
     def extract_prototypes(
         self,
         dataloader_raw: DataLoader,
         dataloader: DataLoader,
-        projection_info: dict[int, dict],
+        projection_info: list[dict],
         visualizer: SimilarityVisualizer,
         dir_path: str,
         device: str | torch.device = "cuda:0",
@@ -701,7 +748,7 @@ class CaBRNet(nn.Module):
         Args:
             dataloader_raw (DataLoader): Dataloader containing raw projection images (without preprocessing).
             dataloader (DataLoader): Dataloader containing projection tensors (with preprocessing).
-            projection_info (dictionary): Projection information (as returned by project method).
+            projection_info (list): Projection information (as returned by project method).
             visualizer (SimilarityVisualizer): Similarity visualizer.
             dir_path (str): Destination directory.
             device (str | device, optional): Hardware device. Default: cuda:0.
@@ -731,15 +778,16 @@ class CaBRNet(nn.Module):
             position=tqdm_position,
             disable=not verbose,
         )
-        for proto_idx in data_iter:
+        for proto_info in data_iter:
+            proto_idx = proto_info["proto_idx"]
             if not self.classifier.prototype_is_active(proto_idx):
                 # Skip pruned prototype
                 continue
             # Original image obtained from dataloader without normalization
-            img = dataloader_raw.dataset[projection_info[proto_idx]["img_idx"]][0]
+            img = dataloader_raw.dataset[proto_info["img_idx"]][0]
             # Preprocessed image tensor
-            img_tensor = dataloader.dataset[projection_info[proto_idx]["img_idx"]][0]
-            h, w = projection_info[proto_idx]["h"], projection_info[proto_idx]["w"]
+            img_tensor = dataloader.dataset[proto_info["img_idx"]][0]
+            h, w = proto_info["h"], proto_info["w"]
             prototype_part = visualizer.forward(
                 img=img,
                 img_tensor=img_tensor,
@@ -748,6 +796,11 @@ class CaBRNet(nn.Module):
                 location=(h, w),
             )
             img_path = os.path.join(dir_path, f"prototype_{proto_idx}.png")
+            index = 1
+            while os.path.exists(img_path):
+                # Multiple visualizations for the same prototype
+                img_path = os.path.join(dir_path, f"prototype_{proto_idx}_{index}.png")
+                index += 1
             prototype_part.save(fp=img_path)
 
     def explain(
