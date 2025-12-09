@@ -1,0 +1,22 @@
+top_arch:
+  module: cabrnet.archs.pipnet.model
+  name: PIPNet
+
+extractor:
+  backbone:
+    arch: convnext_tiny
+    layer: features
+    weights: IMAGENET1K_V1
+    postprocess:
+      stride_divider:
+        ratio: 2
+        min_channels: 100
+
+similarity:
+  name: None
+
+classifier:
+  module: cabrnet.archs.pipnet.decision
+  name: PIPNetClassifier
+  params:
+    num_classes: 200

@@ -75,6 +75,14 @@ FILE_LIST = [
         "dir": "trained_models",
         "file": "prototree_cub200_resnet50_depth10.zip",
     },
+    {
+        "identifier": "cabrnet_pipnet_cub200_stanford_cars_convnext",
+        "description": "PIPNet models trained using CaBRNet on CUB200 and Stanford Cars " "(with ConvNext backbone)",
+        "type": "zenodo",
+        "record": "17855326",
+        "dir": "trained_models",
+        "file": "pipnet_cub200_stanfordcars.zip",
+    },
 ]
 
 

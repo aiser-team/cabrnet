@@ -9,6 +9,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from cabrnet.core.utils.parser import load_config
 from loguru import logger
+import re
 
 
 def move_optimizer_to(optim: torch.optim.Optimizer, device: str | torch.device) -> None:
@@ -39,6 +40,7 @@ class OptimizerManager:
         param_groups: Dictionary separating the model parameters into groups.
         optimizers: Dictionary of optimizers associated with different parameter groups.
         schedulers: Dictionary of learning rate schedulers associated with optimizers.
+        schedulers_trig: Dictionary recording the trigger of each scheduler.
         periods: Dictionary defining training periods.
     """
 
@@ -55,6 +57,7 @@ class OptimizerManager:
         self.param_groups: dict[str, list[nn.Parameter]] = {}
         self.optimizers: dict[str, torch.optim.Optimizer] = {}
         self.schedulers: dict[str, torch.optim.lr_scheduler.LRScheduler] = {}
+        self.schedulers_trig: dict[str, str] = {}
         self.periods: dict[str, dict[str, Any]] = {}
 
         self._set_param_groups(module=module)
@@ -96,9 +99,11 @@ class OptimizerManager:
         covered_names = set()
 
         # Sounds silly but I made mistakes before
-        INCLUDE, INCLUDE_SUFFIX = "include", "include_suffix"
+        INCLUDE = "include"
+        EXCLUDE = "exclude"
         START, STOP = "start", "stop"
-        EXCLUDE, EXCLUDE_SUFFIX = "exclude", "exclude_suffix"
+        INCLUDE_TYPE = "type"
+        EXCLUDE_TYPE = "exclude_type"
 
         for group_name, group_value in param_groups.items():
             self.param_groups[group_name] = []
@@ -107,7 +112,7 @@ class OptimizerManager:
             # group_value is now a dictionary
 
             unknown_keys = set(group_value.keys())
-            unknown_keys = unknown_keys.difference({INCLUDE, INCLUDE_SUFFIX, START, STOP, EXCLUDE, EXCLUDE_SUFFIX})
+            unknown_keys = unknown_keys.difference({INCLUDE, EXCLUDE, START, STOP, INCLUDE_TYPE, EXCLUDE_TYPE})
             if unknown_keys:
                 raise ValueError(
                     f"Unknown key {list(unknown_keys)[0]}"
@@ -115,45 +120,67 @@ class OptimizerManager:
                 )
 
             # INCLUDE or START
-            if (i := next((item for item in [INCLUDE, INCLUDE_SUFFIX] if item in group_value), None)):
-                if (s := next((item for item in [START, STOP] if item in group_value), None)):
-                    raise ValueError(f"Cannot use both keywords '{i}' and '{s}'")
+            if group_value.get(INCLUDE) and (group_value.get(START) or group_value.get(STOP)):
+                raise ValueError(f"Cannot use both keywords '{INCLUDE}' and '{START}'/'{STOP}'")
 
             exclude = group_value.get(EXCLUDE, [])
             if isinstance(exclude, str):
                 exclude = [exclude]
-            exclude_suffix = group_value.get(EXCLUDE_SUFFIX, [])
-            if isinstance(exclude_suffix, str):
-                exclude_suffix = [exclude_suffix]
+
+            # Type-based filter
+            included_types = group_value.get(INCLUDE_TYPE, [])
+            if isinstance(included_types, str):
+                included_types = [included_types]
+            excluded_types = group_value.get(EXCLUDE_TYPE, [])
+            if isinstance(excluded_types, str):
+                excluded_types = [excluded_types]
+            if included_types and excluded_types:
+                raise ValueError(f"Cannot use both keywords '{INCLUDE_TYPE}' and '{EXCLUDE_TYPE}'")
+
+            def recursive_type_filter(current_module: nn.Module, prefix: str, result: list, type_list: list):
+                class_name = current_module.__class__.__name__
+
+                if type(current_module) in type_list or class_name in type_list:
+                    # Positive match, add all parameters
+                    for param_name, _ in current_module.named_parameters():
+                        result.append(f"{prefix}{param_name}")
+                else:
+                    # Recursive call
+                    for child_name, child in current_module.named_children():
+                        recursive_type_filter(child, f"{prefix}{child_name}.", result, type_list)
+
+            if not included_types:
+                included_parameters = [name for name, _ in module.named_parameters()]
+            else:
+                included_parameters = []
+                recursive_type_filter(module, "", included_parameters, included_types)
+            excluded_parameters = []
+            if excluded_types:
+                recursive_type_filter(module, "", excluded_parameters, excluded_types)
+
+            module_parameters = [name for name in included_parameters if name not in excluded_parameters]
 
             # Collect the names of the layers to keep in order to avoid duplicates
             selected = set()
-            if (INCLUDE in group_value) or (INCLUDE_SUFFIX in group_value):
+            if INCLUDE in group_value:
                 include = group_value.get(INCLUDE, [])
                 if isinstance(include, str):
                     include = [include]
-                include_suffix = group_value.get(INCLUDE_SUFFIX, [])
-                if isinstance(include_suffix, str):
-                    include_suffix = [include_suffix]
-                for lst, is_suffix in [(include, False), (include_suffix, True)]:
-                    for pref_or_suff in lst:
-                        match_found = False
-                        for name, _ in module.named_parameters():
-                            if (not is_suffix and name.startswith(pref_or_suff)) or (
-                                is_suffix and name.endswith(pref_or_suff)
-                            ):
-                                match_found = True
-                                selected.add(name)
-                        if not match_found:
-                            raise ValueError(
-                                f"Group {group_name}: No parameter matching keyword {pref_or_suff} in model"
-                            )
+
+                for submodule in include:
+                    match_found = False
+                    for name in module_parameters:
+                        if name.startswith(submodule) or re.search(submodule, name):
+                            match_found = True
+                            selected.add(name)
+                    if not match_found:
+                        raise ValueError(f"Group {group_name}: No parameter matching {submodule} in model")
             else:
                 start = group_value.get(START)
                 stop = group_value.get(STOP)
                 record = start is None
                 stop_found = False
-                for name, param in module.named_parameters():
+                for name in module_parameters:
                     if start and name.startswith(start):
                         record = True
                     elif stop_found and not name.startswith(stop):
@@ -165,18 +192,18 @@ class OptimizerManager:
                 if stop and not stop_found:
                     raise ValueError(f"Unknown parameter group boundary: {stop}")
 
+            # Exclude parameters
             for name, param in module.named_parameters():
                 if name in selected:
-                    if any(name.startswith(prefix) for prefix in exclude) or any(
-                        name.endswith(suffix) for suffix in exclude_suffix
-                    ):
+                    if any(name.startswith(pattern) or re.search(pattern, name) for pattern in exclude):
                         continue
                     covered_names.add(name)
+                    logger.debug(f"Adding parameter {name} to group {group_name}")
                     self.param_groups[group_name].append(param)
 
             if group_value and not self.param_groups[group_name]:
-                # Parameter group is empty but should not be
-                raise ValueError(f"Unexpected empty parameter group {group_name}.")
+                # Parameter group is empty
+                logger.warning(f"Empty parameter group {group_name}.")
 
         # Check which model parameters are not covered by any group
         not_covered_count = 0
@@ -216,6 +243,8 @@ class OptimizerManager:
             if config.get("scheduler") is not None:
                 scheduler_type = config["scheduler"]["type"]
                 scheduler_params = config["scheduler"].get("params")
+                scheduler_trig = config["scheduler"].get("trigger", "epoch")
+                assert scheduler_trig in ["epoch", "batch"], f"Unsupported LR scheduling trigger {scheduler_trig}"
                 self.schedulers[optim_name] = (
                     getattr(torch.optim.lr_scheduler, scheduler_type)(
                         optimizer=self.optimizers[optim_name], **scheduler_params
@@ -223,6 +252,7 @@ class OptimizerManager:
                     if scheduler_params is not None
                     else getattr(torch.optim.lr_scheduler, scheduler_type)(optimizer=self.optimizers[optim_name])
                 )
+                self.schedulers_trig[optim_name] = scheduler_trig
             else:
                 logger.warning(f"No scheduler defined for optimizer {optim_name}")
 
@@ -420,8 +450,8 @@ class OptimizerManager:
         for period_name in self.get_active_periods(epoch):
             period_config = self.periods[period_name]
             for optim_name in period_config["optimizers"]:
-                # Not all optimizers are associated with a scheduler
-                if self.schedulers.get(optim_name) is not None:
+                # Not all optimizers are associated with a scheduler. Not all schedulers are called after each epoch
+                if self.schedulers.get(optim_name) is not None and self.schedulers_trig.get(optim_name) == "epoch":
                     if isinstance(self.schedulers[optim_name], ReduceLROnPlateau):
                         self.schedulers[optim_name].step(metric)
                     else:

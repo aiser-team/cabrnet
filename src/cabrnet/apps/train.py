@@ -219,15 +219,18 @@ def execute(args: Namespace) -> None:
     if resume_dir is not None:
         # Restore state
         state = load_checkpoint(resume_dir, model=model, optimizer_mngr=optimizer_mngr)
-        start_epoch = state["epoch"] + 1
         seed = state["seed"]
         train_info = state["stats"]
         best_metric = train_info.get(f"best_{metric}") or train_info.get(metric)
-        if best_metric is None:
-            raise ArgumentError(
-                f"Could not recover best model using metric {metric}: invalid --save-best option? "
-                f"Candidates are {list(train_info.keys())}"
-            )
+        if epilogue_only:
+            start_epoch = state["epoch"] if isinstance(state["epoch"], int) else 0  # N/A when importing legacy model
+        else:
+            start_epoch = state["epoch"] + 1
+            if best_metric is None:
+                raise ArgumentError(
+                    f"Could not recover best model using metric {metric}: invalid --save-best option? "
+                    f"Candidates are {list(train_info.keys())}"
+                )
         # Remap optimizer to device if necessary
         optimizer_mngr.to(device)
 

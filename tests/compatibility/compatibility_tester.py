@@ -117,7 +117,7 @@ class CaBRNetCompatibilityTester(unittest.TestCase):
                 continue
             tst_tensor = actual[key]
             if not torch.equal(ref_tensor, tst_tensor):
-                logger.error(f"Parameter {key} differ.")
+                logger.error(f"Parameter {key} differ. (all close? {torch.allclose(ref_tensor, tst_tensor)})")
                 equal = False
         for key in actual.keys():
             if key not in expected.keys():

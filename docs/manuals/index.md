@@ -14,6 +14,10 @@ Recognition](https://openaccess.thecvf.com/content/CVPR2021/papers/Nauta_Neural_
 - **ProtoPool**, as described in *Dawid Rymarczyk, Lukasz Struski, Michal Gorszczak, Koryna Lewandowska, Jacek Tabor and Bartosz Zielinski.* 
 [Interpretable Image Classification with Differentiable Prototypes Assignment](https://www.ecva.net/papers/eccv_2022/papers_ECCV/papers/136720346.pdf). 
 2021 European Conference on Computer Vision (ECCV).
+- **PIPNet**, as described in *Meike Nauta, Jörg Schlötterer, Maurice van Keulen, 
+Christin Seifert (2023).* 
+[PIP-Net: Patch-Based Intuitive Prototypes for Interpretable Image Classification.](https://openaccess.thecvf.com/content/CVPR2023/papers/Nauta_PIP-Net_Patch-Based_Intuitive_Prototypes_for_Interpretable_Image_Classification_CVPR_2023_paper.pdf) 
+IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR).
 
 # Index
 - [Build and install](install.md)
