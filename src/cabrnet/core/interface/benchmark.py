@@ -14,7 +14,7 @@ def create_perturbation_benchmark_gui(benchmark_selection: gr.Dropdown, visible:
     """
     with gr.Column(visible=visible) as col:
         perturbation_selection = gr.Dropdown(
-            choices=["brightness", "contrast", "saturation", "hue", "blur", "sin_distortion"],
+            choices=["brightness", "contrast", "saturation", "hue", "blur", "distortion"],
             label="Perturbation selection",
             interactive=True,
             key="perturbation_selection",
@@ -118,9 +118,9 @@ def create_perturbation_benchmark_gui(benchmark_selection: gr.Dropdown, visible:
         perturbation_selection.change(change_visibility("hue"), perturbation_selection, hue)
         perturbation_selection.change(change_visibility("blur"), perturbation_selection, gaussian_ksize)
         perturbation_selection.change(change_visibility("blur"), perturbation_selection, gaussian_sigma)
-        perturbation_selection.change(change_visibility("sin_distortion"), perturbation_selection, distortion_periods)
-        perturbation_selection.change(change_visibility("sin_distortion"), perturbation_selection, distortion_amplitude)
-        perturbation_selection.change(change_visibility("sin_distortion"), perturbation_selection, distortion_direction)
+        perturbation_selection.change(change_visibility("distortion"), perturbation_selection, distortion_periods)
+        perturbation_selection.change(change_visibility("distortion"), perturbation_selection, distortion_amplitude)
+        perturbation_selection.change(change_visibility("distortion"), perturbation_selection, distortion_direction)
 
     benchmark_selection.change(change_visibility("Local perturbation analysis"), benchmark_selection, col)
     return {
@@ -147,20 +147,35 @@ def get_perturbation_config(gradio_config: dict[str, Any]) -> dict[str, Any]:
     Returns:
         Perturbation configuration.
     """
+    perturbation = {"type": gradio_config["perturbation_selection"]}
+    match gradio_config["perturbation_selection"]:
+        case "brightness":
+            perturbation["params"] = {"brightness_factor": gradio_config["brightness"]}
+        case "contrast":
+            perturbation["params"] = {"contrast_factor": gradio_config["contrast"]}
+        case "saturation":
+            perturbation["params"] = {"saturation_factor": gradio_config["saturation"]}
+        case "hue":
+            perturbation["params"] = {"hue_factor": gradio_config["hue"]}
+        case "blur":
+            perturbation["params"] = {
+                "gaussian_blur_ksize": gradio_config["blur_ksize"],
+                "gaussian_blur_sigma": gradio_config["blur_sigma"],
+            }
+        case "distortion":
+            perturbation["params"] = {
+                "distortion_periods": gradio_config["distortion_periods"],
+                "distortion_amplitude": gradio_config["distortion_amplitude"],
+                "distortion_direction": gradio_config["distortion_direction"],
+            }
+        case _:
+            raise ValueError(f"Unsupported perturbation {gradio_config['perturbation_selection']}")
+
     return {
         "local_perturbation_analysis": {
             "enable_dual_mode": gradio_config["enable_dual_mode"],
             "num_prototypes": gradio_config["num_prototypes"],
-            "perturbations": [gradio_config["perturbation_selection"]],
-            "brightness_factor": gradio_config["brightness"],
-            "contrast_factor": gradio_config["contrast"],
-            "saturation_factor": gradio_config["saturation"],
-            "hue_factor": gradio_config["hue"],
-            "gaussian_blur_ksize": gradio_config["blur_ksize"],
-            "gaussian_blur_sigma": gradio_config["blur_sigma"],
-            "distortion_periods": gradio_config["distortion_periods"],
-            "distortion_amplitude": gradio_config["distortion_amplitude"],
-            "distortion_direction": gradio_config["distortion_direction"],
+            "perturbations": {"single_perturbation": [perturbation]},
         }
     }
 
