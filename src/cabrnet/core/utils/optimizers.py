@@ -174,7 +174,7 @@ class OptimizerManager:
                             match_found = True
                             selected.add(name)
                     if not match_found:
-                        raise ValueError(f"Group {group_name}: No parameter matching {submodule} in model")
+                        logger.warning(f"No parameter matching keyword {submodule_name} in model")
             else:
                 start = group_value.get(START)
                 stop = group_value.get(STOP)

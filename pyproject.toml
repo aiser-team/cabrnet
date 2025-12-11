@@ -45,6 +45,7 @@ dependencies = [
     "onnx_graphsurgeon~=0.5.2",
     "pacmap~=0.7.3",
     "scikit-learn~=1.5.1",
+    "thop~=0.1.1",
 ]
 
 [project.optional-dependencies]

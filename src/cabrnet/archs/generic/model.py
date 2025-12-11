@@ -5,6 +5,7 @@ import importlib
 import os.path
 import shutil
 from typing import Any, Callable
+from thop import profile as profile_batch
 
 import torch
 import torch.nn as nn
@@ -553,6 +554,7 @@ class CaBRNet(nn.Module):
         device: str | torch.device = "cuda:0",
         tqdm_position: int = 0,
         verbose: bool = False,
+        profile: bool = False,
         **kwargs,
     ) -> dict[str, float]:
         r"""Evaluates the model.
@@ -562,7 +564,8 @@ class CaBRNet(nn.Module):
             dataset_name (str, optional): Name of the dataset used for evaluation. Default: test_set.
             device (str | device, optional): Hardware device. Default: cuda:0.
             tqdm_position (int, optional): Position of the progress bar. Default: 0.
-            verbose (bool, optional): Display progress bar. Default: 0.
+            verbose (bool, optional): Display progress bar. Default: False.
+            profile (bool, optional): Profile model. Default: False.
 
         Returns:
             Dictionary containing evaluation statistics.
@@ -586,6 +589,13 @@ class CaBRNet(nn.Module):
             disable=not verbose,
         )
         with torch.no_grad():
+            if profile:
+                # Get computing stats
+                xs, _ = next(iter(dataloader))
+                xs = xs.to(device)
+                flops, _ = profile_batch(self, inputs=(xs,), verbose=False)
+                flops /= xs.size(0)
+
             ref_time = time.time()
             for xs, ys in data_iter:
                 nb_inputs += xs.size(0)
@@ -610,6 +620,10 @@ class CaBRNet(nn.Module):
                 ref_time = time.time()
 
         stats = {f"{dataset_name}/{key}": value / nb_inputs for key, value in stats.items()}
+
+        if profile:
+            stats[f"{dataset_name}/Gflops"] = flops * nb_inputs / 1e9
+
         return stats
 
     def train(self, mode: bool = True) -> nn.Module:

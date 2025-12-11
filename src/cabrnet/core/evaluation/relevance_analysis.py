@@ -156,7 +156,11 @@ def analyze(
             disable_rendering=True,
         )
         # Remove dissimilar prototypes and take a subset based on num_prototypes
-        most_relevant_prototypes = [proto_idx for (proto_idx, _, similar) in most_relevant_prototypes if similar]
+        most_relevant_prototypes = [
+            (proto_idx, score) for (proto_idx, score, similar) in most_relevant_prototypes if similar
+        ]
+        # Sort prototypes by most to least similar
+        most_relevant_prototypes = [a[0] for a in reversed(sorted(most_relevant_prototypes, key=lambda x: x[1]))]
         most_relevant_prototypes = most_relevant_prototypes[:num_prototypes]
 
     # In debug mode, generate visualization graphs
