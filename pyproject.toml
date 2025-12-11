@@ -41,6 +41,7 @@ dependencies = [
     "ray[tune]~=2.34.0",
     "optuna~=3.6.1",
     "onnxruntime~=1.19.0",
+    "onnx~=1.19.1",
     "onnx_graphsurgeon~=0.5.2",
     "pacmap~=0.7.3",
     "scikit-learn~=1.5.1",
