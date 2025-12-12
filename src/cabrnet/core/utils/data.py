@@ -3,6 +3,7 @@
 import argparse
 import copy
 import importlib
+import random
 from typing import Any, Callable
 
 import torch
@@ -146,6 +147,35 @@ class DatasetManager:
                 except FileNotFoundError:
                     logger.warning(f"Segmentation set unavailable for dataset {dataset_name}")
 
+            # Handle Deterministic Partitioning (Splitting Train into Train/Val)
+            if "partition" in dconfig:
+                start_frac, end_frac = dconfig["partition"]
+                total_len = len(dataset["dataset"])
+                
+                # Create the full list of indices
+                indices = list(range(total_len))
+                
+                # Deterministic Shuffle if requested
+                if "partition_seed" in dconfig:
+                    seed = dconfig["partition_seed"]
+                    logger.info(f"Shuffling {dataset_name} indices with seed {seed} before partitioning.")
+                    # Use a local Random instance to avoid affecting global state
+                    random.Random(seed).shuffle(indices)
+                
+                # Calculate integer slice points
+                start_idx = int(start_frac * total_len)
+                end_idx = int(end_frac * total_len)
+                
+                # Select the specific indices for this split
+                selected_indices = indices[start_idx:end_idx]
+                
+                logger.info(f"Partitioning {dataset_name}: using range [{start_frac}-{end_frac}] ({len(selected_indices)} samples).")
+                
+                # Apply subsetting to all loaded dataset variants (main, raw, seg)
+                for key in ["dataset", "raw_dataset", "seg_dataset"]:
+                    if dataset.get(key) is not None:
+                        dataset[key] = VisionDatasetSubset(dataset[key], selected_indices)
+            
             if sampling_ratio > 1:
                 # Apply data sub-selection
                 selected_indices = [idx for idx in range(len(dataset["dataset"]))][::sampling_ratio]
