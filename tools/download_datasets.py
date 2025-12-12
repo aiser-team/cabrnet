@@ -356,6 +356,21 @@ def download_pets(path: str, use_segmentation: bool) -> None:
         split="trainval",  # Download the training split
     )
 
+def download_tiny_imagenet(path: str, use_segmentation: bool) -> None:
+    """Downloads the Tiny ImageNet dataset.
+
+    Args:
+        path (str): Path where to download the dataset to.
+        use_segmentation (bool): Whether to download the segmentation dataset too. Deprecated, as no segmentation dataset is available.
+    """
+    from tiny_imagenet_torch import TinyImageNet
+    
+    _ = TinyImageNet(
+        root=path,
+        download=True,
+        transform=None,  # No transformation needed for downloading
+        train=True,  # Download the training split
+    )
 
 FILE_LIST = [
     {
@@ -391,6 +406,13 @@ FILE_LIST = [
         "description": "CIFAR-100 dataset",
         "dir": "cifar-100-python",  # Standard directory from 'torchvision'
         "download_fn": download_cifar100,
+        "preprocess_fn": None,  # No preprocessing needed for this dataset
+    },
+    {
+        "identifier": "tiny_imagenet",
+        "description": "Tiny ImageNet dataset",
+        "dir": "tiny-imagenet-200",  # Standard directory from 'tiny_imagenet_torch'
+        "download_fn": download_tiny_imagenet,
         "preprocess_fn": None,  # No preprocessing needed for this dataset
     },
 ]
