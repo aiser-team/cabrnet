@@ -11,6 +11,8 @@ preprocessing operations that should be applied to these datasets.
 <DATASET_NAME>:
   module: <MODULE_NAME> # Name of the module containing the dataset class (e.g. torchvision.datasets) 
   name: <CLASS_NAME> # Class name of the dataset (e.g. ImageFolder)
+  partition: <[START_IDX, END_IDX]> # Partition of the dataset from the original dataset
+  partition_seed: <SEED>  # Seed for splitting the dataset apart. Needs to be the same for Train and Validation set.
   num_workers: <NUM> # Optional: number of worker processes for data preprocessing 
   drop_last: <BOOL> # Optional: drop last incomplete batch
   batch_size: <BATCH_SIZE> # Size of each batch
@@ -30,6 +32,8 @@ For example, parameters for the `StanfordCars` class in the `torchvision.dataset
 - `split`: Either `train` or `test`
 - `transform`: Image preprocessing function
 - `target_transform`: Label preprocessing function
+
+> For other typical `torchvision` datasets, sometimes the split is indicated by a `train` bool. Furthermore, sometimes `split` accepts the value `val` or similar for a validation dataset.
 
 Note that, to be used seamlessly by the main CaBRNet tool (`cabrnet`), 
 each file **must** contain the description of a `train_set`, `test_set` and `projection_set` datasets.

@@ -162,8 +162,8 @@ def training_loop(
         # Apply scheduler
         optimizer_mngr.scheduler_step(epoch=epoch, metric=train_info.get(metric))
 
-        if "validation_set" in dataloaders.keys():
-            val_info = model.evaluate(dataloaders, "validation_set", device=device, tqdm_position=1, verbose=verbose)
+        if "val_set" in dataloaders.keys():
+            val_info = model.evaluate(dataloaders, "val_set", device=device, tqdm_position=1, verbose=verbose)
             train_info |= val_info
 
         # Add all stats to Tensorboard
