@@ -158,6 +158,10 @@ class OptimizerManager:
             if excluded_types:
                 recursive_type_filter(module, "", excluded_parameters, excluded_types)
 
+            # DEBUG logging
+            logger.debug(f"Group {group_name} includes {len(included_parameters)} parameters, "
+                        f"excludes {len(excluded_parameters)} parameters.")
+            
             module_parameters = [name for name in included_parameters if name not in excluded_parameters]
 
             # Collect the names of the layers to keep in order to avoid duplicates
@@ -226,20 +230,38 @@ class OptimizerManager:
             config = optim_config[optim_name]
             global_params = config.get("params")
             optim_fn = config["type"]
+            
+            if "Muon" in optim_fn:
+                try:
+                    from muon import SingleDeviceMuon  # pylint: disable=import-outside-toplevel
+                except ImportError as exc:
+                    raise ImportError(
+                        f"Optimizer '{optim_fn}' requires the Muon package. "
+                        "Install with: pip install git+https://github.com/KellerJordan/Muon"
+                    ) from exc
+            
             if config.get("groups") is None:
                 param_group = self.param_groups["main"]
-                self.optimizers[optim_name] = getattr(torch.optim, optim_fn)(params=param_group, **global_params)
+                if optim_fn == "SingleDeviceMuon":
+                    self.optimizers[optim_name] = SingleDeviceMuon(params=param_group, **global_params)
+                else:
+                    self.optimizers[optim_name] = getattr(torch.optim, optim_fn)(params=param_group, **global_params)
             else:
                 optimizer_params = []
                 for group_name, group_config in config["groups"].items():
                     if group_name not in self.param_groups.keys():
                         raise ValueError(f"Parameter group not found for optimizer {optim_name}: {group_name}")
                     optimizer_params.append({"params": self.param_groups[group_name], **group_config})
-                self.optimizers[optim_name] = (
-                    getattr(torch.optim, optim_fn)(optimizer_params, **global_params)
-                    if global_params is not None
-                    else getattr(torch.optim, optim_fn)(optimizer_params)
-                )
+                if optim_fn == "SingleDeviceMuon":
+                    self.optimizers[optim_name] = SingleDeviceMuon(
+                        params=optimizer_params, **(global_params if global_params else {})
+                    )
+                else:
+                    self.optimizers[optim_name] = (
+                        getattr(torch.optim, optim_fn)(optimizer_params, **global_params)
+                        if global_params is not None
+                        else getattr(torch.optim, optim_fn)(optimizer_params)
+                    )
             if config.get("scheduler") is not None:
                 scheduler_type = config["scheduler"]["type"]
                 scheduler_params = config["scheduler"].get("params")
