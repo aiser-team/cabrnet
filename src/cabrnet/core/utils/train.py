@@ -220,7 +220,7 @@ def training_loop(
         if isinstance(training_config, dict)
         else load_config(training_config).get("epilogue", {})
     )
-    model.epilogue(
+    projection_info = model.epilogue(  # Save projection infos before final checkpoint
         dataloaders=dataloaders,
         optimizer_mngr=optimizer_mngr,
         output_dir=working_dir,

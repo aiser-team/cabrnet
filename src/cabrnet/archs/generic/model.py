@@ -593,7 +593,7 @@ class CaBRNet(nn.Module):
                 # Get computing stats
                 xs, _ = next(iter(dataloader))
                 xs = xs.to(device)
-                flops, _ = profile_batch(self, inputs=(xs,), verbose=False)
+                flops = profile_batch(self, inputs=(xs,), verbose=False)[0]
                 flops /= xs.size(0)
 
             ref_time = time.time()
