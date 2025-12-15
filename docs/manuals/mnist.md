@@ -85,7 +85,7 @@ cabrnet train --device cpu --seed 42 --verbose --logger-level INFO  \
   --dataset configs/protopnet/mnist/dataset.yml \
   --training configs/protopnet/mnist/training.yml \
   --output-dir runs/mnist_protopnet \
-  --logger-file runs/mnist_prototree/log.txt
+  --logger-file runs/mnist_protopnet/log.txt
 ```
 or simply
 ```bash
@@ -93,7 +93,7 @@ cd ../../ # Go back to root directory
 cabrnet train --device cpu --seed 42 --verbose --logger-level INFO  \
   -c configs/protopnet/mnist/ \
   --output-dir runs/mnist_protopnet \
-  --logger-file runs/mnist_prototree/log.txt
+  --logger-file runs/mnist_protopnet/log.txt
 ```
 These commands train a ProtoPNet during one epoch, and store the resulting checkpoint in 
 `runs/mnist_protopnet/final`.

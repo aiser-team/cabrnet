@@ -21,7 +21,7 @@ class SimilarityLayer(nn.Module, ABC):
             prototypes (tensor): Tensor of prototypes. Shape (P, D, 1, 1).
 
         Returns:
-             Distance between each feature vector and each prototype. Shape (N, P, H, W).
+            Distance between each feature vector and each prototype. Shape (N, P, H, W).
         """
         raise NotImplementedError
 
@@ -33,7 +33,7 @@ class SimilarityLayer(nn.Module, ABC):
             distances (tensor): Input tensor. Any shape.
 
         Returns:
-             Similarity score corresponding to the provided distances. Same shape as input.
+            Similarity score corresponding to the provided distances. Same shape as input.
         """
         raise NotImplementedError
 
@@ -65,7 +65,34 @@ class SimilarityLayer(nn.Module, ABC):
         return self.similarities(features, prototypes, **kwargs)
 
 
-class SquaredEuclideanDistance(SimilarityLayer):
+class SimilarityLayerStub(SimilarityLayer):
+    r"""Dummy layer for architectures that do not require a similarity layer."""
+
+    def distances(self, features: Tensor, prototypes: Tensor, **kwargs) -> Tensor:
+        r"""Raises an error when called.
+
+        Args:
+            features (tensor): Unused.
+            prototypes (tensor): Unused.
+
+        Returns:
+            Nothing.
+        """
+        raise NotImplementedError
+
+    def distances_to_similarities(self, distances: Tensor, **kwargs) -> Tensor:
+        r"""Raises an error when called.
+
+        Args:
+            distances (tensor): Unused.
+
+        Returns:
+            Nothing.
+        """
+        raise NotImplementedError
+
+
+class SquaredEuclideanDistance(SimilarityLayer, ABC):
     r"""Layer for computing Euclidean (L2) distances in the convolutional space."""
 
     def distances(self, features: Tensor, prototypes: Tensor, **kwargs) -> Tensor:
@@ -88,12 +115,14 @@ class SquaredEuclideanDistance(SimilarityLayer):
         return distances
 
 
-class ProtoPNetDistance(SimilarityLayer):
+class ProtoPNetDistance(SimilarityLayer, ABC):
     r"""Layer for computing Euclidean (L2) distances in the convolutional space (ProtoPNet original implementation).
 
     Attributes:
         _summation_kernel: Accumulation tensor used to compute the Euclidean distance.
     """
+
+    _summation_kernel: Tensor
 
     def __init__(self, num_prototypes: int, num_features: int, **kwargs) -> None:
         r"""Initializes a ProtoPNetDistance layer.
@@ -130,12 +159,14 @@ class ProtoPNetDistance(SimilarityLayer):
         return features_l2_squared + intermediate
 
 
-class ProtoTreeDistance(SimilarityLayer):
+class ProtoTreeDistance(SimilarityLayer, ABC):
     r"""Layer for computing Euclidean (L2) distances in the convolutional space (ProtoTree original implementation).
 
     Attributes:
         _summation_kernel: Accumulation tensor used to compute the Euclidean distance.
     """
+
+    _summation_kernel: Tensor
 
     def __init__(self, num_prototypes: int, num_features: int, **kwargs) -> None:
         r"""Initializes a ProtoTreeDistance layer.
@@ -171,7 +202,7 @@ class ProtoTreeDistance(SimilarityLayer):
         return features_l2_squared + prototypes_l2_squared - 2 * features_x_prototypes
 
 
-class LogDistance(SimilarityLayer):
+class LogDistance(SimilarityLayer, ABC):
     r"""Abstract layer for computing similarity scores based on the log of distances in the convolutional space.
 
     Attributes:
@@ -195,14 +226,14 @@ class LogDistance(SimilarityLayer):
             distances (tensor): Input tensor. Any shape.
 
         Returns:
-             Similarity score corresponding to the provided distances. Same shape as input.
+            Similarity score corresponding to the provided distances. Same shape as input.
         """
         # Ensures that distances are greater than 0
         distances = torch.relu(distances)
         return torch.log((distances + 1) / (distances + self.stability_factor))
 
 
-class ExpDistance(SimilarityLayer):
+class ExpDistance(SimilarityLayer, ABC):
     r"""Abstract layer for computing similarity scores based on the exponential of distances in the convolutional space.
 
     Attributes:
@@ -231,7 +262,7 @@ class ExpDistance(SimilarityLayer):
             distances (tensor): Input tensor. Any shape.
 
         Returns:
-             Similarity score corresponding to the provided distances. Same shape as input.
+            Similarity score corresponding to the provided distances. Same shape as input.
         """
         distances = torch.sqrt(torch.abs(distances) + self.stability_factor)
         if self.log_probabilities:
@@ -335,3 +366,45 @@ class ProtoTreeSimilarity(SquaredEuclideanDistance, ExpDistance):
             stability_factor (float, optional): Stability factor. Default: 1e-14.
         """
         super().__init__(log_probabilities=log_probabilities, stability_factor=stability_factor, **kwargs)
+
+
+class CosineSimilarity(SimilarityLayer):
+    r"""Layer for computing similarity scores based on the cosine distance between the two vectors."""
+
+    def __init__(self, stability_factor: float = 1e-8, **kwargs) -> None:
+        r"""Initializes a CosineSimilarity layer.
+
+        Args:
+            stability_factor (float, optional): Stability factor. Default: 1e-8.
+        """
+        super().__init__(**kwargs)
+        self.stability_factor = stability_factor
+
+    def distances(self, features: Tensor, prototypes: Tensor, **kwargs) -> Tensor:
+        r"""Computes pairwise cosine distance between a tensor of features and a tensor of prototypes.
+
+        Args:
+            features (tensor): Input tensor. Shape (N, D, H, W).
+            prototypes (tensor): Tensor of prototypes. Shape (P, D, 1, 1).
+
+        Returns:
+            Tensor of distances. Shape (N, P, H, W).
+        """
+        # Compute pairwise similarity manually since torch does not offer this feature yet
+        scalar_product = torch.conv2d(features, prototypes)  # Shape (N, P, H, W)
+        f_norm = torch.linalg.vector_norm(features, dim=1, keepdim=True)  # Shape (N, 1, H, W)
+        p_norm = torch.linalg.vector_norm(prototypes, dim=1, keepdim=True).swapaxes(0, 1)  # Shape (1, P, 1, 1)
+        cosine_sim = scalar_product / ((f_norm * p_norm) + self.stability_factor)  # Between [-1, 1]
+        return 1 - cosine_sim
+
+    def distances_to_similarities(self, distances: Tensor, **kwargs) -> Tensor:
+        r"""Converts a tensor of distances into a tensor of similarity scores, such that
+        sim=1-distances.
+
+        Args:
+            distances (tensor): Input tensor. Any shape.
+
+        Returns:
+            Similarity score corresponding to the provided distances. Same shape as input.
+        """
+        return 1 - distances

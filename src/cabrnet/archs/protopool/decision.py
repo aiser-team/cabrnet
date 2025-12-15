@@ -17,7 +17,6 @@ class ProtoPoolClassifier(CaBRNetClassifier):
         num_features: Size of the features extracted by the convolutional extractor.
         num_slots_per_class: Number of slots allocated to each class.
         prototypes: Tensor of prototypes.
-        prototypes_init_mode: Initialization mode for the tensor of prototypes.
         similarity_layer: Layer used to compute similarity scores between the prototypes and the convolutional features.
         last_layer: Linear layer in charge of weighting similarity scores and computing the final logit vector.
     """
@@ -49,7 +48,7 @@ class ProtoPoolClassifier(CaBRNetClassifier):
             compatibility_mode (bool, optional): If True, enables compatibility mode with legacy ProtoPool.
                 Default: False.
         """
-        super().__init__(num_classes=num_classes, num_features=num_features, proto_init_mode=proto_init_mode)
+        super().__init__(num_classes=num_classes, num_features=num_features)
 
         assert num_prototypes > 0, f"Invalid number of prototypes per class: {num_prototypes}"
         self._compatibility_mode = compatibility_mode
@@ -61,7 +60,7 @@ class ProtoPoolClassifier(CaBRNetClassifier):
         nn.init.xavier_normal_(self.proto_slot_map, gain=1)
 
         # Init prototypes
-        self.prototypes = nn.Parameter(  # type: ignore
+        self.prototypes = nn.Parameter(
             init_prototypes(
                 num_prototypes=num_prototypes,
                 num_features=self.num_features,
@@ -146,7 +145,7 @@ class ProtoPoolClassifier(CaBRNetClassifier):
         else:
             proto_slot_probs = nn.functional.gumbel_softmax(self.proto_slot_map * gumbel_scale, tau=0.5, dim=1)
 
-        distances = self.similarity_layer.distances(features, self.prototypes)  # Shape (N, P, H, W)
+        distances = self.distances(features)  # Shape (N, P, H, W)
 
         if self._compatibility_mode:
             # Reproduce legacy ProtoPool operations
@@ -165,9 +164,9 @@ class ProtoPoolClassifier(CaBRNetClassifier):
         # between a prototype and a class slot
         expanded_min_distances = torch.einsum("bp,cpn->bcn", min_distances, proto_slot_probs)
         expanded_avg_distances = torch.einsum("bp,cpn->bcn", avg_distances, proto_slot_probs)
-        similarities = self.similarity_layer.distances_to_similarities(
-            expanded_min_distances
-        ) - self.similarity_layer.distances_to_similarities(expanded_avg_distances)
+        similarities = self.distances_to_similarities(expanded_min_distances) - self.distances_to_similarities(
+            expanded_avg_distances
+        )
 
         similarities = similarities.flatten(start_dim=1)
         prediction = self.last_layer(similarities)

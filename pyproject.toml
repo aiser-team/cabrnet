@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cabrnet"
-version = "1.1.1"
+version = "1.2"
 authors = [
     { name = "Romain Xu-Darme", email = "romain.xu-darme@cea.fr" },
     { name = "Aymeric Varasse", email = "aymeric.varasse@cea.fr" },
@@ -16,8 +16,8 @@ maintainers = [
     { name = "Alban Grastien", email = "alban.grastien@cea.fr" },
 ]
 description = "Generic library for prototype-based classifiers"
-readme = "README.md"
-requires-python = ">=3.10"
+readme = "docs/packaging/README.md"
+requires-python = ">=3.10,<3.13" # Ray-Tune currently only supports Python 3.12
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: GNU Lesser General Public License v2 (LGPLv2)",
@@ -41,13 +41,15 @@ dependencies = [
     "ray[tune]~=2.34.0",
     "optuna~=3.6.1",
     "onnxruntime~=1.19.0",
+    "onnx~=1.19.1",
     "onnx_graphsurgeon~=0.5.2",
     "pacmap~=0.7.3",
     "scikit-learn~=1.5.1",
+    "thop~=0.1.1",
 ]
 
 [project.optional-dependencies]
-dev = ["black", "build", "pyright", "twine"]
+dev = ["black==24.10.0", "build", "pyright", "twine"]
 doc = ["mkdocs", "pydoc-markdown", "pymdown-extensions", "python-markdown-math"]
 legacy = ["gdown~=4.7.1", "requests~=2.32.0", "Augmentor~=0.2.12"]
 

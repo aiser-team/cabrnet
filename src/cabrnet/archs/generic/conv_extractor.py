@@ -13,7 +13,7 @@ from torchvision.models.feature_extraction import (
 )
 
 from cabrnet.core.utils.exceptions import check_mandatory_fields
-from cabrnet.core.utils.init import layer_init_functions
+from cabrnet.core.utils.init import LAYER_INIT_FUNCTIONS
 from cabrnet.archs.custom_extractors import *
 
 warnings.filterwarnings("ignore")
@@ -99,6 +99,27 @@ class ConvExtractor(nn.Module):
             model = torch_models.get_model(arch, **arch_params)
         else:
             raise ValueError(f"Cannot load weights {weights} for model of type {arch}. Possible typo or missing file.")
+
+        # Backbone post-processing (if any)
+        for op, op_config in backbone_config.get("postprocess", {}).items():
+            match op:
+                case "stride_divider":
+                    ratio = op_config["ratio"]
+                    min_channels = op_config["min_channels"]
+
+                    def divide_stride(module: nn.Module):
+                        if (
+                            isinstance(module, nn.Conv2d)
+                            and module.in_channels > min_channels
+                            and min(module.stride) >= ratio
+                        ):
+                            module.stride = tuple(s // ratio for s in module.stride)
+
+                    preprocess_fn = divide_stride
+                case _:
+                    raise ValueError(f"Unsupported preprocessing function {op}")
+
+            model.apply(preprocess_fn)
 
         if seed is not None:
             # Reset random generator (compatibility tests only)
@@ -198,7 +219,7 @@ class ConvExtractor(nn.Module):
         for key, val in config.items():
             if key == "init_mode":
                 # Extract initialisation mode
-                if val not in layer_init_functions:
+                if val not in LAYER_INIT_FUNCTIONS:
                     raise ValueError(f"Unsupported add_on layers initialisation mode {val}")
                 init_mode = val
                 continue
@@ -224,6 +245,6 @@ class ConvExtractor(nn.Module):
 
         # Apply initialisation function (if any)
         if init_mode:
-            add_on.apply(layer_init_functions[init_mode])
+            add_on.apply(LAYER_INIT_FUNCTIONS[init_mode])
 
         return add_on, in_channels

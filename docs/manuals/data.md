@@ -11,9 +11,13 @@ preprocessing operations that should be applied to these datasets.
 <DATASET_NAME>:
   module: <MODULE_NAME> # Name of the module containing the dataset class (e.g. torchvision.datasets) 
   name: <CLASS_NAME> # Class name of the dataset (e.g. ImageFolder)
+  partition: <[START_IDX, END_IDX]> # Partition of the dataset from the original dataset
+  partition_seed: <SEED>  # Seed for splitting the dataset apart. Needs to be the same for Train and Validation set.
   num_workers: <NUM> # Optional: number of worker processes for data preprocessing 
+  drop_last: <BOOL> # Optional: drop last incomplete batch
   batch_size: <BATCH_SIZE> # Size of each batch
   shuffle: <True | False> # Should data be shuffled (should be True for train_set)
+  pin_memory: <BOOL> # Optional: pin dataset to memory
   params: # How to initialize the dataset
     <CLASS_PARAM_1>: <VALUE>
     <CLASS_PARAM_2>: <VALUE>
@@ -28,6 +32,8 @@ For example, parameters for the `StanfordCars` class in the `torchvision.dataset
 - `split`: Either `train` or `test`
 - `transform`: Image preprocessing function
 - `target_transform`: Label preprocessing function
+
+> For other typical `torchvision` datasets, sometimes the split is indicated by a `train` bool. Furthermore, sometimes `split` accepts the value `val` or similar for a validation dataset.
 
 Note that, to be used seamlessly by the main CaBRNet tool (`cabrnet`), 
 each file **must** contain the description of a `train_set`, `test_set` and `projection_set` datasets.
@@ -84,3 +90,27 @@ More precisely, each dataset specified in the configuration file produces two da
     - `<DATASET_NAME>`: Dataloader returning preprocessed data
     - `<DATASET_NAME>_raw`: Dataloader returning raw data (see above)
 
+## Downloading datasets to reproduce experiments from the state of the art
+CaBRNet provides a tool to download and pre-process datasets as described in 
+ProtoPNet and ProtoTree.
+
+```bash
+python ./tools/download_datasets.py -h
+```
+
+```
+usage: download_datasets.py [-h] --target name [name ...] [--output-dir path/to/root/output/directory] [--use-segmentation]
+
+Download datasets and perform preprocessing for ProtoTree and ProtoPNet
+
+options:
+  -h, --help            show this help message and exit
+  --target name [name ...], -t name [name ...]
+                        Select target(s) to download
+                                CUB_200_2011 --> Caltech-UCSD Birds-200-2011 dataset, downloaded in <output_dir>/CUB_200_2011
+                                all --> everything above
+  --output-dir path/to/root/output/directory, -o path/to/root/output/directory
+                        path to root output directory (default: ./examples)
+  --use-segmentation, -s
+                        Download segmentation dataset alongside regular dataset
+```

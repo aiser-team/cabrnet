@@ -10,12 +10,12 @@ import torch.nn.functional
 from loguru import logger
 from PIL import Image
 from torch.utils.data import DataLoader
-from torchvision.transforms import ToTensor
 from tqdm import tqdm
 
 from cabrnet.archs.generic.decision import CaBRNetClassifier
 from cabrnet.archs.generic.model import CaBRNet
 from cabrnet.archs.prototree.decision import ProtoTreeClassifier, SamplingStrategy
+from cabrnet.core.utils.image import safe_open_image
 from cabrnet.core.utils.optimizers import OptimizerManager
 from cabrnet.core.utils.tree import MappingMode, TreeNode
 from cabrnet.core.visualization.explainer import ExplanationGraph
@@ -165,7 +165,7 @@ class ProtoTree(CaBRNet):
         ]
         logger.info(
             f"Remaining leaves after pruning with threshold {pruning_threshold}: {len(remaining_leaves)} "
-            f"({len(remaining_leaves)/self.classifier.tree.num_leaves*100:.1f}%)"
+            f"({len(remaining_leaves) / self.classifier.tree.num_leaves * 100:.1f}%)"
         )
 
     def loss(self, model_output: Any, label: torch.Tensor, **kwargs) -> tuple[torch.Tensor, dict[str, float]]:
@@ -187,30 +187,38 @@ class ProtoTree(CaBRNet):
         batch_accuracy = torch.sum(torch.eq(torch.argmax(ys_pred, dim=1), label)).item() / len(label)
         return batch_loss, {"loss": batch_loss.item(), "accuracy": batch_accuracy}
 
-    def train_epoch(
+    def _train_epoch(
         self,
         dataloaders: dict[str, DataLoader],
-        optimizer_mngr: OptimizerManager,
+        optimizer_mngr: OptimizerManager | torch.optim.Optimizer,
+        dataset_name: str = "train_set",
         device: str | torch.device = "cuda:0",
         tqdm_position: int = 0,
         epoch_idx: int = 0,
         verbose: bool = False,
+        tqdm_title: str | None = None,
+        **kwargs,
     ) -> dict[str, float]:
         r"""Trains the model for one epoch.
 
         Args:
             dataloaders (dictionary): Dictionary of dataloaders.
             optimizer_mngr (OptimizerManager): Optimizer manager.
+            dataset_name (str, optional): Name of the dataset used for training. Default: train_set.
             device (str | device, optional): Hardware device. Default: cuda:0.
             tqdm_position (int, optional): Position of the progress bar. Default: 0.
             epoch_idx (int, optional): Epoch index. Default: 0.
             verbose (bool, optional): Display progress bar. Default: False.
+            tqdm_title (str, optional): Progress bar title. Default: "Training epoch {epoch_idx".
 
         Returns:
             Dictionary containing learning statistics.
         """
         self.train()
         self.to(device)
+
+        if tqdm_title is None:
+            tqdm_title = f"Training epoch {epoch_idx}"
 
         # Training stats
         train_info = {}
@@ -227,12 +235,12 @@ class ProtoTree(CaBRNet):
                 old_dist_params[leaf.node_id] = leaf._relative_distribution.detach().clone()
 
         # Use training dataloader
-        train_loader = dataloaders["train_set"]
+        train_loader = dataloaders[dataset_name]
 
         # Show progress on progress bar if needed
         train_iter = tqdm(
             enumerate(train_loader),
-            desc=f"Training epoch {epoch_idx}",
+            desc=tqdm_title,
             total=len(train_loader),
             leave=False,
             position=tqdm_position,
@@ -243,11 +251,11 @@ class ProtoTree(CaBRNet):
 
         for batch_idx, (xs, ys) in train_iter:
             data_time = time.time() - ref_time
-            nb_inputs += xs.size(0)
+            nb_inputs += xs.size(0)  # type: ignore
 
             # Reset gradients and map the data on the target device
             optimizer_mngr.zero_grad()
-            xs, ys = xs.to(device), ys.to(device)
+            xs, ys = xs.to(device), ys.to(device)  # type: ignore
 
             # Perform inference and compute loss
             ys_pred, info = self.forward(xs)
@@ -255,7 +263,10 @@ class ProtoTree(CaBRNet):
 
             # Compute the gradient and update parameters
             batch_loss.backward()
-            optimizer_mngr.optimizer_step(epoch=epoch_idx)
+            if isinstance(optimizer_mngr, OptimizerManager):
+                optimizer_mngr.optimizer_step(epoch=epoch_idx)
+            else:  # Simple optimizer
+                optimizer_mngr.step()
 
             # Update leaves with derivative-free algorithm
             # Convert integer label into on-hot encoding
@@ -286,7 +297,7 @@ class ProtoTree(CaBRNet):
 
             # Update all metrics
             if not train_info:
-                train_info = batch_stats
+                train_info = {key: 0.0 for key in batch_stats}
             for key, value in batch_stats.items():
                 train_info[key] += value * xs.size(0)
 
@@ -296,9 +307,11 @@ class ProtoTree(CaBRNet):
 
         # Clean gradients after last batch
         optimizer_mngr.zero_grad()
+
+        train_info = {f"{dataset_name}/{key}": value / nb_inputs for key, value in train_info.items()}
+
         # Update batch_num with effective value
         batch_num = batch_idx + 1
-        train_info = {key: value / nb_inputs for key, value in train_info.items()}
         train_info.update(
             {
                 "time/batch": total_batch_time / batch_num,
@@ -317,7 +330,7 @@ class ProtoTree(CaBRNet):
         pruning_threshold: float = 0.0,
         merge_same_decision: bool = False,
         **kwargs: Any,
-    ) -> dict[int, dict[str, int | float]]:
+    ) -> list[dict]:
         r"""Function called after training, using information from the epilogue field in the training configuration.
 
         Args:
@@ -338,10 +351,10 @@ class ProtoTree(CaBRNet):
             device=device,
             verbose=verbose,
         )
-        eval_info = self.evaluate(dataloader=dataloaders["test_set"], device=device, verbose=verbose)
+        eval_info = self.evaluate(dataloaders=dataloaders, dataset_name="test_set", device=device, verbose=verbose)
         logger.info(
-            f"After projection. Average loss: {eval_info['loss']:.2f}. "
-            f"Average accuracy: {eval_info['accuracy']:.2f}."
+            f"After projection. Average loss: {eval_info['test_set/loss']:.2f}. "
+            f"Average accuracy: {eval_info['test_set/accuracy']:.2f}."
         )
 
         if pruning_threshold <= 0.0:
@@ -372,105 +385,10 @@ class ProtoTree(CaBRNet):
         num_leaves = self.classifier.tree.num_leaves
         logger.info(
             f"Tree statistics after pruning: {num_leaves} leaves "
-            f"({(num_leaves_before-num_leaves)/num_leaves_before*100:.1f} % pruned), "
+            f"({(num_leaves_before - num_leaves) / num_leaves_before * 100:.1f} % pruned), "
             f"{num_prototypes} prototypes "
-            f"({(num_prototypes_before-num_prototypes)/num_prototypes_before*100:.1f} % pruned)."
+            f"({(num_prototypes_before - num_prototypes) / num_prototypes_before * 100:.1f} % pruned)."
         )
-
-    def project(
-        self,
-        dataloader: DataLoader,
-        device: str | torch.device = "cuda:0",
-        verbose: bool = False,
-        tqdm_position: int = 0,
-    ) -> dict[int, dict]:
-        r"""Performs prototype projection after training.
-
-        Args:
-            dataloader (DataLoader): Dataloader containing projection data.
-            device (str | device, optional): Hardware device. Default: cuda:0.
-            verbose (bool, optional): Display progress bar. Default: False.
-            tqdm_position (int, optional): Position of the progress bar. Default: 0.
-
-        Returns:
-            Dictionary containing projection information for each prototype.
-        """
-        logger.info("Performing prototype projection")
-        self.eval()
-        self.to(device)
-
-        # For each class, keep track of the related prototypes
-        class_mapping = self.classifier.tree.get_mapping(mode=MappingMode.CLASS_TO_PROTOTYPE)
-        # Sanity check to ensure that each class is associated with at least one prototype
-        for class_idx in range(self.classifier.num_classes):
-            if class_idx not in class_mapping:
-                logger.error(f"Inaccessible class {class_idx}!")
-
-        # Show progress on progress bar if needed
-        data_iter = tqdm(
-            enumerate(dataloader),
-            desc="Prototype projection",
-            total=len(dataloader),
-            leave=False,
-            position=tqdm_position,
-            disable=not verbose,
-        )
-
-        # Original number of prototypes (before pruning) and prototype length
-        num_prototypes, proto_dim = self.classifier.prototypes.shape[0:2]
-
-        # For each prototype, keep track of:
-        #   - the index of the closest projection image
-        #   - the coordinates of the vector inside the latent representation of that image
-        #   - the corresponding similarity score
-        #   - the corresponding vector
-        projection_info = {
-            proto_idx: {
-                "img_idx": -1,
-                "h": -1,
-                "w": -1,
-                "score": 0.0,
-            }
-            for proto_idx in range(num_prototypes)
-        }
-        projection_vectors = self.classifier.prototypes.clone()
-
-        with torch.no_grad():
-            for batch_idx, (xs, ys) in data_iter:
-                # Map to device and perform inference
-                xs = xs.to(device)
-                feats = self.extractor(xs)  # Shape N x D x H x W
-                _, W = feats.shape[2], feats.shape[3]
-                similarities = self.classifier.similarity_layer(feats, self.classifier.prototypes)  # Shape (N, P, H, W)
-                max_sim, max_sim_idxs = torch.max(similarities.view(similarities.shape[:2] + (-1,)), dim=2)
-
-                for img_idx, (_, y) in enumerate(zip(xs, ys)):
-                    if y.item() not in class_mapping:
-                        # Class is not associated with any prototype (this is bad...)
-                        continue
-                    for proto_idx in class_mapping[y.item()]:
-                        # For each entry, only check prototypes that lead to the corresponding class
-                        if max_sim[img_idx, proto_idx] > projection_info[proto_idx]["score"]:
-                            h, w = (
-                                max_sim_idxs[img_idx, proto_idx].item() // W,
-                                max_sim_idxs[img_idx, proto_idx].item() % W,
-                            )
-                            batch_size = 1 if dataloader.batch_size is None else dataloader.batch_size
-                            projection_info[proto_idx] = {
-                                "img_idx": batch_idx * batch_size + img_idx,
-                                "h": h,
-                                "w": w,
-                                "score": max_sim[img_idx, proto_idx].item(),
-                            }
-                            projection_vectors[proto_idx] = feats[img_idx, :, h, w].view(proto_dim, 1, 1).cpu()
-
-                            # Sanity check
-                            assert similarities[img_idx, proto_idx, h, w].item() == max_sim[img_idx, proto_idx].item()
-
-            # Update prototype vectors
-            self.classifier.prototypes.copy_(projection_vectors)
-
-        return projection_info
 
     def explain(
         self,
@@ -508,74 +426,66 @@ class ProtoTree(CaBRNet):
         """
         self.eval()
 
-        if isinstance(img, str):
-            img = Image.open(img)
+        with safe_open_image(img, preprocess) as (img, img_tensor):
+            # Map to device
+            self.to(device)
+            img_tensor = img_tensor.to(device)
 
-        if preprocess is None:
-            preprocess = ToTensor()
+            # Perform inference and get decision leaf
+            prediction, tree_info = self.forward(img_tensor, strategy=strategy)
+            leaf_id = tree_info["decision_leaf"][0]
 
-        img_tensor = preprocess(img)
-        if img_tensor.dim() != 4:
-            # Fix number of dimensions if necessary
-            img_tensor = torch.unsqueeze(img_tensor, dim=0)
+            # Compute path to leaf  TODO: This could be done once during model construction, then after pruning
+            leaf_path = self.classifier.tree.get_mapping(mode=MappingMode.NODE_PATHS)[leaf_id]
 
-        # Map to device
-        self.to(device)
-        img_tensor = img_tensor.to(device)
-
-        # Perform inference and get decision leaf
-        prediction, tree_info = self.forward(img_tensor, strategy=strategy)
-        leaf_id = tree_info["decision_leaf"][0]
-
-        # Compute path to leaf  TODO: This could be done once during model construction, then after pruning
-        leaf_path = self.classifier.tree.get_mapping(mode=MappingMode.NODE_PATHS)[leaf_id]
-
-        # Build explanation
-        img_path = os.path.join(output_dir, "original.png")
-        if not disable_rendering:
-            os.makedirs(os.path.join(output_dir, "test_patches"), exist_ok=exist_ok)
-            # Copy source image
-            img.save(img_path)
-        explanation = ExplanationGraph(output_dir=output_dir)
-        explanation.set_test_image(img_path=img_path)
-        prototype_mapping = self.classifier.tree.get_mapping(mode=MappingMode.NODE_TO_PROTOTYPE)
-        node_mapping = self.classifier.tree.get_mapping(mode=MappingMode.ID_TO_NODE)
-        parent_id = leaf_path[0]
-        proto_idx = prototype_mapping[leaf_path[0]][0]  # Index of the first prototype
-        most_relevant_prototypes = []  # Keep track of most relevant prototypes
-        for node_id in leaf_path[1:]:
-            # Recover path to prototype image
-            prototype_image_path = os.path.join(prototype_dir, f"prototype_{proto_idx}.png")
-            score = tree_info[node_id]["conditional_probability"].item()
-            if node_id == node_mapping[parent_id].get_submodule(f"{parent_id}_child_nsim").node_id:
-                # No similarity
-                most_relevant_prototypes.append((proto_idx, 1 - score, False))
-                if not disable_rendering:
+            # Build explanation
+            img_path = os.path.join(output_dir, "original.png")
+            if not disable_rendering:
+                os.makedirs(os.path.join(output_dir, "test_patches"), exist_ok=exist_ok)
+                # Copy source image
+                img.save(img_path)
+            explanation = ExplanationGraph(output_dir=output_dir)
+            explanation.set_test_image(img_path=img_path)
+            prototype_mapping = self.classifier.tree.get_mapping(mode=MappingMode.NODE_TO_PROTOTYPE)
+            node_mapping = self.classifier.tree.get_mapping(mode=MappingMode.ID_TO_NODE)
+            parent_id = leaf_path[0]
+            proto_idx = prototype_mapping[leaf_path[0]][0]  # Index of the first prototype
+            most_relevant_prototypes = []  # Keep track of most relevant prototypes
+            for node_id in leaf_path[1:]:
+                # Recover path to prototype image
+                prototype_image_path = os.path.join(prototype_dir, f"prototype_{proto_idx}.png")
+                score = tree_info[node_id]["conditional_probability"].item()
+                if node_id == node_mapping[parent_id].get_submodule(f"{parent_id}_child_nsim").node_id:
+                    # No similarity
+                    most_relevant_prototypes.append((proto_idx, 1 - score, False))
+                    if not disable_rendering:
+                        explanation.add_similarity(
+                            prototype_img_path=prototype_image_path,
+                            test_patch_img_path=img_path,
+                            label=f"Not similar\n (Score: {1 - score:.2f})",
+                        )
+                else:
+                    # Similarity
+                    most_relevant_prototypes.append((proto_idx, score, True))
+                    patch_image_path = os.path.join(output_dir, "test_patches", f"proto_similarity_{proto_idx}.png")
+                    if not disable_rendering:
+                        patch_image = visualizer.forward(
+                            img=img, img_tensor=img_tensor, proto_idx=proto_idx, device=device
+                        )
+                        patch_image.save(patch_image_path)
                     explanation.add_similarity(
                         prototype_img_path=prototype_image_path,
-                        test_patch_img_path=img_path,
-                        label=f"Not similar\n (Score: {1-score:.2f})",
+                        test_patch_img_path=patch_image_path,
+                        label=f"Similar\n (Score: {score:.2f})",
                     )
-            else:
-                # Similarity
-                most_relevant_prototypes.append((proto_idx, score, True))
-                patch_image_path = os.path.join(output_dir, "test_patches", f"proto_similarity_{proto_idx}.png")
-                if not disable_rendering:
-                    patch_image = visualizer.forward(img=img, img_tensor=img_tensor, proto_idx=proto_idx, device=device)
-                    patch_image.save(patch_image_path)
-                explanation.add_similarity(
-                    prototype_img_path=prototype_image_path,
-                    test_patch_img_path=patch_image_path,
-                    label=f"Similar\n (Score: {score:.2f})",
-                )
-            parent_id = node_id
-            if prototype_mapping[node_id] is None:
-                break
-            proto_idx = prototype_mapping[node_id][0]  # Update index of prototype associated with next node
-        explanation.add_prediction(int(torch.argmax(prediction).item()))
-        if not disable_rendering:
-            explanation.render(output_format=output_format)
-        return most_relevant_prototypes
+                parent_id = node_id
+                if prototype_mapping[node_id] is None:
+                    break
+                proto_idx = prototype_mapping[node_id][0]  # Update index of prototype associated with next node
+            explanation.add_prediction(int(torch.argmax(prediction).item()))
+            if not disable_rendering:
+                explanation.render(output_format=output_format)
+            return most_relevant_prototypes
 
     def explain_global(
         self,

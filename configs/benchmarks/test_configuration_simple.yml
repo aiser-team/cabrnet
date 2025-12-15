@@ -1,0 +1,53 @@
+local_perturbation_analysis:
+  info_db: local_perturbation_analysis.csv # Path to CSV file containing raw analysis per test image
+  global_stats: global_stats.csv # Path to CSV file containing general global stats
+  enable_dual_mode: True # If True, compute sensitivity test on dual perturbation
+  distribution_img: local_perturbation_analysis.png # Path to output image showing distribution of max similarity drops
+  quiet: True # If True, does not show the distribution image
+  debug_mode: False # If True, saves perturbations (used for debugging purposes)
+  num_prototypes: 10 # Maximum number of relevant prototypes to analyze per test image
+  perturbations:
+    # Perturbation parameters
+    complex_perturbation:
+      - type: brightness
+        params:
+          brightness_factor: 0.3
+      - type: contrast
+        params:
+          contrast_factor: 0.2
+    brightness:
+      type: brightness
+      params:
+        brightness_factor: 0.3 # A value of 0.3 means brightness is (locally) reduced by 70%
+    contrast_1:
+      type: contrast
+      params:
+        contrast_factor: 0.1
+    contrast_2:
+      type: contrast
+      params:
+        contrast_factor: 0.2
+    contrast_3:
+      type: contrast
+      params:
+        contrast_factor: 0.3 # A value of 0.3 means contrast is (locally) reduced by 70%
+    saturation:
+      type: saturation
+      params:
+        saturation_factor: 0.3 # A value of 0.3 means saturation is (locally) reduced by 70%
+    hue:
+      type: hue
+      params:
+        hue_factor: 0.2 # A value of 0.2 means a (local) shift of 20% on the hue scale
+    blur:
+      type: blur
+      params:
+        gaussian_blur_ksize: 21 # Size of the kernel to apply gaussian blur
+        gaussian_blur_sigma: 2.0 # Standard deviation of the gaussian blur
+    distortion:
+      type: distortion
+      params:
+        distortion_periods: 5 # Controls the frequency of the (local) sinus distortion
+        distortion_amplitude: 7 # Controls the amplitude of the (local) sinus distortion
+        distortion_direction: both # Controls the direction of the (local) sinus distortion
+

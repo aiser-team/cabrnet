@@ -11,7 +11,10 @@ from cabrnet.core.utils.optimizers import OptimizerManager
 from cabrnet.core.utils.parser import load_config
 from cabrnet.core.utils.save import load_checkpoint
 from cabrnet.core.utils.system_info import get_parent_directory
-from cabrnet.core.utils.train import training_loop
+from cabrnet.core.utils.train import training_loop, latest_dir
+from cabrnet.core.utils.system_info import get_hardware_info
+
+DEFAULT_LOGGER_FILE = "log.txt"
 
 description = "trains a CaBRNet model"
 
@@ -37,7 +40,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         type=str,
         required=False,
         nargs=2,
-        default=["accuracy", "max"],
+        default=["train_set/accuracy", "max"],
         metavar=("metric", "min/max"),
         help="save best model based on chosen metric and mode (min or max)",
     )
@@ -88,7 +91,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     parser.add_argument(
         "--epilogue",
         action="store_true",
-        help="skip training and go to epilogue.",
+        help="skip training and go to epilogue (requires `--resume-from` option).",
     )
     return parser
 
@@ -138,19 +141,27 @@ def check_args(args: Namespace) -> Namespace:
     if args.output_dir is None:
         raise ArgumentError("Missing path to output directory (option --output-dir)")
 
+    if args.logger_file is None:
+        # An explicit logger file should always be used during training
+        args.logger_file = os.path.join(args.output_dir, DEFAULT_LOGGER_FILE)
+        logger.warning(f"No log file specified. Using {args.logger_file}")
+        logger.add(sink=args.logger_file, level=args.logger_level)
+        # Record hardware information again so that it is present in the log file
+        logger.info(f"Hardware information: {get_hardware_info(args.device)}")
+
     # In full training mode (all epochs), or when the output directory is different from the checkpoint parent directory
     # (resume mode), check that the best model directory is available
     best_model_path = os.path.join(args.output_dir, "best")
-    if (
-        os.path.exists(best_model_path)
-        and not args.overwrite
-        and not args.epilogue
-        and (args.resume_from is None or get_parent_directory(args.resume_from) != args.output_dir)
-    ):
-        raise ArgumentError(
-            f"Output directory {best_model_path} is not empty. "
-            f"To overwrite existing results, use --overwrite option."
-        )
+    for dir_path in [best_model_path, latest_dir(str(args.output_dir))]:
+        if (
+            os.path.exists(dir_path)
+            and not args.overwrite
+            and not args.epilogue
+            and (args.resume_from is None or get_parent_directory(args.resume_from) != args.output_dir)
+        ):
+            raise ArgumentError(
+                f"Output directory {dir_path} is not empty. To overwrite existing results, use --overwrite option."
+            )
     final_model_path = os.path.join(args.output_dir, "final")
     if args.epilogue and os.path.exists(final_model_path) and not args.overwrite:
         raise ArgumentError(
@@ -161,6 +172,8 @@ def check_args(args: Namespace) -> Namespace:
         # In sanity check mode, increase the sampling ratio
         args.sampling_ratio = 100
 
+    if args.epilogue and args.resume_from is None:
+        raise ArgumentError("Option --epilogue requires option -r (--resume-from)")
     return args
 
 
@@ -206,15 +219,18 @@ def execute(args: Namespace) -> None:
     if resume_dir is not None:
         # Restore state
         state = load_checkpoint(resume_dir, model=model, optimizer_mngr=optimizer_mngr)
-        start_epoch = state["epoch"] + 1
         seed = state["seed"]
         train_info = state["stats"]
         best_metric = train_info.get(f"best_{metric}") or train_info.get(metric)
-        if best_metric is None:
-            raise ArgumentError(
-                f"Could not recover best model using metric {metric}: invalid --save-best option? "
-                f"Candidates are {list(train_info.keys())}"
-            )
+        if epilogue_only:
+            start_epoch = state["epoch"] if isinstance(state["epoch"], int) else 0  # N/A when importing legacy model
+        else:
+            start_epoch = state["epoch"] + 1
+            if best_metric is None:
+                raise ArgumentError(
+                    f"Could not recover best model using metric {metric}: invalid --save-best option? "
+                    f"Candidates are {list(train_info.keys())}"
+                )
         # Remap optimizer to device if necessary
         optimizer_mngr.to(device)
 
@@ -223,7 +239,7 @@ def execute(args: Namespace) -> None:
         logger.warning(f"{'=' * 20} GOING STRAIGHT TO EPILOGUE {'=' * 20}")
         epoch_select = []
     elif sanity_check_only:
-        logger.warning(f"{'='*20} SANITY CHECK MODE: THE TRAINING WILL NOT BE FULLY PERFORMED {'='*20}")
+        logger.warning(f"{'=' * 20} SANITY CHECK MODE: THE TRAINING WILL NOT BE FULLY PERFORMED {'=' * 20}")
         # Only perform one epoch per training period
         epoch_select = [optimizer_mngr.periods[p_name]["epoch_range"][0] for p_name in optimizer_mngr.periods]
         epoch_select = (

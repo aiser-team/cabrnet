@@ -8,12 +8,12 @@ from loguru import logger
 
 from cabrnet.archs.generic.model import CaBRNet
 from cabrnet.core.interface.utils import create_browse_folder_component
-from cabrnet.core.utils.init import layer_init_functions
-from cabrnet.core.utils.prototypes import prototype_init_modes
-from cabrnet.core.utils.tree import leaf_init_modes
+from cabrnet.core.utils.init import LAYER_INIT_FUNCTIONS
+from cabrnet.core.utils.prototypes import PROTOTYPE_INIT_MODES
+from cabrnet.core.utils.tree import LEAF_INIT_MODES
 
 # List and configuration of supported add-on layers. For each parameter, indicate the type of gradio component to use.
-supported_addon_layers = {
+SUPPORTED_ADDON_LAYERS = {
     "Conv2d": {
         "out_channels": ("number", 0),
         "kernel_size": ("slider", 1, 1, 10),
@@ -46,7 +46,7 @@ supported_architectures = {
             "params": {
                 "num_classes": ("number", 100),
                 "num_features": ("number", 128),
-                "proto_init_mode": ("dropdown", "SHIFTED_NORMAL", prototype_init_modes),
+                "proto_init_mode": ("dropdown", "SHIFTED_NORMAL", PROTOTYPE_INIT_MODES),
                 "num_proto_per_class": ("slider", 10, 1, 30),
                 "incorrect_class_penalty": ("number", -0.5),
                 "compatibility_mode": ("checkbox", False),
@@ -61,9 +61,9 @@ supported_architectures = {
             "params": {
                 "num_classes": ("number", 100),
                 "num_features": ("number", 128),
-                "proto_init_mode": ("dropdown", "SHIFTED_NORMAL", prototype_init_modes),
+                "proto_init_mode": ("dropdown", "SHIFTED_NORMAL", PROTOTYPE_INIT_MODES),
                 "depth": ("slider", 9, 2, 15),
-                "leaves_init_mode": ("dropdown", "ZEROS", leaf_init_modes),
+                "leaves_init_mode": ("dropdown", "ZEROS", LEAF_INIT_MODES),
                 "log_probabilities": ("checkbox", False),
             },
         },
@@ -81,6 +81,7 @@ class CaBRNetDesignGUI:
         output_dir: Path to output directory.
         output_file: Output filename.
     """
+
     DEFAULT_WORKING_DIR: str = "working_dir"
     MAX_ADDON_LAYERS: int = 10
 
@@ -168,10 +169,10 @@ class CaBRNetDesignGUI:
 
         def callback(layer_type: str) -> None:
             self.extractor_config["add_on"][f"layer_{layer_index}"]["type"] = layer_type
-            if supported_addon_layers[layer_type]:
+            if SUPPORTED_ADDON_LAYERS[layer_type]:
                 # Add default parameters
                 self.extractor_config["add_on"][f"layer_{layer_index}"]["params"] = {}
-                for key, value in supported_addon_layers[layer_type].items():
+                for key, value in SUPPORTED_ADDON_LAYERS[layer_type].items():
                     self.extractor_config["add_on"][f"layer_{layer_index}"]["params"][key] = value[1]
 
         return callback
@@ -385,8 +386,8 @@ class CaBRNetDesignGUI:
 
                         # All possible parameters from supported layers
                         default_parameters = {}
-                        for layer_name in supported_addon_layers:
-                            for param_name, default_value in supported_addon_layers[layer_name].items():
+                        for layer_name in SUPPORTED_ADDON_LAYERS:
+                            for param_name, default_value in SUPPORTED_ADDON_LAYERS[layer_name].items():
                                 if (
                                     param_name in default_parameters.keys()
                                     and default_parameters[param_name] != default_value
@@ -398,7 +399,7 @@ class CaBRNetDesignGUI:
                                 default_parameters[param_name] = default_value
 
                         addon_init_selection = gr.Dropdown(
-                            label="Init mode", visible=False, choices=list(layer_init_functions.keys())
+                            label="Init mode", visible=False, choices=list(LAYER_INIT_FUNCTIONS.keys())
                         )
                         addon_init_selection.change(self.layer_init_callback(), inputs=[addon_init_selection])
                         num_addon_layers.change(
@@ -412,7 +413,7 @@ class CaBRNetDesignGUI:
                         def _change_param_visibility(param_name: str):
                             def change_visibility(layer_type: str):
                                 return gr.update(
-                                    visible=(supported_addon_layers[layer_type].get(param_name) is not None)
+                                    visible=(SUPPORTED_ADDON_LAYERS[layer_type].get(param_name) is not None)
                                 )
 
                             return change_visibility
@@ -423,7 +424,7 @@ class CaBRNetDesignGUI:
                                     # Layer type selection
                                     layer_type = gr.Dropdown(
                                         label="Layer type",
-                                        choices=list(supported_addon_layers.keys()),
+                                        choices=list(SUPPORTED_ADDON_LAYERS.keys()),
                                         interactive=True,
                                     )
                                     layer_type.change(

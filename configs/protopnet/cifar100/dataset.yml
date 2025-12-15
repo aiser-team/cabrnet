@@ -1,0 +1,75 @@
+train_set:
+  module: torchvision.datasets.cifar
+  name: CIFAR100
+  params:
+    root: data
+    train: True
+    download: true
+    transform:
+      random_crop:
+        type: RandomCrop
+        params:
+          size: [32, 32]
+          padding: 4
+      random_horizontal_flip:
+        type: RandomHorizontalFlip
+      color_jitter:
+        type: ColorJitter
+        params:
+          brightness: 0.1
+          contrast: 0.1
+          saturation: 0.1
+      to_tensor:
+        type: ToTensor
+      normalize:
+        type: Normalize
+        params:
+          mean: [0.4914, 0.4822, 0.4465]
+          std: [0.2471, 0.2435, 0.2616]
+  batch_size: 256
+  shuffle: true
+  num_workers: 2
+  pin_memory: true
+  persistent_workers: true
+
+projection_set:
+  module: torchvision.datasets.cifar
+  name: CIFAR100
+  params:
+    root: data
+    train: true
+    download: true
+    transform:
+      to_tensor:
+        type: ToTensor
+      normalize:
+        type: Normalize
+        params:
+          mean: [0.4914, 0.4822, 0.4465]
+          std: [0.2471, 0.2435, 0.2616]
+  batch_size: 256
+  shuffle: true
+  num_workers: 2
+  pin_memory: true
+  
+
+test_set:
+  module: torchvision.datasets.cifar
+  name: CIFAR100
+  params:
+    root: data
+    train: false
+    download: true
+    transform:
+      to_tensor:
+        type: ToTensor
+      normalize:
+        type: Normalize
+        params:
+          mean: [0.4914, 0.4822, 0.4465]
+          std: [0.2471, 0.2435, 0.2616]
+  batch_size: 256
+  shuffle: false
+  num_workers: 2
+  pin_memory: true
+  persistent_workers: true

@@ -230,8 +230,8 @@ class GenericONNXModel(nn.Module):
         # create a new output for the graph
         # and remove the previous one
         v = gs.Variable("features", dtype=np.float32, shape=out_shape)
-        graph.outputs = [v]
-        last_node.outputs = graph.outputs
+        graph.outputs = [v]  # type: ignore
+        last_node.outputs = graph.outputs  # type: ignore
         logger.debug(f"Replacing output of graph with new node {v} of shape {v.shape}")
         graph.cleanup()
         model_proto = gs.export_onnx(graph)

@@ -1,10 +1,7 @@
 # Contributing to CaBRNet
 
 First of all, thank you for your interest in contributing to CaBRNet! 
-To be able to contribute, you will require either a [GitHub](https://github.com) account or directly 
-a [Frama-C gitlab](https://git.frama-c.com) account. If you are using a GitHub account, you will have to authorize your 
-information to be shared to the Frama-C gitlab server, then wait for a Frama-C admin to enable your account (this may take
-a few days depending on opening days).
+To be able to contribute, you will require a [GitHub](https://github.com) account.
 
 Contributions can take many forms:
 
@@ -28,7 +25,7 @@ by the team to establish the feasibility of the development.
 
 To install everything necessary for developing new CaBRNet features, run
 ```bash
-git clone https://git.frama-c.com/pub/cabrnet.git
+git clone https://github.com/aiser-team/cabrnet
 ```
 Then, follow the [installation guide](docs/manuals/install.md) to install running dependencies.
 
@@ -142,4 +139,4 @@ careful.
 ## License
 
 By contributing to CaBRNet, you agree that your contributions will be licensed
-under the LICENSE file in the root directory of this source tree.
+under the COPYING and COPYING.LESSER files in the root directory of this source tree.

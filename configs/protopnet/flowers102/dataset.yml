@@ -1,0 +1,106 @@
+train_set:
+  module: torchvision.datasets.flowers102
+  name: Flowers102
+  params:
+    root: data
+    split: train
+    download: true
+    transform:
+      convert:
+        type: PILToTensor
+      resize:
+        type: Resize
+        params:
+          size: [128, 128]
+      center_crop:
+        type: CenterCrop
+        params:
+          size: [128, 128]
+      convert_dtype:
+        type: ConvertImageDtype
+        params:
+          dtype: torch.float32
+      # to_tensor:
+      #   type: ToTensor
+      normalize:
+        type: Normalize
+        params:
+          mean: [0.4750, 0.3940, 0.3079]
+          std: [0.2218, 0.2075, 0.2036]
+  batch_size: 64
+  shuffle: True
+  num_workers: 4
+  pin_memory: True
+  persistent_workers: True
+
+projection_set:
+  module: torchvision.datasets.flowers102
+  name: Flowers102
+  params:
+    root: data
+    split: val
+    download: true
+    transform:
+      convert:
+        type: PILToTensor
+      resize:
+        type: Resize
+        params:
+          size: [128, 128]
+      center_crop:
+        type: CenterCrop
+        params:
+          size: [128, 128]
+      convert_dtype:
+        type: ConvertImageDtype
+        params:
+          dtype: torch.float32
+      # to_tensor:
+      #   type: ToTensor
+      normalize:
+        type: Normalize
+        params:
+          mean: [0.4750, 0.3940, 0.3079]
+          std: [0.2218, 0.2075, 0.2036]
+  batch_size: 64
+  shuffle: False
+  num_workers: 4
+  pin_memory: True
+
+test_set:
+  module: torchvision.datasets.flowers102
+  name: Flowers102
+  params:
+    root: data
+    split: test
+    download: true
+    transform:
+      convert:
+        type: PILToTensor
+      resize:
+        type: Resize
+        params:
+          size: [128, 128]
+      center_crop:
+        type: CenterCrop
+        params:
+          size: [128, 128]
+      convert_dtype:
+        type: ConvertImageDtype
+        params:
+          dtype: torch.float32
+      # to_tensor:
+      #   type: ToTensor
+      normalize:
+        type: Normalize
+        params:
+          mean: [0.4750, 0.3940, 0.3079]
+          std: [0.2218, 0.2075, 0.2036]
+  batch_size: 64
+  shuffle: False
+  num_workers: 4
+  pin_memory: True
+  persistent_workers: True
+
+# Note: The above code is adapted to the Flowers102 dataset, which may have different preprocessing steps compared to the MNIST and Stanford Cars datasets.
+

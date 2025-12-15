@@ -41,7 +41,7 @@ def save_checkpoint(
     optimizer_mngr: OptimizerManager | None,
     training_config: str | dict[str, Any] | None,
     dataset_config: str | dict[str, Any],
-    projection_info: dict[int, dict[str, int | float]] | None,
+    projection_info: list[dict] | None,
     epoch: int | str,
     seed: int | None,
     device: str | torch.device,
@@ -56,7 +56,7 @@ def save_checkpoint(
         optimizer_mngr (OptimizerManager): Optimizer manager.
         training_config (str): Path to the training configuration file, or configuration dictionary.
         dataset_config (str): Path to the dataset configuration file, or configuration dictionary.
-        projection_info (dictionary, optional): Projection dictionary, generated during training epilogue.
+        projection_info (list, optional): Projection information, generated during training epilogue.
         epoch (int or str): Current epoch.
         seed (int): Initial random seed (recorded for reproducibility).
         device (str | device): Hardware device (recorded for reproducibility).
@@ -103,10 +103,10 @@ def save_checkpoint(
     }
 
     with open(os.path.join(directory_path, "state.pickle"), "wb") as file:
-        pickle.dump(state, file)
+        pickle.dump(state, file)  # type: ignore
 
     # Save projection information if it exists
-    if projection_info is not None:
+    if projection_info:
         save_projection_info(projection_info, os.path.join(directory_path, CaBRNet.DEFAULT_PROJECTION_INFO))
 
     # Save ONNX model if it exists
@@ -177,11 +177,11 @@ def load_checkpoint(
     }
 
 
-def save_projection_info(projection_info: dict[int, dict[str, int | float]], filename: str) -> None:
+def save_projection_info(projection_info: list[dict], filename: str) -> None:
     r"""Saves projection information, either in pickle or CSV format.
 
     Args:
-        projection_info (dictionary): Projection dictionary, generated during training epilogue.
+        projection_info (list): Projection list, generated during training epilogue.
         filename (str): Path to output file. Based on the file extension, the file is stored in
           pickle format (pickle or pkl extension) or CSV format (any other extension).
     """
@@ -192,14 +192,14 @@ def save_projection_info(projection_info: dict[int, dict[str, int | float]], fil
         # CSV format
         with open(filename, "w") as f:
             # Extract fields from first entry in the dictionary
-            fields = next(iter(projection_info.values())).keys()
-            writer = csv.DictWriter(f, fieldnames=["proto_idx"] + list(fields))
+            fields = projection_info[0].keys()
+            writer = csv.DictWriter(f, fieldnames=list(fields))
             writer.writeheader()
-            for proto_idx in projection_info.keys():
-                writer.writerow(projection_info[proto_idx] | {"proto_idx": proto_idx})
+            for proto_info in projection_info:
+                writer.writerow(proto_info)
 
 
-def load_projection_info(filename: str) -> dict[int, dict[str, int | float]]:
+def load_projection_info(filename: str) -> list[dict]:
     r"""Loads projection information, either in pickle or CSV format.
 
     Args:
@@ -215,6 +215,5 @@ def load_projection_info(filename: str) -> dict[int, dict[str, int | float]]:
         with open(filename, "rb") as file:
             projection_info = pickle.load(file)
     else:
-        projection_list = pd.read_csv(filename).to_dict(orient="records")
-        projection_info = {entry["proto_idx"]: entry for entry in projection_list}
+        projection_info = pd.read_csv(filename).to_dict(orient="records")
     return projection_info

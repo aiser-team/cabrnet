@@ -5,8 +5,11 @@ from typing import Any
 
 import torch
 import torch.nn as nn
+from torch.optim.lr_scheduler import ReduceLROnPlateau
+
 from cabrnet.core.utils.parser import load_config
 from loguru import logger
+import re
 
 
 def move_optimizer_to(optim: torch.optim.Optimizer, device: str | torch.device) -> None:
@@ -37,6 +40,7 @@ class OptimizerManager:
         param_groups: Dictionary separating the model parameters into groups.
         optimizers: Dictionary of optimizers associated with different parameter groups.
         schedulers: Dictionary of learning rate schedulers associated with optimizers.
+        schedulers_trig: Dictionary recording the trigger of each scheduler.
         periods: Dictionary defining training periods.
     """
 
@@ -53,6 +57,7 @@ class OptimizerManager:
         self.param_groups: dict[str, list[nn.Parameter]] = {}
         self.optimizers: dict[str, torch.optim.Optimizer] = {}
         self.schedulers: dict[str, torch.optim.lr_scheduler.LRScheduler] = {}
+        self.schedulers_trig: dict[str, str] = {}
         self.periods: dict[str, dict[str, Any]] = {}
 
         self._set_param_groups(module=module)
@@ -91,41 +96,117 @@ class OptimizerManager:
             self.param_groups["main"] = [param for _, param in module.named_parameters()]
             return
 
-        covered_names = []
+        covered_names = set()
+
+        # Sounds silly but I made mistakes before
+        INCLUDE = "include"
+        EXCLUDE = "exclude"
+        START, STOP = "start", "stop"
+        INCLUDE_TYPE = "type"
+        EXCLUDE_TYPE = "exclude_type"
 
         for group_name, group_value in param_groups.items():
             self.param_groups[group_name] = []
-            if isinstance(group_value, list | str):
-                # Submodule or list of submodules
-                if isinstance(group_value, str):
-                    group_value = [group_value]
-                for submodule_name in group_value:
+            if isinstance(group_value, str | list):
+                group_value = {INCLUDE: group_value}
+            # group_value is now a dictionary
+
+            unknown_keys = set(group_value.keys())
+            unknown_keys = unknown_keys.difference({INCLUDE, EXCLUDE, START, STOP, INCLUDE_TYPE, EXCLUDE_TYPE})
+            if unknown_keys:
+                raise ValueError(
+                    f"Unknown key {list(unknown_keys)[0]}"
+                    + (f", ({len(unknown_keys) - 1} similar messages)." if len(unknown_keys) > 1 else "")
+                )
+
+            # INCLUDE or START
+            if group_value.get(INCLUDE) and (group_value.get(START) or group_value.get(STOP)):
+                raise ValueError(f"Cannot use both keywords '{INCLUDE}' and '{START}'/'{STOP}'")
+
+            exclude = group_value.get(EXCLUDE, [])
+            if isinstance(exclude, str):
+                exclude = [exclude]
+
+            # Type-based filter
+            included_types = group_value.get(INCLUDE_TYPE, [])
+            if isinstance(included_types, str):
+                included_types = [included_types]
+            excluded_types = group_value.get(EXCLUDE_TYPE, [])
+            if isinstance(excluded_types, str):
+                excluded_types = [excluded_types]
+            if included_types and excluded_types:
+                raise ValueError(f"Cannot use both keywords '{INCLUDE_TYPE}' and '{EXCLUDE_TYPE}'")
+
+            def recursive_type_filter(current_module: nn.Module, prefix: str, result: list, type_list: list):
+                class_name = current_module.__class__.__name__
+
+                if type(current_module) in type_list or class_name in type_list:
+                    # Positive match, add all parameters
+                    for param_name, _ in current_module.named_parameters():
+                        result.append(f"{prefix}{param_name}")
+                else:
+                    # Recursive call
+                    for child_name, child in current_module.named_children():
+                        recursive_type_filter(child, f"{prefix}{child_name}.", result, type_list)
+
+            if not included_types:
+                included_parameters = [name for name, _ in module.named_parameters()]
+            else:
+                included_parameters = []
+                recursive_type_filter(module, "", included_parameters, included_types)
+            excluded_parameters = []
+            if excluded_types:
+                recursive_type_filter(module, "", excluded_parameters, excluded_types)
+
+            # DEBUG logging
+            logger.debug(f"Group {group_name} includes {len(included_parameters)} parameters, "
+                        f"excludes {len(excluded_parameters)} parameters.")
+            
+            module_parameters = [name for name in included_parameters if name not in excluded_parameters]
+
+            # Collect the names of the layers to keep in order to avoid duplicates
+            selected = set()
+            if INCLUDE in group_value:
+                include = group_value.get(INCLUDE, [])
+                if isinstance(include, str):
+                    include = [include]
+
+                for submodule in include:
                     match_found = False
-                    for name, param in module.named_parameters():
-                        if name.startswith(submodule_name):
+                    for name in module_parameters:
+                        if name.startswith(submodule) or re.search(submodule, name):
                             match_found = True
-                            self.param_groups[group_name].append(param)
-                            covered_names.append(name)
+                            selected.add(name)
                     if not match_found:
                         logger.warning(f"No parameter matching keyword {submodule_name} in model")
             else:
-                start = group_value.get("start")
-                stop = group_value.get("stop")
-                if start is None and stop is None:
-                    raise ValueError(f"Invalid format for group {group_name}: {group_value}.")
+                start = group_value.get(START)
+                stop = group_value.get(STOP)
                 record = start is None
                 stop_found = False
-                for name, param in module.named_parameters():
+                for name in module_parameters:
                     if start and name.startswith(start):
                         record = True
                     elif stop_found and not name.startswith(stop):
                         break
                     if record:
-                        self.param_groups[group_name].append(param)
-                        covered_names.append(name)
+                        selected.add(name)
                     if stop and name.startswith(stop):
                         stop_found = True
-            if not self.param_groups[group_name]:
+                if stop and not stop_found:
+                    raise ValueError(f"Unknown parameter group boundary: {stop}")
+
+            # Exclude parameters
+            for name, param in module.named_parameters():
+                if name in selected:
+                    if any(name.startswith(pattern) or re.search(pattern, name) for pattern in exclude):
+                        continue
+                    covered_names.add(name)
+                    logger.debug(f"Adding parameter {name} to group {group_name}")
+                    self.param_groups[group_name].append(param)
+
+            if group_value and not self.param_groups[group_name]:
+                # Parameter group is empty
                 logger.warning(f"Empty parameter group {group_name}.")
 
         # Check which model parameters are not covered by any group
@@ -139,7 +220,7 @@ class OptimizerManager:
         if not_covered_count > 0:
             logger.warning(
                 f"{first_not_covered_param} does not belong to any parameter group "
-                f"({not_covered_count-1} similar messages)."
+                f"({not_covered_count - 1} similar messages)."
             )
 
     def _set_optimizers(self) -> None:
@@ -149,23 +230,43 @@ class OptimizerManager:
             config = optim_config[optim_name]
             global_params = config.get("params")
             optim_fn = config["type"]
+            
+            if "Muon" in optim_fn:
+                try:
+                    from muon import SingleDeviceMuon  # pylint: disable=import-outside-toplevel
+                except ImportError as exc:
+                    raise ImportError(
+                        f"Optimizer '{optim_fn}' requires the Muon package. "
+                        "Install with: pip install git+https://github.com/KellerJordan/Muon"
+                    ) from exc
+            
             if config.get("groups") is None:
                 param_group = self.param_groups["main"]
-                self.optimizers[optim_name] = getattr(torch.optim, optim_fn)(params=param_group, **global_params)
+                if optim_fn == "SingleDeviceMuon":
+                    self.optimizers[optim_name] = SingleDeviceMuon(params=param_group, **global_params)
+                else:
+                    self.optimizers[optim_name] = getattr(torch.optim, optim_fn)(params=param_group, **global_params)
             else:
                 optimizer_params = []
                 for group_name, group_config in config["groups"].items():
                     if group_name not in self.param_groups.keys():
                         raise ValueError(f"Parameter group not found for optimizer {optim_name}: {group_name}")
                     optimizer_params.append({"params": self.param_groups[group_name], **group_config})
-                self.optimizers[optim_name] = (
-                    getattr(torch.optim, optim_fn)(optimizer_params, **global_params)
-                    if global_params is not None
-                    else getattr(torch.optim, optim_fn)(optimizer_params)
-                )
+                if optim_fn == "SingleDeviceMuon":
+                    self.optimizers[optim_name] = SingleDeviceMuon(
+                        params=optimizer_params, **(global_params if global_params else {})
+                    )
+                else:
+                    self.optimizers[optim_name] = (
+                        getattr(torch.optim, optim_fn)(optimizer_params, **global_params)
+                        if global_params is not None
+                        else getattr(torch.optim, optim_fn)(optimizer_params)
+                    )
             if config.get("scheduler") is not None:
                 scheduler_type = config["scheduler"]["type"]
                 scheduler_params = config["scheduler"].get("params")
+                scheduler_trig = config["scheduler"].get("trigger", "epoch")
+                assert scheduler_trig in ["epoch", "batch"], f"Unsupported LR scheduling trigger {scheduler_trig}"
                 self.schedulers[optim_name] = (
                     getattr(torch.optim.lr_scheduler, scheduler_type)(
                         optimizer=self.optimizers[optim_name], **scheduler_params
@@ -173,6 +274,7 @@ class OptimizerManager:
                     if scheduler_params is not None
                     else getattr(torch.optim.lr_scheduler, scheduler_type)(optimizer=self.optimizers[optim_name])
                 )
+                self.schedulers_trig[optim_name] = scheduler_trig
             else:
                 logger.warning(f"No scheduler defined for optimizer {optim_name}")
 
@@ -301,7 +403,7 @@ class OptimizerManager:
             name (str): Group name.
             freeze (bool): Whether this parameter should be frozen or unfrozen.
         """
-        logger.debug(f"Parameter group {name} is {'frozen' if freeze  else 'trainable'}")
+        logger.debug(f"Parameter group {name} is {'frozen' if freeze else 'trainable'}")
         for param in self.param_groups[name]:
             param.requires_grad = not freeze
 
@@ -360,18 +462,22 @@ class OptimizerManager:
             return period_config["patience"]
         raise ValueError(f"No active period for epoch {epoch}")
 
-    def scheduler_step(self, epoch: int):
+    def scheduler_step(self, epoch: int, metric: Any):
         r"""Applies learning rate scheduler step depending on current epoch.
 
         Args:
             epoch (int): Current epoch.
+            metric (any): Target metric (used for ReduceLROnPlateau).
         """
         for period_name in self.get_active_periods(epoch):
             period_config = self.periods[period_name]
             for optim_name in period_config["optimizers"]:
-                # Not all optimizers are associated with a scheduler
-                if self.schedulers.get(optim_name) is not None:
-                    self.schedulers[optim_name].step()
+                # Not all optimizers are associated with a scheduler. Not all schedulers are called after each epoch
+                if self.schedulers.get(optim_name) is not None and self.schedulers_trig.get(optim_name) == "epoch":
+                    if isinstance(self.schedulers[optim_name], ReduceLROnPlateau):
+                        self.schedulers[optim_name].step(metric)
+                    else:
+                        self.schedulers[optim_name].step()
 
     def to(self, device: str | torch.device):
         r"""Moves OptimizerManager to a given device.

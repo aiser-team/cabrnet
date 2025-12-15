@@ -176,5 +176,6 @@ def execute(args: Namespace) -> None:
             device=device,
             verbose=verbose,
             prototype_dir=prototype_dir,
+            sampling_ratio=args.sampling_ratio,
             **config,
         )

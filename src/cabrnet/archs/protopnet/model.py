@@ -9,12 +9,11 @@ import torch.nn as nn
 from loguru import logger
 from PIL import Image
 from torch.utils.data import DataLoader
-from torchvision.transforms import ToTensor
 from tqdm import tqdm
-import time
 
 from cabrnet.archs.generic.decision import CaBRNetClassifier
 from cabrnet.archs.generic.model import CaBRNet
+from cabrnet.core.utils.image import safe_open_image
 from cabrnet.core.utils.optimizers import OptimizerManager
 from cabrnet.core.visualization.explainer import ExplanationGraph
 from cabrnet.core.visualization.visualizer import SimilarityVisualizer
@@ -124,7 +123,7 @@ class ProtoPNet(CaBRNet):
                     f"to match model state"
                 )
                 # self.num_prototypes is automatically updated after changing the prototype tensor
-                self.classifier.prototypes = nn.Parameter(  # type: ignore
+                self.classifier.prototypes = nn.Parameter(
                     torch.zeros((updated_num_prototypes, self.classifier.num_features, 1, 1)), requires_grad=True
                 )
                 # Update shape of all other relevant tensors
@@ -188,115 +187,12 @@ class ProtoPNet(CaBRNet):
             "loss": loss.item(),
             "accuracy": batch_accuracy,
             "cross_entropy": cross_entropy.item(),
-            "cluster_cost": cluster_cost.item(),
-            "separation_cost": separation_cost.item(),
+            "clustering": cluster_cost.item(),
+            "separation": separation_cost.item(),
             "l1": l1.item(),
         }
 
         return loss, stats
-
-    def _train_epoch(
-        self,
-        dataloaders: dict[str, DataLoader],
-        optimizer_mngr: OptimizerManager | torch.optim.Optimizer,
-        device: str | torch.device = "cuda:0",
-        tqdm_position: int = 0,
-        tqdm_title: str = "",
-        epoch_idx: int = 0,
-        verbose: bool = False,
-    ) -> dict[str, float]:
-        r"""Internal function: trains the model for exactly one epoch.
-
-        Args:
-            dataloaders (dictionary): Dictionary of dataloaders.
-            optimizer_mngr (OptimizerManager): Optimizer manager.
-            device (str | device, optional): Hardware device. Default: cuda:0.
-            tqdm_position (int, optional): Position of the progress bar. Default: 0.
-            tqdm_title (str, optional): Progress bar title. Default: "".
-            epoch_idx (int, optional): Epoch index. Default: 0.
-            verbose (bool, optional): Display progress bar. Default: False.
-
-        Returns:
-            Dictionary containing learning statistics.
-        """
-        self.train()
-        self.to(device)
-
-        # Training stats
-        train_info = {}
-        nb_inputs = 0
-
-        # Capture data fetch time relative to total batch time to ensure that there is no bottleneck here
-        total_batch_time = 0.0
-        total_data_time = 0.0
-
-        # Use training dataloader
-        train_loader = dataloaders["train_set"]
-
-        # Show progress on progress bar if needed
-        train_iter = tqdm(
-            enumerate(train_loader),
-            desc=tqdm_title,
-            total=len(train_loader),
-            leave=False,
-            position=tqdm_position,
-            disable=not verbose,
-        )
-        ref_time = time.time()
-        batch_idx = 0
-        for batch_idx, (xs, ys) in train_iter:
-            data_time = time.time() - ref_time
-            nb_inputs += xs.size(0)
-
-            # Reset gradients and map the data on the target device
-            optimizer_mngr.zero_grad()
-            xs, ys = xs.to(device), ys.to(device)
-
-            # Perform inference and compute loss
-            ys_pred, distances = self.forward(xs)
-            batch_loss, batch_stats = self.loss((ys_pred, distances), ys)
-
-            # Compute the gradient and update parameters
-            batch_loss.backward()
-            if isinstance(optimizer_mngr, OptimizerManager):
-                optimizer_mngr.optimizer_step(epoch=epoch_idx)
-            else:  # Simple optimizer
-                optimizer_mngr.step()
-
-            # Update progress bar
-            batch_accuracy = batch_stats["accuracy"]
-            batch_time = time.time() - ref_time
-            postfix_str = (
-                f"Batch [{batch_idx + 1}/{len(train_loader)}], "
-                f"Batch loss: {batch_loss.item():.3f}, Acc: {batch_accuracy:.3f}, "
-                f"Batch time: {batch_time:.3f}s (data: {data_time:.3f})"
-            )
-            train_iter.set_postfix_str(postfix_str)
-
-            # Update all metrics
-            if not train_info:
-                train_info = batch_stats
-            for key, value in batch_stats.items():
-                train_info[key] += value * xs.size(0)
-
-            total_batch_time += batch_time
-            total_data_time += data_time
-            ref_time = time.time()
-
-        # Clean gradients after last batch
-        optimizer_mngr.zero_grad()
-
-        train_info = {key: value / nb_inputs for key, value in train_info.items()}
-
-        # Update batch_num with effective value
-        batch_num = batch_idx + 1
-        train_info.update(
-            {
-                "time/batch": total_batch_time / batch_num,
-                "time/data": total_data_time / batch_num,
-            }
-        )
-        return train_info
 
     def train_epoch(
         self,
@@ -341,6 +237,7 @@ class ProtoPNet(CaBRNet):
                 verbose=verbose,
                 tqdm_position=tqdm_position,
             )
+
             # Freeze all parameters except last layer
             optimizer_mngr.freeze_non_associated_groups(optim_name="last_layer_optimizer")
 
@@ -377,7 +274,7 @@ class ProtoPNet(CaBRNet):
         disable_pruned_prototypes: bool = False,
         tqdm_position: int = 0,
         **kwargs,
-    ) -> dict[int, dict[str, int | float]]:
+    ) -> list[dict]:
         r"""Function called after training, using information from the epilogue field in the training configuration.
 
         Args:
@@ -404,10 +301,10 @@ class ProtoPNet(CaBRNet):
             verbose=verbose,
         )
 
-        eval_info = self.evaluate(dataloader=dataloaders["test_set"], device=device, verbose=verbose)
+        eval_info = self.evaluate(dataloaders=dataloaders, dataset_name="test_set", device=device, verbose=verbose)
         logger.info(
-            f"After projection. Average loss: {eval_info['loss']:.2f}. "
-            f"Average accuracy: {eval_info['accuracy']:.2f}."
+            f"After projection. Average loss: {eval_info['test_set/loss']:.2f}. "
+            f"Average accuracy: {eval_info['test_set/accuracy']:.2f}."
         )
 
         if num_nearest_patches > 0:
@@ -534,7 +431,7 @@ class ProtoPNet(CaBRNet):
             index_prototypes_to_keep = torch.tensor(index_prototypes_to_keep).to(device)
 
             # overwrite prototypes with selected subset (self.num_prototypes is updated automatically)
-            self.classifier.prototypes = nn.Parameter(  # type: ignore
+            self.classifier.prototypes = nn.Parameter(
                 torch.index_select(input=self.classifier.prototypes, dim=0, index=index_prototypes_to_keep),
                 requires_grad=True,
             )
@@ -568,108 +465,13 @@ class ProtoPNet(CaBRNet):
             self.classifier.last_layer.weight.data.copy_(last_layer_weights)
             logger.info(
                 f"Model statistics after pruning: "
-                f"{self.num_prototypes-len(index_prototypes_to_prune)} (active) prototypes."
+                f"{self.num_prototypes - len(index_prototypes_to_prune)} (active) prototypes."
             )
-
-    def project(
-        self,
-        dataloader: DataLoader,
-        device: str | torch.device = "cuda:0",
-        verbose: bool = False,
-        tqdm_position: int = 0,
-    ) -> dict[int, dict[str, int | float]]:
-        r"""Performs prototype projection after training.
-
-        Args:
-            dataloader (DataLoader): Dataloader containing projection data.
-            device (str | device, optional): Hardware device. Default: cuda:0.
-            verbose (bool, optional): Display progress bar. Default: False.
-            tqdm_position (int, optional): Position of the progress bar. Default: 0.
-
-        Returns:
-            Dictionary containing projection information for each prototype.
-        """
-        logger.info("Performing prototype projection")
-        self.eval()
-        self.to(device)
-
-        # For each class, keep track of the related prototypes
-        np_proto_class_map = self.classifier.proto_class_map.detach().cpu().numpy()
-        class_mapping = {c: list(np.nonzero(np_proto_class_map[:, c])[0]) for c in range(self.classifier.num_classes)}
-        # Sanity check to ensure that each class is associated with at least one prototype
-        for class_idx in range(self.classifier.num_classes):
-            if class_idx not in class_mapping:
-                logger.error(f"Inaccessible class {class_idx}!")
-
-        # Show progress on progress bar if needed
-        data_iter = tqdm(
-            enumerate(dataloader),
-            desc="Prototype projection",
-            total=len(dataloader),
-            leave=False,
-            position=tqdm_position,
-            disable=not verbose,
-        )
-
-        # Number of prototypes and prototype length
-        num_prototypes, proto_dim = self.num_prototypes, self.classifier.num_features
-
-        # For each prototype, keep track of:
-        #   - the index of the closest projection image
-        #   - the coordinates of the vector inside the latent representation of that image
-        #   - the corresponding distance
-        #   - the corresponding vector
-        projection_info = {
-            proto_idx: {
-                "img_idx": -1,
-                "h": -1,
-                "w": -1,
-                "dist": float("inf"),
-            }
-            for proto_idx in range(num_prototypes)
-        }
-        projection_vectors = torch.zeros_like(self.classifier.prototypes)
-
-        with torch.no_grad():
-            for batch_idx, (xs, ys) in data_iter:
-                # Map to device and perform inference
-                xs = xs.to(device)
-                feats = self.extractor(xs)  # Shape N x D x H x W
-                _, W = feats.shape[2], feats.shape[3]
-                distances = self.classifier.similarity_layer.distances(
-                    feats, self.classifier.prototypes
-                )  # Shape (N, P, H, W)
-                min_dist, min_dist_idxs = torch.min(distances.view(distances.shape[:2] + (-1,)), dim=2)
-
-                for img_idx, (_, y) in enumerate(zip(xs, ys)):
-                    if y.item() not in class_mapping:
-                        # Class is not associated with any prototype (this is bad...)
-                        continue
-                    for proto_idx in class_mapping[y.item()]:
-                        # For each entry, only check prototypes that lead to the corresponding class
-                        if min_dist[img_idx, proto_idx] < projection_info[proto_idx]["dist"]:
-                            h, w = (
-                                min_dist_idxs[img_idx, proto_idx].item() // W,
-                                min_dist_idxs[img_idx, proto_idx].item() % W,
-                            )
-                            batch_size = 1 if dataloader.batch_size is None else dataloader.batch_size
-                            projection_info[proto_idx] = {
-                                "img_idx": batch_idx * batch_size + img_idx,
-                                "h": h,
-                                "w": w,
-                                "dist": min_dist[img_idx, proto_idx].item(),
-                            }
-                            projection_vectors[proto_idx] = feats[img_idx, :, h, w].view(proto_dim, 1, 1).cpu()
-
-            # Update prototype vectors
-            self.classifier.prototypes.copy_(projection_vectors)
-
-        return projection_info
 
     def explain(
         self,
         img: str | Image.Image,
-        preprocess: Callable | None,
+        preprocess: Callable[[Image.Image], Image.Image] | None,
         visualizer: SimilarityVisualizer,
         prototype_dir: str = "",
         output_dir: str = "",
@@ -703,71 +505,63 @@ class ProtoPNet(CaBRNet):
         """
         self.eval()
 
-        if isinstance(img, str):
-            img = Image.open(img)
+        with safe_open_image(img, preprocess) as (img, img_tensor):
+            # Map to device
+            self.to(device)
+            img_tensor = img_tensor.to(device)
 
-        if preprocess is None:
-            preprocess = ToTensor()
+            # Perform inference and get minimum distance to each prototype
+            prediction, min_distances = self.forward(img_tensor)
+            class_idx = torch.argmax(prediction, dim=1)[0]
+            min_distances = min_distances[0]
 
-        img_tensor = preprocess(img)
-        if img_tensor.dim() != 4:
-            # Fix number of dimensions if necessary
-            img_tensor = torch.unsqueeze(img_tensor, dim=0)
+            # Ignore distances to pruned/non-class specific prototypes
+            for proto_idx in range(self.num_prototypes):
+                if not self.classifier.prototype_is_active(proto_idx) or (
+                    class_specific and self.classifier.proto_class_map[proto_idx, class_idx] == 0
+                ):
+                    min_distances[proto_idx] = float("inf")
 
-        # Map to device
-        self.to(device)
-        img_tensor = img_tensor.to(device)
-
-        # Perform inference and get minimum distance to each prototype
-        prediction, min_distances = self.forward(img_tensor)
-        class_idx = torch.argmax(prediction, dim=1)[0]
-        min_distances = min_distances[0]
-
-        # Ignore distances to pruned/non-class specific prototypes
-        for proto_idx in range(self.num_prototypes):
-            if not self.classifier.prototype_is_active(proto_idx) or (
-                class_specific and self.classifier.proto_class_map[proto_idx, class_idx] == 0
-            ):
-                min_distances[proto_idx] = float("inf")
-
-        # Build explanation
-        img_path = os.path.join(output_dir, "original.png")
-        if not disable_rendering:
-            os.makedirs(os.path.join(output_dir, "test_patches"), exist_ok=exist_ok)
-            # Copy source image
-            img.save(img_path)
-        explanation = ExplanationGraph(output_dir=output_dir)
-        explanation.set_test_image(img_path=img_path)
-        most_relevant_prototypes = []  # Keep track of most relevant prototypes
-
-        for _ in range(num_closest):
-            proto_idx = int(torch.argmin(min_distances).item())
-            min_distance = torch.min(min_distances)
-            if min_distance == float("inf"):
-                # Not enough relevant prototypes
-                break
-            score = self.classifier.similarity_layer.distances_to_similarities(min_distance).item()
-            most_relevant_prototypes.append((proto_idx, score, True))  # ProtoPNet only considers positive similarities
-            # Recover path to prototype image
-            prototype_image_path = os.path.join(prototype_dir, f"prototype_{proto_idx}.png")
-            prototype_class_idx = int(torch.argmax(self.classifier.proto_class_map[proto_idx]))
-            # Generate test image patch
-            patch_image_path = os.path.join(output_dir, "test_patches", f"proto_similarity_{proto_idx}.png")
+            # Build explanation
+            img_path = os.path.join(output_dir, "original.png")
             if not disable_rendering:
-                patch_image = visualizer.forward(img=img, img_tensor=img_tensor, proto_idx=proto_idx, device=device)
-                patch_image.save(patch_image_path)
-            explanation.add_similarity(
-                prototype_img_path=prototype_image_path,
-                test_patch_img_path=patch_image_path,
-                label=f"Prototype {proto_idx}\n(class {prototype_class_idx}, score: {score:.2f})",
-                font_color="black" if class_idx == prototype_class_idx else "red",
-            )
-            # "Disable" prototype from search
-            min_distances[proto_idx] = float("inf")
-        explanation.add_prediction(int(torch.argmax(prediction).item()))
-        if not disable_rendering:
-            explanation.render(output_format=output_format)
-        return most_relevant_prototypes
+                os.makedirs(os.path.join(output_dir, "test_patches"), exist_ok=exist_ok)
+                # Copy source image
+                img.save(img_path)
+            explanation = ExplanationGraph(output_dir=output_dir)
+            explanation.set_test_image(img_path=img_path)
+            most_relevant_prototypes = []  # Keep track of most relevant prototypes
+
+            for _ in range(num_closest):
+                proto_idx = int(torch.argmin(min_distances).item())
+                min_distance = torch.min(min_distances)
+                if min_distance == float("inf"):
+                    # Not enough relevant prototypes
+                    break
+                score = self.classifier.similarity_layer.distances_to_similarities(min_distance).item()
+                most_relevant_prototypes.append(
+                    (proto_idx, score, True)
+                )  # ProtoPNet only considers positive similarities
+                # Recover path to prototype image
+                prototype_image_path = os.path.join(prototype_dir, f"prototype_{proto_idx}.png")
+                prototype_class_idx = int(torch.argmax(self.classifier.proto_class_map[proto_idx]))
+                # Generate test image patch
+                patch_image_path = os.path.join(output_dir, "test_patches", f"proto_similarity_{proto_idx}.png")
+                if not disable_rendering:
+                    patch_image = visualizer.forward(img=img, img_tensor=img_tensor, proto_idx=proto_idx, device=device)
+                    patch_image.save(patch_image_path)
+                explanation.add_similarity(
+                    prototype_img_path=prototype_image_path,
+                    test_patch_img_path=patch_image_path,
+                    label=f"Prototype {proto_idx}\n(class {prototype_class_idx}, score: {score:.2f})",
+                    font_color="black" if class_idx == prototype_class_idx else "red",
+                )
+                # "Disable" prototype from search
+                min_distances[proto_idx] = float("inf")
+            explanation.add_prediction(int(torch.argmax(prediction).item()))
+            if not disable_rendering:
+                explanation.render(output_format=output_format)
+            return most_relevant_prototypes
 
     def explain_global(self, prototype_dir: str, output_dir: str, output_format: str = "pdf", **kwargs) -> None:
         r"""Explains the global decision-making process of a CaBRNet model.
@@ -777,7 +571,7 @@ class ProtoPNet(CaBRNet):
             output_dir (str): Path to output directory.
             output_format (str, optional): Output file format. Default: pdf.
         """
-        proto_class_map = self.classifier.proto_class_map.detach().cpu().numpy()
+        proto_class_map = self.classifier.prototype_class_mapping
         class_mapping = {c: list(np.nonzero(proto_class_map[:, c])[0]) for c in range(self.classifier.num_classes)}
 
         explanation_graph = graphviz.Graph()

@@ -13,7 +13,11 @@ Recognition](https://openaccess.thecvf.com/content/CVPR2021/papers/Nauta_Neural_
 2021 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR), pages 14928–14938, 2021.
 - **ProtoPool**, as described in *Dawid Rymarczyk, Lukasz Struski, Michal Gorszczak, Koryna Lewandowska, Jacek Tabor and Bartosz Zielinski.* 
 [Interpretable Image Classification with Differentiable Prototypes Assignment](https://www.ecva.net/papers/eccv_2022/papers_ECCV/papers/136720346.pdf). 
-2021 European Conference on Computer Vision (ECCV).*
+2021 European Conference on Computer Vision (ECCV).
+- **PIPNet**, as described in *Meike Nauta, Jörg Schlötterer, Maurice van Keulen, 
+Christin Seifert (2023).* 
+[PIP-Net: Patch-Based Intuitive Prototypes for Interpretable Image Classification.](https://openaccess.thecvf.com/content/CVPR2023/papers/Nauta_PIP-Net_Patch-Based_Intuitive_Prototypes_for_Interpretable_Image_Classification_CVPR_2023_paper.pdf) 
+IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR).
 
 # Index
 - [Build and install](install.md)
@@ -27,22 +31,3 @@ Recognition](https://openaccess.thecvf.com/content/CVPR2021/papers/Nauta_Neural_
 - [Benchmark](evaluation.md)
 - [Compatibility with legacy codes](legacy.md)
 - [Downloading pre-trained models](download.md)
-
-# Documentation
-## Generating the reference API and the user manual
-Use the following command to generate the markdown API reference:
-```bash
-cd .. # Go back to docs/ directory
-pydoc-markdown
-```
-To compile the user manual in PDF format, simply enter:
-```bash
-make
-```
-## Generating the mkdocs website
-Use the following command to generate the mkdocs documentation website
-```bash
-cd ../ # Go back to docs/ directory
-mkdocs build
-```
-

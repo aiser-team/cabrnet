@@ -42,6 +42,7 @@ class CaBRNetAnalysisGUI:
         device: Hardware device.
         visualizer: Current patch visualizer.
     """
+
     DEFAULT_CHECKPOINT_DIR: str = "."
     DEFAULT_WORKING_DIR: str = "working_dir"
 
@@ -65,7 +66,7 @@ class CaBRNetAnalysisGUI:
             self.dataloaders = None
             self.projection_info = None
 
-            try:
+            try:  # Mandatory content
                 # Load the model
                 self.model = CaBRNet.build_from_config(
                     config=os.path.join(checkpoint_path, CaBRNet.DEFAULT_MODEL_CONFIG),
@@ -78,16 +79,20 @@ class CaBRNetAnalysisGUI:
                 self.dataloaders = DatasetManager.get_dataloaders(
                     config=os.path.join(checkpoint_path, DatasetManager.DEFAULT_DATASET_CONFIG),
                 )
+            except FileNotFoundError as e:
+                logger.warning(e)
+                return gr.update(root_dir=None)
 
+            try:  # Optional content of the directory
                 # Load projection info
                 self.projection_info = load_projection_info(
                     filename=os.path.join(checkpoint_path, CaBRNet.DEFAULT_PROJECTION_INFO)
                 )
-                return gr.update(root_dir=self.dataloaders["test_set"].dataset.root)  # type: ignore
-
             except FileNotFoundError as e:
                 logger.warning(e)
                 pass
+
+            return gr.update(root_dir=self.dataloaders["test_set"].dataset.root)  # type: ignore
 
         return callback
 
@@ -107,7 +112,9 @@ class CaBRNetAnalysisGUI:
             if self.model is None or self.dataloaders is None:
                 logger.warning("No checkpoint loaded (yet).")
                 return None
-            stats = self.model.evaluate(dataloader=self.dataloaders["test_set"], device=self.device, verbose=True)
+            stats = self.model.evaluate(
+                dataloaders=self.dataloaders, dataset_name="test_set", device=self.device, verbose=True
+            )
             return metrics_to_str(stats)
 
         return callback
@@ -135,8 +142,11 @@ class CaBRNetAnalysisGUI:
         r"""Returns a callback for generating the global explanation of a model."""
 
         def callback(gradio_outputs: dict[Component, Any]) -> str | None:
-            if self.model is None or self.dataloaders is None or self.projection_info is None:
+            if self.model is None or self.dataloaders is None:
                 logger.warning("No checkpoint loaded (yet).")
+                return None
+            if self.projection_info is None:
+                logger.warning("Missing projection information.")
                 return None
 
             # Extract configuration
@@ -181,9 +191,12 @@ class CaBRNetAnalysisGUI:
         r"""Returns a callback for generating the local explanation of a model."""
 
         def callback(gradio_outputs: dict[Component, Any]) -> Image.Image | None:
-            if self.model is None or self.dataloaders is None or self.projection_info is None:
+            if self.model is None or self.dataloaders is None:
                 logger.warning("No checkpoint loaded (yet).")
                 return None
+            if self.projection_info is None:
+                # Not mandatory, especially when analysing models before the epilogue
+                logger.warning("Missing projection information.")
 
             # Extract configuration
             gradio_config = gradio_convert_outputs(gradio_outputs=gradio_outputs)
@@ -308,7 +321,7 @@ class CaBRNetAnalysisGUI:
                 explain_button = gr.Button("Generate global explanation")
                 global_explanation = gr.Image(label="Global explanation", interactive=False)
                 explain_button.click(
-                    self.global_explanation_callback(), inputs=visualization_gui, outputs=global_explanation
+                    self.global_explanation_callback(), inputs=visualization_gui, outputs=global_explanation  # type: ignore
                 )
                 model_select.change(
                     self.load_global_explanation_callback(),
@@ -369,7 +382,7 @@ class CaBRNetAnalysisGUI:
                 local_explanation_inputs: set[Component] = {input_image}
                 local_explanation_inputs.update(visualization_gui)
                 explain_button.click(
-                    self.local_explanation_callback(), inputs=local_explanation_inputs, outputs=explanation
+                    self.local_explanation_callback(), inputs=local_explanation_inputs, outputs=explanation  # type: ignore
                 )
 
             with gr.Group():

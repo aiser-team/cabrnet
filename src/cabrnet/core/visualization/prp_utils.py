@@ -101,7 +101,6 @@ class DecisionLRPWrapper(CaBRNetClassifier):
         super().__init__(
             num_classes=classifier.num_classes,
             num_features=classifier.num_features,
-            proto_init_mode=classifier.prototypes_init_mode,
         )
         self.prototypes = copy.deepcopy(classifier.prototypes)
         self.similarity_layer = SimilarityLRPWrapper(lrp_stability_factor=stability_factor)

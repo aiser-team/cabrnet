@@ -1,0 +1,71 @@
+param_groups:
+  backbone_to_freeze:
+    stop: extractor.convnet.features.5.8
+  backbone_to_train:
+    start: extractor.convnet.features.6
+    stop: extractor.convnet.features.7.2
+  add_on: [ ]
+  classifier_weights: classifier.last_layer.weight
+  classifier_bias: [ ]
+
+optimizers:
+  optimizer_net:
+    type: AdamW
+    params:
+      lr: !!float 5e-2
+      weight_decay: 0.0
+    groups:
+      backbone_to_freeze:
+        lr: !!float 5e-4 # lr_net
+        weight_decay_rate: 0.0 # weight_decay
+      backbone_to_train:
+        lr: !!float 5e-4 # lr_block
+        weight_decay_rate: 0.0 # weight_decay
+      add_on:
+        lr: !!float 5e-3 # lr_block x 10
+        weight_decay_rate: 0.0 # weight_decay
+    scheduler:
+      type: CosineAnnealingLR
+      trigger: batch  # Scheduler will be handled per batch
+      params:
+        T_max: 8000 # Number of batches x number of epochs (without pretraining)
+        eta_min: !!float 5e-6 # lr_block / 100
+        last_epoch: -1
+  optimizer_classifier:
+    type: Adam
+    params:
+      lr: 0.05
+      weight_decay: 0.0
+    groups:
+      classifier_weights:
+        lr: 0.05 # lr
+        weight_decay_rate: 0.0
+      classifier_bias:
+        lr: 0.05 # lr
+        weight_decay_rate: 0
+    scheduler:
+      type: CosineAnnealingWarmRestarts
+      trigger: batch # Scheduler will be handled per batch
+      params:
+        T_0: 5
+        eta_min: 0.001
+        T_mult: 1
+
+num_epochs: 50
+
+periods:
+  pretrain:
+    num_epochs: 10
+    freeze: [ backbone_to_freeze, classifier_weights, classifier_bias ]
+    optimizers: optimizer_net
+  fine_tuning:
+    num_epochs: 3
+    freeze: [ backbone_to_freeze, backbone_to_train, add_on   ]
+    optimizers: optimizer_classifier
+  warmup:
+    num_epochs: 10
+    freeze: [ backbone_to_freeze ]
+    optimizers: [ optimizer_net, optimizer_classifier ]
+  main_training:
+    optimizers: [ optimizer_net, optimizer_classifier ]
+

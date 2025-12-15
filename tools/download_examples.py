@@ -4,7 +4,7 @@ from argparse import ArgumentParser, RawTextHelpFormatter
 
 from zenodo_get import zenodo_get
 
-file_list = [
+FILE_LIST = [
     {
         "identifier": "resnet50_inat",
         "description": "ResNet50 pretrained on INaturalist dataset",
@@ -75,6 +75,14 @@ file_list = [
         "dir": "trained_models",
         "file": "prototree_cub200_resnet50_depth10.zip",
     },
+    {
+        "identifier": "cabrnet_pipnet_cub200_stanford_cars_convnext",
+        "description": "PIPNet models trained using CaBRNet on CUB200 and Stanford Cars " "(with ConvNext backbone)",
+        "type": "zenodo",
+        "record": "17855326",
+        "dir": "trained_models",
+        "file": "pipnet_cub200_stanfordcars.zip",
+    },
 ]
 
 
@@ -85,7 +93,7 @@ def show_file_list() -> str:
         List of files to download.
     """
     res = ""
-    for entry in file_list:
+    for entry in FILE_LIST:
         res += f"\t{entry['identifier']} --> {entry['description']}, downloaded in <output_dir>/{entry['dir']}\n"
     res += "\tall --> everything above"
     return res
@@ -105,22 +113,22 @@ def create_parser() -> ArgumentParser:
         required=True,
         metavar="name",
         nargs="+",
-        choices=["all"] + [entry["identifier"] for entry in file_list],
+        choices=["all"] + [entry["identifier"] for entry in FILE_LIST],
         help=f"Select target(s) to download\n{show_file_list()}",
     )
     return parser
 
 
 def main() -> None:
-    """Main entry point of the tool."""
+    """Runs the tool."""
     parser = create_parser()
     args = parser.parse_args()
 
     # Files to download
     files_to_download = (
-        file_list
+        FILE_LIST
         if "all" in args.target
-        else [file_entry for file_entry in file_list if file_entry["identifier"] in args.target]
+        else [file_entry for file_entry in FILE_LIST if file_entry["identifier"] in args.target]
     )
 
     for entry in files_to_download:

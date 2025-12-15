@@ -10,6 +10,7 @@ from cabrnet.archs.generic.model import CaBRNet
 from cabrnet.core.utils.data import DatasetManager
 from cabrnet.core.utils.optimizers import OptimizerManager
 from torch.utils.data import Dataset, Subset
+from loguru import logger
 
 # Global sampling ratio used to speed up verification
 SAMPLING_RATIO = 6000
@@ -58,6 +59,8 @@ class CaBRNetCompatibilityTester(unittest.TestCase):
         self.verbose: bool = True
 
     def assertTensorEqual(self, expected: torch.Tensor, actual: torch.Tensor, msg: str | None = None):
+        if msg is None:
+            msg = ""
         if actual.size() != expected.size():
             self.fail(f"{msg} Mismatching tensor sizes: {actual.size()} v. {expected.size()}.")
         elif not torch.all(torch.eq(expected, actual)):
@@ -82,6 +85,8 @@ class CaBRNetCompatibilityTester(unittest.TestCase):
 
     def assertGenericEqual(self, expected: Any, actual: Any, msg: str | None = None):
         """Generic comparison function for complex data structures"""
+        if msg is None:
+            msg = ""
         if type(expected) is not type(actual):
             self.fail(f"{msg} Mismatching types ({type(expected)} v. {type(actual)}) for {expected} and {actual}")
         elif isinstance(expected, dict):
@@ -92,13 +97,30 @@ class CaBRNetCompatibilityTester(unittest.TestCase):
                     self.assertGenericEqual(expected[key], actual[key], f"{msg} Checking key {key}.")
         elif isinstance(expected, list) or isinstance(expected, tuple):
             if len(expected) != len(actual):
-                self.fail(f"Mismatching list lengths: {len(expected)} v. {len(actual)}.")
+                self.fail(f"{msg} Mismatching list lengths: {len(expected)} v. {len(actual)}.")
             for index, (ex, ac) in enumerate(zip(expected, actual)):
                 self.assertGenericEqual(ex, ac, f"{msg} Checking list (index {index}).")
         elif isinstance(expected, torch.Tensor):
             self.assertTensorEqual(expected, actual, msg)
         elif isinstance(expected, np.ndarray):
             if not (expected == actual).all():
-                self.fail(f"Mismatching np arrays (all close? {np.allclose(expected, actual)})")
+                self.fail(f"{msg} Mismatching np arrays (all close? {np.allclose(expected, actual)})")
         else:
             self.assertEqual(expected, actual, f"{msg} Checking generic type.")
+
+    def assertStateEqual(self, expected: dict[str, Any], actual: dict[str, Any]):
+        equal = True
+        for key, ref_tensor in expected.items():
+            if key not in actual.keys():
+                logger.error(f"Missing parameter {key} in state under test")
+                equal = False
+                continue
+            tst_tensor = actual[key]
+            if not torch.equal(ref_tensor, tst_tensor):
+                logger.error(f"Parameter {key} differ. (all close? {torch.allclose(ref_tensor, tst_tensor)})")
+                equal = False
+        for key in actual.keys():
+            if key not in expected.keys():
+                logger.error(f"Extra parameter {key} in state under test")
+                equal = False
+        self.assertEqual(equal, True, f"State dictionaries do not match")

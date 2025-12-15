@@ -49,12 +49,25 @@ def get_config(config_file: str) -> dict[str, Any] | None:
     return bench_config
 
 
+DEFAULT_PERTURBATION_PARAMETERS = {
+    "brightness_factor": 0.3,
+    "contrast_factor": 0.2,
+    "saturation_factor": 0.3,
+    "hue_factor": 0.2,
+    "gaussian_blur_ksize": 21,
+    "gaussian_blur_sigma": 2.0,
+    "distortion_periods": 5,
+    "distortion_amplitude": 7.0,
+    "distortion_direction": "both",
+}
+
+
 def _wave_distortion(
     img_array: np.ndarray,
     attribution: np.ndarray,
-    num_periods: int = 5,
-    amplitude: float = 7,
-    direction: str = "vertical",
+    num_periods: int,
+    amplitude: float,
+    direction: str,
     percentile: float = 0.7,
 ) -> np.ndarray:
     r"""Applies a sinusoid distortion to a region of an image.
@@ -62,10 +75,9 @@ def _wave_distortion(
     Args:
         img_array (Numpy array): Original image in Numpy format.
         attribution (Numpy array): Attribution map.
-        num_periods (int, optional): Number of periods for the sinus distortion. Default: 5.
-        amplitude (float, optional): Amplitude factor of the sinus distortion. Default: 7.0.
-        direction (str, optional): Direction of the perturbation (either "horizontal", "vertical" or "both").
-            Default: "both".
+        num_periods (int): Number of periods for the sinus distortion.
+        amplitude (float): Amplitude factor of the sinus distortion.
+        direction (str): Direction of the perturbation (either "horizontal", "vertical" or "both").
         percentile (float, optional): Hard threshold used to calibrate the sinus deformation. Default: 0.7.
 
     Returns:
@@ -92,179 +104,142 @@ def _wave_distortion(
     return distortion
 
 
+class _SinDistortion:
+    r"""A callable that wraps _wave_distortion and makes it take [Image]s rather than np arrays.
+
+    Attributes:
+        attribution: A ndarray that represents the attribution map of the prototype.
+        periods: Number of periods for the sinus distortion.
+        amplitude: Amplitude factor of the sinus distortion.
+        direction: Direction of the perturbation (either "horizontal", "vertical" or "both").
+    """
+
+    def __init__(self, attribution: np.ndarray, periods: int, amplitude: float, direction: str):
+        r"""Creates a callable that can perform a sin distortion.
+
+        Args:
+            attribution (ndarray): Attribution map of the prototype.
+            periods (int): Number of periods for the sinus distortion.
+            amplitude (float): Amplitude factor of the sinus distortion.
+            direction (str): Direction of the perturbation (either "horizontal", "vertical" or "both").
+        """
+        self.attribution = attribution
+        self.periods = periods
+        self.amplitude = amplitude
+        self.direction = direction
+
+    def __call__(self, img: Image.Image):
+        r"""Performs the sin distortion on the specified image.
+
+        Args:
+            img (Image): Image on which the distortion is performed.
+
+        Returns:
+            The distorted image.
+        """
+        img_array = np.array(img)
+        result_array = _wave_distortion(
+            img_array=img_array,
+            attribution=self.attribution,
+            num_periods=self.periods,
+            amplitude=self.amplitude,
+            direction=self.direction,
+        )
+        result = Image.fromarray(result_array)
+        return result
+
+
 def _compute_perturbations(
     img: Image.Image,
-    img_array: np.ndarray,
     attribution: np.ndarray,
-    perturbations: list[str] | None,
-    brightness_factor: float = 0.3,
-    contrast_factor: float = 0.2,
-    saturation_factor: float = 0.3,
-    hue_factor: float = 0.2,
-    gaussian_blur_ksize: int = 21,
-    gaussian_blur_sigma: float = 2.0,
-    distortion_periods: int = 5,
-    distortion_amplitude: float = 7.0,
-    distortion_direction: str = "both",
+    perturbations: dict[str, dict],
+    img_array: np.ndarray | None = None,
+    **kwargs,
 ) -> dict[str, dict[str, Any]]:
     r"""Applies a set of perturbations on an image.
 
     Args:
         img (Image): Original image in PIL format.
-        img_array (Numpy array): Original image in Numpy format.
         attribution (Numpy array): Attribution map.
-        perturbations (list[str], optional): List of perturbations to apply (all perturbation if None). Default: None.
-        brightness_factor (float, optional): Brightness factor. Default: 0.3.
-        contrast_factor (float, optional): Contrast factor. Default: 0.2.
-        saturation_factor (float, optional): Saturation factor. Default: 0.3.
-        hue_factor (float, optional): Hue factor. Default: 0.2.
-        gaussian_blur_ksize (int, optional): Gaussian blur kernel size. Default: 21.
-        gaussian_blur_sigma (float, optional): Gaussian blur standard deviation. Default: 2.0.
-        distortion_periods (int, optional): Number of periods for the sinus distortion. Default: 5.
-        distortion_amplitude (float, optional): Amplitude factor of the sinus distortion. Default: 7.0.
-        distortion_direction (str, optional): Direction of the perturbation (either "horizontal", "vertical" or "both").
-            Default: "both".
+        perturbations (dict[str,dict]): Map of perturbations as described in the documentation.
+        img_array (Numpy array, optional): Original image in Numpy format.
+          If None, the image array is computed from the image.  Default: None.
 
     Returns:
-        Dictionary of perturbed images, where the key corresponds to the name of the perturbation.
+        Dictionary of perturbed images, where each key corresponds to the name of the perturbation.
     """
+    if img_array is None:
+        img_array = np.array(img)
 
-    def _merge(a: np.ndarray, b: np.ndarray, mask: np.ndarray, name: str):
+    def _merge(a: np.ndarray, b: np.ndarray, mask: np.ndarray):
         mask = mask if a.ndim == b.ndim == 3 else np.squeeze(mask)  # Handle grayscale images
         return np.round(mask * a + (1 - mask) * b).astype(np.uint8)
 
+    def _get_option(config: dict[str, Any], option_name: str):
+        # Option from [config] if able or [default_perturbation_parameters] otherwise.
+        return config[option_name] if option_name in config else DEFAULT_PERTURBATION_PARAMETERS[option_name]
+
+    def _extract_operation(config: dict[str, Any]):
+        r"""Extract a single operation from the specified configuration dictionary.
+        This assumes the dictionary contains key "type"."""
+        if "type" not in config:
+            raise ValueError("Operation type unspecified")
+
+        params = {}
+        if "params" in config:
+            params = config["params"]
+        match config["type"]:
+            case "brightness":
+                b = _get_option(params, "brightness_factor")
+                return ColorJitter(brightness=(b, b), contrast=0, saturation=0, hue=0)
+            case "contrast":
+                c = _get_option(params, "contrast_factor")
+                return ColorJitter(brightness=0, contrast=(c, c), saturation=0, hue=0)
+            case "saturation":
+                s = _get_option(params, "saturation_factor")
+                return ColorJitter(brightness=0, contrast=0, saturation=(s, s), hue=0)
+            case "hue":
+                h = _get_option(params, "hue_factor")
+                return ColorJitter(brightness=0, contrast=0, saturation=0, hue=(h, h))
+            case "blur":
+                return GaussianBlur(
+                    kernel_size=_get_option(params, "gaussian_blur_ksize"),
+                    sigma=_get_option(params, "gaussian_blur_sigma"),
+                )
+            case "distortion":
+                return _SinDistortion(
+                    attribution=attribution,
+                    periods=_get_option(params, "distortion_periods"),
+                    amplitude=_get_option(params, "distortion_amplitude"),
+                    direction=_get_option(params, "distortion_direction"),
+                )
+            case _:
+                raise ValueError(f"Unknown perturbation type {config['type']}")
+
+    def _extract_operations(config: dict[str, Any] | list[dict]):
+        r"""Extracts the operations from the specified configuration.
+        This configuration either contains a single perturbation
+        (if key "type" is specified) or contains a list of perturbations,
+        which leads to a recursive call on each pair key/value."""
+        result = []
+        if isinstance(config, dict):
+            result = [_extract_operation(config)]
+        else:
+            for sub_config in config:
+                result += _extract_operations(sub_config)
+        return result
+
     perturbed_img_arrays = {}
-    if perturbations is None or "brightness" in perturbations:
-        perturbed_img_arrays["brightness"] = {
-            "focus": _merge(
-                np.array(
-                    ColorJitter(
-                        brightness=(brightness_factor, brightness_factor),
-                        contrast=0,
-                        saturation=0,
-                        hue=0,
-                    )(img)
-                ),
-                img_array,
-                mask=attribution,
-                name="brightness_focus",
-            ),
-            "dual": _merge(
-                np.array(
-                    ColorJitter(
-                        brightness=(brightness_factor, brightness_factor),
-                        contrast=0,
-                        saturation=0,
-                        hue=0,
-                    )(img)
-                ),
-                img_array,
-                mask=1 - attribution,  # Perturb image outside the attribution mask
-                name="brightness_dual",
-            ),
-            "description": "Brightness reduction",
-        }
-    if perturbations is None or "contrast" in perturbations:
-        perturbed_img_arrays["contrast"] = {
-            "focus": _merge(
-                np.array(
-                    ColorJitter(brightness=0, contrast=(contrast_factor, contrast_factor), saturation=0, hue=0)(img)
-                ),
-                img_array,
-                mask=attribution,
-                name="contrast_focus",
-            ),
-            "dual": _merge(
-                np.array(
-                    ColorJitter(brightness=0, contrast=(contrast_factor, contrast_factor), saturation=0, hue=0)(img)
-                ),
-                img_array,
-                mask=1 - attribution,  # Perturb image outside the attribution mask
-                name="contrast_dual",
-            ),
-            "description": "Contrast reduction",
-        }
-    if perturbations is None or "saturation" in perturbations:
-        perturbed_img_arrays["saturation"] = {
-            "focus": _merge(
-                np.array(
-                    ColorJitter(
-                        brightness=0,
-                        contrast=0,
-                        saturation=(saturation_factor, saturation_factor),
-                        hue=0,
-                    )(img)
-                ),
-                img_array,
-                mask=attribution,
-                name="saturation_focus",
-            ),
-            "dual": _merge(
-                np.array(
-                    ColorJitter(
-                        brightness=0,
-                        contrast=0,
-                        saturation=(saturation_factor, saturation_factor),
-                        hue=0,
-                    )(img)
-                ),
-                img_array,
-                mask=1 - attribution,  # Perturb image outside the attribution mask
-                name="saturation_dual",
-            ),
-            "description": "Saturation reduction",
-        }
-    if perturbations is None or "hue" in perturbations:
-        perturbed_img_arrays["hue"] = {
-            "focus": _merge(
-                np.array(ColorJitter(brightness=0, contrast=0, saturation=0, hue=(hue_factor, hue_factor))(img)),
-                img_array,
-                mask=attribution,
-                name="hue_focus",
-            ),
-            "dual": _merge(
-                np.array(ColorJitter(brightness=0, contrast=0, saturation=0, hue=(hue_factor, hue_factor))(img)),
-                img_array,
-                mask=1 - attribution,  # Perturb image outside the attribution mask
-                name="hue_dual",
-            ),
-            "description": "Hue shift",
-        }
-    if perturbations is None or "blur" in perturbations:
-        perturbed_img_arrays["blur"] = {
-            "focus": _merge(
-                np.array(GaussianBlur(kernel_size=gaussian_blur_ksize, sigma=gaussian_blur_sigma)(img)),
-                img_array,
-                mask=attribution,
-                name="blur_focus",
-            ),
-            "dual": _merge(
-                np.array(GaussianBlur(kernel_size=gaussian_blur_ksize, sigma=gaussian_blur_sigma)(img)),
-                img_array,
-                mask=1 - attribution,
-                name="blur_dual",
-            ),
-            "description": "Gaussian blur",
-        }
-    if perturbations is None or "sin_distortion" in perturbations:
-        perturbed_img_arrays["sin_distortion"] = {
-            "focus": _merge(
-                _wave_distortion(
-                    img_array, attribution, distortion_periods, distortion_amplitude, distortion_direction
-                ),
-                img_array,
-                mask=attribution,
-                name="dist_focus",
-            ),
-            "dual": _merge(
-                _wave_distortion(
-                    img_array, attribution, distortion_periods, distortion_amplitude, distortion_direction
-                ),
-                img_array,
-                mask=1 - attribution,
-                name="dist_dual",
-            ),
-            "description": "Sinus distortion",
+    for pert_name, perturbation in perturbations.items():
+        operations = _extract_operations(perturbation)
+        perturbed_img = img
+        for op in operations:
+            perturbed_img = op(perturbed_img)
+        perturbed_img_array = np.array(perturbed_img)
+        perturbed_img_arrays[pert_name] = {
+            "focus": _merge(perturbed_img_array, img_array, attribution),
+            "dual": _merge(perturbed_img_array, img_array, 1 - attribution),
+            "description": pert_name,
         }
     return perturbed_img_arrays
 
@@ -276,7 +251,7 @@ def analyze(
     preprocess: Callable,
     visualizer: SimilarityVisualizer,
     device: str | torch.device,
-    perturbations: list[str] | None = None,
+    perturbations: dict[str, dict],
     num_prototypes: int = 1,
     enable_dual_mode: bool = True,
     debug_dir: str | None = None,
@@ -293,7 +268,9 @@ def analyze(
         preprocess (Callable): Preprocessing function.
         visualizer (SimilarityVisualizer): Patch visualizer.
         device (str | device): Hardware device.
-        perturbations (list[str], optional): List of perturbations to apply (all perturbation if None). Default: None.
+        perturbations (dict[str,dict]): Map of perturbations whose key is the name of the perturbation
+          and associated dictionary described the perturbation.  This description is either a single transformation
+          or, recursively, a map.
         num_prototypes (int, optional): Number of relevant prototypes to analyze. Default: 1.
         enable_dual_mode (bool, optional): Enable dual perturbations. Default: True.
         debug_dir (str, optional): Path to debug directory. If given, enables debug mode for visualizing image analysis.
@@ -338,7 +315,11 @@ def analyze(
         disable_rendering=True,
     )
     # Remove dissimilar prototypes and take a subset based on num_prototypes
-    most_relevant_prototypes = [proto_idx for (proto_idx, _, similar) in most_relevant_prototypes if similar]
+    most_relevant_prototypes = [
+        (proto_idx, score) for (proto_idx, score, similar) in most_relevant_prototypes if similar
+    ]
+    # Sort prototypes by most to least similar
+    most_relevant_prototypes = [a[0] for a in reversed(sorted(most_relevant_prototypes, key=lambda x: x[1]))]
     most_relevant_prototypes = most_relevant_prototypes[:num_prototypes]
 
     # Initialize the debug graph
@@ -382,9 +363,13 @@ def analyze(
         for pert_name in perturbed_imgs:
             perturbation_scores = []
             targets = ["focus"] if not enable_dual_mode else ["focus", "dual"]
+            squared_distances = {}
 
             for target in targets:
                 pert_img = Image.fromarray(perturbed_imgs[pert_name][target])
+
+                diff = img_array - pert_img
+                squared_distances[target] = np.sum(diff * diff)
 
                 pert_img_tensor = torch.unsqueeze(preprocess(pert_img), dim=0).to(device)
                 with torch.no_grad():
@@ -414,11 +399,11 @@ def analyze(
                     focus_test_patch_img_path=os.path.join(
                         debug_dir, "images", f"img{img_id}_p{proto_idx}_{pert_name}_focus.png"
                     ),
-                    dual_test_patch_img_path=os.path.join(
-                        debug_dir, "images", f"img{img_id}_p{proto_idx}_{pert_name}_dual.png"
-                    )
-                    if enable_dual_mode
-                    else None,
+                    dual_test_patch_img_path=(
+                        os.path.join(debug_dir, "images", f"img{img_id}_p{proto_idx}_{pert_name}_dual.png")
+                        if enable_dual_mode
+                        else None
+                    ),
                     original_sim_score=score,
                     focus_sim_score=perturbation_scores[0],
                     dual_sim_score=perturbation_scores[1] if enable_dual_mode else 0.0,
@@ -433,6 +418,10 @@ def analyze(
                     "score_after_perturbation": perturbation_scores[0],
                     "dual_score_after_perturbation": perturbation_scores[1] if enable_dual_mode else None,
                     "description": perturbed_imgs[pert_name]["description"],
+                    "squared_distance": squared_distances["focus"],
+                    "dual_squared_distance": squared_distances["dual"] if enable_dual_mode else None,
+                    "h": h_max,
+                    "w": w_max,
                 }
             )
     if debug_mode:
@@ -448,10 +437,6 @@ def execute(
     device: str | torch.device,
     verbose: bool,
     info_db: str = "local_perturbation_analysis.csv",
-    global_stats: str = "global_stats.csv",
-    distribution_img: str = "local_perturbation_analysis.png",
-    quiet: bool = False,
-    enable_dual_mode: bool = True,
     sampling_ratio: int = 1,
     debug_mode: bool = False,
     prototype_dir: str = "",
@@ -470,11 +455,6 @@ def execute(
         verbose (bool): Verbose mode.
         info_db (str, optional): Path to CSV file containing raw analysis per test image.
             Default: local_perturbation_analysis.csv.
-        global_stats (str, optional): Path to CSV file containing general global stats. Default: global_stats.csv.
-        distribution_img (str, optional): Path to output image showing distribution of max similarity drops.
-            Default: local_perturbation_analysis.png.
-        quiet (bool, optional): If True, does not show the distribution image. Default: False.
-        enable_dual_mode (bool, optional): Enable dual perturbations. Default: True.
         sampling_ratio (int, optional): Ratio of test images to use during evaluation (e.g. 10 means only
             one image in ten is used). Default: 1.
         debug_mode (bool, optional): If True, enables debug mode for visualizing image analysis. Default: False.
@@ -542,8 +522,6 @@ def execute(
             preprocess=preprocess,
             visualizer=visualizer,
             device=device,
-            num_prototypes=1,
-            enable_dual_mode=enable_dual_mode,
             debug_dir=debug_dir if debug_mode else None,
             prototype_dir=prototype_dir,
             **kwargs,
@@ -561,23 +539,17 @@ def execute(
             writer.writeheader()
             writer.writerows(stats)
 
-    show_results(
-        model=model,
-        src_path=os.path.join(output_dir, info_db),
-        output_dir=output_dir,
-        global_stats=global_stats,
-        distribution_img=distribution_img,
-        quiet=quiet,
-    )
+    show_results(model=model, src_path=os.path.join(output_dir, info_db), output_dir=output_dir, **kwargs)
 
 
 def show_results(
     model: CaBRNet,
     src_path: str,
     output_dir: str,
-    global_stats: str,
-    distribution_img: str,
+    global_stats: str = "global_stats.csv",
+    distribution_img: str = "max_similarity_dist.png",
     quiet: bool = False,
+    **kwargs,
 ) -> None:
     r"""Shows results of analysis.
 
@@ -585,8 +557,8 @@ def show_results(
         model (Module): Target model.
         src_path (str): Path to input file containing statistics per test image.
         output_dir (str): Output directory.
-        global_stats (str): Name of output CSV file containing global statistics.
-        distribution_img (str): Mame of output distribution graph.
+        global_stats (str, optional): Name of output CSV file containing global statistics. Default: "global_stats.csv".
+        distribution_img (str, optional): Name of output distribution graph. Default: "max_similarity_dist.png".
         quiet (bool, optional): If True, does not display analysis results. Default: False.
     """
     if src_path.lower().endswith(tuple(["pickle", "pkl"])):
@@ -631,5 +603,5 @@ def show_results(
         for perturbation in perturbations:
             pert_df = df.query(f"perturbation == '{perturbation}'")
             avg_drop = (pert_df["original_score"] - pert_df["score_after_perturbation"]) / pert_df["original_score"]
-            print(f"Average similarity drop for {pert_df.iloc[0]['description']}: {sum(avg_drop)/len(avg_drop):.2f}")
+            print(f"Average similarity drop for {pert_df.iloc[0]['description']}: {sum(avg_drop) / len(avg_drop):.2f}")
             writer.writerow([perturbation, sum(avg_drop) / len(avg_drop)])

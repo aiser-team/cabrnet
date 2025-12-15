@@ -5,6 +5,8 @@ from loguru import logger
 
 from cabrnet.archs.generic.model import CaBRNet
 from cabrnet.core.utils.data import DatasetManager
+from cabrnet.core.utils.optimizers import OptimizerManager
+from cabrnet.core.utils.parser import load_config
 from cabrnet.core.utils.exceptions import ArgumentError
 
 description = "evaluates the accuracy of a CaBRNet model"
@@ -24,16 +26,17 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         parser = ArgumentParser(description)
     parser = CaBRNet.create_parser(parser)
     parser = DatasetManager.create_parser(parser)
+    parser = OptimizerManager.create_parser(parser)
     parser.add_argument(
         "-c",
         "--checkpoint-dir",
         type=str,
         required=False,
         metavar="/path/to/checkpoint/dir",
-        help="path to a checkpoint directory (alternative to --model-arch, --model-state-dict and --dataset)",
+        help="path to a checkpoint directory "
+        "(alternative to --model-arch, --model-state-dict, --dataset and --training)",
     )
     parser.add_argument(
-        "-t",
         "--targets",
         type=str,
         nargs="+",
@@ -57,22 +60,24 @@ def check_args(args: Namespace) -> Namespace:
     if args.checkpoint_dir is not None:
         # Fetch all files from directory
         for param, name in zip(
-            [args.model_arch, args.model_state_dict, args.dataset],
-            ["--model-arch", "--model-state-dict", "--dataset"],
+            [args.model_arch, args.model_state_dict, args.dataset, args.training],
+            ["--model-arch", "--model-state-dict", "--dataset", "--training"],
         ):
             if param is not None:
                 logger.warning(f"Ignoring option {name}: using content pointed by --checkpoint-dir instead")
         args.model_arch = os.path.join(args.checkpoint_dir, CaBRNet.DEFAULT_MODEL_CONFIG)
         args.model_state_dict = os.path.join(args.checkpoint_dir, CaBRNet.DEFAULT_MODEL_STATE)
         args.dataset = os.path.join(args.checkpoint_dir, DatasetManager.DEFAULT_DATASET_CONFIG)
+        args.training = os.path.join(args.checkpoint_dir, OptimizerManager.DEFAULT_TRAINING_CONFIG)
 
     # Check configuration completeness
-    for param, name in zip(
-        [args.model_arch, args.model_state_dict, args.dataset],
-        ["model", "state dictionary", "dataset"],
+    for param, name, option in zip(
+        [args.model_arch, args.model_state_dict, args.dataset, args.training],
+        ["model", "state dictionary", "dataset", "training"],
+        ["-m", "-s", "-d", "-t"],
     ):
         if param is None:
-            raise ArgumentError(f"Missing {name} configuration file.")
+            raise ArgumentError(f"Missing {name} configuration file (option {option}).")
     return args
 
 
@@ -89,6 +94,10 @@ def execute(args: Namespace) -> None:
     model = CaBRNet.build_from_config(args.model_arch, state_dict_path=args.model_state_dict)
     model.eval()
 
+    # Register auxiliary training parameters (e.g. loss configuration)
+    trainer = load_config(args.training)
+    model.register_training_params(trainer)
+
     # Dataloaders
     dataloaders = DatasetManager.get_dataloaders(config=args.dataset, sampling_ratio=args.sampling_ratio)
     model.to(args.device)
@@ -101,7 +110,7 @@ def execute(args: Namespace) -> None:
     for target in args.targets:
         logger.info(f"Target: {target}")
         stats = model.evaluate(
-            dataloader=dataloaders[target], device=args.device, tqdm_position=0, verbose=args.verbose
+            dataloaders=dataloaders, dataset_name=target, device=args.device, tqdm_position=0, verbose=args.verbose
         )
         for name, value in stats.items():
             logger.info(f"{name}: {value:.2f}")

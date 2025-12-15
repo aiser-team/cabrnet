@@ -1,6 +1,6 @@
 import torch
 import numpy as np
-from pacmap import PaCMAP, PCA
+from pacmap.pacmap import PaCMAP
 from argparse import ArgumentParser, Namespace
 from cabrnet.archs.generic.model import CaBRNet
 from cabrnet.core.utils.data import DatasetManager
@@ -9,6 +9,7 @@ from matplotlib import pyplot as plt
 from matplotlib.colors import Normalize
 from torch.utils.data import DataLoader
 from sklearn.manifold import TSNE
+from sklearn.decomposition import PCA
 from cabrnet.core.utils.exceptions import ArgumentError
 from tqdm import tqdm
 import os
@@ -122,7 +123,7 @@ def draw_latent(
     similarity_threshold: float,
     plot_class: int | None,
     show_class: int | None,
-    device: str = "cuda:0",
+    device: str | torch.device = "cuda:0",
     seed: int = 42,
     verbose: bool = False,
 ):

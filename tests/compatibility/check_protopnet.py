@@ -113,9 +113,9 @@ def legacy_get_optimizers(
     return warm_optimizer, joint_optimizer, last_layer_optimizer, joint_lr_scheduler
 
 
-class TestProtoPNetCompatibility(CaBRNetCompatibilityTester):
+class Tester(CaBRNetCompatibilityTester):
     def __init__(self, methodName: str = "runTest"):
-        super(TestProtoPNetCompatibility, self).__init__(arch="protopnet", methodName=methodName)
+        super(Tester, self).__init__(arch="protopnet", methodName=methodName)
 
     def test_model_init(self):
         # CaBRNet
@@ -179,7 +179,7 @@ class TestProtoPNetCompatibility(CaBRNetCompatibilityTester):
         num_epochs = training_config["num_epochs"]
         for epoch in tqdm(range(num_epochs), desc="Training CaBRNet model", disable=not self.verbose):
             optimizer_mngr.freeze(epoch=epoch)
-            _ = cabrnet_model.train_epoch(
+            train_infos = cabrnet_model.train_epoch(
                 epoch_idx=epoch,
                 dataloaders=dataloaders,
                 optimizer_mngr=optimizer_mngr,
@@ -187,7 +187,7 @@ class TestProtoPNetCompatibility(CaBRNetCompatibilityTester):
                 tqdm_position=1,
                 verbose=self.verbose,
             )
-            optimizer_mngr.scheduler_step(epoch=epoch)
+            optimizer_mngr.scheduler_step(epoch=epoch, metric=train_infos["train_set/accuracy"])
 
         # Legacy
         setup_rng(self.seed)

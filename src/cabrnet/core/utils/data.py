@@ -3,15 +3,33 @@
 import argparse
 import copy
 import importlib
+import random
 from typing import Any, Callable
 
-import numpy as np
 import torch
-from torch import Tensor
 import torchvision.transforms
 from cabrnet.core.utils.parser import load_config
+from cabrnet.core.utils.transform import load_transform, TRANSFORM_FIELDS
 from loguru import logger
 from torch.utils.data import DataLoader, Dataset, Subset
+
+
+# Custom collate functions
+def concat_collate(data: list[tuple]) -> tuple[torch.Tensor, torch.Tensor]:
+    r"""Collate function using concatenation. Used in PIPNet.
+
+    Args:
+        data (list of tuples): Input data, in the form [((a1,a2),y1),((b1,b2),y2), ...]
+
+    Returns:
+        A tuple of tensors [a1|a2, b1|b2, ...], [y1, y2, ....].
+    """
+    xs, ys = zip(*data)
+    xs1, xs2 = zip(*xs)
+    return torch.cat([torch.stack(xs1), torch.stack(xs2)]), torch.tensor(ys)
+
+
+SUPPORTED_COLLATE_FUNCTIONS = {"concat_collate": concat_collate}
 
 
 class VisionDatasetSubset(Subset):
@@ -68,43 +86,6 @@ class DatasetManager:
         )
         return parser
 
-    # Common torchvision datasets use one of the following keywords to indicate data transformations.
-    TRANSFORM_FIELDS = ["transform", "target_transform"]
-
-    # Type of transformation compositions
-    TRANSFORM_COMPOSITIONS = ["Compose", "RandomOrder", "RandomChoice"]
-
-    @staticmethod
-    def get_transform(trans_config: dict[str, Any]) -> Callable:
-        r"""Builds a data transformation from a dictionary.
-
-        Args:
-            trans_config (dictionary): Transformation configuration.
-
-        Returns:
-            Transformation.
-
-        Raises:
-            ValueError whenever the configuration is incorrect.
-        """
-        if "type" not in trans_config:
-            raise ValueError("Missing transformation type.")
-        # Load custom module if necessary
-        module = importlib.import_module(trans_config["module"]) if "module" in trans_config else torchvision.transforms
-        # Check for recursive types
-        if trans_config["type"] in DatasetManager.TRANSFORM_COMPOSITIONS:
-            if "transforms" not in trans_config:
-                raise ValueError(f"Missing <transforms> field for operation {trans_config['type']}.")
-            ops = [
-                DatasetManager.get_transform(trans_config["transforms"][op_name])
-                for op_name in trans_config["transforms"]
-            ]
-            return getattr(module, trans_config["type"])(ops)
-
-        if "params" in trans_config:
-            return getattr(module, trans_config["type"])(**trans_config["params"])
-        return getattr(module, trans_config["type"])()
-
     @staticmethod
     def get_datasets(
         config: str | dict[str, Any], sampling_ratio: int = 1, load_segmentation: bool = False
@@ -117,8 +98,10 @@ class DatasetManager:
             load_segmentation (bool, optional): If True, loads segmentation datasets if available. Default: False.
 
         Returns:
-            Dictionary of datasets with their respective batch size and shuffle property.
-
+            Dictionary datasets:
+                - dataset: Dataset with data preprocessing
+                - raw_dataset: Dataset without data preprocessing
+                - seg_dataset: If load_segmentation is True, dataset of segmentation masks without data preprocessing
         Raises:
             ValueError whenever a dataset could not be loaded.
         """
@@ -145,21 +128,10 @@ class DatasetManager:
                     raise ValueError(f"Missing dataset {key} information")
 
             params = copy.copy(dconfig["params"])
-            for field in params:
-                if field in DatasetManager.TRANSFORM_FIELDS:
-                    # Replace configuration with actual transformation function
-                    ops = [DatasetManager.get_transform(params[field][op_name]) for op_name in params[field]]
-                    ops = torchvision.transforms.Compose(ops) if len(ops) > 1 else ops[0]
-                    logger.debug(f"{field}: {ops}")
-                    params[field] = ops
-                else:
-                    # Add parameter as is
-                    params[field] = params[field]
-
-            batch_size: int = dconfig["batch_size"]
-            if batch_size < 1:
-                raise ValueError(f"Invalid batch size: {batch_size}.")
-            shuffle: bool = dconfig["shuffle"]
+            for field, value in params.items():
+                if field in TRANSFORM_FIELDS:
+                    # Replace configuration with actual transform function
+                    params[field] = DatasetManager.get_dataset_transform(config=config, dataset=dataset_name)
 
             # Load dataset
             module = importlib.import_module(dconfig["module"])
@@ -175,6 +147,35 @@ class DatasetManager:
                 except FileNotFoundError:
                     logger.warning(f"Segmentation set unavailable for dataset {dataset_name}")
 
+            # Handle Deterministic Partitioning (Splitting Train into Train/Val)
+            if "partition" in dconfig:
+                start_frac, end_frac = dconfig["partition"]
+                total_len = len(dataset["dataset"])
+                
+                # Create the full list of indices
+                indices = list(range(total_len))
+                
+                # Deterministic Shuffle if requested
+                if "partition_seed" in dconfig:
+                    seed = dconfig["partition_seed"]
+                    logger.info(f"Shuffling {dataset_name} indices with seed {seed} before partitioning.")
+                    # Use a local Random instance to avoid affecting global state
+                    random.Random(seed).shuffle(indices)
+                
+                # Calculate integer slice points
+                start_idx = int(start_frac * total_len)
+                end_idx = int(end_frac * total_len)
+                
+                # Select the specific indices for this split
+                selected_indices = indices[start_idx:end_idx]
+                
+                logger.info(f"Partitioning {dataset_name}: using range [{start_frac}-{end_frac}] ({len(selected_indices)} samples).")
+                
+                # Apply subsetting to all loaded dataset variants (main, raw, seg)
+                for key in ["dataset", "raw_dataset", "seg_dataset"]:
+                    if dataset.get(key) is not None:
+                        dataset[key] = VisionDatasetSubset(dataset[key], selected_indices)
+            
             if sampling_ratio > 1:
                 # Apply data sub-selection
                 selected_indices = [idx for idx in range(len(dataset["dataset"]))][::sampling_ratio]
@@ -185,10 +186,6 @@ class DatasetManager:
                             raise TypeError(f"{dataset[key]} should be a dataset, but is of type {type(dataset[key])}")
                         dataset[key] = VisionDatasetSubset(dset, selected_indices)
 
-            dataset["batch_size"] = batch_size
-            dataset["shuffle"] = shuffle
-            # Recover optional number of workers
-            dataset["num_workers"] = dconfig.get("num_workers", 0)
             datasets[dataset_name] = dataset
         return datasets
 
@@ -209,6 +206,11 @@ class DatasetManager:
         Raises:
             ValueError whenever a dataset could not be loaded or a parameter is invalid.
         """
+        if not isinstance(config, (str, dict)):
+            raise ValueError(f"Unsupported configuration format: {type(config)}")
+        if isinstance(config, str):
+            config = load_config(config)
+
         datasets = DatasetManager.get_datasets(
             config=config, sampling_ratio=sampling_ratio, load_segmentation=load_segmentation
         )
@@ -222,11 +224,34 @@ class DatasetManager:
         for dataset_name in datasets:
             dataset = _safe_item_load(datasets[dataset_name]["dataset"], Dataset)
             raw_dataset = _safe_item_load(datasets[dataset_name]["raw_dataset"], Dataset)
-            batch_size = _safe_item_load(datasets[dataset_name]["batch_size"], int)
-            shuffle = _safe_item_load(datasets[dataset_name]["shuffle"], bool)
-            num_workers = _safe_item_load(datasets[dataset_name]["num_workers"], int)
+
+            dconfig = config[dataset_name]
+            for key in ["batch_size", "shuffle"]:
+                if key not in dconfig:
+                    raise ValueError(f"Missing dataset {key} information")
+
+            # Dataloader parameters
+            batch_size = _safe_item_load(dconfig["batch_size"], int)
+            shuffle = _safe_item_load(dconfig["shuffle"], bool)
+            num_workers = _safe_item_load(dconfig.get("num_workers", 0), int)
+            drop_last = _safe_item_load(dconfig.get("drop_last", False), bool)
+            pin_memory = _safe_item_load(dconfig.get("pin_memory", False), bool)
+
+            # Optional collate function
+            collate_fn = dconfig.get("collate_fn")
+            if collate_fn:
+                if collate_fn not in SUPPORTED_COLLATE_FUNCTIONS:
+                    raise ValueError(f"Unsupported collate function {collate_fn}")
+                collate_fn = SUPPORTED_COLLATE_FUNCTIONS[collate_fn]
+
             dataloaders[dataset_name] = DataLoader(
-                dataset=dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers
+                dataset=dataset,
+                batch_size=batch_size,
+                shuffle=shuffle,
+                num_workers=num_workers,
+                collate_fn=collate_fn,
+                drop_last=drop_last,
+                pin_memory=pin_memory,
             )
             dataloaders[dataset_name + "_raw"] = DataLoader(
                 dataset=raw_dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers
@@ -242,12 +267,15 @@ class DatasetManager:
         return dataloaders
 
     @staticmethod
-    def get_dataset_transform(config: str | dict[str, Any], dataset: str = "test_set") -> Callable | None:
+    def get_dataset_transform(
+        config: str | dict[str, Any], dataset: str = "test_set", keyword: str = "transform"
+    ) -> Callable | None:
         r"""Returns the transform function associated with a given dataset.
 
         Args:
             config (str | dict): Path to configuration file, or configuration dictionary.
             dataset (str, optional): Name of target dataset. Default: test_set.
+            keyword (str, optional): Name of the transform keyword. Default: transform.
 
         Returns:
             Transform function (if any).
@@ -261,31 +289,10 @@ class DatasetManager:
             raise ValueError(f"Missing configuration for dataset {dataset} in {config}.")
         if "params" not in config[dataset]:
             raise ValueError(f"Missing parameters for dataset {dataset}.")
-        if "transform" not in config[dataset]["params"]:
+        if keyword not in config[dataset]["params"]:
             return None
-        transform_config = config[dataset]["params"]["transform"]
-
-        ops = [DatasetManager.get_transform(transform_config[op_name]) for op_name in transform_config]
-        ops = torchvision.transforms.Compose(ops) if len(ops) > 1 else ops[0]
+        transform_config = config[dataset]["params"][keyword]
+        ops = load_transform(transform_config)
+        ops = torchvision.transforms.Compose(ops) if isinstance(ops, list) else ops
         logger.debug(f"Transform function for dataset {dataset}: {ops}")
         return ops
-
-
-def batch_mixup(data: Tensor, labels: Tensor, alpha: float = 0) -> tuple[Tensor, Tensor, float]:
-    r"""Performs a random mix between elements inside a batch of data.
-    Adapted from https://github.com/gmum/ProtoPool/.
-
-    Args:
-        data (tensor): Batch data. Shape (N x D).
-        labels (tensor): Batch labels. Shape (N x L).
-        alpha (float, optional): Parameter of the Beta-distribution controlling the percentage of mix. Default: 0.
-
-    Returns:
-        Modified batch data. Shape (N x A).
-        Modified batch labels. Shape (N x L).
-        Percentage of mix.
-    """
-    percentage = np.random.beta(a=alpha, b=alpha) if alpha > 0 else 1.0
-    # Draws a random permutation of indices inside the batch
-    index = torch.randperm(data.size(0), dtype=torch.long, device=data.device)
-    return percentage * data + (1 - percentage) * data[index], labels[index], percentage
