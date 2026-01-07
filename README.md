@@ -42,6 +42,8 @@ to the code base and/or the documentation of the library:
 - Aymeric Varasse (CEA-LIST)
 - Alban Grastien (CEA-LIST)
 - Julien Girard-Satabin (CEA-LIST)
+- Jules Soria (CEA-LIST)
+
 
 The following authors contributed in a significant manner to the experiments and the
 publication of trained models:
