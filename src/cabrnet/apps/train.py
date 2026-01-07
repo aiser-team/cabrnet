@@ -1,4 +1,4 @@
-import os
+from pathlib import Path
 from argparse import ArgumentParser, Namespace
 
 from loguru import logger
@@ -10,8 +10,7 @@ from cabrnet.core.utils.exceptions import ArgumentError
 from cabrnet.core.utils.optimizers import OptimizerManager
 from cabrnet.core.utils.parser import load_config
 from cabrnet.core.utils.save import load_checkpoint
-from cabrnet.core.utils.system_info import get_parent_directory
-from cabrnet.core.utils.train import training_loop, latest_dir
+from cabrnet.core.utils.train import training_loop, latest_dir, best_dir, final_dir
 from cabrnet.core.utils.system_info import get_hardware_info
 
 DEFAULT_LOGGER_FILE = "log.txt"
@@ -47,7 +46,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     parser.add_argument(
         "-o",
         "--output-dir",
-        type=str,
+        type=Path,
         required=False,
         metavar="/path/to/output/directory",
         help="path to output directory",
@@ -56,7 +55,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     x_group.add_argument(
         "-c",
         "--config-dir",
-        type=str,
+        type=Path,
         required=False,
         metavar="/path/to/config/dir",
         help="path to directory containing all configuration files to start training "
@@ -65,7 +64,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     x_group.add_argument(
         "-r",
         "--resume-from",
-        type=str,
+        type=Path,
         metavar="/path/to/checkpoint/directory",
         help="path to existing checkpoint directory to resume training",
     )
@@ -112,17 +111,17 @@ def check_args(args: Namespace) -> Namespace:
             ):
                 if param is not None:
                     raise ArgumentError(f"Cannot specify both options {name} and {option_name}")
-            args.model_arch = os.path.join(dir_path, CaBRNet.DEFAULT_MODEL_CONFIG)
+            args.model_arch = dir_path / CaBRNet.DEFAULT_MODEL_CONFIG
             # Compatibility with v0.1: will be removed in the future
-            if not os.path.isfile(args.model_arch) and os.path.isfile(os.path.join(dir_path, "model.yml")):
-                args.model_arch = os.path.join(dir_path, "model.yml")
+            if not args.model_arch.is_file() and (dir_path / "model.yml").is_file():
+                args.model_arch = dir_path / "model.yml"
                 logger.warning(
                     f"Using model.yml from {dir_path}: "
                     f"please consider renaming the file to {CaBRNet.DEFAULT_MODEL_CONFIG} to ensure compatibility "
                     f"with future versions"
                 )
-            args.dataset = os.path.join(dir_path, DatasetManager.DEFAULT_DATASET_CONFIG)
-            args.training = os.path.join(dir_path, OptimizerManager.DEFAULT_TRAINING_CONFIG)
+            args.dataset = dir_path / DatasetManager.DEFAULT_DATASET_CONFIG
+            args.training = dir_path / OptimizerManager.DEFAULT_TRAINING_CONFIG
 
     for param, name, option in zip(
         [args.model_arch, args.dataset, args.training], ["model", "dataset", "training"], ["-m", "-d", "-t"]
@@ -136,14 +135,14 @@ def check_args(args: Namespace) -> Namespace:
 
     # In resume mode, specifying the output directory is optional
     if args.output_dir is None and args.resume_from is not None:
-        args.output_dir = get_parent_directory(args.resume_from)
+        args.output_dir = args.resume_from.parent
         logger.warning(f"Using {args.output_dir} as default output directory based on checkpoint path")
     if args.output_dir is None:
         raise ArgumentError("Missing path to output directory (option --output-dir)")
 
     if args.logger_file is None:
         # An explicit logger file should always be used during training
-        args.logger_file = os.path.join(args.output_dir, DEFAULT_LOGGER_FILE)
+        args.logger_file = args.output_dir / DEFAULT_LOGGER_FILE
         logger.warning(f"No log file specified. Using {args.logger_file}")
         logger.add(sink=args.logger_file, level=args.logger_level)
         # Record hardware information again so that it is present in the log file
@@ -151,19 +150,18 @@ def check_args(args: Namespace) -> Namespace:
 
     # In full training mode (all epochs), or when the output directory is different from the checkpoint parent directory
     # (resume mode), check that the best model directory is available
-    best_model_path = os.path.join(args.output_dir, "best")
-    for dir_path in [best_model_path, latest_dir(str(args.output_dir))]:
+    for dir_path in [best_dir(args.output_dir), latest_dir(args.output_dir)]:
         if (
-            os.path.exists(dir_path)
+            dir_path.exists()
             and not args.overwrite
             and not args.epilogue
-            and (args.resume_from is None or get_parent_directory(args.resume_from) != args.output_dir)
+            and (args.resume_from is None or args.resume_from.parent != args.output_dir)
         ):
             raise ArgumentError(
                 f"Output directory {dir_path} is not empty. To overwrite existing results, use --overwrite option."
             )
-    final_model_path = os.path.join(args.output_dir, "final")
-    if args.epilogue and os.path.exists(final_model_path) and not args.overwrite:
+    final_model_path = final_dir(args.output_dir)
+    if args.epilogue and final_model_path.exists() and not args.overwrite:
         raise ArgumentError(
             f"Output directory {final_model_path} is not empty. "
             f"To overwrite existing results, use --overwrite option."

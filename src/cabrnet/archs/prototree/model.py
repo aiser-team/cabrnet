@@ -1,5 +1,5 @@
 import copy
-import os
+from pathlib import Path
 import time
 from typing import Any, Callable
 
@@ -324,7 +324,7 @@ class ProtoTree(CaBRNet):
         self,
         dataloaders: dict[str, DataLoader],
         optimizer_mngr: OptimizerManager,
-        output_dir: str,
+        output_dir: Path,
         device: str | torch.device = "cuda:0",
         verbose: bool = False,
         pruning_threshold: float = 0.0,
@@ -336,7 +336,7 @@ class ProtoTree(CaBRNet):
         Args:
             dataloaders (dictionary): Dictionary of dataloaders.
             optimizer_mngr (OptimizerManager): Unused.
-            output_dir (str): Unused.
+            output_dir (Path): Unused.
             device (str | device, optional): Hardware device. Default: cuda:0.
             verbose (bool, optional): Display progress bar. Default: False.
             pruning_threshold (float, optional): Pruning threshold. Default: 0.0 (no pruning).
@@ -392,11 +392,11 @@ class ProtoTree(CaBRNet):
 
     def explain(
         self,
-        img: str | Image.Image,
+        img: Path | Image.Image,
         preprocess: Callable | None,
         visualizer: SimilarityVisualizer,
-        prototype_dir: str = "",
-        output_dir: str = "",
+        prototype_dir: Path = Path.cwd(),
+        output_dir: Path = Path.cwd(),
         output_format: str = "pdf",
         device: str | torch.device = "cuda:0",
         exist_ok: bool = False,
@@ -407,11 +407,11 @@ class ProtoTree(CaBRNet):
         r"""Explains the decision for a particular image.
 
         Args:
-            img (str or Image): Path to image or image itself.
+            img (Path | Image): Path to image or image itself.
             preprocess (Callable): Preprocessing function.
             visualizer (SimilarityVisualizer): Similarity visualizer.
-            prototype_dir (str, optional): Path to directory containing prototype visualizations. Default: "".
-            output_dir (str, optional): Path to output directory. Default: "".
+            prototype_dir (Path, optional): Path to directory containing prototype visualizations. Default: "".
+            output_dir (Path, optional): Path to output directory. Default: "".
             output_format (str, optional): Output file format. Default: pdf.
             device (str | device, optional): Hardware device. Default: cuda:0.
             exist_ok (bool, optional): Silently overwrites existing explanation (if any). Default: False.
@@ -439,9 +439,9 @@ class ProtoTree(CaBRNet):
             leaf_path = self.classifier.tree.get_mapping(mode=MappingMode.NODE_PATHS)[leaf_id]
 
             # Build explanation
-            img_path = os.path.join(output_dir, "original.png")
+            img_path = output_dir / "original.png"
             if not disable_rendering:
-                os.makedirs(os.path.join(output_dir, "test_patches"), exist_ok=exist_ok)
+                (output_dir / "test_patches").mkdir(parents=True, exist_ok=exist_ok)
                 # Copy source image
                 img.save(img_path)
             explanation = ExplanationGraph(output_dir=output_dir)
@@ -453,7 +453,7 @@ class ProtoTree(CaBRNet):
             most_relevant_prototypes = []  # Keep track of most relevant prototypes
             for node_id in leaf_path[1:]:
                 # Recover path to prototype image
-                prototype_image_path = os.path.join(prototype_dir, f"prototype_{proto_idx}.png")
+                prototype_image_path = prototype_dir / f"prototype_{proto_idx}.png"
                 score = tree_info[node_id]["conditional_probability"].item()
                 if node_id == node_mapping[parent_id].get_submodule(f"{parent_id}_child_nsim").node_id:
                     # No similarity
@@ -467,7 +467,7 @@ class ProtoTree(CaBRNet):
                 else:
                     # Similarity
                     most_relevant_prototypes.append((proto_idx, score, True))
-                    patch_image_path = os.path.join(output_dir, "test_patches", f"proto_similarity_{proto_idx}.png")
+                    patch_image_path = output_dir / "test_patches" / f"proto_similarity_{proto_idx}.png"
                     if not disable_rendering:
                         patch_image = visualizer.forward(
                             img=img, img_tensor=img_tensor, proto_idx=proto_idx, device=device
@@ -489,16 +489,16 @@ class ProtoTree(CaBRNet):
 
     def explain_global(
         self,
-        prototype_dir: str,
-        output_dir: str,
+        prototype_dir: Path,
+        output_dir: Path,
         output_format: str = "pdf",
         **kwargs,
     ) -> None:
         r"""Explains the global decision-making process of a CaBRNet model.
 
         Args:
-            prototype_dir (str): Path to directory containing prototype visualizations.
-            output_dir (str): Path to output directory.
+            prototype_dir (Path): Path to directory containing prototype visualizations.
+            output_dir (Path): Path to output directory.
             output_format (str, optional): Output file format. Default: pdf.
         """
 
@@ -518,7 +518,7 @@ class ProtoTree(CaBRNet):
                 graph.node(name=f"node_{node.node_id}", label=f"Class {class_idx}", fontsize="25", height="0.5")
             else:
                 proto_idx = node.proto_idxs[0]
-                img_path = os.path.abspath(os.path.join(prototype_dir, f"prototype_{proto_idx}.png"))
+                img_path = str((prototype_dir / f"prototype_{proto_idx}.png").resolve(strict=True))
                 graph.node(name=f"node_{node.node_id}", image=img_path, imagescale="True")
                 for child_name, similarity in zip(["nsim", "sim"], ["not similar", "similar"]):
                     child = node.get_submodule(f"{node.node_id}_child_{child_name}")
@@ -536,4 +536,4 @@ class ProtoTree(CaBRNet):
         explanation_graph.attr("node", shape="plaintext", label="", fixedsize="True", width="2", height="2")
         explanation_graph = build_tree_explanation(node, explanation_graph)
         logger.debug(explanation_graph.source)
-        explanation_graph.render(filename=os.path.join(output_dir, "global_explanation"), format=output_format)
+        explanation_graph.render(filename=output_dir / "global_explanation", format=output_format)

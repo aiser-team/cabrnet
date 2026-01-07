@@ -1,5 +1,5 @@
 from collections import OrderedDict
-import os
+from pathlib import Path
 from typing import Tuple
 import warnings
 
@@ -74,7 +74,7 @@ class ConvExtractor(nn.Module):
         if weights == "None":
             weights = ""
 
-        if os.path.isfile(weights):
+        if Path(weights).is_file():
             if not ignore_weight_errors:
                 logger.info(f"Loading state dict for feature extractor: {weights}")
             loaded_weights = torch.load(weights, map_location="cpu")
@@ -102,6 +102,7 @@ class ConvExtractor(nn.Module):
 
         # Backbone post-processing (if any)
         for op, op_config in backbone_config.get("postprocess", {}).items():
+            preprocess_fn = None
             match op:
                 case "stride_divider":
                     ratio = op_config["ratio"]

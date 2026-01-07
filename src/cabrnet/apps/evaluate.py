@@ -1,4 +1,4 @@
-import os
+from pathlib import Path
 from argparse import ArgumentParser, Namespace
 
 from loguru import logger
@@ -30,7 +30,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     parser.add_argument(
         "-c",
         "--checkpoint-dir",
-        type=str,
+        type=Path,
         required=False,
         metavar="/path/to/checkpoint/dir",
         help="path to a checkpoint directory "
@@ -65,10 +65,10 @@ def check_args(args: Namespace) -> Namespace:
         ):
             if param is not None:
                 logger.warning(f"Ignoring option {name}: using content pointed by --checkpoint-dir instead")
-        args.model_arch = os.path.join(args.checkpoint_dir, CaBRNet.DEFAULT_MODEL_CONFIG)
-        args.model_state_dict = os.path.join(args.checkpoint_dir, CaBRNet.DEFAULT_MODEL_STATE)
-        args.dataset = os.path.join(args.checkpoint_dir, DatasetManager.DEFAULT_DATASET_CONFIG)
-        args.training = os.path.join(args.checkpoint_dir, OptimizerManager.DEFAULT_TRAINING_CONFIG)
+        args.model_arch = args.checkpoint_dir / CaBRNet.DEFAULT_MODEL_CONFIG
+        args.model_state_dict = args.checkpoint_dir / CaBRNet.DEFAULT_MODEL_STATE
+        args.dataset = args.checkpoint_dir / DatasetManager.DEFAULT_DATASET_CONFIG
+        args.training = args.checkpoint_dir / OptimizerManager.DEFAULT_TRAINING_CONFIG
 
     # Check configuration completeness
     for param, name, option in zip(

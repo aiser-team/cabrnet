@@ -1,4 +1,4 @@
-import os
+from pathlib import Path
 from argparse import ArgumentParser, Namespace
 
 from loguru import logger
@@ -31,7 +31,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     parser.add_argument(
         "-c",
         "--config-dir",
-        type=str,
+        type=Path,
         required=False,
         metavar="/path/to/config/dir",
         help="path to directory containing all configuration files "
@@ -40,7 +40,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     parser.add_argument(
         "-o",
         "--output-dir",
-        type=str,
+        type=Path,
         required=True,
         metavar="path/to/output/directory",
         help="path to output directory",
@@ -65,9 +65,9 @@ def check_args(args: Namespace) -> Namespace:
         ):
             if param is not None:
                 raise ArgumentError(f"Cannot specify both options {name} and --config_dir")
-        args.model_arch = os.path.join(args.config_dir, CaBRNet.DEFAULT_MODEL_CONFIG)
-        args.dataset = os.path.join(args.config_dir, DatasetManager.DEFAULT_DATASET_CONFIG)
-        args.training = os.path.join(args.config_dir, OptimizerManager.DEFAULT_TRAINING_CONFIG)
+        args.model_arch = args.config_dir / CaBRNet.DEFAULT_MODEL_CONFIG
+        args.dataset = args.config_dir / DatasetManager.DEFAULT_DATASET_CONFIG
+        args.training = args.config_dir / OptimizerManager.DEFAULT_TRAINING_CONFIG
 
     # Check configuration completeness
     for param, name, option in zip(
@@ -125,7 +125,7 @@ def execute(args: Namespace) -> None:
         f"Average loss: {eval_info['test_set/loss']:.2f}. Average accuracy: {eval_info['test_set/accuracy']:.2f}."
     )
     save_checkpoint(
-        directory_path=os.path.join(root_dir, "imported"),
+        directory_path=root_dir / "imported",
         model=model,
         model_arch=model_arch,
         optimizer_mngr=None,

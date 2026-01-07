@@ -1,5 +1,4 @@
-import os
-
+from pathlib import Path
 import graphviz
 import numpy as np
 from loguru import logger
@@ -16,56 +15,48 @@ class GenericGraph:
         output_dir: Path to output directory.
     """
 
-    def __init__(self, output_dir: str | None) -> None:
+    def __init__(self, output_dir: Path | None) -> None:
         r"""Initializes graph.
 
         Args:
-            output_dir (str): Path to output directory.
+            output_dir (Path): Path to output directory.
         """
         self._dot = graphviz.Digraph()
         self._dot.attr(rankdir="LR")
         self._dot.attr(margin="0")
         self._dot.attr("node", shape="plaintext", label="", fixedsize="True", width="2", height="2")
         self._dot.attr("edge", penwidth="0.5")
-        self.output_dir = output_dir or ""
+        self.output_dir = output_dir or Path.cwd()
 
-    def render(self, path: str | None = None, output_format: str = "pdf") -> None:
+    def render(self, path: Path | None = None, output_format: str = "pdf") -> None:
         r"""Renders graph into a file.
 
         Args:
-            path (str, optional): If specified, path to the render file. Otherwise, it is set to "explanation".
+            path (Path, optional): If specified, path to the render file. Otherwise, it is set to "explanation".
                 Default: None.
             output_format (str, optional): Output file format. Default: pdf.
         """
         logger.debug(self._dot.source)
         if path is None:
-            path = os.path.join(self.output_dir, "explanation")
+            path = self.output_dir / "explanation"
         self._dot.render(filename=path, format=output_format)
-
-    def get_relpath(self, path: str) -> str:
-        r"""Returns the relative path w.r.t. the output directory.
-
-        Args:
-            path (str): File path.
-        """
-        return os.path.relpath(path, self.output_dir)
 
 
 class ExplanationGraph(GenericGraph):
     r"""Object based on Graphviz used to generate explanation graphs."""
 
-    def __init__(self, output_dir: str) -> None:
+    def __init__(self, output_dir: Path) -> None:
         r"""Initializes explanation.
 
         Args:
-            output_dir (str): Path to output directory.
+            output_dir (Path): Path to output directory.
         """
         super().__init__(output_dir)
         self._num_nodes = 0
 
     def set_test_image(
         self,
-        img_path: str,
+        img_path: Path,
         label: str = "",
         font_color: str = "black",
         draw_arrows: bool = True,
@@ -73,15 +64,13 @@ class ExplanationGraph(GenericGraph):
         r"""Sets the test image.
 
         Args:
-            img_path (str): Path to image.
+            img_path (Path): Path to image.
             label (str, optional): Image label. Default: "".
             font_color (str, optional): Font color. Default: black.
             draw_arrows (bool, optional): If True, draw arrows connecting all images. Default: True.
         """
-        # Relative path between the image and the final directory where rendering will occur
-        rel_path = self.get_relpath(img_path)
         if label == "":
-            self._dot.node(name=f"node_{self._num_nodes}_test", label="", image=rel_path, imagescale="True")
+            self._dot.node(name=f"node_{self._num_nodes}_test", label="", image=str(img_path), imagescale="True")
         else:
             self._dot.node(
                 name=f"node_{self._num_nodes}_test",
@@ -90,7 +79,7 @@ class ExplanationGraph(GenericGraph):
                 label=label,
                 fontcolor=font_color,
                 labelloc="b",
-                image=rel_path,
+                image=str(img_path),
                 imagescale="True",
             )
         if self._num_nodes > 0:
@@ -104,8 +93,8 @@ class ExplanationGraph(GenericGraph):
 
     def add_similarity(
         self,
-        prototype_img_path: str,
-        test_patch_img_path: str,
+        prototype_img_path: Path,
+        test_patch_img_path: Path,
         label: str,
         font_color: str = "black",
         draw_arrows: bool = True,
@@ -113,23 +102,21 @@ class ExplanationGraph(GenericGraph):
         r"""Adds a similarity comparison to the explanation graph.
 
         Args:
-            prototype_img_path (str): Path to prototype patch visualization.
-            test_patch_img_path (str): Path to test image patch visualization.
+            prototype_img_path (Path): Path to prototype patch visualization.
+            test_patch_img_path (Path): Path to test image patch visualization.
             label (str): Description of the similarity (e.g. similarity score).
             font_color (str, optional): Font color. Default: black.
             draw_arrows (bool, optional): If True, draw arrows connecting all images. Default: True.
         """
-        rel_test_patch_img_path = self.get_relpath(test_patch_img_path)
-        rel_prototype_img_path = self.get_relpath(prototype_img_path)
         # Create subgraph
         subgraph = graphviz.Digraph()
         subgraph.attr(rank="same")
-        subgraph.node(name=f"node_{self._num_nodes}_test", image=rel_test_patch_img_path, imagescale="True")
+        subgraph.node(name=f"node_{self._num_nodes}_test", image=str(test_patch_img_path), imagescale="True")
         subgraph.node(
             name=f"node_{self._num_nodes}_label", label=label, fontcolor=font_color, fontsize="10", height="0.5"
         )
         subgraph.node(
-            name=f"node_{self._num_nodes}_proto", image=rel_prototype_img_path, imagescale="True", imagepos="tc"
+            name=f"node_{self._num_nodes}_proto", image=str(prototype_img_path), imagescale="True", imagepos="tc"
         )
         subgraph.edge(
             tail_name=f"node_{self._num_nodes}_test",
@@ -191,11 +178,11 @@ class PerturbationGraph(GenericGraph):
         self,
         perturbation: str,
         prototype_label: str,
-        prototype_img_path: str,
-        test_patch_img_path: str,
-        test_patch_heatmap_path: str,
-        focus_test_patch_img_path: str,
-        dual_test_patch_img_path: str | None,
+        prototype_img_path: Path,
+        test_patch_img_path: Path,
+        test_patch_heatmap_path: Path,
+        focus_test_patch_img_path: Path,
+        dual_test_patch_img_path: Path | None,
         original_sim_score: float,
         focus_sim_score: float,
         dual_sim_score: float = 0.0,
@@ -205,11 +192,11 @@ class PerturbationGraph(GenericGraph):
         Args:
             perturbation (str): Perturbation name.
             prototype_label (str): Prototype name.
-            prototype_img_path (str): Path to prototype patch visualization.
-            test_patch_img_path (str): Path to test image patch visualization.
-            test_patch_heatmap_path (str): Path to test image patch visualization in heatmap form.
-            focus_test_patch_img_path (str): Path to test image patch visualization, after focused perturbation.
-            dual_test_patch_img_path (str): Path to test image patch visualization, after dual perturbation.
+            prototype_img_path (Path): Path to prototype patch visualization.
+            test_patch_img_path (Path): Path to test image patch visualization.
+            test_patch_heatmap_path (Path): Path to test image patch visualization in heatmap form.
+            focus_test_patch_img_path (Path): Path to test image patch visualization, after focused perturbation.
+            dual_test_patch_img_path (Path): Path to test image patch visualization, after dual perturbation.
             original_sim_score (float): Original similarity score, before perturbation.
             focus_sim_score (float): Similarity score, after focused perturbation.
             dual_sim_score (float, optional): Similarity score, after dual perturbation. Default: 0.0.
@@ -224,26 +211,26 @@ class PerturbationGraph(GenericGraph):
         subgraph.node(
             name=f"node_{self._num_blocks}_test_ref",
             label="Test patch",
-            image=self.get_relpath(test_patch_img_path),
+            image=str(test_patch_img_path),
             pos=f"4,{y_ref + 5}!",
         )
         subgraph.node(
             name=f"node_{self._num_blocks}_proto",
             label=f"Prototype {prototype_label}",
-            image=self.get_relpath(prototype_img_path),
+            image=str(prototype_img_path),
             pos=f"8,{y_ref+2.5}!",
         )
         subgraph.node(
             name=f"node_{self._num_blocks}_test_hm",
             label="Patch heatmap",
-            image=self.get_relpath(test_patch_heatmap_path),
+            image=str(test_patch_heatmap_path),
             pos=f"0,{y_ref + 2.5}!",
         )
         subgraph.node(
             name=f"node_{self._num_blocks}_test_focus",
             height=str(2.3 + 0.2 * perturbation.count("\n")),
             label=f"{perturbation} (focus)",
-            image=self.get_relpath(focus_test_patch_img_path),
+            image=str(focus_test_patch_img_path),
             pos=f"4,{y_ref+2.5}!",
         )
         if dual_test_patch_img_path is not None:
@@ -251,7 +238,7 @@ class PerturbationGraph(GenericGraph):
                 name=f"node_{self._num_blocks}_test_dual",
                 height=str(2.3 + 0.2 * perturbation.count("\n")),
                 label=f"{perturbation} (dual)",
-                image=self.get_relpath(dual_test_patch_img_path),
+                image=str(dual_test_patch_img_path),
                 pos=f"4,{y_ref}!",
             )
 
@@ -314,7 +301,7 @@ class PointingGameGraph(GenericGraph):
 
     def add_block(
         self,
-        prototype_img_path: str,
+        prototype_img_path: Path,
         original_img: Image.Image,
         test_patch_img: Image.Image,
         segmentation: Image.Image,
@@ -330,7 +317,7 @@ class PointingGameGraph(GenericGraph):
         r"""Adds a perturbation block to the graph.
 
         Args:
-            prototype_img_path (str): Path to prototype patch visualization.
+            prototype_img_path (Path): Path to prototype patch visualization.
             original_img (Image): Original test image.
             test_patch_img (Image): Image patch visualization.
             segmentation (Image): Object segmentation.
@@ -347,17 +334,17 @@ class PointingGameGraph(GenericGraph):
         y_ref = -self._num_blocks * 7
 
         # Save the test patch, the segmentation, the heatmap and their intersection
-        output_dir = os.path.join(self.output_dir, "images")
-        os.makedirs(output_dir, exist_ok=True)
+        output_dir = self.output_dir / "images"
+        output_dir.mkdir(parents=True, exist_ok=True)
         object_seg = np.sum(np.asarray(segmentation), axis=-1)
-        test_img_seg_path = os.path.join(output_dir, f"img_{img_id}.png")
-        test_patch_img_path = os.path.join(output_dir, f"img_{img_id}_v_proto{proto_idx}.png")
-        test_patch_heatmap_path = os.path.join(output_dir, f"img_{img_id}_v_proto{proto_idx}_heatmap.png")
-        test_patch_heatmap_in_path = os.path.join(output_dir, f"img_{img_id}_v_proto{proto_idx}_heatmap_in.png")
-        test_patch_heatmap_out_path = os.path.join(output_dir, f"img_{img_id}_v_proto{proto_idx}_heatmap_out.png")
-        test_patch_mask_path = os.path.join(output_dir, f"img_{img_id}_v_proto{proto_idx}_mask.png")
-        test_patch_mask_in_path = os.path.join(output_dir, f"img_{img_id}_v_proto{proto_idx}_mask_in.png")
-        test_patch_mask_out_path = os.path.join(output_dir, f"img_{img_id}_v_proto{proto_idx}_mask_out.png")
+        test_img_seg_path = output_dir / f"img_{img_id}.png"
+        test_patch_img_path = output_dir / f"img_{img_id}_v_proto{proto_idx}.png"
+        test_patch_heatmap_path = output_dir / f"img_{img_id}_v_proto{proto_idx}_heatmap.png"
+        test_patch_heatmap_in_path = output_dir / f"img_{img_id}_v_proto{proto_idx}_heatmap_in.png"
+        test_patch_heatmap_out_path = output_dir / f"img_{img_id}_v_proto{proto_idx}_heatmap_out.png"
+        test_patch_mask_path = output_dir / f"img_{img_id}_v_proto{proto_idx}_mask.png"
+        test_patch_mask_in_path = output_dir / f"img_{img_id}_v_proto{proto_idx}_mask_in.png"
+        test_patch_mask_out_path = output_dir / f"img_{img_id}_v_proto{proto_idx}_mask_out.png"
 
         square_resize(segmentation).save(test_img_seg_path)
         square_resize(test_patch_img).save(test_patch_img_path)
@@ -380,49 +367,49 @@ class PointingGameGraph(GenericGraph):
         self._dot.node(
             name=f"node_{self._num_blocks}_test_patch",
             label="Test patch" if not prototype_mode else f"Prototype {proto_idx}",
-            image=self.get_relpath(test_patch_img_path),
+            image=str(test_patch_img_path),
             pos=f"0,{y_ref + 3}!",
         )
         self._dot.node(
             name=f"node_{self._num_blocks}_test_seg",
             label="Segmentation",
-            image=self.get_relpath(test_img_seg_path),
+            image=str(test_img_seg_path),
             pos=f"0,{y_ref}!",
         )
         self._dot.node(
             name=f"node_{self._num_blocks}_test_patch_heatmap",
             label="Patch heatmap",
-            image=self.get_relpath(test_patch_heatmap_path),
+            image=str(test_patch_heatmap_path),
             pos=f"3,{y_ref + 3}!",
         )
         self._dot.node(
             name=f"node_{self._num_blocks}_test_patch_mask",
             label=f"Patch mask ({int(area_percentage*100)}% area)",
-            image=self.get_relpath(test_patch_mask_path),
+            image=str(test_patch_mask_path),
             pos=f"3, {y_ref}!",
         )
         self._dot.node(
             name=f"node_{self._num_blocks}_test_patch_heatmap_in",
             label=f"Inside ({int(energy_score*100)}%)",
-            image=self.get_relpath(test_patch_heatmap_in_path),
+            image=str(test_patch_heatmap_in_path),
             pos=f"7,{y_ref+3}!",
         )
         self._dot.node(
             name=f"node_{self._num_blocks}_test_patch_mask_in",
             label=f"Inside ({int(mask_score*100)}%)",
-            image=self.get_relpath(test_patch_mask_in_path),
+            image=str(test_patch_mask_in_path),
             pos=f"7,{y_ref}!",
         )
         self._dot.node(
             name=f"node_{self._num_blocks}_test_patch_heatmap_out",
             label=f"Outside ({100-int(energy_score*100)}%)",
-            image=self.get_relpath(test_patch_heatmap_out_path),
+            image=str(test_patch_heatmap_out_path),
             pos=f"10,{y_ref+3}!",
         )
         self._dot.node(
             name=f"node_{self._num_blocks}_test_patch_mask_out",
             label=f"Outside ({100-int(mask_score*100)}%)",
-            image=self.get_relpath(test_patch_mask_out_path),
+            image=str(test_patch_mask_out_path),
             pos=f"10,{y_ref}!",
         )
 
@@ -436,12 +423,12 @@ class PointingGameGraph(GenericGraph):
         )
 
         if not prototype_mode:
-            prototype_resize_img_path = os.path.join(output_dir, f"prototype_{proto_idx}.png")
+            prototype_resize_img_path = output_dir / f"prototype_{proto_idx}.png"
             square_resize(Image.open(prototype_img_path)).save(prototype_resize_img_path)  # Resize and copy prototype
             self._dot.node(
                 name=f"node_{self._num_blocks}_proto",
                 label=f"Prototype {proto_idx}",
-                image=self.get_relpath(prototype_resize_img_path),
+                image=str(prototype_resize_img_path),
                 pos=f"-4,{y_ref+3}!",
             )
             self._dot.edge(

@@ -1,4 +1,4 @@
-import os
+from pathlib import Path
 from argparse import ArgumentParser, Namespace
 
 from loguru import logger
@@ -30,7 +30,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     parser.add_argument(
         "-p",
         "--projection-info",
-        type=str,
+        type=Path,
         required=False,
         metavar="/path/to/projection/info",
         help="path to the CSV file containing the projection information",
@@ -38,7 +38,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     parser.add_argument(
         "-c",
         "--checkpoint-dir",
-        type=str,
+        type=Path,
         required=False,
         metavar="/path/to/checkpoint/dir",
         help="path to a checkpoint directory (alternative to --model-arch, --model-state-dict, --dataset "
@@ -47,7 +47,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     parser.add_argument(
         "-o",
         "--output-dir",
-        type=str,
+        type=Path,
         required=True,
         metavar="path/to/output/directory",
         help="path to output directory",
@@ -81,10 +81,10 @@ def check_args(args: Namespace) -> Namespace:
         ):
             if param is not None:
                 raise ArgumentError(f"Cannot specify both options {name} and --checkpoint-dir")
-        args.model_arch = os.path.join(args.checkpoint_dir, CaBRNet.DEFAULT_MODEL_CONFIG)
-        args.model_state_dict = os.path.join(args.checkpoint_dir, CaBRNet.DEFAULT_MODEL_STATE)
-        args.dataset = os.path.join(args.checkpoint_dir, DatasetManager.DEFAULT_DATASET_CONFIG)
-        args.projection_info = os.path.join(args.checkpoint_dir, CaBRNet.DEFAULT_PROJECTION_INFO)
+        args.model_arch = args.checkpoint_dir / CaBRNet.DEFAULT_MODEL_CONFIG
+        args.model_state_dict = args.checkpoint_dir / CaBRNet.DEFAULT_MODEL_STATE
+        args.dataset = args.checkpoint_dir / DatasetManager.DEFAULT_DATASET_CONFIG
+        args.projection_info = args.checkpoint_dir / CaBRNet.DEFAULT_PROJECTION_INFO
 
     # Check configuration completeness
     for param, name, option in zip(
@@ -121,7 +121,7 @@ def execute(args: Namespace) -> None:
         dataloader=dataloaders["projection_set"],
         projection_info=projection_info,
         visualizer=visualizer,
-        dir_path=os.path.join(args.output_dir, "prototypes"),
+        dir_path=args.output_dir / "prototypes",
         device=args.device,
         verbose=args.verbose,
     )
@@ -129,13 +129,13 @@ def execute(args: Namespace) -> None:
     # Save visualization config
     safe_copy(
         args.visualization,
-        os.path.join(args.output_dir, "prototypes", SimilarityVisualizer.DEFAULT_VISUALIZATION_CONFIG),
+        args.output_dir / "prototypes" / SimilarityVisualizer.DEFAULT_VISUALIZATION_CONFIG,
     )
 
     # Generate explanation
     try:
         model.explain_global(
-            prototype_dir=os.path.join(args.output_dir, "prototypes"),
+            prototype_dir=args.output_dir / "prototypes",
             output_dir=args.output_dir,
             output_format=args.format,
         )

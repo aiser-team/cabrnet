@@ -2,6 +2,7 @@ from PIL import Image
 import torch
 from torchvision.transforms import ToTensor
 from typing import Callable, Any
+from pathlib import Path
 
 
 def square_resize(img: Image.Image) -> Image.Image:
@@ -34,12 +35,12 @@ class safe_open_image:
     """
 
     def __init__(
-        self, input: str | Image.Image, preprocess: Callable[[Image.Image], Any] | None = ToTensor(), rgb: bool = True
+        self, input: Path | Image.Image, preprocess: Callable[[Image.Image], Any] | None = ToTensor(), rgb: bool = True
     ):
         r"""Builds a safe image opener.
 
         Args:
-          input (str | Image): Image as a PIL.Image or a filename.
+          input (Path | Image): Image as a PIL.Image or a filename.
           preprocess (Callable[[Image],Any], optional): Preprocess to apply to the image.  Default: ToTensor().
           rgb (bool, optional): If True, makes sure that the image is in RGB mode (ignores the issue otherwise).
             Default: True.
@@ -74,14 +75,14 @@ class safe_open_image:
 
 
 def _open_image(
-    img: str | Image.Image, preprocess: Callable[[Image.Image], Any], rgb: bool
+    img: Path | Image.Image, preprocess: Callable[[Image.Image], Any], rgb: bool
 ) -> tuple[Image.Image, Any, Image.Image | None]:
     r"""Does the opening (cf. open_image) and returns the image and the tensor.
     Additionally, returns the "new image" if the process created an image.
     This tells the context manager that it should eventually destroy it.
 
     Args:
-        img (str | Image): Image as a PIL.Image or a filename.
+        img (Path | Image): Image as a PIL.Image or a filename.
         preprocess (Callable[[Image], Any]): Preprocess to apply to the image.
         rgb (bool): If True, makes sure that the image is in RGB mode (ignores the issue otherwise).
 
@@ -89,7 +90,7 @@ def _open_image(
         A triplet (img, img_tensor, new_image) if the process created an image, (img, img_tensor, None) otherwise.
     """
     new_image = None
-    if isinstance(img, str):
+    if isinstance(img, Path):
         img = Image.open(img)
         new_image = img
 
@@ -105,14 +106,14 @@ def _open_image(
 
 
 def open_image(
-    img: str | Image.Image, preprocess: Callable[[Image.Image], Any] = ToTensor(), rgb: bool = True
+    img: Path | Image.Image, preprocess: Callable[[Image.Image], Any] = ToTensor(), rgb: bool = True
 ) -> tuple[Image.Image, torch.Tensor]:
     r"""Cleanly turns the specified image into a tensor.  This method ensures that the output tensor has shape
     `(1,3,H,W)` where `H` and `W` are the size of the image or the size specified by the preprocess
     (if `rgb` is True, otherwise it does not modify the number of channels).
 
     Args:
-      img (str|Image): Image as a PIL.Image or a filename.
+      img (Path|Image): Image as a PIL.Image or a filename.
       preprocess (Callable[[Image],Any], optional): Preprocess to apply to the image.  Default: ToTensor().
       rgb (bool, optional): If True, makes sure that the image is in RGB mode (ignores the issue otherwise).
         Default: True.

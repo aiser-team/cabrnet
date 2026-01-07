@@ -12,7 +12,7 @@ from sklearn.manifold import TSNE
 from sklearn.decomposition import PCA
 from cabrnet.core.utils.exceptions import ArgumentError
 from tqdm import tqdm
-import os
+from pathlib import Path
 
 description = "visualizes the latent space"
 
@@ -34,7 +34,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     parser.add_argument(
         "-c",
         "--checkpoint-dir",
-        type=str,
+        type=Path,
         required=False,
         metavar="/path/to/checkpoint/dir",
         help="path to a checkpoint directory (alternative to --model-arch, --model-state-dict, --dataset)",
@@ -42,7 +42,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     parser.add_argument(
         "-o",
         "--output-file",
-        type=str,
+        type=Path,
         required=True,
         metavar="path/to/file",
         help="path to output file",
@@ -52,6 +52,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         "--algorithm",
         type=str,
         choices=["tSNE", "PaCMAP", "PCA"],
+        required=True,
         metavar="algorithm",
         help="algorithm to use for dimensionality reduction method. Choices are tSNE, PaCMAP and PCA",
     )
@@ -94,9 +95,9 @@ def check_args(args: Namespace) -> Namespace:
         ):
             if param is not None:
                 raise ArgumentError(f"Cannot specify both options {name} and --checkpoint-dir")
-        args.model_arch = os.path.join(args.checkpoint_dir, CaBRNet.DEFAULT_MODEL_CONFIG)
-        args.model_state_dict = os.path.join(args.checkpoint_dir, CaBRNet.DEFAULT_MODEL_STATE)
-        args.dataset = os.path.join(args.checkpoint_dir, DatasetManager.DEFAULT_DATASET_CONFIG)
+        args.model_arch = args.checkpoint_dir / CaBRNet.DEFAULT_MODEL_CONFIG
+        args.model_state_dict = args.checkpoint_dir / CaBRNet.DEFAULT_MODEL_STATE
+        args.dataset = args.checkpoint_dir / DatasetManager.DEFAULT_DATASET_CONFIG
 
     # Check configuration completeness
     for param, name, option in zip(
@@ -118,7 +119,7 @@ def check_args(args: Namespace) -> Namespace:
 def draw_latent(
     model: CaBRNet,
     dataloader: DataLoader,
-    output_file: str,
+    output_file: Path,
     algorithm: str,
     similarity_threshold: float,
     plot_class: int | None,
@@ -133,7 +134,7 @@ def draw_latent(
     Args:
         model (CaBRNet): Target CaBRNet model.
         dataloader (DataLoader): Dataloader containing the dataset.
-        output_file (str): Path to the output file.
+        output_file (Path): Path to the output file.
         algorithm (str): Dimensionality reduction algorithm. Options: tSNE, PaCMAP or PCA.
         similarity_threshold (float): Only consider vectors with a similarity greater than this threshold.
         plot_class (int | None): If given, plot the latent space in relation to this class only.
@@ -259,12 +260,11 @@ def execute(args: Namespace) -> None:
     model = CaBRNet.build_from_config(config=args.model_arch, state_dict_path=args.model_state_dict)
 
     dataloaders = DatasetManager.get_dataloaders(config=args.dataset, sampling_ratio=args.sampling_ratio)
-    output_file = args.output_file
 
     draw_latent(
         model=model,
         dataloader=dataloaders["train_set"],
-        output_file=output_file,
+        output_file=args.output_file,
         algorithm=args.algorithm,
         similarity_threshold=args.similarity_threshold,
         plot_class=args.plot_class,

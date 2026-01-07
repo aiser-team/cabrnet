@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 from typing import Any, Callable
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -45,7 +46,7 @@ class SimilarityVisualizer(nn.Module):
         view_fn: Callable,
         attribution_params: dict | None = None,
         view_params: dict | None = None,
-        config_file: str | None = None,
+        config_file: Path | None = None,
         *args,
         **kwargs,
     ):
@@ -57,7 +58,7 @@ class SimilarityVisualizer(nn.Module):
             view_fn (Callable): Viewing function.
             attribution_params (dictionary, optional): Parameters to attribution function. Default: None.
             view_params (dictionary, optional): Parameters to viewing function. Default: None.
-            config_file (str, optional): Path to the file used to configure the visualizer. Default: None.
+            config_file (Path, optional): Path to the file used to configure the visualizer. Default: None.
         """
         super().__init__(*args, **kwargs)
         self.attribution = attribution_fn
@@ -139,7 +140,7 @@ class SimilarityVisualizer(nn.Module):
             **attribution_params,
         )
 
-    DEFAULT_VISUALIZATION_CONFIG = "visualization.yml"
+    DEFAULT_VISUALIZATION_CONFIG = Path("visualization.yml")
 
     @staticmethod
     def create_parser(
@@ -160,6 +161,7 @@ class SimilarityVisualizer(nn.Module):
         parser.add_argument(
             "-z",
             "--visualization",
+            type=Path,
             required=mandatory_config,
             metavar="/path/to/file.yml",
             help="path to the visualization configuration file",
@@ -167,17 +169,17 @@ class SimilarityVisualizer(nn.Module):
         return parser
 
     @staticmethod
-    def build_from_config(config: str | dict[str, Any], model: nn.Module) -> SimilarityVisualizer:
+    def build_from_config(config: Path | dict[str, Any], model: nn.Module) -> SimilarityVisualizer:
         r"""Builds a ProtoVisualizer from a configuration file or dictionary.
 
         Args:
-            config (str): Path to configuration file or dictionary.
+            config (Path): Path to configuration file or dictionary.
             model (Module): Target model.
 
         Returns:
             ProtoVisualizer.
         """
-        if isinstance(config, str):
+        if isinstance(config, Path):
             logger.info(f"Loading patch visualizer from {config}.")
             config_dict = load_config(config)
         else:
@@ -208,5 +210,5 @@ class SimilarityVisualizer(nn.Module):
             view_fn=view_fn,
             attribution_params=attribution_params,
             view_params=view_params,
-            config_file=config if isinstance(config, str) else None,
+            config_file=config if isinstance(config, Path) else None,
         )
