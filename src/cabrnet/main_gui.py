@@ -21,6 +21,7 @@ import importlib.metadata
 import random
 import sys
 from argparse import ArgumentParser
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -63,7 +64,7 @@ def main():
     parser.add_argument("--logger-level", type=str, metavar="level", default="INFO", help="Logger level")
     parser.add_argument(
         "--logger-file",
-        type=str,
+        type=Path,
         metavar="path/to/file",
         help="Logger file (default: sys.stderr)",
     )

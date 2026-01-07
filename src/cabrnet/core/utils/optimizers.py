@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 from typing import Any
+from pathlib import Path
 
 import torch
 import torch.nn as nn
@@ -65,19 +66,19 @@ class OptimizerManager:
         self._set_periods()
 
     @staticmethod
-    def build_from_config(config: str | dict[str, Any], model: nn.Module) -> OptimizerManager:
+    def build_from_config(config: Path | dict[str, Any], model: nn.Module) -> OptimizerManager:
         r"""Builds an OptimizerManager object from a YML file.
 
         Args:
-            config (str | dict): Path to configuration file, or configuration dictionary.
+            config (Path | dict): Path to configuration file, or configuration dictionary.
             model (Module): Target module.
 
         Returns:
             OptimizerManager.
         """
-        if not isinstance(config, (str, dict)):
+        if not isinstance(config, (Path, dict)):
             raise ValueError(f"Unsupported configuration format: {type(config)}")
-        if isinstance(config, str):
+        if isinstance(config, Path):
             config_dict = load_config(config)
         else:
             config_dict = config
@@ -159,9 +160,11 @@ class OptimizerManager:
                 recursive_type_filter(module, "", excluded_parameters, excluded_types)
 
             # DEBUG logging
-            logger.debug(f"Group {group_name} includes {len(included_parameters)} parameters, "
-                        f"excludes {len(excluded_parameters)} parameters.")
-            
+            logger.debug(
+                f"Group {group_name} includes {len(included_parameters)} parameters, "
+                f"excludes {len(excluded_parameters)} parameters."
+            )
+
             module_parameters = [name for name in included_parameters if name not in excluded_parameters]
 
             # Collect the names of the layers to keep in order to avoid duplicates
@@ -178,7 +181,7 @@ class OptimizerManager:
                             match_found = True
                             selected.add(name)
                     if not match_found:
-                        logger.warning(f"No parameter matching keyword {submodule_name} in model")
+                        logger.warning(f"No parameter matching keyword {submodule} in model")
             else:
                 start = group_value.get(START)
                 stop = group_value.get(STOP)
@@ -230,7 +233,7 @@ class OptimizerManager:
             config = optim_config[optim_name]
             global_params = config.get("params")
             optim_fn = config["type"]
-            
+
             if "Muon" in optim_fn:
                 try:
                     from muon import SingleDeviceMuon  # pylint: disable=import-outside-toplevel
@@ -239,7 +242,7 @@ class OptimizerManager:
                         f"Optimizer '{optim_fn}' requires the Muon package. "
                         "Install with: pip install git+https://github.com/KellerJordan/Muon"
                     ) from exc
-            
+
             if config.get("groups") is None:
                 param_group = self.param_groups["main"]
                 if optim_fn == "SingleDeviceMuon":
@@ -508,8 +511,8 @@ class OptimizerManager:
         for optim_name in self.schedulers:
             self.schedulers[optim_name].load_state_dict(state_dict["schedulers"][optim_name])
 
-    DEFAULT_TRAINING_CONFIG: str = "training.yml"
-    DEFAULT_TRAINING_STATE: str = "optimizer_state.pth"
+    DEFAULT_TRAINING_CONFIG = Path("training.yml")
+    DEFAULT_TRAINING_STATE = Path("optimizer_state.pth")
 
     @staticmethod
     def create_parser(
@@ -530,7 +533,7 @@ class OptimizerManager:
         parser.add_argument(
             "-t",
             "--training",
-            type=str,
+            type=Path,
             required=mandatory_config,
             metavar="/path/to/file.yml",
             help="path to the training configuration file",

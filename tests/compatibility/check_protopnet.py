@@ -2,6 +2,7 @@ import unittest
 import sys
 from loguru import logger
 from tqdm import tqdm
+from pathlib import Path
 
 import torch
 import torch.nn as nn
@@ -36,7 +37,7 @@ def legacy_get_model(seed: int) -> nn.Module:
     )
 
 
-def legacy_get_dataloaders(dataset_config: str, sampling_ratio: int) -> tuple[DataLoader, DataLoader, DataLoader]:
+def legacy_get_dataloaders(dataset_config: Path, sampling_ratio: int) -> tuple[DataLoader, DataLoader, DataLoader]:
     dataset_info = load_config(dataset_config)
     train_dir = dataset_info["train_set"]["params"]["root"]
     train_push_dir = dataset_info["projection_set"]["params"]["root"]

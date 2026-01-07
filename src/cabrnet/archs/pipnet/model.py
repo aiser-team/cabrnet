@@ -2,7 +2,7 @@ import copy
 from typing import Any, Callable
 
 import graphviz
-import os
+from pathlib import Path
 from tqdm import tqdm
 import numpy as np
 import torch
@@ -465,14 +465,14 @@ class PIPNet(CaBRNet):
     @staticmethod
     def _build_prototype_representation(
         proto_idx: int,
-        prototype_dir: str,
+        prototype_dir: Path,
     ) -> graphviz.Digraph:
         r"""Builds the representation of a prototype as graph containing the most activated images from the projection
         set.
 
         Args:
             proto_idx (int): Prototype index.
-            prototype_dir (str): Path to prototype images.
+            prototype_dir (Path): Path to prototype images.
 
         Returns:
             A graph containing the prototype index surrounded by its representation.
@@ -489,18 +489,19 @@ class PIPNet(CaBRNet):
             label=f"P{proto_idx}",
             root="True",
         )
-        img_path = os.path.abspath(os.path.join(prototype_dir, f"prototype_{proto_idx}.png"))
+        prototype_dir = prototype_dir.resolve(strict=True)
+        img_path = prototype_dir / f"prototype_{proto_idx}.png"
         index = 0
-        while os.path.exists(img_path):
+        while img_path.exists():
             graph.node(
                 name=f"P{proto_idx}_view{index}",
                 shape="plaintext",
-                image=img_path,
+                image=str(img_path),
                 imagescale="true",
             )
             graph.edge(f"P{proto_idx}", f"P{proto_idx}_view{index}")
             index += 1
-            img_path = os.path.abspath(os.path.join(prototype_dir, f"prototype_{proto_idx}_{index}.png"))
+            img_path = prototype_dir / f"prototype_{proto_idx}_{index}.png"
 
         return graph
 
@@ -509,7 +510,7 @@ class PIPNet(CaBRNet):
         graph: graphviz.Graph,
         target_class: int,
         proto_idx: int,
-        prototype_dir: str,
+        prototype_dir: Path,
         node_prefix: str = "",
         create_target_class_node: bool = False,
     ):
@@ -520,15 +521,15 @@ class PIPNet(CaBRNet):
             target_class (int): Target class. The connection to the prototype will be a straight line. All other related
                 classes will be connected via dashed lines.
             proto_idx (int): Prototype index.
-            prototype_dir (str): Path to prototype images.
+            prototype_dir (Path): Path to prototype images.
             node_prefix (str, optional): Node prefix in the graph. Default: "".
             create_target_class_node (bool, optional): If true, creates a node for the target class. Default: False.
         """
-        cluster_path = os.path.abspath(os.path.join(prototype_dir, f"prototype_{proto_idx}_cluster.png"))
+        cluster_path = (prototype_dir / f"prototype_{proto_idx}_cluster.png").resolve(strict=True)
         graph.node(
             name=f"{node_prefix}P{proto_idx}",
             shape="plaintext",
-            image=cluster_path,
+            image=str(cluster_path),
             imagescale="true",
             width="6",  # Increase node size
             height="6",
@@ -571,11 +572,11 @@ class PIPNet(CaBRNet):
 
     def explain(
         self,
-        img: str | Image.Image,
+        img: Path | Image.Image,
         preprocess: Callable | None,
         visualizer: SimilarityVisualizer,
-        prototype_dir: str,
-        output_dir: str,
+        prototype_dir: Path,
+        output_dir: Path,
         output_format: str = "pdf",
         device: str | torch.device = "cuda:0",
         exist_ok: bool = False,
@@ -590,8 +591,8 @@ class PIPNet(CaBRNet):
             img (str or Image): Path to image or image itself.
             preprocess (Callable): Preprocessing function.
             visualizer (SimilarityVisualizer): Similarity visualizer.
-            prototype_dir (str): Path to directory containing prototype visualizations.
-            output_dir (str): Path to output directory.
+            prototype_dir (Path): Path to directory containing prototype visualizations.
+            output_dir (Path): Path to output directory.
             output_format (str, optional): Output file format. Default: pdf.
             device (str | device, optional): Hardware device. Default: cuda:0.
             exist_ok (bool, optional): Silently overwrites existing explanation (if any). Default: False.
@@ -631,9 +632,9 @@ class PIPNet(CaBRNet):
             # Default node configuration
             explanation_graph.attr("node", label="", fixedsize="True", width="2", height="2", fontsize="25")
 
-            img_path = os.path.abspath(os.path.join(output_dir, "original.png"))
+            img_path = (output_dir / "original.png").resolve(strict=True)
             if not disable_rendering:
-                os.makedirs(os.path.join(output_dir, "test_patches"), exist_ok=exist_ok)
+                (output_dir / "test_patches").mkdir(parents=True, exist_ok=exist_ok)
                 # Copy source image
                 img.save(img_path)
 
@@ -660,7 +661,7 @@ class PIPNet(CaBRNet):
                 )
 
                 # Generate test image patch
-                patch_image_path = os.path.join(output_dir, "test_patches", f"proto_similarity_{proto_idx}.png")
+                patch_image_path = output_dir / "test_patches" / f"proto_similarity_{proto_idx}.png"
                 if not disable_rendering:
                     patch_image = visualizer.forward(img=img, img_tensor=img_tensor, proto_idx=proto_idx, device=device)
                     patch_image.save(patch_image_path)
@@ -668,7 +669,7 @@ class PIPNet(CaBRNet):
                 explanation_graph.node(
                     name=f"patch_{proto_idx}",
                     shape="plaintext",
-                    image=os.path.abspath(patch_image_path),
+                    image=str(patch_image_path.resolve(strict=True)),
                     imagescale="true",
                 )
                 explanation_graph.edge(f"P{proto_idx}", f"patch_{proto_idx}")
@@ -677,13 +678,13 @@ class PIPNet(CaBRNet):
                 prototype_presence[proto_idx] = 0
 
             if not disable_rendering:
-                explanation_graph.render(filename=os.path.join(output_dir, f"local_explanation"), format=output_format)
+                explanation_graph.render(filename=output_dir / f"local_explanation", format=output_format)
             return most_relevant_prototypes
 
     def explain_global(
         self,
-        prototype_dir: str,
-        output_dir: str,
+        prototype_dir: Path,
+        output_dir: Path,
         output_format: str = "pdf",
         **kwargs,
     ) -> None:
@@ -702,7 +703,7 @@ class PIPNet(CaBRNet):
             if self.prototype_is_active(proto_idx):
                 prototype_graph = self._build_prototype_representation(proto_idx=proto_idx, prototype_dir=prototype_dir)
                 # Intermediate rendering to preserve layout
-                cluster_path = os.path.join(prototype_dir, f"prototype_{proto_idx}_cluster")
+                cluster_path = prototype_dir / f"prototype_{proto_idx}_cluster"
                 prototype_graph.render(filename=cluster_path, format="png")
 
         # Disjointed graphs for readability
@@ -729,4 +730,4 @@ class PIPNet(CaBRNet):
         for class_idx in range(self.classifier.num_classes):
             _build_class_node(explanation_graph, class_idx)
         logger.debug(explanation_graph.source)
-        explanation_graph.render(filename=os.path.join(output_dir, f"global_explanation"), format=output_format)
+        explanation_graph.render(filename=output_dir / f"global_explanation", format=output_format)

@@ -1,4 +1,4 @@
-import os
+from pathlib import Path
 from typing import Any, Callable
 
 import gradio as gr
@@ -43,8 +43,8 @@ class CaBRNetAnalysisGUI:
         visualizer: Current patch visualizer.
     """
 
-    DEFAULT_CHECKPOINT_DIR: str = "."
-    DEFAULT_WORKING_DIR: str = "working_dir"
+    DEFAULT_CHECKPOINT_DIR: Path = Path.cwd()
+    DEFAULT_WORKING_DIR: Path = Path("working_dir")
 
     def __init__(self):
         r"""Initializes the object."""
@@ -54,7 +54,7 @@ class CaBRNetAnalysisGUI:
         self.device = "cpu"
         self.visualizer = None
         self._output_dir = CaBRNetAnalysisGUI.DEFAULT_WORKING_DIR
-        self._prototype_dir = os.path.join(self._output_dir, "prototypes")
+        self._prototype_dir = self._output_dir / "prototypes"
 
     def checkpoint_callback(self) -> Callable:
         r"""Returns a callback for loading a model and a dataset from a checkpoint directory."""
@@ -66,18 +66,19 @@ class CaBRNetAnalysisGUI:
             self.dataloaders = None
             self.projection_info = None
 
+            path = Path(checkpoint_path)
             try:  # Mandatory content
                 # Load the model
                 self.model = CaBRNet.build_from_config(
-                    config=os.path.join(checkpoint_path, CaBRNet.DEFAULT_MODEL_CONFIG),
-                    state_dict_path=os.path.join(checkpoint_path, CaBRNet.DEFAULT_MODEL_STATE),
+                    config=path / CaBRNet.DEFAULT_MODEL_CONFIG,
+                    state_dict_path=path / CaBRNet.DEFAULT_MODEL_STATE,
                 )
                 self.model.eval()
                 self.model.to(self.device)
 
                 # Load the datasets
                 self.dataloaders = DatasetManager.get_dataloaders(
-                    config=os.path.join(checkpoint_path, DatasetManager.DEFAULT_DATASET_CONFIG),
+                    config=path / DatasetManager.DEFAULT_DATASET_CONFIG,
                 )
             except FileNotFoundError as e:
                 logger.warning(e)
@@ -85,9 +86,7 @@ class CaBRNetAnalysisGUI:
 
             try:  # Optional content of the directory
                 # Load projection info
-                self.projection_info = load_projection_info(
-                    filename=os.path.join(checkpoint_path, CaBRNet.DEFAULT_PROJECTION_INFO)
-                )
+                self.projection_info = load_projection_info(filename=path / CaBRNet.DEFAULT_PROJECTION_INFO)
             except FileNotFoundError as e:
                 logger.warning(e)
                 pass
@@ -99,8 +98,8 @@ class CaBRNetAnalysisGUI:
     def output_directory_callback(self) -> Callable:
         r"""Returns a callback for controlling the output directory."""
 
-        def callback(output_path: str) -> str:
-            self._output_dir = output_path
+        def callback(output_path: str) -> Path:
+            self._output_dir = Path(output_path)
             return self._output_dir
 
         return callback
@@ -122,17 +121,17 @@ class CaBRNetAnalysisGUI:
     def load_global_explanation_callback(self) -> Callable:
         r"""Returns a callback for loading an existing global explanation of a model."""
 
-        def callback(checkpoint_path: str | None, current_image_path: str) -> str | None:
+        def callback(checkpoint_path: str | None, current_image_path: Path) -> Path | None:
             if checkpoint_path is None:
                 return None
-
-            if os.path.isdir(os.path.join(checkpoint_path, "prototypes")):
+            path = Path(checkpoint_path)
+            if (path / "prototypes").is_dir():
                 # Set prototype directory to existing directory
-                self._prototype_dir = os.path.join(checkpoint_path, "prototypes")
+                self._prototype_dir = path / "prototypes"
                 logger.info(f"Switching prototype directory to {self._prototype_dir}")
 
-            if os.path.exists(os.path.join(checkpoint_path, "global_explanation.svg")):
-                return os.path.join(checkpoint_path, "global_explanation.svg")
+            if (path / "global_explanation.svg").exists():
+                return path / "global_explanation.svg"
             # Do not change current image (if any)
             return current_image_path
 
@@ -141,7 +140,7 @@ class CaBRNetAnalysisGUI:
     def global_explanation_callback(self) -> Callable:
         r"""Returns a callback for generating the global explanation of a model."""
 
-        def callback(gradio_outputs: dict[Component, Any]) -> str | None:
+        def callback(gradio_outputs: dict[Component, Any]) -> Path | None:
             if self.model is None or self.dataloaders is None:
                 logger.warning("No checkpoint loaded (yet).")
                 return None
@@ -157,9 +156,9 @@ class CaBRNetAnalysisGUI:
             visualizer = SimilarityVisualizer.build_from_config(config=visualization_config, model=self.model)
 
             # Update prototype directory
-            self._prototype_dir = os.path.join(self._output_dir, "prototypes")
+            self._prototype_dir = self._output_dir / "prototypes"
 
-            if gradio_config["overwrite"] or not os.path.exists(self._prototype_dir):
+            if gradio_config["overwrite"] or not self._prototype_dir.exists():
                 # Build prototypes
                 self.model.extract_prototypes(
                     dataloader_raw=self.dataloaders["projection_set_raw"],
@@ -172,9 +171,7 @@ class CaBRNetAnalysisGUI:
                 )
 
                 # Save visualization config
-                with open(
-                    os.path.join(self._prototype_dir, SimilarityVisualizer.DEFAULT_VISUALIZATION_CONFIG), "w"
-                ) as fout:
+                with open(self._prototype_dir / SimilarityVisualizer.DEFAULT_VISUALIZATION_CONFIG, "w") as fout:
                     yaml.dump(visualization_config, fout)
 
             # Generate explanation
@@ -183,7 +180,7 @@ class CaBRNetAnalysisGUI:
                 output_dir=self._output_dir,
                 output_format="svg",
             )
-            return os.path.join(self._output_dir, "global_explanation.svg")
+            return self._output_dir / "global_explanation.svg"
 
         return callback
 
@@ -209,7 +206,7 @@ class CaBRNetAnalysisGUI:
             preprocess = getattr(self.dataloaders["test_set"].dataset, "transform", ToTensor())
 
             # Dedicated directory for target image
-            output_dir = os.path.join(self._output_dir, "local_explanation")
+            output_dir = self._output_dir / "local_explanation"
 
             # Generate explanation
             self.model.explain(
@@ -222,7 +219,7 @@ class CaBRNetAnalysisGUI:
                 device=self.device,
                 exist_ok=True,
             )
-            return Image.open(os.path.join(output_dir, "explanation.png"))
+            return Image.open(output_dir / "explanation.png")
 
         return callback
 
@@ -257,14 +254,12 @@ class CaBRNetAnalysisGUI:
                     preprocess=preprocess,
                     visualizer=visualizer,
                     device=self.device,
-                    debug_dir=os.path.join(self._output_dir, "analysis", "local_perturbation"),
+                    debug_dir=self._output_dir / "analysis" / "local_perturbation",
                     debug_format="png",
                     prototype_dir=self._prototype_dir,
                     **(get_perturbation_config(gradio_config)["local_perturbation_analysis"]),
                 )
-                return Image.open(
-                    os.path.join(self._output_dir, "analysis", "local_perturbation", "img_sensitivity.png")
-                )
+                return Image.open(self._output_dir / "analysis" / "local_perturbation" / "img_sensitivity.png")
             else:
                 if gradio_config["segmentation"] is None:
                     logger.warning("Segmentation unavailable.")
@@ -278,12 +273,12 @@ class CaBRNetAnalysisGUI:
                     preprocess=preprocess,
                     visualizer=visualizer,
                     device=self.device,
-                    debug_dir=os.path.join(self._output_dir, "analysis", "relevance"),
+                    debug_dir=self._output_dir / "analysis" / "relevance",
                     debug_format="png",
                     prototype_dir=self._prototype_dir,
                     **(get_pointing_game_config(gradio_config)["relevance_analysis"]),
                 )
-                return Image.open(os.path.join(self._output_dir, "analysis", "relevance", "img_relevance_analysis.png"))
+                return Image.open(self._output_dir / "analysis" / "relevance" / "img_relevance_analysis.png")
 
         return callback
 
@@ -358,23 +353,23 @@ class CaBRNetAnalysisGUI:
                 )
 
                 # Automatic segmentation retrieval
-                def auto_segmentation_retrieval(img_path: str, segmentation: Image.Image) -> Image.Image | None:
+                def auto_segmentation_retrieval(img_path: str) -> Image.Image | None:
                     if img_path is None:
                         return None
                     # Simple search and replace
                     if "dataset/test_full" in img_path:
-                        tentative_path = img_path.replace("/dataset/test_full", "/segmentations/")
-                        if os.path.isfile(tentative_path):
+                        tentative_path = Path(img_path.replace("/dataset/test_full", "/segmentations/"))
+                        if tentative_path.is_file():
                             return Image.open(tentative_path)
                         # Try with replacing file extension
-                        tentative_path = tentative_path.replace(".jpg", ".png")
-                        if os.path.isfile(tentative_path):
+                        tentative_path = Path(str(tentative_path).replace(".jpg", ".png"))
+                        if tentative_path.is_file():
                             return Image.open(tentative_path)
                     return None
 
                 image_selection.change(
                     auto_segmentation_retrieval,
-                    inputs=[image_selection, object_segmentation],
+                    inputs=[image_selection],
                     outputs=[object_segmentation],
                 )
                 explanation = gr.Image(label="Local explanation", height=400, interactive=False)

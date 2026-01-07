@@ -6,6 +6,7 @@ from loguru import logger
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
+from pathlib import Path
 
 
 from compatibility_tester import CaBRNetCompatibilityTester, setup_rng, SAMPLING_RATIO
@@ -21,7 +22,7 @@ from protopool_legacy.utils import mixup_data
 from protopool_legacy.main import dist_loss, update_prototypes_on_batch
 
 
-def legacy_get_model(model_config_file: str, seed: int) -> PrototypeChooser:
+def legacy_get_model(model_config_file: Path, seed: int) -> PrototypeChooser:
     model_config = load_config(model_config_file)
     return PrototypeChooser(
         num_prototypes=model_config["classifier"]["params"]["num_prototypes"],

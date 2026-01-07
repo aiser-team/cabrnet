@@ -1,5 +1,5 @@
 import importlib
-import os
+from pathlib import Path
 import shutil
 import traceback
 from argparse import ArgumentParser, Namespace
@@ -32,7 +32,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     parser.add_argument(
         "-p",
         "--projection-info",
-        type=str,
+        type=Path,
         required=False,
         metavar="/path/to/projection/info",
         help="path to the CSV file containing the projection information",
@@ -40,7 +40,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     parser.add_argument(
         "-c",
         "--checkpoint-dir",
-        type=str,
+        type=Path,
         required=False,
         metavar="/path/to/checkpoint/dir",
         help="path to a checkpoint directory " "(alternative to --model-arch, --model-state-dict and --dataset)",
@@ -48,7 +48,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     parser.add_argument(
         "-b",
         "--benchmark-configuration",
-        type=str,
+        type=Path,
         required=True,
         metavar="/path/to/configuration/file",
         help="benchmark configuration file",
@@ -56,7 +56,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     parser.add_argument(
         "-o",
         "--output-dir",
-        type=str,
+        type=Path,
         required=True,
         metavar="path/to/output/directory",
         help="path to output directory containing all analysis results",
@@ -65,7 +65,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     parser.add_argument(
         "-y",
         "--prototype-dir",
-        type=str,
+        type=Path,
         required=False,
         metavar="path/to/prototype/directory",
         help="path to directory containing a visualization of all prototypes",
@@ -90,10 +90,10 @@ def check_args(args: Namespace) -> Namespace:
         ):
             if param is not None:
                 logger.warning(f"Ignoring option {name}: using content pointed by --checkpoint-dir instead")
-        args.model_arch = os.path.join(args.checkpoint_dir, CaBRNet.DEFAULT_MODEL_CONFIG)
-        args.model_state_dict = os.path.join(args.checkpoint_dir, CaBRNet.DEFAULT_MODEL_STATE)
-        args.dataset = os.path.join(args.checkpoint_dir, DatasetManager.DEFAULT_DATASET_CONFIG)
-        args.projection_info = os.path.join(args.checkpoint_dir, CaBRNet.DEFAULT_PROJECTION_INFO)
+        args.model_arch = args.checkpoint_dir / CaBRNet.DEFAULT_MODEL_CONFIG
+        args.model_state_dict = args.checkpoint_dir / CaBRNet.DEFAULT_MODEL_STATE
+        args.dataset = args.checkpoint_dir / DatasetManager.DEFAULT_DATASET_CONFIG
+        args.projection_info = args.checkpoint_dir / CaBRNet.DEFAULT_PROJECTION_INFO
 
     # Check configuration completeness
     for param, name, option in zip(
@@ -103,12 +103,12 @@ def check_args(args: Namespace) -> Namespace:
     ):
         if param is None:
             raise ArgumentError(f"Missing {name} file (option {option}).")
-    if os.path.isdir(args.output_dir) and not args.overwrite:
+    if args.output_dir.is_dir() and not args.overwrite:
         raise ArgumentError("Output directory already exists. Use --overwrite option to override.")
 
     # Set-up prototype directory if necessary
     if args.prototype_dir is None:
-        args.prototype_dir = os.path.join(os.path.dirname(args.model_arch), "prototypes")
+        args.prototype_dir = args.model_arch.parent / "prototypes"
 
     return args
 
@@ -139,12 +139,12 @@ def execute(args: Namespace) -> None:
     model.eval()
 
     # Create output directory and copy test configuration
-    os.makedirs(output_dir, exist_ok=True)  # Check has already been performed in check_args
-    shutil.copyfile(src=bench_config, dst=os.path.join(output_dir, os.path.basename(bench_config)))
+    output_dir.mkdir(parents=True, exist_ok=True)  # Check has already been performed in check_args
+    shutil.copyfile(src=bench_config, dst=output_dir / bench_config.name)
 
     # Enumerate all benchmarks
-    bench_dir = os.path.join(os.path.dirname(__file__), "..", "core", "evaluation")
-    bench_list = [os.path.splitext(file)[0] for file in os.listdir(bench_dir) if file.endswith(".py")]
+    bench_dir = Path(__file__).parent.parent / "core" / "evaluation"
+    bench_list = [file.stem for file in bench_dir.iterdir() if file.suffix == ".py"]
     for bench_module in bench_list:
         try:
             module = importlib.import_module(f"cabrnet.core.evaluation.{bench_module}")

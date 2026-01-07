@@ -1,5 +1,5 @@
 import copy
-import os
+from pathlib import Path
 from typing import Any, Callable
 
 import graphviz
@@ -48,7 +48,7 @@ class ProtoPool(CaBRNet):
         }
         self.training_config = {
             "gumbel_min_scale": 1.3,
-            "gumbel_max_scale": 10 ** 3,
+            "gumbel_max_scale": 10**3,
             "gumbel_epochs": 10,
             "use_mix_up": True,
         }
@@ -175,7 +175,7 @@ class ProtoPool(CaBRNet):
             mat = mat * (1.0 - torch.eye(self.classifier.num_slots_per_class, dtype=mat.dtype, device=mat.device))
             orthogonal_loss = mat.sum()
             # Normalize
-            orthogonal_loss = orthogonal_loss / (self.classifier.num_classes * self.classifier.num_slots_per_class ** 2)
+            orthogonal_loss = orthogonal_loss / (self.classifier.num_classes * self.classifier.num_slots_per_class**2)
 
         def distance_loss(dists: torch.Tensor, proto_slot_dists: torch.Tensor, num_prototypes: int):
             r"""Returns the average minimum distance across a batch, based on the *num_prototypes* most relevant
@@ -365,7 +365,7 @@ class ProtoPool(CaBRNet):
         self,
         dataloaders: dict[str, DataLoader],
         optimizer_mngr: OptimizerManager,
-        output_dir: str,
+        output_dir: Path,
         device: str | torch.device = "cuda:0",
         verbose: bool = False,
         num_fine_tuning_epochs: int = 25,
@@ -377,7 +377,7 @@ class ProtoPool(CaBRNet):
         Args:
             dataloaders (dictionary): Dictionary of dataloaders.
             optimizer_mngr (OptimizerManager): Optimizer manager.
-            output_dir (str): Unused.
+            output_dir (Path): Unused.
             device (str | device, optional): Hardware device. Default: cuda:0.
             verbose (bool, optional): Display progress bar. Default: False.
             num_fine_tuning_epochs (int, optional): Number of fine-tuning epochs to perform after projection.
@@ -480,11 +480,11 @@ class ProtoPool(CaBRNet):
 
     def explain(
         self,
-        img: str | Image.Image,
+        img: Path | Image.Image,
         preprocess: Callable | None,
         visualizer: SimilarityVisualizer,
-        prototype_dir: str = "",
-        output_dir: str = "",
+        prototype_dir: Path = Path.cwd(),
+        output_dir: Path = Path.cwd(),
         output_format: str = "pdf",
         device: str | torch.device = "cuda:0",
         exist_ok: bool = False,
@@ -496,11 +496,11 @@ class ProtoPool(CaBRNet):
         r"""Explains the decision for a particular image.
 
         Args:
-            img (str or Image): Path to image or image itself.
+            img (Path | Image): Path to image or image itself.
             preprocess (Callable): Preprocessing function.
             visualizer (SimilarityVisualizer): Similarity visualizer.
-            prototype_dir (str, optional): Path to directory containing prototype visualizations. Default: "".
-            output_dir (str, optional): Path to output directory. Default: "".
+            prototype_dir (Path, optional): Path to directory containing prototype visualizations. Default: "".
+            output_dir (Path, optional): Path to output directory. Default: "".
             output_format (str, optional): Output file format. Default: pdf.
             device (str | device, optional): Hardware device. Default: cuda:0.
             exist_ok (bool, optional): Silently overwrites existing explanation (if any). Default: False.
@@ -536,9 +536,9 @@ class ProtoPool(CaBRNet):
                     min_distances[proto_idx] = float("inf")
 
             # Build explanation
-            img_path = os.path.join(output_dir, "original.png")
+            img_path = output_dir / "original.png"
             if not disable_rendering:
-                os.makedirs(os.path.join(output_dir, "test_patches"), exist_ok=exist_ok)
+                (output_dir / "test_patches").mkdir(parents=True, exist_ok=exist_ok)
                 # Copy source image
                 img.save(img_path)
             explanation = ExplanationGraph(output_dir=output_dir)
@@ -556,9 +556,9 @@ class ProtoPool(CaBRNet):
                     (proto_idx, score, True)
                 )  # ProtoPool only considers positive similarities
                 # Recover path to prototype image
-                prototype_image_path = os.path.join(prototype_dir, f"prototype_{proto_idx}.png")
+                prototype_image_path = prototype_dir / f"prototype_{proto_idx}.png"
                 # Generate test image patch
-                patch_image_path = os.path.join(output_dir, "test_patches", f"proto_similarity_{proto_idx}.png")
+                patch_image_path = output_dir / "test_patches" / f"proto_similarity_{proto_idx}.png"
                 if not disable_rendering:
                     patch_image = visualizer.forward(img=img, img_tensor=img_tensor, proto_idx=proto_idx, device=device)
                     patch_image.save(patch_image_path)
@@ -577,12 +577,12 @@ class ProtoPool(CaBRNet):
                 explanation.render(output_format=output_format)
             return most_relevant_prototypes
 
-    def explain_global(self, prototype_dir: str, output_dir: str, output_format: str = "pdf", **kwargs) -> None:
+    def explain_global(self, prototype_dir: Path, output_dir: Path, output_format: str = "pdf", **kwargs) -> None:
         r"""Explains the global decision-making process of a CaBRNet model.
 
         Args:
-            prototype_dir (str): Path to directory containing prototype visualizations.
-            output_dir (str): Path to output directory.
+            prototype_dir (Path): Path to directory containing prototype visualizations.
+            output_dir (Path): Path to output directory.
             output_format (str, optional): Output file format. Default: pdf.
         """
         # Compute mapping between classes and prototypes
@@ -601,12 +601,12 @@ class ProtoPool(CaBRNet):
                 root="True",
             )
             for prototype in class_mapping[class_idx]:
-                img_path = os.path.abspath(os.path.join(prototype_dir, f"prototype_{prototype}.png"))
+                img_path = (prototype_dir / f"prototype_{prototype}.png").resolve(strict=True)
                 graph.node(
                     name=f"P{prototype}_C{class_idx}",
                     shape="plaintext",
                     xlabel=f"P{prototype}",
-                    image=img_path,
+                    image=str(img_path),
                     imagescale="true",
                 )
                 graph.edge(f"C{class_idx}", f"P{prototype}_C{class_idx}")
@@ -616,4 +616,4 @@ class ProtoPool(CaBRNet):
             _build_class_node(explanation_graph, class_idx)
 
         logger.debug(explanation_graph.source)
-        explanation_graph.render(filename=os.path.join(output_dir, "global_explanation"), format=output_format)
+        explanation_graph.render(filename=output_dir / "global_explanation", format=output_format)

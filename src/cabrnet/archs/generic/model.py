@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import argparse
 import importlib
-import os.path
 import shutil
 from typing import Any, Callable
 from thop import profile as profile_batch
+from pathlib import Path
 
 import torch
 import torch.nn as nn
@@ -34,9 +34,9 @@ class CaBRNet(nn.Module):
     """
 
     # Regroups common default file names in a single location
-    DEFAULT_MODEL_CONFIG: str = "model_arch.yml"
-    DEFAULT_MODEL_STATE: str = "model_state.pth"
-    DEFAULT_PROJECTION_INFO: str = "projection_info.csv"
+    DEFAULT_MODEL_CONFIG: Path = Path("model_arch.yml")
+    DEFAULT_MODEL_STATE: Path = Path("model_state.pth")
+    DEFAULT_PROJECTION_INFO: Path = Path("projection_info.csv")
 
     def __init__(
         self,
@@ -182,6 +182,7 @@ class CaBRNet(nn.Module):
             "-m",
             "--model-arch",
             required=mandatory_config,
+            type=Path,
             metavar="/path/to/file.yml",
             help="path to the model configuration file",
         )
@@ -189,6 +190,7 @@ class CaBRNet(nn.Module):
             parser.add_argument(
                 "-s",
                 "--model-state-dict",
+                type=Path,
                 required=mandatory_config,
                 metavar="/path/to/model/state.pth",
                 help="path to the model state dictionary",
@@ -197,26 +199,26 @@ class CaBRNet(nn.Module):
 
     @staticmethod
     def build_from_config(
-        config: str | dict[str, Any],
+        config: Path | dict[str, Any],
         seed: int | None = None,
         compatibility_mode: bool = False,
-        state_dict_path: str | None = None,
+        state_dict_path: Path | None = None,
     ) -> CaBRNet:
         r"""Builds a CaBRNet model from a YAML configuration file.
 
         Args:
-            config (str|dict): Path to configuration file, or configuration dictionary.
+            config (Path|dict): Path to configuration file, or configuration dictionary.
             seed (int, optional): Random seed (used only to resynchronise random number generators in
                 compatibility tests). Default: None.
             compatibility_mode (bool, optional): Force compatibility mode with legacy architectures. Default: False.
-            state_dict_path (str, optional): Path to model state dictionary. Default: None.
+            state_dict_path (Path, optional): Path to model state dictionary. Default: None.
 
         Returns:
             CaBRNet model.
         """
-        if not isinstance(config, (str, dict)):
+        if not isinstance(config, (Path, dict)):
             raise ValueError(f"Unsupported configuration format: {type(config)}")
-        if isinstance(config, str):
+        if isinstance(config, Path):
             config_dict = load_config(config)
         else:
             config_dict = config
@@ -528,7 +530,7 @@ class CaBRNet(nn.Module):
         self,
         dataloaders: dict[str, DataLoader],
         optimizer_mngr: OptimizerManager,
-        output_dir: str,
+        output_dir: Path,
         device: str | torch.device = "cuda:0",
         verbose: bool = False,
         **kwargs,
@@ -538,7 +540,7 @@ class CaBRNet(nn.Module):
         Args:
             dataloaders (dictionary): Dictionary of dataloaders.
             optimizer_mngr (OptimizerManager): Optimizer manager.
-            output_dir (str): Path to output directory.
+            output_dir (Path): Path to output directory.
             device (str | device, optional): Hardware device. Default: cuda:0.
             verbose (bool, optional): Display progress bar. Default: False.
 
@@ -752,7 +754,7 @@ class CaBRNet(nn.Module):
         dataloader: DataLoader,
         projection_info: list[dict],
         visualizer: SimilarityVisualizer,
-        dir_path: str,
+        dir_path: Path,
         device: str | torch.device = "cuda:0",
         verbose: bool = False,
         tqdm_position: int = 0,
@@ -764,24 +766,26 @@ class CaBRNet(nn.Module):
             dataloader (DataLoader): Dataloader containing projection tensors (with preprocessing).
             projection_info (list): Projection information (as returned by project method).
             visualizer (SimilarityVisualizer): Similarity visualizer.
-            dir_path (str): Destination directory.
+            dir_path (Path): Destination directory.
             device (str | device, optional): Hardware device. Default: cuda:0.
             verbose (bool, optional): Display progress bar. Default: 0.
             tqdm_position (int, optional): Position of the progress bar. Default: 0.
         """
         logger.info("Extracting prototype visualization")
         # Create destination directory if necessary
-        os.makedirs(dir_path, exist_ok=True)
+        dir_path.mkdir(parents=True, exist_ok=True)
         # Copy visualizer configuration file
-        if visualizer.config_file is not None and os.path.isfile(visualizer.config_file):
+        if visualizer.config_file is not None and visualizer.config_file.is_file():
             try:
                 shutil.copyfile(
                     src=visualizer.config_file,
-                    dst=os.path.join(dir_path, SimilarityVisualizer.DEFAULT_VISUALIZATION_CONFIG),
+                    dst=dir_path / SimilarityVisualizer.DEFAULT_VISUALIZATION_CONFIG,
                 )
             except shutil.SameFileError:
                 logger.warning(f"Ignoring file copy from {visualizer.config_file} to itself.")
                 pass
+
+        proto_count = {}
 
         # Show progress on progress bar if needed
         data_iter = tqdm(
@@ -809,21 +813,22 @@ class CaBRNet(nn.Module):
                 device=device,
                 location=(h, w),
             )
-            img_path = os.path.join(dir_path, f"prototype_{proto_idx}.png")
-            index = 1
-            while os.path.exists(img_path):
-                # Multiple visualizations for the same prototype
-                img_path = os.path.join(dir_path, f"prototype_{proto_idx}_{index}.png")
-                index += 1
+            if proto_count.get(proto_idx):
+                # Handles multiple representations of the same prototype
+                img_path = dir_path / f"prototype_{proto_idx}_{proto_count.get(proto_idx)}.png"
+                proto_count[proto_idx] += 1
+            else:
+                img_path = dir_path / f"prototype_{proto_idx}.png"
+                proto_count[proto_idx] = 1
             prototype_part.save(fp=img_path)
 
     def explain(
         self,
-        img: str | Image.Image,
+        img: Path | Image.Image,
         preprocess: Callable | None,
         visualizer: SimilarityVisualizer,
-        prototype_dir: str,
-        output_dir: str,
+        prototype_dir: Path,
+        output_dir: Path,
         output_format: str = "pdf",
         device: str | torch.device = "cuda:0",
         exist_ok: bool = False,
@@ -833,11 +838,11 @@ class CaBRNet(nn.Module):
         r"""Explains the decision for a particular image.
 
         Args:
-            img (str or Image): Path to image or image itself.
+            img (Path or Image): Path to image or image itself.
             preprocess (Callable): Preprocessing function.
             visualizer (SimilarityVisualizer): Similarity visualizer.
-            prototype_dir (str): Path to directory containing prototype visualizations.
-            output_dir (str): Path to output directory.
+            prototype_dir (Path): Path to directory containing prototype visualizations.
+            output_dir (Path): Path to output directory.
             output_format (str, optional): Output file format. Default: pdf.
             device (str | device, optional): Hardware device. Default: cuda:0.
             exist_ok (bool, optional): Silently overwrites existing explanation (if any). Default: False.
@@ -852,16 +857,16 @@ class CaBRNet(nn.Module):
 
     def explain_global(
         self,
-        prototype_dir: str,
-        output_dir: str,
+        prototype_dir: Path,
+        output_dir: Path,
         output_format: str = "pdf",
         **kwargs,
     ) -> None:
         r"""Explains the global decision-making process of a CaBRNet model.
 
         Args:
-            prototype_dir (str): Path to directory containing prototype visualizations.
-            output_dir (str): Path to output directory.
+            prototype_dir (Path): Path to directory containing prototype visualizations.
+            output_dir (Path): Path to output directory.
             output_format (str, optional): Output file format. Default: pdf.
         """
         raise NotImplementedError

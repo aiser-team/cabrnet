@@ -1,6 +1,7 @@
 import copy
 import unittest
 import sys
+from pathlib import Path
 
 from loguru import logger
 from tqdm import tqdm
@@ -24,7 +25,7 @@ import pipnet_legacy.util.data as legacy_data
 import pipnet_legacy.util.args as legacy_args
 
 
-def legacy_get_namespace(config_dict: dict[str, str], seed: int) -> Namespace:
+def legacy_get_namespace(config_dict: dict[str, Path], seed: int) -> Namespace:
     """Build legacy compatible namespace from configuration files"""
 
     # Default parameters

@@ -1,8 +1,7 @@
 """Implements the saving and loading capabilities for a CaBRNet model."""
 
 import csv
-import os
-from pathlib import PurePath
+from pathlib import Path
 import pickle
 import random
 import shutil
@@ -20,12 +19,12 @@ from cabrnet.core.utils.data import DatasetManager
 from cabrnet.core.utils.optimizers import OptimizerManager
 
 
-def safe_copy(src: str, dst: str) -> None:
+def safe_copy(src: Path, dst: Path) -> None:
     r"""Copies a file to a given destination, ignoring copies of a file onto itself.
 
     Args:
-        src (str): Path to source file.
-        dst (str): Path to destination file.
+        src (Path): Path to source file.
+        dst (Path): Path to destination file.
     """
     try:
         shutil.copyfile(src=src, dst=dst)
@@ -35,12 +34,12 @@ def safe_copy(src: str, dst: str) -> None:
 
 
 def save_checkpoint(
-    directory_path: str,
+    directory_path: Path,
     model: CaBRNet,
-    model_arch: str | dict[str, Any],
+    model_arch: Path | dict[str, Any],
     optimizer_mngr: OptimizerManager | None,
-    training_config: str | dict[str, Any] | None,
-    dataset_config: str | dict[str, Any],
+    training_config: Path | dict[str, Any] | None,
+    dataset_config: Path | dict[str, Any],
     projection_info: list[dict] | None,
     epoch: int | str,
     seed: int | None,
@@ -50,43 +49,43 @@ def save_checkpoint(
     r"""Saves everything needed to restart a training process.
 
     Args:
-        directory_path (str): Target location.
+        directory_path (Path): Target location.
         model (Module): CaBRNet model.
-        model_arch (str): Path to the model configuration file, or configuration dictionary.
+        model_arch (Path|dict): Path to the model configuration file, or configuration dictionary.
         optimizer_mngr (OptimizerManager): Optimizer manager.
-        training_config (str): Path to the training configuration file, or configuration dictionary.
-        dataset_config (str): Path to the dataset configuration file, or configuration dictionary.
+        training_config (Path|dict): Path to the training configuration file, or configuration dictionary.
+        dataset_config (Path|dict): Path to the dataset configuration file, or configuration dictionary.
         projection_info (list, optional): Projection information, generated during training epilogue.
         epoch (int or str): Current epoch.
         seed (int): Initial random seed (recorded for reproducibility).
         device (str | device): Hardware device (recorded for reproducibility).
         stats (dictionary, optional): Other optional statistics. Default: None.
     """
-    os.makedirs(directory_path, exist_ok=True)
+    directory_path.mkdir(parents=True, exist_ok=True)
 
     model.eval()
 
-    torch.save(model.state_dict(), os.path.join(directory_path, CaBRNet.DEFAULT_MODEL_STATE))
+    torch.save(model.state_dict(), directory_path / CaBRNet.DEFAULT_MODEL_STATE)
     if optimizer_mngr is not None:
-        torch.save(optimizer_mngr.state_dict(), os.path.join(directory_path, OptimizerManager.DEFAULT_TRAINING_STATE))
-    if isinstance(model_arch, str):
-        safe_copy(src=model_arch, dst=os.path.join(directory_path, CaBRNet.DEFAULT_MODEL_CONFIG))
+        torch.save(optimizer_mngr.state_dict(), directory_path / OptimizerManager.DEFAULT_TRAINING_STATE)
+    if isinstance(model_arch, Path):
+        safe_copy(src=model_arch, dst=directory_path / CaBRNet.DEFAULT_MODEL_CONFIG)
     else:
-        with open(os.path.join(directory_path, CaBRNet.DEFAULT_MODEL_CONFIG), "w") as fout:
+        with open(directory_path / CaBRNet.DEFAULT_MODEL_CONFIG, "w") as fout:
             # Save dictionary to file
             yaml.dump(model_arch, fout, sort_keys=False)
     if training_config is not None:
-        if isinstance(training_config, str):
-            safe_copy(src=training_config, dst=os.path.join(directory_path, OptimizerManager.DEFAULT_TRAINING_CONFIG))
+        if isinstance(training_config, Path):
+            safe_copy(src=training_config, dst=directory_path / OptimizerManager.DEFAULT_TRAINING_CONFIG)
         else:
-            with open(os.path.join(directory_path, OptimizerManager.DEFAULT_TRAINING_CONFIG), "w") as fout:
+            with open(directory_path / OptimizerManager.DEFAULT_TRAINING_CONFIG, "w") as fout:
                 # Save dictionary to file
                 yaml.dump(training_config, fout, sort_keys=False)
 
-    if isinstance(dataset_config, str):
-        safe_copy(src=dataset_config, dst=os.path.join(directory_path, DatasetManager.DEFAULT_DATASET_CONFIG))
+    if isinstance(dataset_config, Path):
+        safe_copy(src=dataset_config, dst=directory_path / DatasetManager.DEFAULT_DATASET_CONFIG)
     else:
-        with open(os.path.join(directory_path, DatasetManager.DEFAULT_DATASET_CONFIG), "w") as fout:
+        with open(directory_path / DatasetManager.DEFAULT_DATASET_CONFIG, "w") as fout:
             # Save dictionary to file
             yaml.dump(dataset_config, fout, sort_keys=False)
 
@@ -102,12 +101,12 @@ def save_checkpoint(
         "stats": stats,
     }
 
-    with open(os.path.join(directory_path, "state.pickle"), "wb") as file:
+    with open(directory_path / "state.pickle", "wb") as file:
         pickle.dump(state, file)  # type: ignore
 
     # Save projection information if it exists
     if projection_info:
-        save_projection_info(projection_info, os.path.join(directory_path, CaBRNet.DEFAULT_PROJECTION_INFO))
+        save_projection_info(projection_info, directory_path / CaBRNet.DEFAULT_PROJECTION_INFO)
 
     # Save ONNX model if it exists
     # Important assertion: the same onnx model is used for all pipelines
@@ -115,44 +114,44 @@ def save_checkpoint(
         extractor_pipelines = list(model.extractor.named_modules())
         _, extractor_model = extractor_pipelines[1]
         assert isinstance(extractor_model, GenericONNXModel)
-        original_path: PurePath = extractor_model.get_original_onnx_model_path()
-        saved_path_dir = os.path.join(directory_path, original_path.parent)
-        saved_path = os.path.join(saved_path_dir, original_path.name)
-        os.makedirs(saved_path_dir, exist_ok=True)
-        safe_copy(src=str(original_path), dst=saved_path)
+        original_path = extractor_model.get_original_onnx_model_path()
+        saved_path_dir = directory_path / original_path.parent
+        saved_path = saved_path_dir / original_path.name
+        saved_path_dir.mkdir(parents=True, exist_ok=True)
+        safe_copy(src=original_path, dst=saved_path)
         logger.info(f"Successfully saved ONNX model at {saved_path}.")
 
     logger.info(f"Successfully saved checkpoint at epoch {epoch}.")
 
 
 def load_checkpoint(
-    directory_path: str,
+    directory_path: Path,
     model: CaBRNet,
     optimizer_mngr: OptimizerManager | None = None,
 ) -> dict[str, Any]:
     r"""Restores training process using checkpoint directory.
 
     Args:
-        directory_path (str): Target location.
+        directory_path (Path): Target location.
         model (Module): CaBRNet mode.
         optimizer_mngr (OptimizerManager, optional): Optimizer manager. Default: None.
 
     Returns:
         Dictionary containing auxiliary state information (epoch, seed, device, stats).
     """
-    if not os.path.isdir(directory_path):
+    if not directory_path.is_dir():
         raise ValueError(f"Unknown checkpoint directory {directory_path}")
 
-    model.load_state_dict(torch.load(os.path.join(directory_path, CaBRNet.DEFAULT_MODEL_STATE), map_location="cpu"))
+    model.load_state_dict(torch.load(directory_path / CaBRNet.DEFAULT_MODEL_STATE, map_location="cpu"))
     if optimizer_mngr is not None:
-        optimizer_state_path = os.path.join(directory_path, OptimizerManager.DEFAULT_TRAINING_STATE)
-        if os.path.isfile(optimizer_state_path):
+        optimizer_state_path = directory_path / OptimizerManager.DEFAULT_TRAINING_STATE
+        if optimizer_state_path.is_file():
             optimizer_mngr.load_state_dict(torch.load(optimizer_state_path, map_location="cpu"))
         else:
             logger.warning(f"Could not find optimizer state {optimizer_state_path}. Using default state instead.")
 
     # Restore RNG state
-    with open(os.path.join(directory_path, "state.pickle"), "rb") as file:
+    with open(directory_path / "state.pickle", "rb") as file:
         state = pickle.load(file)
 
     torch_rng = state.get("random_generators").get("torch_rng_state")
@@ -177,15 +176,15 @@ def load_checkpoint(
     }
 
 
-def save_projection_info(projection_info: list[dict], filename: str) -> None:
+def save_projection_info(projection_info: list[dict], filename: Path) -> None:
     r"""Saves projection information, either in pickle or CSV format.
 
     Args:
         projection_info (list): Projection list, generated during training epilogue.
-        filename (str): Path to output file. Based on the file extension, the file is stored in
+        filename (Path): Path to output file. Based on the file extension, the file is stored in
           pickle format (pickle or pkl extension) or CSV format (any other extension).
     """
-    if filename.lower().endswith(("pickle", "pkl")):
+    if filename.suffix.lower() in [".pickle", ".pkl"]:
         with open(filename, "wb") as f:
             pickle.dump(projection_info, f)
     else:
@@ -199,19 +198,19 @@ def save_projection_info(projection_info: list[dict], filename: str) -> None:
                 writer.writerow(proto_info)
 
 
-def load_projection_info(filename: str) -> list[dict]:
+def load_projection_info(filename: Path) -> list[dict]:
     r"""Loads projection information, either in pickle or CSV format.
 
     Args:
-        filename (str): Path to input file. Based on the file extension, the file is loaded in
+        filename (Path): Path to input file. Based on the file extension, the file is loaded in
           pickle format (pickle or pkl extension) or CSV format (any other extension).
 
     Returns:
         Projection dictionary, generated during training epilogue.
     """
-    if not os.path.isfile(filename):
+    if not filename.is_file():
         raise FileNotFoundError(f"Could not find projection information file {filename}")
-    if filename.lower().endswith(tuple(["pickle", "pkl"])):
+    if filename.suffix.lower() in [".pickle", ".pkl"]:
         with open(filename, "rb") as file:
             projection_info = pickle.load(file)
     else:

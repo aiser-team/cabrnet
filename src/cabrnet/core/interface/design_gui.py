@@ -1,4 +1,4 @@
-import os
+from pathlib import Path
 from typing import Any, Callable
 
 import gradio as gr
@@ -82,7 +82,7 @@ class CaBRNetDesignGUI:
         output_file: Output filename.
     """
 
-    DEFAULT_WORKING_DIR: str = "working_dir"
+    DEFAULT_WORKING_DIR: Path = Path("working_dir")
     MAX_ADDON_LAYERS: int = 10
 
     def __init__(self):
@@ -97,7 +97,7 @@ class CaBRNetDesignGUI:
         r"""Returns a callback for updating the output directory."""
 
         def callback(path: str) -> None:
-            self.output_dir = path
+            self.output_dir = Path(path)
 
         return callback
 
@@ -105,7 +105,7 @@ class CaBRNetDesignGUI:
         r"""Returns a callback for updating the output filename."""
 
         def callback(name: str) -> None:
-            self.output_file = name
+            self.output_file = Path(name)
 
         return callback
 
@@ -113,8 +113,8 @@ class CaBRNetDesignGUI:
         r"""Returns a callback for loading the output file."""
 
         def callback() -> str | None:
-            filepath = os.path.join(self.output_dir, self.output_file)
-            if os.path.isfile(filepath):
+            filepath = self.output_dir / self.output_file
+            if filepath.is_file():
                 return open(filepath, "r").read()
             return None
 
@@ -130,10 +130,10 @@ class CaBRNetDesignGUI:
                 "classifier": self.classifier_config,
             }
             logger.debug(f"Model configuration: {config}")
-            with open(os.path.join(self.output_dir, self.output_file), "w") as fout:
+            with open(self.output_dir / self.output_file, "w") as fout:
                 yaml.dump(config, fout, sort_keys=False)
 
-            return open(os.path.join(self.output_dir, self.output_file), "r").read()
+            return open(self.output_dir / self.output_file, "r").read()
 
         return callback
 
@@ -154,7 +154,9 @@ class CaBRNetDesignGUI:
         r"""Returns a callback for modifying the backbone weights."""
 
         def callback(weight_type: str, filepath: str | None) -> None:
-            weight_value = weight_type if weight_type != "From file" else filepath
+            assert weight_type != "From file" or filepath, "Missing path to backbone weights"
+            filepath = filepath or ""
+            weight_value = weight_type if weight_type != "From file" else Path(filepath)
             self.extractor_config["backbone"]["weights"] = weight_value
             return None
 
@@ -296,7 +298,7 @@ class CaBRNetDesignGUI:
             # Output selection
             with gr.Row():
                 output_directory = create_browse_folder_component(
-                    label="Output directory", default_dir=".", allow_creation=True
+                    label="Output directory", default_dir=Path.cwd(), allow_creation=True
                 )
                 output_file = gr.Textbox(value="model_arch.yml", label="Output file name", interactive=True)
                 output_directory.change(self.output_selection_callback(), inputs=output_directory)
