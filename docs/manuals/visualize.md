@@ -85,6 +85,8 @@ and supports the following option:
 - `single_location`: only compute the gradients at the location of highest similarity inside the similarity map.
 - `stability_factor`: stability factor used during relevance propagation
 
+**WARNING**: PRP is only relevant for distance-based architectures. In particular, it is **not** applicable to PIPNet.
+
 ### Rand-Grads
 
 This method returns random attributions and constitutes a baseline for various metrics evaluating the

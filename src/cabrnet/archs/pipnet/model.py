@@ -242,6 +242,7 @@ class PIPNet(CaBRNet):
         """
         assert isinstance(optimizer_mngr, OptimizerManager), "Unsupported optimizer type {type{optimizer_mngr}}"
         assert optimizer_mngr.schedulers.get("optimizer_classifier"), "Missing LR scheduler for optimizer"
+        assert optimizer_mngr.schedulers.get("optimizer_net"), "Missing LR scheduler for optimizer"
 
         # In PIPNet, the LR scheduler is called after each batch of data
         if "pretrain" not in optimizer_mngr.get_active_periods(epoch_idx):
@@ -249,13 +250,13 @@ class PIPNet(CaBRNet):
             offset = optimizer_mngr.periods["pretrain"]["epoch_range"][1]
             # This weird step value is inherited from the original PIPNet code.
             # (in theory, a scheduler only accepts integer step values).
-            optimizer_mngr.schedulers.get("optimizer_classifier").step(
+            optimizer_mngr.schedulers["optimizer_classifier"].step(
                 epoch_idx - 1 - offset + (batch_idx / batch_num)  # type:ignore
             )
             self.classifier.clamp_parameters()
 
         if "fine_tuning" not in optimizer_mngr.get_active_periods(epoch_idx):
-            optimizer_mngr.schedulers.get("optimizer_net").step()
+            optimizer_mngr.schedulers["optimizer_net"].step()
 
     def train_epoch(
         self,
@@ -613,8 +614,8 @@ class PIPNet(CaBRNet):
             img_tensor = img_tensor.to(device)
 
             # Perform inference
-            features, prototype_presence, prediction = self.forward(img_tensor)
-            class_idx = torch.argmax(prediction, dim=1)[0].item()
+            _, prototype_presence, prediction = self.forward(img_tensor)
+            class_idx = int(torch.argmax(prediction, dim=1)[0].item())
 
             prototype_presence = prototype_presence[0]
             proto_class_map = self.prototype_class_mapping

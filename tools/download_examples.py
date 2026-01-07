@@ -79,7 +79,7 @@ FILE_LIST = [
         "identifier": "cabrnet_pipnet_cub200_stanford_cars_convnext",
         "description": "PIPNet models trained using CaBRNet on CUB200 and Stanford Cars " "(with ConvNext backbone)",
         "type": "zenodo",
-        "record": "17855326",
+        "record": "18169812",
         "dir": "trained_models",
         "file": "pipnet_cub200_stanfordcars.zip",
     },
