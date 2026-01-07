@@ -61,6 +61,11 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         metavar="extension",
         help="output file format",
     )
+    parser.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="overwrite existing files",
+    )
     return parser
 
 
@@ -94,6 +99,12 @@ def check_args(args: Namespace) -> Namespace:
     ):
         if param is None:
             raise ArgumentError(f"Missing {name} file (option {option}).")
+
+    if args.overwrite or (args.output_dir / "prototypes").exists():
+        raise ArgumentError(
+            f"Output directory {(args.output_dir / 'prototypes')} is not empty. "
+            f"To overwrite existing results, use --overwrite option."
+        )
     return args
 
 
@@ -116,21 +127,22 @@ def execute(args: Namespace) -> None:
     # Build prototypes
     dataloaders = DatasetManager.get_dataloaders(config=args.dataset)
     projection_info = load_projection_info(args.projection_info)
-    model.extract_prototypes(
-        dataloader_raw=dataloaders["projection_set_raw"],
-        dataloader=dataloaders["projection_set"],
-        projection_info=projection_info,
-        visualizer=visualizer,
-        dir_path=args.output_dir / "prototypes",
-        device=args.device,
-        verbose=args.verbose,
-    )
+    if args.overwrite or not (args.output_dir / "prototypes").exists():
+        model.extract_prototypes(
+            dataloader_raw=dataloaders["projection_set_raw"],
+            dataloader=dataloaders["projection_set"],
+            projection_info=projection_info,
+            visualizer=visualizer,
+            dir_path=args.output_dir / "prototypes",
+            device=args.device,
+            verbose=args.verbose,
+        )
 
-    # Save visualization config
-    safe_copy(
-        args.visualization,
-        args.output_dir / "prototypes" / SimilarityVisualizer.DEFAULT_VISUALIZATION_CONFIG,
-    )
+        # Save visualization config
+        safe_copy(
+            args.visualization,
+            args.output_dir / "prototypes" / SimilarityVisualizer.DEFAULT_VISUALIZATION_CONFIG,
+        )
 
     # Generate explanation
     try:
