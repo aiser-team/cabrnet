@@ -6,7 +6,7 @@
   inputs = {
     flake-utils.url = "github:numtide/flake-utils";
     nix-filter.url = "github:numtide/nix-filter";
-    nixpkgs.url = "nixpkgs";
+    nixpkgs.url = "github:nixos/nixpkgs/25.05";
     # pydoc-markdown.url = "./ci/vendor/pydoc-markdown/";
     # disabled for now as more work is needed for the generation of
     # documentation in pure nix
@@ -44,7 +44,7 @@
        {
         packages = rec {
           pname = "cabrnet";
-          version = "1.0";
+          version = "1.2";
           # CaBRNet package without GUI, as it is intended for CI usage only
           default = self.packages.${system}.cabrnetWithoutGUI;
           # Overriding some dependencies from torch that prevents building
@@ -123,7 +123,6 @@
                           "test_watch"
                           "test_awatch_interrupt_raise"
                         ];}));
-                   
               allDeps = with pythonPkgs ; [
                   numpy
                   pillow
@@ -149,6 +148,7 @@
                   numba
                   annoy
                   onnxGraphsurgeon
+                  ultralytics-thop
               ];
           cabrnetWithoutGUI = pythonPkgs.buildPythonPackage
             {
@@ -158,6 +158,7 @@
               build-system = with pythonPkgs; [ setuptools wheel ];
               buildInputs = allDeps;
               propagatedBuildInputs = allDeps;
+              nativeBuildInputs = allDeps;
               pythonRelaxDeps = [
                 "tensorboard"
                 "setuptools"
@@ -173,8 +174,8 @@
                 "opencv-python-headless"
                 "onnxruntime"
               ];
-              nativeCheckInputs = [ pkgs.pyright pythonPkgs.black ];
-              # importCheck = with pythonPkgs; [ scipy torch numpy ];
+              # skip import checks, tests will handle that
+              dontCheckRuntimeDeps = true;
             };
           cabrnet-doc = pkgs.stdenv.mkDerivation
             {
