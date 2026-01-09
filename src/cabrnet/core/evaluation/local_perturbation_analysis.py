@@ -1,5 +1,5 @@
 import csv
-import os
+from pathlib import Path
 import pickle
 from typing import Any, Callable
 
@@ -23,11 +23,11 @@ from cabrnet.core.visualization.view import compute_bbox, heatmap
 from cabrnet.core.visualization.visualizer import SimilarityVisualizer
 
 
-def get_config(config_file: str) -> dict[str, Any] | None:
+def get_config(config_file: Path) -> dict[str, Any] | None:
     r"""Recovers configuration from YML file.
 
     Args:
-        config_file (str): Path to configuration file.
+        config_file (Path): Path to configuration file.
 
     Returns:
         Benchmark parameters.
@@ -254,9 +254,9 @@ def analyze(
     perturbations: dict[str, dict],
     num_prototypes: int = 1,
     enable_dual_mode: bool = True,
-    debug_dir: str | None = None,
+    debug_dir: Path | None = None,
     debug_format: str = "pdf",
-    prototype_dir: str = "",
+    prototype_dir: Path = Path.cwd(),
     **kwargs,  # Perturbation parameters
 ) -> list[dict[str, Any]]:
     r"""Performs local similarity analysis on a single image.
@@ -273,11 +273,11 @@ def analyze(
           or, recursively, a map.
         num_prototypes (int, optional): Number of relevant prototypes to analyze. Default: 1.
         enable_dual_mode (bool, optional): Enable dual perturbations. Default: True.
-        debug_dir (str, optional): Path to debug directory. If given, enables debug mode for visualizing image analysis.
+        debug_dir (Path, optional): Path to debug directory. If given, enables debug mode for visualizing image analysis.
             Default: None.
         debug_format (str, optional): Debug image format. Default: pdf.
-        prototype_dir (str, optional): Path to directory containing prototype visualization (required in debug mode).
-            Default: ".".
+        prototype_dir (Path, optional): Path to directory containing prototype visualization (required in debug mode).
+            Default: '.'.
         **kwargs: Perturbation parameters.
 
     Returns:
@@ -291,13 +291,13 @@ def analyze(
         img_tensor = torch.unsqueeze(img_tensor, dim=0)
 
     debug_mode = debug_dir is not None
-    debug_dir = debug_dir or ""
+    debug_dir = debug_dir or Path.cwd()
 
     if debug_mode:
-        if not os.path.isdir(prototype_dir):
+        if not prototype_dir.is_dir():
             raise ValueError(f"Prototype directory {prototype_dir} does not exist.")
         for dir_name in ["images", "perturbations"]:
-            os.makedirs(os.path.join(debug_dir, dir_name), exist_ok=True)
+            (debug_dir / dir_name).mkdir(exist_ok=True, parents=True)
 
     # Perform a single inference to capture original similarity maps
     img_tensor = img_tensor.to(device)
@@ -309,13 +309,17 @@ def analyze(
         img=img,
         preprocess=preprocess,
         visualizer=visualizer,
-        prototype_dir="",
-        output_dir="",
+        prototype_dir=Path.cwd(),
+        output_dir=Path.cwd(),
         device=device,
         disable_rendering=True,
     )
     # Remove dissimilar prototypes and take a subset based on num_prototypes
-    most_relevant_prototypes = [proto_idx for (proto_idx, _, similar) in most_relevant_prototypes if similar]
+    most_relevant_prototypes = [
+        (proto_idx, score) for (proto_idx, score, similar) in most_relevant_prototypes if similar
+    ]
+    # Sort prototypes by most to least similar
+    most_relevant_prototypes = [a[0] for a in reversed(sorted(most_relevant_prototypes, key=lambda x: x[1]))]
     most_relevant_prototypes = most_relevant_prototypes[:num_prototypes]
 
     # Initialize the debug graph
@@ -344,9 +348,9 @@ def analyze(
         )
 
         # Debug information
-        patch_img_path = os.path.join(debug_dir, "images", f"img{img_id}_p{proto_idx}_patch.png")
-        patch_heatmap_path = os.path.join(debug_dir, "images", f"img{img_id}_p{proto_idx}_heatmap.png")
-        proto_path = os.path.join(debug_dir, "images", f"prototype_p{proto_idx}.png")
+        patch_img_path = debug_dir / "images" / f"img{img_id}_p{proto_idx}_patch.png"
+        patch_heatmap_path = debug_dir / "images" / f"img{img_id}_p{proto_idx}_heatmap.png"
+        proto_path = debug_dir / "images" / f"prototype_p{proto_idx}.png"
 
         if debug_mode:
             # Save images
@@ -354,7 +358,7 @@ def analyze(
             square_resize(patch_img).save(patch_img_path)
             square_resize(attribution_heatmap).save(patch_heatmap_path)
             # Reshape and copy prototype
-            square_resize(Image.open(os.path.join(prototype_dir, f"prototype_{proto_idx}.png"))).save(proto_path)
+            square_resize(Image.open(prototype_dir / f"prototype_{proto_idx}.png")).save(proto_path)
 
         for pert_name in perturbed_imgs:
             perturbation_scores = []
@@ -377,7 +381,7 @@ def analyze(
                 if debug_mode:
                     # Save perturbed image if necessary
                     square_resize(pert_img).save(
-                        os.path.join(debug_dir, "images", f"img{img_id}_p{proto_idx}_{pert_name}_{target}.png")
+                        debug_dir / "images" / f"img{img_id}_p{proto_idx}_{pert_name}_{target}.png"
                     )
 
                 logger.debug(
@@ -392,14 +396,10 @@ def analyze(
                     prototype_img_path=proto_path,
                     test_patch_img_path=patch_img_path,
                     test_patch_heatmap_path=patch_heatmap_path,
-                    focus_test_patch_img_path=os.path.join(
-                        debug_dir, "images", f"img{img_id}_p{proto_idx}_{pert_name}_focus.png"
-                    ),
-                    dual_test_patch_img_path=(
-                        os.path.join(debug_dir, "images", f"img{img_id}_p{proto_idx}_{pert_name}_dual.png")
-                        if enable_dual_mode
-                        else None
-                    ),
+                    focus_test_patch_img_path=debug_dir / "images" / f"img{img_id}_p{proto_idx}_{pert_name}_focus.png",
+                    dual_test_patch_img_path=debug_dir / "images" / f"img{img_id}_p{proto_idx}_{pert_name}_dual.png"
+                    if enable_dual_mode
+                    else None,
                     original_sim_score=score,
                     focus_sim_score=perturbation_scores[0],
                     dual_sim_score=perturbation_scores[1] if enable_dual_mode else 0.0,
@@ -421,22 +421,22 @@ def analyze(
                 }
             )
     if debug_mode:
-        debug_graph.render(os.path.join(debug_dir, f"img{img_id}_sensitivity"), output_format=debug_format)
+        debug_graph.render(debug_dir / f"img{img_id}_sensitivity", output_format=debug_format)
     return stats
 
 
 def execute(
     model: CaBRNet,
-    dataset_config: str,
-    visualization_config: str,
-    root_dir: str,
+    dataset_config: Path,
+    visualization_config: Path,
+    root_dir: Path,
     device: str | torch.device,
     verbose: bool,
-    info_db: str = "local_perturbation_analysis.csv",
+    info_db: Path = Path("local_perturbation_analysis.csv"),
     sampling_ratio: int = 1,
     debug_mode: bool = False,
-    prototype_dir: str = "",
-    projection_file: str = "",
+    prototype_dir: Path = Path.cwd(),
+    projection_file: Path = Path.cwd(),
     tqdm_position: int = 0,
     **kwargs,
 ) -> None:
@@ -444,19 +444,19 @@ def execute(
 
     Args:
         model (Module): CaBRNet model.
-        dataset_config (str): Path to dataset configuration file.
-        visualization_config (str): Path to visualization configuration file.
-        root_dir (str): Path to root output directory.
+        dataset_config (Path): Path to dataset configuration file.
+        visualization_config (Path): Path to visualization configuration file.
+        root_dir (Path): Path to root output directory.
         device (str | device): Hardware device.
         verbose (bool): Verbose mode.
-        info_db (str, optional): Path to CSV file containing raw analysis per test image.
+        info_db (Path, optional): Path to CSV file containing raw analysis per test image.
             Default: local_perturbation_analysis.csv.
         sampling_ratio (int, optional): Ratio of test images to use during evaluation (e.g. 10 means only
             one image in ten is used). Default: 1.
         debug_mode (bool, optional): If True, enables debug mode for visualizing image analysis. Default: False.
-        prototype_dir (str, optional): Path to directory containing a visualization of all prototypes (used in debug
+        prototype_dir (Path, optional): Path to directory containing a visualization of all prototypes (used in debug
             mode only). Default: "".
-        projection_file (str, optional): Path to projection information file (used in debug mode only). Default: "".
+        projection_file (Path, optional): Path to projection information file (used in debug mode only). Default: "".
         tqdm_position (int, optional): Position of the progress bar. Default: 0.
     """
     logger.info("Starting perturbation benchmark")
@@ -484,21 +484,21 @@ def execute(
     """Init statistics. For each image in the training set, and the active prototype most similar to that image,
     record the original similarity score and the score after each perturbation
     """
-    output_dir = os.path.join(root_dir, "perturbation_analysis")
-    os.makedirs(output_dir, exist_ok=True)
+    output_dir = root_dir / "perturbation_analysis"
+    output_dir.mkdir(parents=True, exist_ok=True)
     # No need to create the debug directory if debug_mode is disabled
-    debug_dir = os.path.join(output_dir, "debug")
+    debug_dir = output_dir / "debug"
 
     if debug_mode:
         for dir_name in ["images", "perturbations"]:
-            os.makedirs(os.path.join(debug_dir, dir_name), exist_ok=True)
+            (debug_dir / dir_name).mkdir(parents=True, exist_ok=True)
 
         # Get dataloaders and projection info, then build prototypes
         dataloaders = DatasetManager.get_dataloaders(config=dataset_config)
         projection_info = load_projection_info(projection_file)
 
         # Avoid generating prototypes if the directory already exists
-        if not os.path.isdir(prototype_dir):
+        if not prototype_dir.is_dir():
             model.extract_prototypes(
                 dataloader_raw=dataloaders["projection_set_raw"],
                 dataloader=dataloaders["projection_set"],
@@ -523,8 +523,8 @@ def execute(
             **kwargs,
         )
 
-    output_path = os.path.join(output_dir, info_db)
-    if output_path.lower().endswith(("pickle", "pkl")):
+    output_path = output_dir / info_db
+    if output_path.suffix.lower() in [".pickle", ".pkl"]:
         # Save in pickle format
         with open(output_path, "wb") as f:
             pickle.dump(stats, f)
@@ -535,15 +535,15 @@ def execute(
             writer.writeheader()
             writer.writerows(stats)
 
-    show_results(model=model, src_path=os.path.join(output_dir, info_db), output_dir=output_dir, **kwargs)
+    show_results(model=model, src_path=output_dir / info_db, output_dir=output_dir, **kwargs)
 
 
 def show_results(
     model: CaBRNet,
-    src_path: str,
-    output_dir: str,
-    global_stats: str = "global_stats.csv",
-    distribution_img: str = "max_similarity_dist.png",
+    src_path: Path,
+    output_dir: Path,
+    global_stats: Path = Path("global_stats.csv"),
+    distribution_img: Path = Path("max_similarity_dist.png"),
     quiet: bool = False,
     **kwargs,
 ) -> None:
@@ -551,13 +551,13 @@ def show_results(
 
     Args:
         model (Module): Target model.
-        src_path (str): Path to input file containing statistics per test image.
-        output_dir (str): Output directory.
-        global_stats (str, optional): Name of output CSV file containing global statistics. Default: "global_stats.csv".
-        distribution_img (str, optional): Name of output distribution graph. Default: "max_similarity_dist.png".
+        src_path (Path): Path to input file containing statistics per test image.
+        output_dir (Path): Output directory.
+        global_stats (Path, optional): Name of output CSV file containing global statistics. Default: "global_stats.csv".
+        distribution_img (Path, optional): Name of output distribution graph. Default: "max_similarity_dist.png".
         quiet (bool, optional): If True, does not display analysis results. Default: False.
     """
-    if src_path.lower().endswith(tuple(["pickle", "pkl"])):
+    if src_path.suffix.lower() in [".pickle", ".pkl"]:
         # Open pickle and convert to pandas dataframe
         df = pd.DataFrame(pd.read_pickle(src_path))
     else:
@@ -582,7 +582,7 @@ def show_results(
     plt.ylabel("Distribution")
     plt.title("Distribution of maximum similarity drop across the test set")
     plt.tight_layout()
-    plt.savefig(os.path.join(output_dir, distribution_img))
+    plt.savefig(output_dir / distribution_img)
     if not quiet:
         plt.show()
 
@@ -591,7 +591,7 @@ def show_results(
     num_active_prototypes = len(
         [proto_idx for proto_idx in range(model.num_prototypes) if model.prototype_is_active(proto_idx)]
     )
-    with open(os.path.join(output_dir, global_stats), "w") as fout:
+    with open(output_dir / global_stats, "w") as fout:
         writer = csv.writer(fout)
         writer.writerow(["Number of active prototypes", num_active_prototypes])
         writer.writerow(["Number of analyzed prototypes", num_analyzed_prototypes])

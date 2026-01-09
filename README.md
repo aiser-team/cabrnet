@@ -14,6 +14,10 @@ Recognition](https://openaccess.thecvf.com/content/CVPR2021/papers/Nauta_Neural_
 - **ProtoPool**, as described in *Dawid Rymarczyk, Lukasz Struski, Michal Gorszczak, Koryna Lewandowska, Jacek Tabor and Bartosz Zielinski.* 
 [Interpretable Image Classification with Differentiable Prototypes Assignment](https://www.ecva.net/papers/eccv_2022/papers_ECCV/papers/136720346.pdf). 
 2021 European Conference on Computer Vision (ECCV).
+- **PIPNet**, as described in *Meike Nauta, Jörg Schlötterer, Maurice van Keulen, 
+Christin Seifert (2023).* 
+[PIP-Net: Patch-Based Intuitive Prototypes for Interpretable Image Classification.](https://openaccess.thecvf.com/content/CVPR2023/papers/Nauta_PIP-Net_Patch-Based_Intuitive_Prototypes_for_Interpretable_Image_Classification_CVPR_2023_paper.pdf) 
+IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR).
 
 # Index
 - [Build and install](docs/manuals/install.md)
@@ -38,6 +42,8 @@ to the code base and/or the documentation of the library:
 - Aymeric Varasse (CEA-LIST)
 - Alban Grastien (CEA-LIST)
 - Julien Girard-Satabin (CEA-LIST)
+- Jules Soria (CEA-LIST)
+
 
 The following authors contributed in a significant manner to the experiments and the
 publication of trained models:
@@ -46,9 +52,22 @@ publication of trained models:
 - Alban Grastien (CEA-LIST)
 - Romain Xu-Darme (CEA-LIST)
 
-This library is built upon previous work done in collaboration 
-with the [MRIM team](https://www.liglab.fr/fr/recherche/equipes-recherche/mrim)
-(Laboratoire d'Informatique de Grenoble).
+# Reference and Citation
+Please refer to our work when using CaBRNet:
+
+```
+Romain Xu-Darme, Aymeric Varasse, Alban Grastien, Julien Girard-Satabin, Zakaria Chihani. "CaBRNet, an open-source library for developing and evaluating Case-Based Reasoning Models", xAI-2024 Late-breaking Work, Demos and Doctoral Consortium at the 2nd World Conference on eXplainable Artificial Intelligence.
+```
+
+BibTex citation:
+```
+@article{xudarme2024cabrnet,
+  title={CaBRNet, an open-source library for developing and evaluating Case-Based Reasoning Models},
+  author={Romain Xu-Darme and Aymeric Varasse and Alban Grastien and Julien Girard and Zakaria Chihani},
+  booktitle={Proceedings of the xAI-2024 Late-breaking Work, Demos and Doctoral Consortium at the 2nd World Conference on eXplainable Artificial Intelligence},
+  year={2024},
+}
+```
 
 # Acknowledgments
 
@@ -58,3 +77,6 @@ with the references ANR-23-DEGR-0001 (DeepGreen)
 and ANR-23-PEIA-0006 (PEPR SAIF),
 as well as a Research and Innovation Action under the Horizon Europe Framework 
 with grant agreement Nr.101070038 (Trumpet).
+This library is built upon previous work done in collaboration
+with the [MRIM team](https://www.liglab.fr/fr/recherche/equipes-recherche/mrim)
+(Laboratoire d'Informatique de Grenoble).

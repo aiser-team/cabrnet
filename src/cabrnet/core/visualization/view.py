@@ -110,7 +110,7 @@ def heatmap(
     return Image.fromarray(sim_heatmap)
 
 
-supported_viewing_functions = {
+SUPPORTED_VIEWING_FUNCTIONS = {
     "crop_to_percentile": crop_to_percentile,
     "bbox_to_percentile": bbox_to_percentile,
     "heatmap": heatmap,

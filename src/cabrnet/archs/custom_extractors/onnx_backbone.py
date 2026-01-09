@@ -1,5 +1,5 @@
 from __future__ import annotations
-from pathlib import PurePath
+from pathlib import Path
 from typing import Callable, Dict, Optional, Tuple, Union
 
 from loguru import logger
@@ -18,7 +18,7 @@ class ONNXVariantsHandler:
     r"""A class handling multiple variations of a base ONNX file.
 
     Attributes:
-        original_path (PurePath): the original path of provided ONNX file. Not
+        original_path (Path): the original path of provided ONNX file. Not
         modified during inference.
 
         variants (dict[str, onnx.ModelProto]): A registry
@@ -28,11 +28,11 @@ class ONNXVariantsHandler:
 
     """
 
-    def __init__(self, original_path: PurePath):
+    def __init__(self, original_path: Path):
         r"""Stores the original path of the model.
 
         Args:
-            original_path (PurePath): Original path of the ONNX model.
+            original_path (Path): Original path of the ONNX model.
 
         """
         self.original_name = "original"
@@ -52,14 +52,14 @@ class ONNXVariantsHandler:
         """
         if name not in self.variants:
             self.variants[name] = model
-            savepath = PurePath("_".join([PurePath(self.original_path).stem, name, ".onnx"]))
+            savepath = Path("_".join([Path(self.original_path).stem, name, ".onnx"]))
             onnx.save_model(model, savepath)
             logger.info(f"Saved result of morphed ONNX at {savepath}")
         else:
             logger.warning(f"Error, variant {name} already registered, doing nothing")
             pass
 
-    def get_variant_path(self, name: str) -> PurePath:
+    def get_variant_path(self, name: str) -> Path:
         r"""Returns the path of the ONNX model given its variant name.
         Raises an FileNotFound exception if the variant does not exist in the
         registry.
@@ -68,7 +68,7 @@ class ONNXVariantsHandler:
             name (str): The name of the variant.
         """
         if name in self.variants:
-            return PurePath("_".join([PurePath(self.original_path).stem, name, ".onnx"]))
+            return Path("_".join([Path(self.original_path).stem, name, ".onnx"]))
         else:
             logger.error(
                 f"Warning, ONNX variant {name} not registered in ONNX handler. Trying to load non-existing file. Aborting "
@@ -130,7 +130,7 @@ class GenericONNXModel(nn.Module):
 
     If provided with a dictionary of layers, the class handles the
     generation of alternate ONNX models describing
-    the original model, trimed upto a specific given layer.
+    the original model, trimmed upto a specific given layer.
     This mirrors the original ConvExtractor construction.
 
     Some assumptions about the loaded ONNX model:
@@ -143,8 +143,8 @@ class GenericONNXModel(nn.Module):
         variants: A ONNXVariantsHandler object.
     """
 
-    def __init__(self, onnx_path: str):
-        r"""Instanciates a forward-capable class from an ONNX path.
+    def __init__(self, onnx_path: Path):
+        r"""Instantiates a forward-capable class from an ONNX path.
 
         Args:
             onnx_path (str): The path of the ONNX model to wrap in the class.
@@ -152,19 +152,19 @@ class GenericONNXModel(nn.Module):
 
         """
         super(GenericONNXModel, self).__init__()
-        onnx_purepath = PurePath(onnx_path)
-        self.variants = ONNXVariantsHandler(original_path=onnx_purepath)
-        model = onnx.load(onnx_purepath)
+        self.variants = ONNXVariantsHandler(original_path=onnx_path)
+        model = onnx.load(onnx_path)
         onnx.checker.check_model(model)
         model = onnx.shape_inference.infer_shapes(model)
-        logger.info(f"Loaded ONNX model located at {onnx_purepath} and performed sanity checks on it.")
+        logger.info(f"Loaded ONNX model located at {onnx_path} and performed sanity checks on it.")
         self.variants.register_and_save_variant(self.variants.original_name, model)
 
-    def get_original_onnx_model_path(self) -> PurePath:
+    def get_original_onnx_model_path(self) -> Path:
         r"""Returns the original ONNX model path."""
         return self.variants.original_path
 
-    def get_output_shape_of_node(self, node: onnx.ValueInfoProto) -> Tuple[Union[int, str], int, int, int]:
+    @staticmethod
+    def get_output_shape_of_node(node: onnx.ValueInfoProto) -> Tuple[Union[int, str], int, int, int]:
         r"""Returns the output shape of a given ONNX node. The shape is assumed
                 to have 4 dimensions.
 
@@ -230,8 +230,8 @@ class GenericONNXModel(nn.Module):
         # create a new output for the graph
         # and remove the previous one
         v = gs.Variable("features", dtype=np.float32, shape=out_shape)
-        graph.outputs = [v]
-        last_node.outputs = graph.outputs
+        graph.outputs = [v]  # type: ignore
+        last_node.outputs = graph.outputs  # type: ignore
         logger.debug(f"Replacing output of graph with new node {v} of shape {v.shape}")
         graph.cleanup()
         model_proto = gs.export_onnx(graph)
@@ -337,7 +337,7 @@ class GenericONNXModel(nn.Module):
 
 
 @register_model()
-def generic_onnx_model(onnx_path: str) -> GenericONNXModel:
+def generic_onnx_model(onnx_path: Path) -> GenericONNXModel:
     r"""Registers the GenericONNXModel to PyTorch models APIs.
 
     Args:

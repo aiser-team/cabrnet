@@ -1,0 +1,232 @@
+diff --git a/main.py b/main.py
+index 0ecf0a7..e112ced 100644
+--- a/main.py
++++ b/main.py
+@@ -178,9 +178,9 @@ def run_pipnet(args=None):
+     scheduler_net = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer_net, T_max=len(trainloader)*args.epochs, eta_min=args.lr_net/100.)
+     # scheduler for the classification layer is with restarts, such that the model can re-active zeroed-out prototypes. Hence an intuitive choice. 
+     if args.epochs<=30:
+-        scheduler_classifier = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer_classifier, T_0=5, eta_min=0.001, T_mult=1, verbose=False)
++        scheduler_classifier = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer_classifier, T_0=5, eta_min=0.001, T_mult=1)
+     else:
+-        scheduler_classifier = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer_classifier, T_0=10, eta_min=0.001, T_mult=1, verbose=False)
++        scheduler_classifier = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer_classifier, T_0=10, eta_min=0.001, T_mult=1)
+     for param in net.module.parameters():
+         param.requires_grad = False
+     for param in net.module._classification.parameters():
+diff --git a/pipnet/pipnet.py b/pipnet/pipnet.py
+index 3722bd8..02fd667 100644
+--- a/pipnet/pipnet.py
++++ b/pipnet/pipnet.py
+@@ -2,8 +2,8 @@ import argparse
+ import torch
+ import torch.nn as nn
+ import torch.nn.functional as F
+-from features.resnet_features import resnet18_features, resnet34_features, resnet50_features, resnet50_features_inat, resnet101_features, resnet152_features
+-from features.convnext_features import convnext_tiny_26_features, convnext_tiny_13_features 
++from ..features.resnet_features import resnet18_features, resnet34_features, resnet50_features, resnet50_features_inat, resnet101_features, resnet152_features
++from ..features.convnext_features import convnext_tiny_26_features, convnext_tiny_13_features 
+ import torch
+ from torch import Tensor
+ 
+@@ -71,7 +71,7 @@ class NonNegLinear(nn.Module):
+         return F.linear(input,torch.relu(self.weight), self.bias)
+ 
+ 
+-def get_network(num_classes: int, args: argparse.Namespace): 
++def get_network(num_classes: int, args: argparse.Namespace, seed: int | None = None): 
+     features = base_architecture_to_features[args.net](pretrained=not args.disable_pretrained)
+     features_name = str(features).upper()
+     if 'next' in args.net:
+@@ -85,13 +85,13 @@ def get_network(num_classes: int, args: argparse.Namespace):
+     
+     if args.num_features == 0:
+         num_prototypes = first_add_on_layer_in_channels
+-        print("Number of prototypes: ", num_prototypes, flush=True)
++        #print("Number of prototypes: ", num_prototypes, flush=True)
+         add_on_layers = nn.Sequential(
+             nn.Softmax(dim=1), #softmax over every prototype for each patch, such that for every location in image, sum over prototypes is 1                
+     )
+     else:
+         num_prototypes = args.num_features
+-        print("Number of prototypes set from", first_add_on_layer_in_channels, "to", num_prototypes,". Extra 1x1 conv layer added. Not recommended.", flush=True)
++        #print("Number of prototypes set from", first_add_on_layer_in_channels, "to", num_prototypes,". Extra 1x1 conv layer added. Not recommended.", flush=True)
+         add_on_layers = nn.Sequential(
+             nn.Conv2d(in_channels=first_add_on_layer_in_channels, out_channels=num_prototypes, kernel_size=1, stride = 1, padding=0, bias=True), 
+             nn.Softmax(dim=1), #softmax over every prototype for each patch, such that for every location in image, sum over prototypes is 1                
+@@ -100,7 +100,18 @@ def get_network(num_classes: int, args: argparse.Namespace):
+                 nn.AdaptiveMaxPool2d(output_size=(1,1)), #outputs (bs, ps,1,1)
+                 nn.Flatten() #outputs (bs, ps)
+                 ) 
+-    
++
++    if seed is not None:
++        # For RNG resynchronisation with CaBRNet
++        torch.manual_seed(seed)
++        # Simulate the initialization of the Linear layer
++        torch.rand(num_classes*num_prototypes)
++        if args.bias:
++            torch.rand(num_classes)
++        # Simulate the initialization of the Conv2d layer
++        if args.num_features > 0:
++            torch.rand(args.num_features*(1+first_add_on_layer_in_channels))
++
+     if args.bias:
+         classification_layer = NonNegLinear(num_prototypes, num_classes, bias=True)
+     else:
+diff --git a/pipnet/test.py b/pipnet/test.py
+index 18d8238..54e7a91 100644
+--- a/pipnet/test.py
++++ b/pipnet/test.py
+@@ -4,8 +4,8 @@ import torch
+ import torch.optim
+ from torch.utils.data import DataLoader
+ import torch.nn.functional as F
+-from util.log import Log
+-from util.func import topk_accuracy
++from .util.log import Log
++from .util.func import topk_accuracy
+ from sklearn.metrics import accuracy_score, roc_auc_score, balanced_accuracy_score, f1_score
+ 
+ @torch.no_grad()
+diff --git a/pipnet/train.py b/pipnet/train.py
+index bb013ef..9575ba1 100644
+--- a/pipnet/train.py
++++ b/pipnet/train.py
+@@ -28,14 +28,14 @@ def train_pipnet(net, train_loader, optimizer_net, optimizer_classifier, schedul
+     train_iter = tqdm(enumerate(train_loader),
+                     total=len(train_loader),
+                     desc=progress_prefix+'%s'%epoch,
+-                    mininterval=2.,
++                    mininterval=2., disable=True,
+                     ncols=0)
+     
+     count_param=0
+     for name, param in net.named_parameters():
+         if param.requires_grad:
+             count_param+=1           
+-    print("Number of parameters that require gradient: ", count_param, flush=True)
++    #print("Number of parameters that require gradient: ", count_param, flush=True)
+ 
+     if pretrain:
+         align_pf_weight = (epoch/nr_epochs)*1.
+@@ -49,8 +49,8 @@ def train_pipnet(net, train_loader, optimizer_net, optimizer_classifier, schedul
+         cl_weight = 2.
+ 
+     
+-    print("Align weight: ", align_pf_weight, ", U_tanh weight: ", t_weight, "Class weight:", cl_weight, flush=True)
+-    print("Pretrain?", pretrain, "Finetune?", finetune, flush=True)
++    #print("Align weight: ", align_pf_weight, ", U_tanh weight: ", t_weight, "Class weight:", cl_weight, flush=True)
++    #print("Pretrain?", pretrain, "Finetune?", finetune, flush=True)
+     
+     lrs_net = []
+     lrs_class = []
+@@ -65,7 +65,7 @@ def train_pipnet(net, train_loader, optimizer_net, optimizer_classifier, schedul
+        
+         # Perform a forward pass through the network
+         proto_features, pooled, out = net(torch.cat([xs1, xs2]))
+-        loss, acc = calculate_loss(proto_features, pooled, out, ys, align_pf_weight, t_weight, unif_weight, cl_weight, net.module._classification.normalization_multiplier, pretrain, finetune, criterion, train_iter, print=True, EPS=1e-8)
++        loss, acc = calculate_loss(proto_features, pooled, out, ys, align_pf_weight, t_weight, unif_weight, cl_weight, net.module._classification.normalization_multiplier, pretrain, finetune, criterion, train_iter, verbose=True, EPS=1e-8)
+         
+         # Compute the gradient
+         loss.backward()
+@@ -99,7 +99,7 @@ def train_pipnet(net, train_loader, optimizer_net, optimizer_classifier, schedul
+     
+     return train_info
+ 
+-def calculate_loss(proto_features, pooled, out, ys1, align_pf_weight, t_weight, unif_weight, cl_weight, net_normalization_multiplier, pretrain, finetune, criterion, train_iter, print=True, EPS=1e-10):
++def calculate_loss(proto_features, pooled, out, ys1, align_pf_weight, t_weight, unif_weight, cl_weight, net_normalization_multiplier, pretrain, finetune, criterion, train_iter, verbose=True, EPS=1e-10):
+     ys = torch.cat([ys1,ys1])
+     pooled1, pooled2 = pooled.chunk(2)
+     pf1, pf2 = proto_features.chunk(2)
+@@ -132,7 +132,7 @@ def calculate_loss(proto_features, pooled, out, ys1, align_pf_weight, t_weight,
+         ys_pred_max = torch.argmax(out, dim=1)
+         correct = torch.sum(torch.eq(ys_pred_max, ys))
+         acc = correct.item() / float(len(ys))
+-    if print: 
++    if verbose: 
+         with torch.no_grad():
+             if pretrain:
+                 train_iter.set_postfix_str(
+diff --git a/util/args.py b/util/args.py
+index 24c3ede..bffbdd9 100644
+--- a/util/args.py
++++ b/util/args.py
+@@ -150,10 +150,10 @@ def save_args(args: argparse.Namespace, directory_path: str) -> None:
+         pickle.dump(args, f)                                                                               
+     
+ def get_optimizer_nn(net, args: argparse.Namespace) -> torch.optim.Optimizer:
+-    torch.manual_seed(args.seed)
+-    torch.cuda.manual_seed_all(args.seed)
+-    random.seed(args.seed)
+-    np.random.seed(args.seed)
++    #torch.manual_seed(args.seed)
++    #torch.cuda.manual_seed_all(args.seed)
++    #random.seed(args.seed)
++    #np.random.seed(args.seed)
+ 
+     #create parameter groups
+     params_to_freeze = []
+@@ -174,7 +174,7 @@ def get_optimizer_nn(net, args: argparse.Namespace) -> torch.optim.Optimizer:
+                 # params_backbone.append(param)
+     
+     elif 'convnext' in args.net:
+-        print("chosen network is convnext", flush=True)
++        #print("chosen network is convnext", flush=True)
+         for name,param in net.module._net.named_parameters():
+             if 'features.7.2' in name: 
+                 params_to_train.append(param)
+diff --git a/util/data.py b/util/data.py
+index 136abdf..b300723 100644
+--- a/util/data.py
++++ b/util/data.py
+@@ -19,7 +19,7 @@ def get_data(args: argparse.Namespace):
+     random.seed(args.seed)
+     np.random.seed(args.seed)
+     if args.dataset =='CUB-200-2011':     
+-        return get_birds(True, './data/CUB_200_2011/dataset/train_crop', './data/CUB_200_2011/dataset/train', './data/CUB_200_2011/dataset/test_crop', args.image_size, args.seed, args.validation_size, './data/CUB_200_2011/dataset/train', './data/CUB_200_2011/dataset/test_full')
++        return get_birds(True, './data/CUB_200_2011/dataset/train_crop', './data/CUB_200_2011/dataset/train_full', './data/CUB_200_2011/dataset/test_crop', args.image_size, args.seed, args.validation_size, './data/CUB_200_2011/dataset/train_full', './data/CUB_200_2011/dataset/test_full')
+     if args.dataset == 'pets':
+         return get_pets(True, './data/PETS/dataset/train','./data/PETS/dataset/train','./data/PETS/dataset/test', args.image_size, args.seed, args.validation_size)
+     if args.dataset == 'partimagenet': #use --validation_size of 0.2
+@@ -37,6 +37,22 @@ def get_dataloaders(args: argparse.Namespace, device):
+     # Obtain the dataset
+     trainset, trainset_pretraining, trainset_normal, trainset_normal_augment, projectset, testset, testset_projection, classes, num_channels, train_indices, targets = get_data(args)
+     
++    def get_subset(dataset, sampling_ratio: int):
++        if sampling_ratio > 1:
++            # Apply data sub-selection
++            selected_indices = [idx for idx in range(len(dataset))][::sampling_ratio]  # type: ignore
++            return torch.utils.data.Subset(dataset=dataset, indices=selected_indices)
++        return dataset
++
++    trainset = get_subset(trainset, args.sampling_ratio)
++    if trainset_pretraining is not None:
++        trainset_pretraining = get_subset(trainset_pretraining, args.sampling_ratio)
++    trainset_normal = get_subset(trainset_normal, args.sampling_ratio)
++    trainset_normal_augment = get_subset(trainset_normal_augment, args.sampling_ratio)
++    projectset = get_subset(projectset, args.sampling_ratio)
++    testset = get_subset(testset, args.sampling_ratio)
++    testset_projection = get_subset(testset_projection, args.sampling_ratio)
++    
+     # Determine if GPU should be used
+     cuda = not args.disable_cuda and torch.cuda.is_available()
+     to_shuffle = True
+@@ -50,7 +66,7 @@ def get_dataloaders(args: argparse.Namespace, device):
+         # https://discuss.pytorch.org/t/dataloader-using-subsetrandomsampler-and-weightedrandomsampler-at-the-same-time/29907
+         class_sample_count = torch.tensor([(targets[train_indices] == t).sum() for t in torch.unique(targets, sorted=True)])
+         weight = 1. / class_sample_count.float()
+-        print("Weights for weighted sampler: ", weight, flush=True)
++        #print("Weights for weighted sampler: ", weight, flush=True)
+         samples_weight = torch.tensor([weight[t] for t in targets[train_indices]])
+         # Create sampler, dataset, loader
+         sampler = torch.utils.data.WeightedRandomSampler(samples_weight, len(samples_weight),replacement=True)
+@@ -133,7 +149,7 @@ def get_dataloaders(args: argparse.Namespace, device):
+                                              worker_init_fn=np.random.seed(args.seed),
+                                              drop_last=False
+                                              )
+-    print("Num classes (k) = ", len(classes), classes[:5], "etc.", flush=True)
++    #print("Num classes (k) = ", len(classes), classes[:5], "etc.", flush=True)
+     return trainloader, trainloader_pretraining, trainloader_normal, trainloader_normal_augment, projectloader, testloader, test_projectloader, classes
+ 
+ def create_datasets(transform1, transform2, transform_no_augment, num_channels:int, train_dir:str, project_dir: str, test_dir:str, seed:int, validation_size:float, train_dir_pretrain = None, test_dir_projection = None, transform1p=None):

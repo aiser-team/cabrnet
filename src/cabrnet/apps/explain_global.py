@@ -1,4 +1,4 @@
-import os
+from pathlib import Path
 from argparse import ArgumentParser, Namespace
 
 from loguru import logger
@@ -30,7 +30,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     parser.add_argument(
         "-p",
         "--projection-info",
-        type=str,
+        type=Path,
         required=False,
         metavar="/path/to/projection/info",
         help="path to the CSV file containing the projection information",
@@ -38,7 +38,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     parser.add_argument(
         "-c",
         "--checkpoint-dir",
-        type=str,
+        type=Path,
         required=False,
         metavar="/path/to/checkpoint/dir",
         help="path to a checkpoint directory (alternative to --model-arch, --model-state-dict, --dataset "
@@ -47,7 +47,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     parser.add_argument(
         "-o",
         "--output-dir",
-        type=str,
+        type=Path,
         required=True,
         metavar="path/to/output/directory",
         help="path to output directory",
@@ -60,6 +60,11 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         required=False,
         metavar="extension",
         help="output file format",
+    )
+    parser.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="overwrite existing files",
     )
     return parser
 
@@ -81,10 +86,10 @@ def check_args(args: Namespace) -> Namespace:
         ):
             if param is not None:
                 raise ArgumentError(f"Cannot specify both options {name} and --checkpoint-dir")
-        args.model_arch = os.path.join(args.checkpoint_dir, CaBRNet.DEFAULT_MODEL_CONFIG)
-        args.model_state_dict = os.path.join(args.checkpoint_dir, CaBRNet.DEFAULT_MODEL_STATE)
-        args.dataset = os.path.join(args.checkpoint_dir, DatasetManager.DEFAULT_DATASET_CONFIG)
-        args.projection_info = os.path.join(args.checkpoint_dir, CaBRNet.DEFAULT_PROJECTION_INFO)
+        args.model_arch = args.checkpoint_dir / CaBRNet.DEFAULT_MODEL_CONFIG
+        args.model_state_dict = args.checkpoint_dir / CaBRNet.DEFAULT_MODEL_STATE
+        args.dataset = args.checkpoint_dir / DatasetManager.DEFAULT_DATASET_CONFIG
+        args.projection_info = args.checkpoint_dir / CaBRNet.DEFAULT_PROJECTION_INFO
 
     # Check configuration completeness
     for param, name, option in zip(
@@ -94,6 +99,12 @@ def check_args(args: Namespace) -> Namespace:
     ):
         if param is None:
             raise ArgumentError(f"Missing {name} file (option {option}).")
+
+    if args.overwrite or (args.output_dir / "prototypes").exists():
+        raise ArgumentError(
+            f"Output directory {(args.output_dir / 'prototypes')} is not empty. "
+            f"To overwrite existing results, use --overwrite option."
+        )
     return args
 
 
@@ -116,26 +127,27 @@ def execute(args: Namespace) -> None:
     # Build prototypes
     dataloaders = DatasetManager.get_dataloaders(config=args.dataset)
     projection_info = load_projection_info(args.projection_info)
-    model.extract_prototypes(
-        dataloader_raw=dataloaders["projection_set_raw"],
-        dataloader=dataloaders["projection_set"],
-        projection_info=projection_info,
-        visualizer=visualizer,
-        dir_path=os.path.join(args.output_dir, "prototypes"),
-        device=args.device,
-        verbose=args.verbose,
-    )
+    if args.overwrite or not (args.output_dir / "prototypes").exists():
+        model.extract_prototypes(
+            dataloader_raw=dataloaders["projection_set_raw"],
+            dataloader=dataloaders["projection_set"],
+            projection_info=projection_info,
+            visualizer=visualizer,
+            dir_path=args.output_dir / "prototypes",
+            device=args.device,
+            verbose=args.verbose,
+        )
 
-    # Save visualization config
-    safe_copy(
-        args.visualization,
-        os.path.join(args.output_dir, "prototypes", SimilarityVisualizer.DEFAULT_VISUALIZATION_CONFIG),
-    )
+        # Save visualization config
+        safe_copy(
+            args.visualization,
+            args.output_dir / "prototypes" / SimilarityVisualizer.DEFAULT_VISUALIZATION_CONFIG,
+        )
 
     # Generate explanation
     try:
         model.explain_global(
-            prototype_dir=os.path.join(args.output_dir, "prototypes"),
+            prototype_dir=args.output_dir / "prototypes",
             output_dir=args.output_dir,
             output_format=args.format,
         )

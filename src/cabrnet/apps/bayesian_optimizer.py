@@ -2,6 +2,7 @@ import copy
 import os
 import random
 import shutil
+from pathlib import Path
 from argparse import ArgumentParser, Namespace
 from typing import Any
 
@@ -59,7 +60,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     parser.add_argument(
         "-o",
         "--output-dir",
-        type=str,
+        type=Path,
         required=True,
         metavar="path/to/output/directory",
         help="path to output directory",
@@ -67,7 +68,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     parser.add_argument(
         "-c",
         "--config-dir",
-        type=str,
+        type=Path,
         required=False,
         metavar="/path/to/config/dir",
         help="path to directory containing all configuration files to start training "
@@ -76,7 +77,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     parser.add_argument(
         "-r",
         "--resume-from",
-        type=str,
+        type=Path,
         metavar="/path/to/working/directory",
         help="path to existing working directory to resume optimization",
     )
@@ -128,17 +129,17 @@ def check_args(args: Namespace) -> Namespace:
         ):
             if param is not None:
                 raise ArgumentError(f"Cannot specify both options {name} and --config-dir")
-        args.model_arch = os.path.join(args.config_dir, CaBRNet.DEFAULT_MODEL_CONFIG)
+        args.model_arch = args.config_dir / CaBRNet.DEFAULT_MODEL_CONFIG
         # Compatibility with v0.1: will be removed in the future
-        if not os.path.isfile(args.model_arch) and os.path.isfile(os.path.join(args.config_dir, "model.yml")):
-            args.model_arch = os.path.join(args.config_dir, "model.yml")
+        if not args.model_arch.is_file() and (args.config_dir / "model.yml").is_file():
+            args.model_arch = args.config_dir / "model.yml"
             logger.warning(
                 f"Using model.yml from {args.config_dir}: "
                 f"please consider renaming the file to {CaBRNet.DEFAULT_MODEL_CONFIG} to ensure compatibility "
                 f"with future versions"
             )
-        args.dataset = os.path.join(args.config_dir, DatasetManager.DEFAULT_DATASET_CONFIG)
-        args.training = os.path.join(args.config_dir, OptimizerManager.DEFAULT_TRAINING_CONFIG)
+        args.dataset = args.config_dir / DatasetManager.DEFAULT_DATASET_CONFIG
+        args.training = args.config_dir / OptimizerManager.DEFAULT_TRAINING_CONFIG
 
     for param, name, option in zip(
         [args.model_arch, args.dataset, args.training], ["model", "dataset", "training"], ["-m", "-d", "-t"]
@@ -152,7 +153,7 @@ def check_args(args: Namespace) -> Namespace:
     if args.search_space[1] not in ["min", "max"]:
         raise ArgumentError(f"Invalid optimization mode '{args.search_space[1]}' in --search-space")
 
-    if os.path.exists(args.output_dir) and args.resume_from is None and not args.overwrite:
+    if args.output_dir.exists() and args.resume_from is None and not args.overwrite:
         raise ArgumentError(
             f"Output directory {args.output_dir} is not empty. "
             f"To overwrite existing results, use --overwrite option."
@@ -195,10 +196,10 @@ def execute(args: Namespace) -> None:
     device = args.device
 
     # Absolute paths are necessary because Optuna launches jobs from another directory
-    training_config_file = os.path.abspath(args.training)
-    model_arch_file = os.path.abspath(args.model_arch)
-    dataset_config_file = os.path.abspath(args.dataset)
-    root_dir = os.path.abspath(args.output_dir)
+    training_config_file = args.training.resolve(strict=True)
+    model_arch_file = args.model_arch.resolve(strict=True)
+    dataset_config_file = args.dataset.resolve(strict=True)
+    root_dir = args.output_dir.resolve(strict=True)
     sanity_check_only = args.sanity_check
     seed = args.seed
 
@@ -217,7 +218,7 @@ def execute(args: Namespace) -> None:
         model_arch: dict[str, Any]
         training_config: dict[str, Any]
         dataset_config: dict[str, Any]
-        working_dir: str
+        working_dir: Path
 
         def setup(self, config: dict[str, Any]):
             r"""Sets up the configuration of a trial.
@@ -236,7 +237,7 @@ def execute(args: Namespace) -> None:
             )
             self.model_arch = update_configuration(copy.deepcopy(initial_model_arch), config.get("model", {}))
             self.dataset_config = update_configuration(copy.deepcopy(initial_dataset_config), config.get("dataset", {}))
-            self.working_dir = os.path.join(root_dir, f"trial_{self.trial_name}")
+            self.working_dir = root_dir / f"trial_{self.trial_name}"
 
         def step(self) -> dict[str, Any]:
             r"""Returns the statistics for this trial."""
@@ -315,9 +316,9 @@ def execute(args: Namespace) -> None:
 
     if args.resume_from is not None:
         # Resume failed/interrupted experiment
-        resume_path = os.path.abspath(args.resume_from)
+        resume_path = Path(args.resume_from).resolve(strict=True)
         tuner = tune.Tuner.restore(
-            path=resume_path,
+            path=str(resume_path),
             restart_errored=True,
             resume_unfinished=True,
             trainable=trainable_with_resources,
@@ -333,7 +334,7 @@ def execute(args: Namespace) -> None:
                 num_samples=num_trials,
             ),
             run_config=train.RunConfig(
-                storage_path=root_dir,
+                storage_path=str(root_dir.resolve(strict=True)),
                 name="test_experiment",
                 stop={"training_iteration": 1},  # Each trial configuration is only tested once
                 checkpoint_config=train.CheckpointConfig(

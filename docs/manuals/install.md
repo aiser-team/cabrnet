@@ -26,3 +26,6 @@ pip install -e .[doc]
 ```bash
 pip install -e .[legacy]
 ```
+
+IMPORTANT NOTE: CaBRNet also requires the [GraphViz](https://graphviz.org/) 
+package to generate explanations.

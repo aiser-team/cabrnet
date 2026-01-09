@@ -31,7 +31,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     parser.add_argument(
         "-c",
         "--checkpoint-dir",
-        type=str,
+        type=Path,
         required=False,
         metavar="/path/to/checkpoint/dir",
         help="path to a checkpoint directory (alternative to --model-arch, --model-state-dict, --dataset)",
@@ -39,7 +39,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     parser.add_argument(
         "-i",
         "--image",
-        type=str,
+        type=Path,
         required=True,
         metavar="path/to/image",
         help="path to image to be explained",
@@ -47,7 +47,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     parser.add_argument(
         "-o",
         "--output-dir",
-        type=str,
+        type=Path,
         required=True,
         metavar="path/to/output/directory",
         help="path to output directory",
@@ -55,7 +55,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     parser.add_argument(
         "-y",
         "--prototype-dir",
-        type=str,
+        type=Path,
         required=True,
         metavar="path/to/prototype/directory",
         help="path to directory containing prototype visualizations",
@@ -94,9 +94,9 @@ def check_args(args: Namespace) -> Namespace:
         ):
             if param is not None:
                 raise ArgumentError(f"Cannot specify both options {name} and --checkpoint-dir")
-        args.model_arch = os.path.join(args.checkpoint_dir, CaBRNet.DEFAULT_MODEL_CONFIG)
-        args.model_state_dict = os.path.join(args.checkpoint_dir, CaBRNet.DEFAULT_MODEL_STATE)
-        args.dataset = os.path.join(args.checkpoint_dir, DatasetManager.DEFAULT_DATASET_CONFIG)
+        args.model_arch = Path(args.checkpoint_dir, CaBRNet.DEFAULT_MODEL_CONFIG)
+        args.model_state_dict = Path(args.checkpoint_dir, CaBRNet.DEFAULT_MODEL_STATE)
+        args.dataset = Path(args.checkpoint_dir, DatasetManager.DEFAULT_DATASET_CONFIG)
 
     # Check configuration completeness
     for param, name, option in zip(
@@ -107,7 +107,7 @@ def check_args(args: Namespace) -> Namespace:
         if param is None:
             raise ArgumentError(f"Missing {name} file (option {option}).")
 
-    output_dir = os.path.join(args.output_dir, Path(args.image).stem)
+    output_dir = Path(args.output_dir, Path(args.image).stem)
     if os.path.exists(output_dir) and not args.overwrite:
         raise ArgumentError(
             f"Output directory {output_dir} is not empty. " f"To overwrite existing results, use --overwrite option."
@@ -141,7 +141,7 @@ def execute(args: Namespace) -> None:
     preprocess = DatasetManager.get_dataset_transform(config=args.dataset, dataset="test_set")
 
     # Dedicated directory for target image
-    output_dir = os.path.join(args.output_dir, Path(args.image).stem)
+    output_dir = Path(args.output_dir, Path(args.image).stem)
 
     # Generate explanation
     model.explain(
@@ -158,5 +158,5 @@ def execute(args: Namespace) -> None:
     # Save visualization config
     safe_copy(
         args.visualization,
-        os.path.join(output_dir, SimilarityVisualizer.DEFAULT_VISUALIZATION_CONFIG),
+        output_dir / SimilarityVisualizer.DEFAULT_VISUALIZATION_CONFIG,
     )

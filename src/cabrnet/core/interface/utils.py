@@ -1,4 +1,4 @@
-import os
+from pathlib import Path
 from tkinter import Tk, filedialog
 from typing import Any, Callable
 
@@ -8,14 +8,14 @@ from loguru import logger
 
 
 def create_browse_folder_component(
-    label: str, default_dir: str, allow_creation: bool = False, key: str | None = None
+    label: str, default_dir: Path, allow_creation: bool = False, key: str | None = None
 ) -> gr.Textbox:
     r"""TK-based pop-up window for selecting folders
     Adapted from https://github.com/gradio-app/gradio/issues/2515#issuecomment-1676824284.
 
     Args:
         label (str): Component label.
-        default_dir (str): Default directory for the explorer.
+        default_dir (Path): Default directory for the explorer.
         allow_creation (bool, optional): If True, allow the directory to be created if necessary. Default: False.
         key (str, optional): Component key. Default: None.
     Returns:
@@ -30,16 +30,18 @@ def create_browse_folder_component(
         if not filename:
             # Revert to default directory
             filename = default_dir
-        if not os.path.exists(filename) and allow_creation:
+        else:
+            filename = Path(filename)
+        if not filename.exists() and allow_creation:
             logger.info(f"Creating directory {filename}")
-            os.makedirs(filename)
+            filename.mkdir(parents=True, exist_ok=False)
         root.destroy()
         textbox = filename
         return textbox
 
     with gr.Column():
         selection = gr.Textbox(
-            value=default_dir,
+            value=str(default_dir),
             label=label,
             interactive=True,
             max_lines=1,

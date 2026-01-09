@@ -16,7 +16,7 @@ def show_file_list() -> str:
         List of files to download.
     """
     res = ""
-    for entry in file_list:
+    for entry in FILE_LIST:
         res += f"\t{entry['identifier']} --> {entry['description']}, downloaded in <output_dir>/{entry['dir']}\n"
     res += "\tall --> everything above"
     return res
@@ -39,7 +39,7 @@ def create_parser() -> ArgumentParser:
         required=True,
         metavar="name",
         nargs="+",
-        choices=["all"] + [entry["identifier"] for entry in file_list],
+        choices=["all"] + [entry["identifier"] for entry in FILE_LIST],
         help=f"Select target(s) to download\n{show_file_list()}",
     )
     parser.add_argument(
@@ -116,7 +116,7 @@ def download_cub(path: str, use_segmentation: bool) -> None:
 
 
 def preprocess_cub(path: str) -> None:
-    """Preprocessing function to create proper datasets used by ProtoTree and ProtoPNet.
+    """Preprocesses data to create proper datasets used by ProtoTree and ProtoPNet.
 
     Args:
         path (str): Path where the dataset is located.
@@ -289,27 +289,145 @@ def preprocess_cub(path: str) -> None:
         del p
 
 
-file_list = [
+def download_flowers(path: str, use_segmentation: bool) -> None:
+    """Downloads the Oxford Flowers 102 dataset.
+
+    Args:
+        path (str): Path where to download the dataset to.
+        use_segmentation (bool): Whether to download the segmentation dataset too. Deprecated, as no segmentation dataset is available.
+    """
+    from torchvision.datasets import Flowers102
+
+    logger.info("Downloading Oxford Flowers 102 dataset")
+    flowers_dataset = Flowers102(root=path, download=True)
+    logger.info("Oxford Flowers 102 dataset downloaded")
+
+    if use_segmentation:
+        logger.warning("Segmentation dataset is not available for Oxford Flowers 102. Skipping segmentation download.")
+
+
+def download_cifar10(path: str, use_segmentation: bool) -> None:
+    """Downloads the CIFAR-10 dataset.
+
+    Args:
+        path (str): Path where to download the dataset to.
+        use_segmentation (bool): Whether to download the segmentation dataset too. Deprecated, as no segmentation dataset is available.
+    """
+    from torchvision.datasets import CIFAR10
+
+    logger.info("Downloading CIFAR-10 dataset")
+    train_dataset = CIFAR10(root=path, train=True, download=True)
+    test_dataset = CIFAR10(root=path, train=False, download=True)
+    logger.info("CIFAR-10 dataset downloaded")
+
+    if use_segmentation:
+        logger.warning("Segmentation dataset is not available for CIFAR-10. Skipping segmentation download.")
+
+
+def download_cifar100(path: str, use_segmentation: bool) -> None:
+    """Downloads the CIFAR-100 dataset.
+
+    Args:
+        path (str): Path where to download the dataset to.
+        use_segmentation (bool): Whether to download the segmentation dataset too. Deprecated, as no segmentation dataset is available.
+    """
+    from torchvision.datasets import CIFAR100
+
+    logger.info("Downloading CIFAR-100 dataset")
+    train_dataset = CIFAR100(root=path, train=True, download=True)
+    test_dataset = CIFAR100(root=path, train=False, download=True)
+    logger.info("CIFAR-100 dataset downloaded")
+
+    if use_segmentation:
+        logger.warning("Segmentation dataset is not available for CIFAR-100. Skipping segmentation download.")
+
+def download_pets(path: str, use_segmentation: bool) -> None:
+    """Downloads the Oxford Pets dataset.
+
+    Args:
+        path (str): Path where to download the dataset to.
+        use_segmentation (bool): Whether to download the segmentation dataset too. Deprecated, as no segmentation dataset is available.
+    """
+    from torchvision.datasets import OxfordIIITPet
+    _ = OxfordIIITPet(
+        root=path,
+        download=True,
+        transform=None,  # No transformation needed for downloading
+        split="trainval",  # Download the training split
+    )
+
+def download_tiny_imagenet(path: str, use_segmentation: bool) -> None:
+    """Downloads the Tiny ImageNet dataset.
+
+    Args:
+        path (str): Path where to download the dataset to.
+        use_segmentation (bool): Whether to download the segmentation dataset too. Deprecated, as no segmentation dataset is available.
+    """
+    from tiny_imagenet_torch import TinyImageNet
+    
+    _ = TinyImageNet(
+        root=path,
+        download=True,
+        transform=None,  # No transformation needed for downloading
+        train=True,  # Download the training split
+    )
+
+FILE_LIST = [
     {
         "identifier": "CUB_200_2011",
         "description": "Caltech-UCSD Birds-200-2011 dataset",
         "dir": "CUB_200_2011",
         "download_fn": download_cub,
         "preprocess_fn": preprocess_cub,
-    }
+    },
+    {
+        "identifier": "flowers102",
+        "description": "Oxford Flowers 102 dataset",
+        "dir": "flowers-102",  # Standard directory from 'torchvision'
+        "download_fn": download_flowers,
+        "preprocess_fn": None,  # No preprocessing needed for this dataset
+    },
+    {
+        "identifier": "oxford_iiit_pet",
+        "description": "Oxford IIIT Pets dataset",
+        "dir": "oxford-iiit-pet",  # Standard directory from 'torchvision'
+        "download_fn": download_pets,
+        "preprocess_fn": None,  # No preprocessing needed for this dataset
+    },
+    {
+        "identifier": "cifar10",
+        "description": "CIFAR-10 dataset",
+        "dir": "cifar-10-batches-py",  # Standard directory from 'torchvision'
+        "download_fn": download_cifar10,
+        "preprocess_fn": None,  # No preprocessing needed for this dataset
+    },
+    {
+        "identifier": "cifar100",
+        "description": "CIFAR-100 dataset",
+        "dir": "cifar-100-python",  # Standard directory from 'torchvision'
+        "download_fn": download_cifar100,
+        "preprocess_fn": None,  # No preprocessing needed for this dataset
+    },
+    {
+        "identifier": "tiny_imagenet",
+        "description": "Tiny ImageNet dataset",
+        "dir": "tiny-imagenet-200",  # Standard directory from 'tiny_imagenet_torch'
+        "download_fn": download_tiny_imagenet,
+        "preprocess_fn": None,  # No preprocessing needed for this dataset
+    },
 ]
 
 
 def main() -> None:
-    """Main entry point of the tool."""
+    """Runs the tool."""
     parser = create_parser()
     args = parser.parse_args()
 
     # Files to download
     files_to_download = (
-        file_list
+        FILE_LIST
         if "all" in args.target
-        else [file_entry for file_entry in file_list if file_entry["identifier"] in args.target]
+        else [file_entry for file_entry in FILE_LIST if file_entry["identifier"] in args.target]
     )
 
     output_dir = args.output_dir

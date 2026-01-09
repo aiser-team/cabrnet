@@ -110,7 +110,7 @@ def _captum_smoothgrad_attribute(
     )
 
 
-supported_captum_algorithms = {
+SUPPORTED_CAPTUM_ALGORITHMS = {
     "smoothgrad": {"wrapper": _captum_saliency_nt_wrapper, "attribute": _captum_smoothgrad_attribute},
     "saliency": {"wrapper": _captum_saliency_wrapper, "attribute": _captum_attribute},
     "lrp": {"wrapper": LRP, "attribute": _captum_attribute},
@@ -186,9 +186,9 @@ def _captum_attribution(
         similarity_threshold = sim_map[h_max, w_max]
 
     # Create Captum wrapper
-    assert algorithm in supported_captum_algorithms, f"Unsupported attribution method: {algorithm}"
-    captum_model = supported_captum_algorithms[algorithm]["wrapper"](model)
-    attribution_fn = supported_captum_algorithms[algorithm]["attribute"]
+    assert algorithm in SUPPORTED_CAPTUM_ALGORITHMS, f"Unsupported attribution method: {algorithm}"
+    captum_model = SUPPORTED_CAPTUM_ALGORITHMS[algorithm]["wrapper"](model)
+    attribution_fn = SUPPORTED_CAPTUM_ALGORITHMS[algorithm]["attribute"]
 
     # Init gradient accumulator
     grads = np.zeros_like(img_tensor[0].detach().cpu().numpy())

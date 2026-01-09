@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import argparse
 import importlib
-import os.path
 import shutil
 from typing import Any, Callable
+from thop import profile as profile_batch
+from pathlib import Path
 
 import torch
 import torch.nn as nn
@@ -16,7 +17,7 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 import time
 
-from cabrnet.archs.generic.conv_extractor import ConvExtractor, layer_init_functions
+from cabrnet.archs.generic.conv_extractor import ConvExtractor, LAYER_INIT_FUNCTIONS
 from cabrnet.archs.generic.decision import CaBRNetClassifier
 from cabrnet.core.utils.exceptions import check_mandatory_fields
 from cabrnet.core.utils.optimizers import OptimizerManager
@@ -33,9 +34,9 @@ class CaBRNet(nn.Module):
     """
 
     # Regroups common default file names in a single location
-    DEFAULT_MODEL_CONFIG: str = "model_arch.yml"
-    DEFAULT_MODEL_STATE: str = "model_state.pth"
-    DEFAULT_PROJECTION_INFO: str = "projection_info.csv"
+    DEFAULT_MODEL_CONFIG: Path = Path("model_arch.yml")
+    DEFAULT_MODEL_STATE: Path = Path("model_state.pth")
+    DEFAULT_PROJECTION_INFO: Path = Path("projection_info.csv")
 
     def __init__(
         self,
@@ -181,6 +182,7 @@ class CaBRNet(nn.Module):
             "-m",
             "--model-arch",
             required=mandatory_config,
+            type=Path,
             metavar="/path/to/file.yml",
             help="path to the model configuration file",
         )
@@ -188,6 +190,7 @@ class CaBRNet(nn.Module):
             parser.add_argument(
                 "-s",
                 "--model-state-dict",
+                type=Path,
                 required=mandatory_config,
                 metavar="/path/to/model/state.pth",
                 help="path to the model state dictionary",
@@ -196,26 +199,26 @@ class CaBRNet(nn.Module):
 
     @staticmethod
     def build_from_config(
-        config: str | dict[str, Any],
+        config: Path | dict[str, Any],
         seed: int | None = None,
         compatibility_mode: bool = False,
-        state_dict_path: str | None = None,
+        state_dict_path: Path | None = None,
     ) -> CaBRNet:
         r"""Builds a CaBRNet model from a YAML configuration file.
 
         Args:
-            config (str|dict): Path to configuration file, or configuration dictionary.
+            config (Path|dict): Path to configuration file, or configuration dictionary.
             seed (int, optional): Random seed (used only to resynchronise random number generators in
                 compatibility tests). Default: None.
             compatibility_mode (bool, optional): Force compatibility mode with legacy architectures. Default: False.
-            state_dict_path (str, optional): Path to model state dictionary. Default: None.
+            state_dict_path (Path, optional): Path to model state dictionary. Default: None.
 
         Returns:
             CaBRNet model.
         """
-        if not isinstance(config, (str, dict)):
+        if not isinstance(config, (Path, dict)):
             raise ValueError(f"Unsupported configuration format: {type(config)}")
-        if isinstance(config, str):
+        if isinstance(config, Path):
             config_dict = load_config(config)
         else:
             config_dict = config
@@ -321,10 +324,10 @@ class CaBRNet(nn.Module):
         # Apply postponed add-on layer initialisation (compatibility mode only)
         if add_on_init_mode:
             if model.extractor.num_pipelines == 1:
-                model.extractor.add_on.apply(layer_init_functions[add_on_init_mode[next(iter(add_on_init_mode))]])
+                model.extractor.add_on.apply(LAYER_INIT_FUNCTIONS[add_on_init_mode[next(iter(add_on_init_mode))]])
             else:
                 for pipeline_name, init_function in add_on_init_mode.items():
-                    model.extractor.add_on[pipeline_name].apply(layer_init_functions[init_function])
+                    model.extractor.add_on[pipeline_name].apply(LAYER_INIT_FUNCTIONS[init_function])
 
         if state_dict_path is not None:
             logger.info(f"Loading model state from {state_dict_path}")
@@ -368,6 +371,36 @@ class CaBRNet(nn.Module):
         """
         return self._train_epoch(dataloaders, optimizer_mngr, "train_set", device, tqdm_position, epoch_idx, verbose)
 
+    def _training_batch_hook(
+        self,
+        batch_idx: int,
+        batch_num: int,
+        dataloaders: dict[str, DataLoader],
+        optimizer_mngr: OptimizerManager | torch.optim.Optimizer,
+        dataset_name: str = "train_set",
+        device: str | torch.device = "cuda:0",
+        tqdm_position: int = 0,
+        epoch_idx: int = 0,
+        verbose: bool = False,
+        tqdm_title: str | None = None,
+        **kwargs,
+    ) -> None:
+        r"""Internal function called after each batch in the training loop.
+
+        Args:
+            batch_idx (int): Current batch index.
+            batch_num (int): Total number of batches.
+            dataloaders (dictionary): Dictionary of dataloaders.
+            optimizer_mngr (OptimizerManager): Optimizer manager.
+            dataset_name (str, optional): Name of the dataset used for training. Default: train_set.
+            device (str | device, optional): Hardware device. Default: cuda:0.
+            tqdm_position (int, optional): Position of the progress bar. Default: 0.
+            epoch_idx (int, optional): Epoch index. Default: 0.
+            verbose (bool, optional): Display progress bar. Default: False.
+            tqdm_title (str, optional): Progress bar title. Default: "Training epoch {epoch_idx}".
+        """
+        pass
+
     def _train_epoch(
         self,
         dataloaders: dict[str, DataLoader],
@@ -390,7 +423,7 @@ class CaBRNet(nn.Module):
             tqdm_position (int, optional): Position of the progress bar. Default: 0.
             epoch_idx (int, optional): Epoch index. Default: 0.
             verbose (bool, optional): Display progress bar. Default: False.
-            tqdm_title (str, optional): Progress bar title. Default: "Training epoch {epoch_idx".
+            tqdm_title (str, optional): Progress bar title. Default: "Training epoch {epoch_idx}".
 
         Returns:
             Dictionary containing learning statistics.
@@ -411,6 +444,7 @@ class CaBRNet(nn.Module):
 
         # Use training dataloader
         train_loader = dataloaders[dataset_name]
+        batch_num = len(train_loader)
 
         # Show progress on progress bar if needed
         train_iter = tqdm(
@@ -424,11 +458,11 @@ class CaBRNet(nn.Module):
         ref_time = time.time()
         batch_idx = 0
         for batch_idx, (xs, ys) in train_iter:
-            nb_inputs += xs.size(0)
+            nb_inputs += xs.size(0)  # type: ignore
 
             # Reset gradients and map the data on the target device
             optimizer_mngr.zero_grad()
-            xs, ys = xs.to(device), ys.to(device)
+            xs, ys = xs.to(device), ys.to(device)  # type: ignore
             data_time = time.time() - ref_time
 
             # Perform inference and compute loss
@@ -462,6 +496,21 @@ class CaBRNet(nn.Module):
             total_data_time += data_time
             ref_time = time.time()
 
+            # Call hook
+            self._training_batch_hook(
+                batch_idx=batch_idx,
+                batch_num=batch_num,
+                dataloaders=dataloaders,
+                optimizer_mngr=optimizer_mngr,
+                dataset_name=dataset_name,
+                device=device,
+                tqdm_position=tqdm_position + 1,
+                epoch_idx=epoch_idx,
+                verbose=verbose,
+                tqdm_title="Batch hook",
+                **kwargs,
+            )
+
         # Clean gradients after last batch
         optimizer_mngr.zero_grad()
 
@@ -481,24 +530,24 @@ class CaBRNet(nn.Module):
         self,
         dataloaders: dict[str, DataLoader],
         optimizer_mngr: OptimizerManager,
-        output_dir: str,
+        output_dir: Path,
         device: str | torch.device = "cuda:0",
         verbose: bool = False,
         **kwargs,
-    ) -> dict[int, dict[str, int | float]]:
+    ) -> list[dict]:
         r"""Function called after training, using information from the epilogue field in the training configuration.
 
         Args:
             dataloaders (dictionary): Dictionary of dataloaders.
             optimizer_mngr (OptimizerManager): Optimizer manager.
-            output_dir (str): Path to output directory.
+            output_dir (Path): Path to output directory.
             device (str | device, optional): Hardware device. Default: cuda:0.
             verbose (bool, optional): Display progress bar. Default: False.
 
         Returns:
             Projection information.
         """
-        return {}
+        return []
 
     def evaluate(
         self,
@@ -507,6 +556,7 @@ class CaBRNet(nn.Module):
         device: str | torch.device = "cuda:0",
         tqdm_position: int = 0,
         verbose: bool = False,
+        profile: bool = False,
         **kwargs,
     ) -> dict[str, float]:
         r"""Evaluates the model.
@@ -516,7 +566,8 @@ class CaBRNet(nn.Module):
             dataset_name (str, optional): Name of the dataset used for evaluation. Default: test_set.
             device (str | device, optional): Hardware device. Default: cuda:0.
             tqdm_position (int, optional): Position of the progress bar. Default: 0.
-            verbose (bool, optional): Display progress bar. Default: 0.
+            verbose (bool, optional): Display progress bar. Default: False.
+            profile (bool, optional): Profile model. Default: False.
 
         Returns:
             Dictionary containing evaluation statistics.
@@ -540,6 +591,13 @@ class CaBRNet(nn.Module):
             disable=not verbose,
         )
         with torch.no_grad():
+            if profile:
+                # Get computing stats
+                xs, _ = next(iter(dataloader))
+                xs = xs.to(device)
+                flops = profile_batch(self, inputs=(xs,), verbose=False)[0]
+                flops /= xs.size(0)
+
             ref_time = time.time()
             for xs, ys in data_iter:
                 nb_inputs += xs.size(0)
@@ -564,6 +622,10 @@ class CaBRNet(nn.Module):
                 ref_time = time.time()
 
         stats = {f"{dataset_name}/{key}": value / nb_inputs for key, value in stats.items()}
+
+        if profile:
+            stats[f"{dataset_name}/Gflops"] = flops * nb_inputs / 1e9
+
         return stats
 
     def train(self, mode: bool = True) -> nn.Module:
@@ -593,7 +655,7 @@ class CaBRNet(nn.Module):
         verbose: bool = False,
         tqdm_position: int = 0,
         update_prototypes: bool = True,
-    ) -> dict[int, dict[str, int | float]]:
+    ) -> list[dict]:
         r"""Performs prototype projection (maximum similarity) after training.
         Warning: depending on float approximations, the results might be slightly different for legacy codes using
         minimum distance instead of maximum similarity.
@@ -653,7 +715,7 @@ class CaBRNet(nn.Module):
         with torch.no_grad():
             for batch_idx, (xs, ys) in data_iter:
                 # Map to device and perform inference
-                xs = xs.to(device)
+                xs = xs.to(device)  # type: ignore
                 feats = self.features(xs)  # Shape N x D x H x W
                 W = feats.size(-1)
 
@@ -683,15 +745,16 @@ class CaBRNet(nn.Module):
             if update_prototypes:
                 self.classifier.prototypes.copy_(projection_vectors)
 
-        return projection_info
+        # Reshape projection info into a list of dictionary entries
+        return [projection_info[proto_idx] | {"proto_idx": proto_idx} for proto_idx in projection_info]
 
     def extract_prototypes(
         self,
         dataloader_raw: DataLoader,
         dataloader: DataLoader,
-        projection_info: dict[int, dict],
+        projection_info: list[dict],
         visualizer: SimilarityVisualizer,
-        dir_path: str,
+        dir_path: Path,
         device: str | torch.device = "cuda:0",
         verbose: bool = False,
         tqdm_position: int = 0,
@@ -701,26 +764,28 @@ class CaBRNet(nn.Module):
         Args:
             dataloader_raw (DataLoader): Dataloader containing raw projection images (without preprocessing).
             dataloader (DataLoader): Dataloader containing projection tensors (with preprocessing).
-            projection_info (dictionary): Projection information (as returned by project method).
+            projection_info (list): Projection information (as returned by project method).
             visualizer (SimilarityVisualizer): Similarity visualizer.
-            dir_path (str): Destination directory.
+            dir_path (Path): Destination directory.
             device (str | device, optional): Hardware device. Default: cuda:0.
             verbose (bool, optional): Display progress bar. Default: 0.
             tqdm_position (int, optional): Position of the progress bar. Default: 0.
         """
         logger.info("Extracting prototype visualization")
         # Create destination directory if necessary
-        os.makedirs(dir_path, exist_ok=True)
+        dir_path.mkdir(parents=True, exist_ok=True)
         # Copy visualizer configuration file
-        if visualizer.config_file is not None and os.path.isfile(visualizer.config_file):
+        if visualizer.config_file is not None and visualizer.config_file.is_file():
             try:
                 shutil.copyfile(
                     src=visualizer.config_file,
-                    dst=os.path.join(dir_path, SimilarityVisualizer.DEFAULT_VISUALIZATION_CONFIG),
+                    dst=dir_path / SimilarityVisualizer.DEFAULT_VISUALIZATION_CONFIG,
                 )
             except shutil.SameFileError:
                 logger.warning(f"Ignoring file copy from {visualizer.config_file} to itself.")
                 pass
+
+        proto_count = {}
 
         # Show progress on progress bar if needed
         data_iter = tqdm(
@@ -731,15 +796,16 @@ class CaBRNet(nn.Module):
             position=tqdm_position,
             disable=not verbose,
         )
-        for proto_idx in data_iter:
+        for proto_info in data_iter:
+            proto_idx = proto_info["proto_idx"]
             if not self.classifier.prototype_is_active(proto_idx):
                 # Skip pruned prototype
                 continue
             # Original image obtained from dataloader without normalization
-            img = dataloader_raw.dataset[projection_info[proto_idx]["img_idx"]][0]
+            img = dataloader_raw.dataset[proto_info["img_idx"]][0]
             # Preprocessed image tensor
-            img_tensor = dataloader.dataset[projection_info[proto_idx]["img_idx"]][0]
-            h, w = projection_info[proto_idx]["h"], projection_info[proto_idx]["w"]
+            img_tensor = dataloader.dataset[proto_info["img_idx"]][0]
+            h, w = proto_info["h"], proto_info["w"]
             prototype_part = visualizer.forward(
                 img=img,
                 img_tensor=img_tensor,
@@ -747,16 +813,22 @@ class CaBRNet(nn.Module):
                 device=device,
                 location=(h, w),
             )
-            img_path = os.path.join(dir_path, f"prototype_{proto_idx}.png")
+            if proto_count.get(proto_idx):
+                # Handles multiple representations of the same prototype
+                img_path = dir_path / f"prototype_{proto_idx}_{proto_count.get(proto_idx)}.png"
+                proto_count[proto_idx] += 1
+            else:
+                img_path = dir_path / f"prototype_{proto_idx}.png"
+                proto_count[proto_idx] = 1
             prototype_part.save(fp=img_path)
 
     def explain(
         self,
-        img: str | Image.Image,
+        img: Path | Image.Image,
         preprocess: Callable | None,
         visualizer: SimilarityVisualizer,
-        prototype_dir: str,
-        output_dir: str,
+        prototype_dir: Path,
+        output_dir: Path,
         output_format: str = "pdf",
         device: str | torch.device = "cuda:0",
         exist_ok: bool = False,
@@ -766,11 +838,11 @@ class CaBRNet(nn.Module):
         r"""Explains the decision for a particular image.
 
         Args:
-            img (str or Image): Path to image or image itself.
+            img (Path or Image): Path to image or image itself.
             preprocess (Callable): Preprocessing function.
             visualizer (SimilarityVisualizer): Similarity visualizer.
-            prototype_dir (str): Path to directory containing prototype visualizations.
-            output_dir (str): Path to output directory.
+            prototype_dir (Path): Path to directory containing prototype visualizations.
+            output_dir (Path): Path to output directory.
             output_format (str, optional): Output file format. Default: pdf.
             device (str | device, optional): Hardware device. Default: cuda:0.
             exist_ok (bool, optional): Silently overwrites existing explanation (if any). Default: False.
@@ -785,16 +857,16 @@ class CaBRNet(nn.Module):
 
     def explain_global(
         self,
-        prototype_dir: str,
-        output_dir: str,
+        prototype_dir: Path,
+        output_dir: Path,
         output_format: str = "pdf",
         **kwargs,
     ) -> None:
         r"""Explains the global decision-making process of a CaBRNet model.
 
         Args:
-            prototype_dir (str): Path to directory containing prototype visualizations.
-            output_dir (str): Path to output directory.
+            prototype_dir (Path): Path to directory containing prototype visualizations.
+            output_dir (Path): Path to output directory.
             output_format (str, optional): Output file format. Default: pdf.
         """
         raise NotImplementedError

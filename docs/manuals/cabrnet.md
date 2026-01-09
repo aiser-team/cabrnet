@@ -13,16 +13,16 @@ usage: cabrnet [-h] [--version] {evaluate,train,import,explain_local,explain_glo
 CaBRNet front-end
 
 positional arguments:
-  {explain_local,bayesian_optimizer,benchmark,show_latent_space,evaluate,train,import,explain_global}
+  {bayesian_optimizer,benchmark,evaluate,explain_global,explain_local,import,show_latent_space,train}
                         sub-command help
-    evaluate            evaluates a CaBRNet classifier
-    train               trains a CaBRNet classifier
-    import              converts an existing legacy model into a CaBRNet version
-    explain_local       explains the decision of a CaBRNet classifier
-    explain_global      explains the global behaviour of a CaBRNet classifier
-    benchmark           computes a set of evaluation metrics on a CaBRNet model
     bayesian_optimizer  performs hyperparameter tuning on a CaBRNet model using Bayesian Optimization
+    benchmark           computes a set of evaluation metrics on a CaBRNet model
+    evaluate            evaluates the accuracy of a CaBRNet model
+    explain_global      explains the global behaviour of a CaBRNet model
+    explain_local       explains the decision of a CaBRNet model
+    import              converts an existing legacy model into a CaBRNet model
     show_latent_space   visualizes the latent space
+    train               trains a CaBRNet model
 
 options:
   -h, --help            show this help message and exit
@@ -276,6 +276,9 @@ Prototype-based architectures provide both global and local explanations:
 
 - global explanations provide an overview of the decision-making process of the entire model.
 - local explanations provide information regarding a particular decision (for a particular image).
+
+IMPORTANT NOTE: CaBRNet requires the [GraphViz](https://graphviz.org/) 
+package to generate explanations.
 
 ### Global explanations
 

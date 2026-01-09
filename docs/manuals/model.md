@@ -456,6 +456,14 @@ class ArchName(CaBRNet):
         Returns:
             Dictionary containing learning statistics.
         """
+        """
+        When using a default gradient descent training loop, simply use
+        
+        return self._train_epoch(
+            dataloaders, optimizer_mngr, "train_set", device, tqdm_position, epoch_idx, verbose
+        )
+        """
+        
         self.train()
         self.to(device)
 
@@ -474,6 +482,7 @@ class ArchName(CaBRNet):
             disable=not verbose,
         )
         nb_inputs = 0
+        batch_num = len(train_loader)
 
         for batch_idx, (xs, ys) in train_iter:
             # Reset gradients and map the data on the target device
@@ -495,12 +504,56 @@ class ArchName(CaBRNet):
                 for key, value in batch_stats.items():
                     train_info[key] += value * xs.size(0)
             nb_inputs += xs.size(0)
+            
+            # Call hook
+            self._training_batch_hook(
+                batch_idx=batch_idx,
+                batch_num=batch_num,
+                dataloaders=dataloaders,
+                optimizer_mngr=optimizer_mngr,
+                dataset_name="train_set",
+                device=device,
+                tqdm_position=tqdm_position + 1,
+                epoch_idx=epoch_idx,
+                verbose=verbose,
+                tqdm_title="Batch hook",
+            )
 
         # Clean gradients after last batch
         optimizer_mngr.zero_grad()
 
         train_info = {key: value / nb_inputs for key, value in train_info.items()}
         return train_info
+
+    def _training_batch_hook(
+        self,
+        batch_idx: int,
+        batch_num: int,
+        dataloaders: dict[str, DataLoader],
+        optimizer_mngr: OptimizerManager | torch.optim.Optimizer,
+        dataset_name: str = "train_set",
+        device: str | torch.device = "cuda:0",
+        tqdm_position: int = 0,
+        epoch_idx: int = 0,
+        verbose: bool = False,
+        tqdm_title: str | None = None,
+        **kwargs,
+    ) -> None:
+        r"""Optional internal function called after each batch in the training loop.
+
+        Args:
+            batch_idx (int): Current batch index.
+            batch_num (int): Total number of batches.
+            dataloaders (dictionary): Dictionary of dataloaders.
+            optimizer_mngr (OptimizerManager): Optimizer manager.
+            dataset_name (str, optional): Name of the dataset used for training. Default: train_set.
+            device (str | device, optional): Hardware device. Default: cuda:0.
+            tqdm_position (int, optional): Position of the progress bar. Default: 0.
+            epoch_idx (int, optional): Epoch index. Default: 0.
+            verbose (bool, optional): Display progress bar. Default: False.
+            tqdm_title (str, optional): Progress bar title. Default: "Training epoch {epoch_idx".
+        """
+        pass
 
     def evaluate(
         self,
@@ -530,8 +583,11 @@ class ArchName(CaBRNet):
         device: str | torch.device = "cuda:0",
         verbose: bool = False,
         tqdm_position: int = 0,
-    ) -> dict[int, dict]:
-        r"""Performs prototype projection after training.
+        update_prototypes: bool = True,
+    ) -> list[dict]:
+        r"""Performs prototype projection (maximum similarity) after training.
+        Warning: depending on float approximations, the results might be slightly different for legacy codes using
+        minimum distance instead of maximum similarity.
 
         Args:
             dataloader (DataLoader): Dataloader containing projection data.
@@ -539,9 +595,10 @@ class ArchName(CaBRNet):
             device (str | device, optional): Hardware device. Default: cuda:0.
             verbose (bool, optional): Display progress bar. Default: False.
             tqdm_position (int, optional): Position of the progress bar. Default: 0.
+            update_prototypes (bool, optional): If True, update prototypes with their closest vectors. Default: True.
 
         Returns:
-            Dictionary containing projection information for each prototype.
+            List containing projection information for each prototype.
         """
         # Number of prototypes
         num_prototypes = self.num_prototypes
@@ -551,15 +608,16 @@ class ArchName(CaBRNet):
         #   - the coordinates of the vector inside the latent representation of that image
         #   - the corresponding similarity score
         #   - the corresponding vector
-        projection_info = {
-            proto_idx: {
+        # This format allows each prototype to be represented by multiple images
+        projection_info = [{
+                "proto_idx": proto_idx,
                 "img_idx": -1,
                 "h": -1,
                 "w": -1,
                 "score": 0,
             }
             for proto_idx in range(num_prototypes)
-        }
+        ]
         # Perform projection
         ...
         return projection_info
@@ -572,7 +630,7 @@ class ArchName(CaBRNet):
         device: str | torch.device = "cuda:0",
         verbose: bool = False,
         **kwargs,
-    ) -> None:
+    ) -> Any:
         r"""Function called after training, using information from the epilogue field in the training configuration.
             This usually contains prototype pruning, projection and extraction.
 
@@ -636,3 +694,6 @@ class ArchName(CaBRNet):
 
 ```
 
+Note that the [CaBRNet](https://github.com/aiser-team/cabrnet/blob/main/src/cabrnet/archs/generic/model.py)
+class provides an internal function `_train_epoch` that implements a standard training loop iterating over
+batches of data. This loop can be customized by implementing a method `_training_batch_hook` which is called **after each batch**.

@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 import random
-import os
+from pathlib import Path
 from typing import Any
 
 from cabrnet.archs.generic.model import CaBRNet
@@ -17,9 +17,9 @@ SAMPLING_RATIO = 6000
 
 
 class DummyLogger:
-    checkpoint_dir: str = ""
+    checkpoint_dir = Path.cwd()
 
-    def set_checkpoint_dir(self, dir: str):
+    def set_checkpoint_dir(self, dir: Path):
         pass
 
     def log_message(self, message: str):
@@ -48,12 +48,12 @@ class CaBRNetCompatibilityTester(unittest.TestCase):
         super(CaBRNetCompatibilityTester, self).__init__(methodName=methodName)
 
         # Test configuration
-        test_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "data", arch)
-        self.model_config_file = os.path.join(test_dir, CaBRNet.DEFAULT_MODEL_CONFIG)
-        self.dataset_config_file = os.path.join(test_dir, DatasetManager.DEFAULT_DATASET_CONFIG)
-        self.training_config_file = os.path.join(test_dir, OptimizerManager.DEFAULT_TRAINING_CONFIG)
-        self.legacy_state_dict = os.path.join(test_dir, "legacy_state.pth")
-        self.output_dir = os.path.join(test_dir, "output")
+        test_dir = Path(__file__).parent / "data" / arch
+        self.model_config_file = test_dir / CaBRNet.DEFAULT_MODEL_CONFIG
+        self.dataset_config_file = test_dir / DatasetManager.DEFAULT_DATASET_CONFIG
+        self.training_config_file = test_dir / OptimizerManager.DEFAULT_TRAINING_CONFIG
+        self.legacy_state_dict = test_dir / "legacy_state.pth"
+        self.output_dir = test_dir / "output"
         self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
         self.seed: int = 42
         self.verbose: bool = True
@@ -117,7 +117,7 @@ class CaBRNetCompatibilityTester(unittest.TestCase):
                 continue
             tst_tensor = actual[key]
             if not torch.equal(ref_tensor, tst_tensor):
-                logger.error(f"Parameter {key} differ.")
+                logger.error(f"Parameter {key} differ. (all close? {torch.allclose(ref_tensor, tst_tensor)})")
                 equal = False
         for key in actual.keys():
             if key not in expected.keys():

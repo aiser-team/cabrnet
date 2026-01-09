@@ -5,6 +5,7 @@ from loguru import logger
 from argparse import Namespace
 import torch
 import torch.nn as nn
+from pathlib import Path
 
 from compatibility_tester import CaBRNetCompatibilityTester, DummyLogger, setup_rng, SAMPLING_RATIO
 from cabrnet.archs.generic.model import CaBRNet
@@ -23,7 +24,7 @@ import prototree_legacy.prototree.prune as legacy_prune
 import prototree_legacy.prototree.project as legacy_project
 
 
-def legacy_get_namespace(config_dict: dict[str, str]) -> Namespace:
+def legacy_get_namespace(config_dict: dict[str, Path]) -> Namespace:
     """Build legacy compatible namespace from configuration files"""
     args = {}
 
@@ -329,13 +330,13 @@ class Tester(CaBRNetCompatibilityTester):
         _, project_loader, _, _, _ = legacy_data.get_dataloaders(args=self.legacy_params)
         self.legacy_params.sampling_ratio = SAMPLING_RATIO
         legacy_model.load_state_dict(torch.load(self.legacy_state_dict, map_location="cpu"))
-        legacy_prune.prune(tree=legacy_model, pruning_threshold_leaves=0.01, log=DummyLogger())
+        legacy_prune.prune(tree=legacy_model, pruning_threshold_leaves=0.01, log=DummyLogger())  # type: ignore
         legacy_projection_info, _ = legacy_project.project_with_class_constraints(
             tree=legacy_model.to(self.device),
             project_loader=project_loader,
             device=self.device,
             args=self.legacy_params,
-            log=DummyLogger(),
+            log=DummyLogger(),  # type: ignore
         )
 
         self.assertModelEqual(legacy_model, cabrnet_model)

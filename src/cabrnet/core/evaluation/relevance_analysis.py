@@ -1,5 +1,5 @@
 import csv
-import os
+from pathlib import Path
 import pickle
 from typing import Any, Callable
 
@@ -19,11 +19,11 @@ from cabrnet.core.visualization.explainer import PointingGameGraph
 from cabrnet.core.visualization.visualizer import SimilarityVisualizer
 
 
-def get_config(config_file: str) -> dict[str, Any] | None:
+def get_config(config_file: Path) -> dict[str, Any] | None:
     r"""Recovers configuration from YML file.
 
     Args:
-        config_file (str): Path to configuration file.
+        config_file (Path): Path to configuration file.
 
     Returns:
         Benchmark parameters.
@@ -98,9 +98,9 @@ def analyze(
     area_percentage: float = 0.1,
     num_prototypes: int = 1,
     prototype_location: tuple[int, int, int] | None = None,
-    debug_dir: str | None = None,
+    debug_dir: Path | None = None,
     debug_format: str = "pdf",
-    prototype_dir: str = "",
+    prototype_dir: Path = Path.cwd(),
     **kwargs,
 ) -> list[dict[str, Any]]:
     r"""Performs pointing game relevance analysis on a single image.
@@ -117,11 +117,11 @@ def analyze(
         num_prototypes (int, optional): Number of relevant prototypes to analyze. Default: 1.
         prototype_location (tuple, optional): A prototype location, given as (proto_idx, h, w). If not None, focus on
             this location rather than the closest prototypes. Default: None.
-        debug_dir (str, optional): Path to debug directory. If given, enables debug mode for visualizing image analysis.
+        debug_dir (Path, optional): Path to debug directory. If given, enables debug mode for visualizing image analysis.
             Default: None.
         debug_format (str, optional): Debug image format. Default: pdf.
-        prototype_dir (str, optional): Path to directory containing prototype visualization (required in debug mode).
-            Default: ".".
+        prototype_dir (Path, optional): Path to directory containing prototype visualization (required in debug mode).
+            Default: '.'.
 
     Returns:
         List of statistics.
@@ -150,21 +150,25 @@ def analyze(
             img=img,
             preprocess=preprocess,
             visualizer=visualizer,
-            prototype_dir="",
-            output_dir="",
+            prototype_dir=Path.cwd(),
+            output_dir=Path.cwd(),
             device=device,
             disable_rendering=True,
         )
         # Remove dissimilar prototypes and take a subset based on num_prototypes
-        most_relevant_prototypes = [proto_idx for (proto_idx, _, similar) in most_relevant_prototypes if similar]
+        most_relevant_prototypes = [
+            (proto_idx, score) for (proto_idx, score, similar) in most_relevant_prototypes if similar
+        ]
+        # Sort prototypes by most to least similar
+        most_relevant_prototypes = [a[0] for a in reversed(sorted(most_relevant_prototypes, key=lambda x: x[1]))]
         most_relevant_prototypes = most_relevant_prototypes[:num_prototypes]
 
     # In debug mode, generate visualization graphs
     debug_mode = debug_dir is not None
-    debug_dir = debug_dir or ""
+    debug_dir = debug_dir or Path.cwd()
     debug_graph = PointingGameGraph(output_dir=debug_dir)
     if debug_mode:
-        os.makedirs(debug_dir, exist_ok=True)
+        debug_dir.mkdir(parents=True, exist_ok=True)
 
     for proto_idx in most_relevant_prototypes:
         # Compute attribution map
@@ -187,7 +191,7 @@ def analyze(
         if debug_mode:
             test_patch_img = visualizer.view(img=img, sim_map=attribution, **visualizer.view_params)
             debug_graph.add_block(
-                prototype_img_path=os.path.join(prototype_dir, f"prototype_{proto_idx}.png"),
+                prototype_img_path=prototype_dir / f"prototype_{proto_idx}.png",
                 original_img=img,
                 test_patch_img=test_patch_img,
                 segmentation=seg,
@@ -202,18 +206,18 @@ def analyze(
             )
 
     if debug_mode:
-        debug_graph.render(os.path.join(debug_dir, f"img{img_id}_relevance_analysis"), output_format=debug_format)
+        debug_graph.render(debug_dir / f"img{img_id}_relevance_analysis", output_format=debug_format)
     return stats
 
 
 def patches_relevance_analysis(
     model: CaBRNet,
-    dataset_config: str,
-    visualization_config: str,
-    output_dir: str,
+    dataset_config: Path,
+    visualization_config: Path,
+    output_dir: Path,
     device: str | torch.device,
     verbose: bool,
-    patch_info_db: str,
+    patch_info_db: Path,
     sampling_ratio: int = 1,
     tqdm_position: int = 0,
     **kwargs,
@@ -222,12 +226,12 @@ def patches_relevance_analysis(
 
     Args:
         model (Module): CaBRNet model.
-        dataset_config (str): Path to dataset configuration file.
-        visualization_config (str): Path to visualization configuration file.
-        output_dir (str): Path to output directory.
+        dataset_config (Path): Path to dataset configuration file.
+        visualization_config (Path): Path to visualization configuration file.
+        output_dir (Path): Path to output directory.
         device (str | device): Hardware device.
         verbose (bool): Verbose mode.
-        patch_info_db (str): Path to raw output analysis file.
+        patch_info_db (Path): Path to raw output analysis file.
         sampling_ratio (int, optional): Ratio of test images to use during evaluation (e.g. 10 means only
             one image in ten is used). Default: 1.
         tqdm_position (int, optional): Position of the progress bar. Default: 0.
@@ -268,8 +272,8 @@ def patches_relevance_analysis(
             **kwargs,
         )
 
-    output_path = os.path.join(output_dir, patch_info_db)
-    if output_path.lower().endswith(("pickle", "pkl")):
+    output_path = output_dir / patch_info_db
+    if output_path.suffix.lower() in [".pickle", ".pkl"]:
         # Save in pickle format
         with open(output_path, "wb") as f:
             pickle.dump(stats, f)
@@ -283,13 +287,13 @@ def patches_relevance_analysis(
 
 def proto_relevance_analysis(
     model: CaBRNet,
-    dataset_config: str,
-    visualization_config: str,
-    output_dir: str,
+    dataset_config: Path,
+    visualization_config: Path,
+    output_dir: Path,
     device: str | torch.device,
     verbose: bool,
-    prototype_info_db: str,
-    projection_file: str,
+    prototype_info_db: Path,
+    projection_file: Path,
     tqdm_position: int = 0,
     **kwargs,
 ) -> None:
@@ -297,13 +301,13 @@ def proto_relevance_analysis(
 
     Args:
         model (Module): CaBRNet model.
-        dataset_config (str): Path to dataset configuration file.
-        visualization_config (str): Path to visualization configuration file.
-        output_dir (str): Path to output directory.
+        dataset_config (Path): Path to dataset configuration file.
+        visualization_config (Path): Path to visualization configuration file.
+        output_dir (Path): Path to output directory.
         device (str | device): Hardware device.
         verbose (bool): Verbose mode.
-        prototype_info_db (str): Path to raw output analysis file.
-        projection_file (str): Path to the projection info produced during training.
+        prototype_info_db (Path): Path to raw output analysis file.
+        projection_file (Path): Path to the projection info produced during training.
         tqdm_position (int, optional): Position of the progress bar. Default: 0.
     """
     logger.info("Starting prototype relevance benchmark")
@@ -333,12 +337,13 @@ def proto_relevance_analysis(
 
     stats = []
 
-    for proto_idx in proto_iter:
+    for proto_info in proto_iter:
         # Recover source image for the prototype
-        img = projection_set[projection_info[proto_idx]["img_idx"]][0]  # type: ignore
-        h, w = int(projection_info[proto_idx]["h"]), int(projection_info[proto_idx]["w"])
+        proto_idx = proto_info["proto_idx"]
+        img = projection_set[proto_info["img_idx"]][0]  # type: ignore
+        h, w = int(proto_info["h"]), int(proto_info["w"])
 
-        seg = segmentation_set[projection_info[proto_idx]["img_idx"]][0]  # type: ignore
+        seg = segmentation_set[proto_info["img_idx"]][0]  # type: ignore
 
         stats += analyze(
             model=model,
@@ -347,13 +352,13 @@ def proto_relevance_analysis(
             preprocess=preprocess,
             visualizer=visualizer,
             device=device,
-            img_id=int(projection_info[proto_idx]["img_idx"]),
+            img_id=int(proto_info["img_idx"]),
             prototype_location=(proto_idx, h, w),
             **kwargs,
         )
 
-    output_path = os.path.join(output_dir, prototype_info_db)
-    if output_path.lower().endswith(("pickle", "pkl")):
+    output_path = output_dir / prototype_info_db
+    if output_path.suffix.lower() in [".pickle", ".pkl"]:
         # Save in pickle format
         with open(output_path, "wb") as f:
             pickle.dump(stats, f)
@@ -367,13 +372,13 @@ def proto_relevance_analysis(
 
 def execute(
     model: CaBRNet,
-    dataset_config: str,
-    visualization_config: str,
-    projection_file: str,
-    root_dir: str,
+    dataset_config: Path,
+    visualization_config: Path,
+    projection_file: Path,
+    root_dir: Path,
     device: str | torch.device,
     verbose: bool,
-    prototype_dir: str,
+    prototype_dir: Path,
     debug_mode: bool = False,
     **kwargs,
 ) -> None:
@@ -381,19 +386,19 @@ def execute(
 
     Args:
         model (Module): CaBRNet model.
-        dataset_config (str): Path to dataset configuration file.
-        visualization_config (str): Path to visualization configuration file.
-        projection_file (str): Path to projection information file.
-        root_dir (str): Path to root output directory.
+        dataset_config (Path): Path to dataset configuration file.
+        visualization_config (Path): Path to visualization configuration file.
+        projection_file (Path): Path to projection information file.
+        root_dir (Path): Path to root output directory.
         device (str | device): Hardware device.
         verbose (bool): Verbose mode.
-        prototype_dir (str): Path to directory containing a visualization of all prototypes.
+        prototype_dir (Path): Path to directory containing a visualization of all prototypes.
         debug_mode (bool, optional): If True, enables debug mode for visualizing image analysis. Default: False.
     """
-    output_dir = os.path.join(root_dir, "relevance_analysis")
-    os.makedirs(output_dir, exist_ok=True)
+    output_dir = root_dir / "relevance_analysis"
+    output_dir.mkdir(parents=True, exist_ok=True)
 
-    if debug_mode and not os.path.isdir(prototype_dir):
+    if debug_mode and not prototype_dir.is_dir():
         # Get dataloaders and projection info, then build prototypes
         dataloaders = DatasetManager.get_dataloaders(config=dataset_config)
         projection_info = load_projection_info(projection_file)
@@ -418,7 +423,7 @@ def execute(
         device=device,
         verbose=verbose,
         prototype_dir=prototype_dir,
-        debug_dir=os.path.join(output_dir, "debug", "prototype_analysis") if debug_mode else None,
+        debug_dir=output_dir / "debug" / "prototype_analysis" if debug_mode else None,
         output_dir=output_dir,
         **kwargs,
     )
@@ -430,7 +435,7 @@ def execute(
         device=device,
         verbose=verbose,
         prototype_dir=prototype_dir,
-        debug_dir=os.path.join(output_dir, "debug", "testset_analysis") if debug_mode else None,
+        debug_dir=output_dir / "debug" / "testset_analysis" if debug_mode else None,
         output_dir=output_dir,
         **kwargs,
     )

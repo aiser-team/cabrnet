@@ -41,6 +41,8 @@ const config = {
         docs: {
             path: '../API',
             routeBasePath: 'API',
+	    editUrl: ({versionDocsDirPath, docPath}) =>
+            `https://github.com/aiser-team/cabrnet/edit/main/docs/website/${versionDocsDirPath}/${docPath}`,
             sidebarPath: './sidebars.js',
             exclude: [
             // '**/_*.{js,jsx,ts,tsx,md,mdx}',
@@ -48,13 +50,9 @@ const config = {
             '**/*.test.{js,jsx,ts,tsx}',
             '**/__tests__/**',
           ],
-          // Please change this to your repo.
-          // Remove this to remove the "edit this page" links.
         },
         blog: {
           showReadingTime: true,
-          // Please change this to your repo.
-          // Remove this to remove the "edit this page" links.
         },
         theme: {
           customCss: './src/css/custom.css',
@@ -69,7 +67,7 @@ const config = {
       // Replace with your project's social card
       image: 'img/docusaurus-social-card.jpg',
       navbar: {
-        title: 'Cabrnet',
+        title: 'CaBRNet',
         logo: {
           alt: 'My Site Logo',
           src: 'img/logo.svg',
@@ -82,11 +80,9 @@ const config = {
             label: 'API Documentation',
           },
           {to: '/blog', label: 'Blog', position: 'left'},
-          // {
-          //   href: 'https://github.com/facebook/docusaurus',
-          //   label: 'GitHub',
-          //   position: 'right',
-          // },
+          {to: '/publications', label: 'Publications', position: 'left'},
+          {to: '/materials', label: 'Teaching materials', position: 'left'},
+          {href: 'https://github.com/aiser-team/cabrnet', label: 'Code', position: 'right'},
         ],
       },
       footer: {
@@ -115,7 +111,7 @@ const config = {
             ],
           },
         ],
-        copyright: `Copyright © ${new Date().getFullYear()} CABRNET, Inc. Built with Docusaurus.`,
+        copyright: `CaBRNet is an open-source software developped by CEA-LIST. ${new Date().getFullYear()}. Website built with Docusaurus.`,
       },
       prism: {
         theme: prismThemes.github,

@@ -19,7 +19,7 @@
 
 import importlib
 import importlib.metadata
-import os
+from pathlib import Path
 import random
 import sys
 import traceback
@@ -51,8 +51,9 @@ class ParserWithHelper(ArgumentParser):
 def main():
     r"""Front-end to all applications located in src/cabrnet/apps."""
     # Enumerate applications from apps directory
-    apps_dir = os.path.join(os.path.dirname(__file__), "apps")
-    apps = [os.path.splitext(file)[0] for file in os.listdir(apps_dir) if file.endswith(".py")]
+    apps_dir = Path(__file__).parent / "apps"
+    apps = [file.stem for file in Path(apps_dir).glob("*.py")]
+    apps.sort()
 
     # Create parser
     parser = ParserWithHelper(description="CaBRNet front-end")
@@ -84,7 +85,7 @@ def main():
         common_group.add_argument("--logger-level", type=str, metavar="level", default="INFO", help="Logger level")
         common_group.add_argument(
             "--logger-file",
-            type=str,
+            type=Path,
             metavar="path/to/file",
             help="Logger file (default: sys.stderr)",
         )
