@@ -490,8 +490,7 @@ class PIPNet(CaBRNet):
             label=f"P{proto_idx}",
             root="True",
         )
-        prototype_dir = prototype_dir.resolve(strict=True)
-        img_path = prototype_dir / f"prototype_{proto_idx}.png"
+        img_path = prototype_dir.absolute() / f"prototype_{proto_idx}.png"
         index = 0
         while img_path.exists():
             graph.node(
@@ -502,7 +501,7 @@ class PIPNet(CaBRNet):
             )
             graph.edge(f"P{proto_idx}", f"P{proto_idx}_view{index}")
             index += 1
-            img_path = prototype_dir / f"prototype_{proto_idx}_{index}.png"
+            img_path = prototype_dir.absolute() / f"prototype_{proto_idx}_{index}.png"
 
         return graph
 
@@ -526,7 +525,7 @@ class PIPNet(CaBRNet):
             node_prefix (str, optional): Node prefix in the graph. Default: "".
             create_target_class_node (bool, optional): If true, creates a node for the target class. Default: False.
         """
-        cluster_path = (prototype_dir / f"prototype_{proto_idx}_cluster.png").resolve(strict=True)
+        cluster_path = prototype_dir.absolute() / f"prototype_{proto_idx}_cluster.png"
         graph.node(
             name=f"{node_prefix}P{proto_idx}",
             shape="plaintext",
@@ -633,7 +632,7 @@ class PIPNet(CaBRNet):
             # Default node configuration
             explanation_graph.attr("node", label="", fixedsize="True", width="2", height="2", fontsize="25")
 
-            img_path = (output_dir / "original.png").resolve(strict=True)
+            img_path = output_dir.absolute() / "original.png"
             if not disable_rendering:
                 (output_dir / "test_patches").mkdir(parents=True, exist_ok=exist_ok)
                 # Copy source image
@@ -670,7 +669,7 @@ class PIPNet(CaBRNet):
                 explanation_graph.node(
                     name=f"patch_{proto_idx}",
                     shape="plaintext",
-                    image=str(patch_image_path.resolve(strict=True)),
+                    image=str(patch_image_path.absolute()),
                     imagescale="true",
                 )
                 explanation_graph.edge(f"P{proto_idx}", f"patch_{proto_idx}")

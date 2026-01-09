@@ -523,7 +523,7 @@ class ProtoPNet(CaBRNet):
                     min_distances[proto_idx] = float("inf")
 
             # Build explanation
-            img_path = (output_dir / "original.png").resolve(strict=True)
+            img_path = output_dir.absolute() / "original.png"
             if not disable_rendering:
                 (output_dir / "test_patches").mkdir(parents=True, exist_ok=exist_ok)
                 # Copy source image
@@ -543,12 +543,10 @@ class ProtoPNet(CaBRNet):
                     (proto_idx, score, True)
                 )  # ProtoPNet only considers positive similarities
                 # Recover path to prototype image
-                prototype_image_path = (prototype_dir / f"prototype_{proto_idx}.png").resolve(strict=True)
+                prototype_image_path = prototype_dir.absolute() / f"prototype_{proto_idx}.png"
                 prototype_class_idx = int(torch.argmax(self.classifier.proto_class_map[proto_idx]))
                 # Generate test image patch
-                patch_image_path = (output_dir / "test_patches" / f"proto_similarity_{proto_idx}.png").resolve(
-                    strict=True
-                )
+                patch_image_path = output_dir.absolute() / "test_patches" / f"proto_similarity_{proto_idx}.png"
                 if not disable_rendering:
                     patch_image = visualizer.forward(img=img, img_tensor=img_tensor, proto_idx=proto_idx, device=device)
                     patch_image.save(patch_image_path)
@@ -589,7 +587,7 @@ class ProtoPNet(CaBRNet):
                 root="True",
             )
             for prototype in class_mapping[class_idx]:
-                img_path = str((prototype_dir / f"prototype_{prototype}.png").resolve(strict=True))
+                img_path = str((prototype_dir.absolute() / f"prototype_{prototype}.png"))
                 graph.node(
                     name=f"P{prototype}",
                     shape="plaintext",

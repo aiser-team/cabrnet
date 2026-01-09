@@ -518,7 +518,7 @@ class ProtoTree(CaBRNet):
                 graph.node(name=f"node_{node.node_id}", label=f"Class {class_idx}", fontsize="25", height="0.5")
             else:
                 proto_idx = node.proto_idxs[0]
-                img_path = str((prototype_dir / f"prototype_{proto_idx}.png").resolve(strict=True))
+                img_path = str(prototype_dir.absolute() / f"prototype_{proto_idx}.png")
                 graph.node(name=f"node_{node.node_id}", image=img_path, imagescale="True")
                 for child_name, similarity in zip(["nsim", "sim"], ["not similar", "similar"]):
                     child = node.get_submodule(f"{node.node_id}_child_{child_name}")

@@ -601,7 +601,7 @@ class ProtoPool(CaBRNet):
                 root="True",
             )
             for prototype in class_mapping[class_idx]:
-                img_path = (prototype_dir / f"prototype_{prototype}.png").resolve(strict=True)
+                img_path = prototype_dir.absolute() / f"prototype_{prototype}.png"
                 graph.node(
                     name=f"P{prototype}_C{class_idx}",
                     shape="plaintext",

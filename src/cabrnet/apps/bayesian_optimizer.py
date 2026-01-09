@@ -196,10 +196,10 @@ def execute(args: Namespace) -> None:
     device = args.device
 
     # Absolute paths are necessary because Optuna launches jobs from another directory
-    training_config_file = args.training.resolve(strict=True)
-    model_arch_file = args.model_arch.resolve(strict=True)
-    dataset_config_file = args.dataset.resolve(strict=True)
-    root_dir = args.output_dir.resolve(strict=True)
+    training_config_file = args.training.absolute()
+    model_arch_file = args.model_arch.absolute()
+    dataset_config_file = args.dataset.absolute()
+    root_dir = args.output_dir.absolute()
     sanity_check_only = args.sanity_check
     seed = args.seed
 
@@ -316,7 +316,7 @@ def execute(args: Namespace) -> None:
 
     if args.resume_from is not None:
         # Resume failed/interrupted experiment
-        resume_path = Path(args.resume_from).resolve(strict=True)
+        resume_path = Path(args.resume_from).absolute()
         tuner = tune.Tuner.restore(
             path=str(resume_path),
             restart_errored=True,
@@ -334,7 +334,7 @@ def execute(args: Namespace) -> None:
                 num_samples=num_trials,
             ),
             run_config=train.RunConfig(
-                storage_path=str(root_dir.resolve(strict=True)),
+                storage_path=str(root_dir.absolute()),
                 name="test_experiment",
                 stop={"training_iteration": 1},  # Each trial configuration is only tested once
                 checkpoint_config=train.CheckpointConfig(
