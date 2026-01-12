@@ -135,7 +135,7 @@ class Tester(CaBRNetCompatibilityTester):
         # Only compare logits
         self.assertTensorEqual(y_e[0], y_a[0])
 
-    def assertProjectionInfoEqual(self, expected: dict[Any, Any], actual: dict[Any, Any]):
+    def assertProjectionInfoEqual(self, expected: dict[Any, Any], actual: list[dict[Any, Any]]):
         for key in expected:
             if actual[key]["img_idx"] == -1:
                 continue
