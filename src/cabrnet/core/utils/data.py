@@ -3,6 +3,7 @@
 import argparse
 import copy
 import importlib
+import os
 from pathlib import Path
 import random
 from typing import Any, Callable
@@ -31,6 +32,7 @@ def concat_collate(data: list[tuple]) -> tuple[torch.Tensor, torch.Tensor]:
 
 
 SUPPORTED_COLLATE_FUNCTIONS = {"concat_collate": concat_collate}
+DATA_ROOT_VARENV = "CABRNET_DATA_ROOT"
 
 
 class VisionDatasetSubset(Subset):
@@ -130,6 +132,24 @@ class DatasetManager:
                     raise ValueError(f"Missing dataset {key} information")
 
             params = copy.copy(dconfig["params"])
+            # Update the root location if necessary
+            if "root" in params:
+                root = params["root"]
+                if not Path(root).is_dir():
+                    if (data_folder := os.getenv(DATA_ROOT_VARENV)) is not None:
+                        new_root = Path(data_folder) / root
+                        if not Path(new_root).is_dir():
+                            logger.error(
+                                f"Folder '{root}' of dataset {dataset_name} not found. "
+                                f"Did you wrongly set environment variable {DATA_ROOT_VARENV}?"
+                            )
+                        else:
+                            params["root"] = new_root
+                    else:
+                        logger.error(
+                            f"Folder '{root}' of dataset {dataset_name} not found. "
+                            f"You could set environment variable {DATA_ROOT_VARENV}."
+                        )
             for field, value in params.items():
                 if field in TRANSFORM_FIELDS:
                     # Replace configuration with actual transform function
