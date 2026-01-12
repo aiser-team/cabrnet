@@ -43,11 +43,13 @@ class ProtoPNet(CaBRNet):
             "clustering": 0.8,
             "separability": -0.08,
             "regularization": 0.0001,
+            "dropout": 0.0,
         }
         self.projection_config = {
             "start_epoch": 10,
             "frequency": 10,
             "num_ft_epochs": 20,
+            "duplicate_strategy": "GREEDY",
         }
 
     def _load_legacy_state_dict(self, legacy_state: dict[str, Any]) -> None:
@@ -169,7 +171,11 @@ class ProtoPNet(CaBRNet):
             return torch.mean(max_dist - inverted_distances)
 
         prototypes_of_correct_class = torch.t(torch.index_select(self.classifier.proto_class_map, 1, label))
-        cluster_cost = distance_loss(min_distances, prototypes_of_correct_class)
+        dropout_mask = (
+            torch.rand(prototypes_of_correct_class.size(), device=prototypes_of_correct_class.device)
+            > self.loss_coefficients["dropout"]
+        )
+        cluster_cost = distance_loss(min_distances, prototypes_of_correct_class * dropout_mask)
         separation_cost = distance_loss(min_distances, 1 - prototypes_of_correct_class)
 
         l1_mask = 1 - torch.t(self.classifier.proto_class_map)
@@ -236,6 +242,7 @@ class ProtoPNet(CaBRNet):
                 device=device,
                 verbose=verbose,
                 tqdm_position=tqdm_position,
+                duplicate_strategy=self.projection_config["duplicate_strategy"],
             )
 
             # Freeze all parameters except last layer

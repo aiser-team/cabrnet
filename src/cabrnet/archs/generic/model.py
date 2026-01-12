@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import random
 import argparse
 import importlib
 import shutil
@@ -655,6 +656,7 @@ class CaBRNet(nn.Module):
         verbose: bool = False,
         tqdm_position: int = 0,
         update_prototypes: bool = True,
+        duplicate_strategy: str = "IGNORE",
     ) -> list[dict]:
         r"""Performs prototype projection (maximum similarity) after training.
         Warning: depending on float approximations, the results might be slightly different for legacy codes using
@@ -666,10 +668,19 @@ class CaBRNet(nn.Module):
             verbose (bool, optional): Display progress bar. Default: False.
             tqdm_position (int, optional): Position of the progress bar. Default: 0.
             update_prototypes (bool, optional): If True, update prototypes with their closest vectors. Default: True.
+            duplicate_strategy (str, optional): Which strategy to employ when multiple prototypes are projected to
+                the same value. Choice between 'IGNORE', 'GREEDY' and 'RANDOM_VALUE'. Default: 'IGNORE'.
 
         Returns:
             Dictionary containing projection information for each prototype.
         """
+        assert duplicate_strategy in [
+            "GREEDY",
+            "RANDOM_VALUE",
+            "IGNORE",
+        ], f"Unknown duplicate strategy {duplicate_strategy}."
+        logger.info(f"Launching prototype projection with duplicate strategy {duplicate_strategy}")
+
         self.eval()
         self.to(device)
 
@@ -726,21 +737,110 @@ class CaBRNet(nn.Module):
                     # Some architectures simply ignore the class index
                     class_idx = label.item() if self.classifier.num_classes > 1 else 0
 
-                    for proto_idx in class_mapping[class_idx]:
-                        # For each entry, only check prototypes that lead to the corresponding class
-                        if best_score[img_idx, proto_idx] > projection_info[proto_idx]["score"]:
-                            h, w = (
-                                best_score_loc[img_idx, proto_idx].item() // W,
-                                best_score_loc[img_idx, proto_idx].item() % W,
+                    if duplicate_strategy == "GREEDY":
+                        # For each relevant prototype, recover all (h, w, s) such that s is greater
+                        # than the current score, in decreasing order
+                        relevant_prototypes = class_mapping[class_idx]
+                        candidates = {
+                            proto_idx: sorted(
+                                [
+                                    (h, w, similarities[img_idx, proto_idx, h, w].item())
+                                    for h in range(similarities.size(2))
+                                    for w in range(similarities.size(3))
+                                    if similarities[img_idx, proto_idx, h, w] > projection_info[proto_idx]["score"]
+                                ],
+                                key=lambda x: x[2],
+                                reverse=True,
                             )
-                            batch_size = 1 if dataloader.batch_size is None else dataloader.batch_size
-                            projection_info[proto_idx] = {
-                                "img_idx": batch_idx * batch_size + img_idx,
-                                "h": h,
-                                "w": w,
-                                "score": best_score[img_idx, proto_idx].item(),
-                            }
-                            projection_vectors[proto_idx] = feats[img_idx, :, h : h + 1, w : w + 1].cpu()
+                            for proto_idx in relevant_prototypes
+                        }
+
+                        # Now sort prototypes according to the number of possible candidates, from least to most
+                        sorted_by_num_candidates = sorted(
+                            [(proto_idx, len(candidates[proto_idx])) for proto_idx in relevant_prototypes],
+                            key=lambda x: x[1],
+                        )
+                        selected_coordinates = []
+                        prototype_updates = []
+                        for i, (proto_idx, _) in enumerate(sorted_by_num_candidates):
+                            if not candidates[proto_idx]:
+                                # Ignore prototypes with no candidate
+                                continue
+                            # Take the first possible candidate (with the highest score)
+                            index = 0
+                            while (
+                                index < len(candidates[proto_idx])
+                                and (
+                                    candidates[proto_idx][index][0],
+                                    candidates[proto_idx][index][1],
+                                )
+                                in selected_coordinates
+                            ):
+                                index += 1
+                            if index == len(candidates[proto_idx]):
+                                # No suitable candidates
+                                continue
+                            h, w = candidates[proto_idx][index][0], candidates[proto_idx][index][1]
+                            prototype_updates.append((proto_idx, h, w))
+                            # Remove (h, w) for all other prototypes
+                            selected_coordinates.append((h, w))
+
+                    else:  # RANDOM_VALUE and IGNORE strategies
+                        prototype_updates = [
+                            (
+                                proto_idx,
+                                int(best_score_loc[img_idx, proto_idx].item() // W),
+                                int(best_score_loc[img_idx, proto_idx].item() % W),
+                            )
+                            for proto_idx in class_mapping[class_idx]
+                            if best_score[img_idx, proto_idx] > projection_info[proto_idx]["score"]
+                        ]
+
+                    for proto_idx, h, w in prototype_updates:
+                        batch_size = 1 if dataloader.batch_size is None else dataloader.batch_size
+                        projection_info[proto_idx] = {
+                            "img_idx": batch_idx * batch_size + img_idx,
+                            "h": h,
+                            "w": w,
+                            "score": similarities[img_idx, proto_idx, h, w].item(),
+                        }
+                        projection_vectors[proto_idx] = feats[img_idx, :, h : h + 1, w : w + 1].cpu()
+
+            if duplicate_strategy == "RANDOM_VALUE":
+                for class_idx in range(self.classifier.num_classes):
+                    relevant_prototypes = class_mapping[class_idx]
+                    # Check for duplicate (img_idx, h, w) coordinates
+                    sorted_by_coordinates = {}
+                    for proto_idx in relevant_prototypes:
+                        img_idx, h, w = (
+                            projection_info[proto_idx]["img_idx"],
+                            projection_info[proto_idx]["h"],
+                            projection_info[proto_idx]["w"],
+                        )
+                        if (img_idx, h, w) not in sorted_by_coordinates:
+                            sorted_by_coordinates[(img_idx, h, w)] = [proto_idx]
+                        else:
+                            sorted_by_coordinates[(img_idx, h, w)].append(proto_idx)
+
+                    for img_idx, h, w in sorted_by_coordinates:
+                        if len(sorted_by_coordinates[(img_idx, h, w)]) > 1:
+                            logger.warning(
+                                f"Found duplicates during projection: {sorted_by_coordinates[(img_idx, h, w)]}"
+                            )
+                            random_pick = random.randint(0, len(sorted_by_coordinates[(img_idx, h, w)]) - 1)
+                            for i, proto_idx in enumerate(sorted_by_coordinates[(img_idx, h, w)]):
+                                if i == random_pick:
+                                    # Keep the projected value of selected prototype, reset all others.
+                                    continue
+                                # Reset non-selected prototype
+                                logger.warning(f"Resetting prototype {proto_idx}...")
+                                projection_info[proto_idx] = {
+                                    "img_idx": -1,
+                                    "h": -1,
+                                    "w": -1,
+                                    "score": -float("inf"),
+                                }
+                                projection_vectors[proto_idx] = torch.randn((1, self.classifier.num_features, 1, 1))
 
             if update_prototypes:
                 self.classifier.prototypes.copy_(projection_vectors)
