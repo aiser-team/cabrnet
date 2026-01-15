@@ -142,11 +142,13 @@ def load_checkpoint(
     if not directory_path.is_dir():
         raise ValueError(f"Unknown checkpoint directory {directory_path}")
 
-    model.load_state_dict(torch.load(directory_path / CaBRNet.DEFAULT_MODEL_STATE, map_location="cpu"))
+    model.load_state_dict(
+        torch.load(directory_path / CaBRNet.DEFAULT_MODEL_STATE, map_location="cpu", weights_only=True)
+    )
     if optimizer_mngr is not None:
         optimizer_state_path = directory_path / OptimizerManager.DEFAULT_TRAINING_STATE
         if optimizer_state_path.is_file():
-            optimizer_mngr.load_state_dict(torch.load(optimizer_state_path, map_location="cpu"))
+            optimizer_mngr.load_state_dict(torch.load(optimizer_state_path, map_location="cpu", weights_only=True))
         else:
             logger.warning(f"Could not find optimizer state {optimizer_state_path}. Using default state instead.")
 

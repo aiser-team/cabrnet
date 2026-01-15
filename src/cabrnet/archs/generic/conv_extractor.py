@@ -77,7 +77,13 @@ class ConvExtractor(nn.Module):
         if Path(weights).is_file():
             if not ignore_weight_errors:
                 logger.info(f"Loading state dict for feature extractor: {weights}")
-            loaded_weights = torch.load(weights, map_location="cpu")
+            logger.warning(
+                f"Loading file {weights}. Please ensure that you trust this file. "
+                f"For more information regarding the potential risk of arbitrary code execution, "
+                f"see https://docs.pytorch.org/docs/stable/generated/torch.load.html"
+            )
+            loaded_weights = torch.load(weights, map_location="cpu", weights_only=False)
+
             model = torch_models.get_model(arch, **arch_params)
             if isinstance(loaded_weights, dict):
                 model.load_state_dict(loaded_weights)
