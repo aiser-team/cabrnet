@@ -188,13 +188,13 @@ class OptimizerManager:
                 record = start is None
                 stop_found = False
                 for name in module_parameters:
-                    if start and name.startswith(start):
+                    if isinstance(start, str) and name.startswith(start):
                         record = True
-                    elif stop_found and not name.startswith(stop):
+                    elif stop_found and isinstance(stop, str) and not name.startswith(stop):
                         break
                     if record:
                         selected.add(name)
-                    if stop and name.startswith(stop):
+                    if isinstance(stop, str) and name.startswith(stop):
                         stop_found = True
                 if stop and not stop_found:
                     raise ValueError(f"Unknown parameter group boundary: {stop}")
@@ -358,6 +358,7 @@ class OptimizerManager:
                     self.periods[f"full_train_period_{full_train_period_idx}"] = {
                         "epoch_range": [epoch, -1],  # No freeze
                         "optimizers": list(self.optimizers.keys()),  # Enable all optimizers
+                        "patience": float("inf"),  # Infinite patience
                     }
                 elif create_period and active_periods:
                     # Current full train period ended last epoch
@@ -380,7 +381,7 @@ class OptimizerManager:
             logger.info(
                 f"+ Period {period_name}: "
                 f"range [{period_config['epoch_range'][0]}-{period_config['epoch_range'][1]}], "
-                f"applied on {period_config['optimizers']}"
+                f"applied on {period_config['optimizers']} (patience: {period_config['patience']})"
             )
 
     def get_active_periods(self, epoch: int) -> list[str]:
