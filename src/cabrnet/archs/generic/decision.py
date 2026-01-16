@@ -1,6 +1,7 @@
 import importlib
 from abc import ABC, abstractmethod
 from typing import Any
+from pathlib import Path
 
 import numpy as np
 import torch.nn as nn
@@ -41,6 +42,22 @@ class CaBRNetClassifier(nn.Module, ABC):
 
         self.num_classes = num_classes
         self.num_features = num_features
+
+    def export_arch(self, output_dir: Path):
+        """Export model information (other than state dictionary).
+
+        Args:
+            output_dir (Path): Output directory.
+        """
+        pass
+
+    def import_arch(self, config_dir: Path):
+        """Import model information (other than state dictionary).
+
+        Args:
+            config_dir (Path): Path to configuration directory.
+        """
+        pass
 
     def build_similarity(self, config: dict[str, Any]) -> None:
         r"""Builds the similarity layer based on information regarding the decision process.

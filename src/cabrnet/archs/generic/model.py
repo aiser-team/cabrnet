@@ -198,6 +198,22 @@ class CaBRNet(nn.Module):
             )
         return parser
 
+    def export_arch(self, output_dir: Path):
+        """Export model information (other than state dictionary).
+
+        Args:
+            output_dir (Path): Output directory.
+        """
+        self.classifier.export_arch(output_dir=output_dir)
+
+    def import_arch(self, config_dir: Path):
+        """Import model information (other than state dictionary).
+
+        Args:
+            config_dir (Path): Path to configuration directory.
+        """
+        self.classifier.import_arch(config_dir=config_dir)
+
     @staticmethod
     def build_from_config(
         config: Path | dict[str, Any],

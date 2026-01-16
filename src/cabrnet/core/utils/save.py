@@ -66,6 +66,8 @@ def save_checkpoint(
     model.eval()
 
     torch.save(model.state_dict(), directory_path / CaBRNet.DEFAULT_MODEL_STATE)
+    model.export_arch(directory_path)  # Export auxiliary infos if necessary
+
     if optimizer_mngr is not None:
         torch.save(optimizer_mngr.state_dict(), directory_path / OptimizerManager.DEFAULT_TRAINING_STATE)
     if isinstance(model_arch, Path):
@@ -145,6 +147,8 @@ def load_checkpoint(
     model.load_state_dict(
         torch.load(directory_path / CaBRNet.DEFAULT_MODEL_STATE, map_location="cpu", weights_only=True)
     )
+    model.import_arch(directory_path)  # Import auxiliary infos if necessary
+
     if optimizer_mngr is not None:
         optimizer_state_path = directory_path / OptimizerManager.DEFAULT_TRAINING_STATE
         if optimizer_state_path.is_file():
