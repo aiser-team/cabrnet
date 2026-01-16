@@ -56,6 +56,7 @@ class DatasetManager:
     r"""Class for handling datasets in CaBRNet."""
 
     DEFAULT_DATASET_CONFIG = Path("dataset.yml")
+    DATASET_ALTERNATIVE = [("--dataset", DEFAULT_DATASET_CONFIG)]  # Used by CaBRNet.create_checkpoint_parser
 
     @staticmethod
     def create_parser(
