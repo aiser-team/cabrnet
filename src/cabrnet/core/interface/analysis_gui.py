@@ -5,6 +5,7 @@ import gradio as gr
 import torch
 import yaml
 from gradio.components.base import Component
+from math import ceil
 from loguru import logger
 from PIL import Image
 from torchvision.transforms import ToTensor
@@ -17,6 +18,7 @@ from cabrnet.core.interface.benchmark import (
     create_pointing_benchmark_gui,
     get_perturbation_config,
     get_pointing_game_config,
+    SUPPORTED_PERTURBATIONS,
 )
 from cabrnet.core.interface.utils import (
     create_browse_folder_component,
@@ -26,6 +28,8 @@ from cabrnet.core.interface.visualization import (
     create_visualization_gui,
     get_visualization_config,
 )
+from cabrnet.core.visualization.radar_plot import radar_plot
+from cabrnet.core.visualization.explainer import PrototypeAnalysisGraph
 from cabrnet.core.utils.data import DatasetManager
 from cabrnet.core.utils.monitoring import metrics_to_str
 from cabrnet.core.utils.save import load_projection_info
@@ -247,18 +251,77 @@ class CaBRNetAnalysisGUI:
 
             # Analyze image
             if gradio_config["benchmark_selection"] == "Local perturbation analysis":
-                cabrnet.core.evaluation.local_perturbation_analysis.analyze(
-                    model=self.model,
-                    img=gradio_config["input_image"],
-                    img_id="",
-                    preprocess=preprocess,
-                    visualizer=visualizer,
-                    device=self.device,
-                    debug_dir=self._output_dir / "analysis" / "local_perturbation",
-                    debug_format="png",
-                    prototype_dir=self._prototype_dir,
-                    **(get_perturbation_config(gradio_config)["local_perturbation_analysis"]),
-                )
+                if gradio_config["perturbation_selection"] != "all":
+                    # Single perturbation analysis
+                    cabrnet.core.evaluation.local_perturbation_analysis.analyze(
+                        model=self.model,
+                        img=gradio_config["input_image"],
+                        img_id="",
+                        preprocess=preprocess,
+                        visualizer=visualizer,
+                        device=self.device,
+                        debug_dir=self._output_dir / "analysis" / "local_perturbation",
+                        debug_format="png",
+                        prototype_dir=self._prototype_dir,
+                        **(get_perturbation_config(gradio_config)["local_perturbation_analysis"]),
+                    )
+                else:
+                    # Analyse all perturbations
+                    names = []
+                    r = {}
+                    original_scores = {}
+                    for perturbation_name in SUPPORTED_PERTURBATIONS:
+                        names.append(perturbation_name)
+                        # Edit configuration
+                        gradio_config["perturbation_selection"] = perturbation_name
+                        stats = cabrnet.core.evaluation.local_perturbation_analysis.analyze(
+                            model=self.model,
+                            img=gradio_config["input_image"],
+                            img_id="",
+                            preprocess=preprocess,
+                            visualizer=visualizer,
+                            device=self.device,
+                            debug_dir=self._output_dir / "analysis" / "local_perturbation",
+                            debug_format="png",
+                            prototype_dir=self._prototype_dir,
+                            **(get_perturbation_config(gradio_config)["local_perturbation_analysis"]),
+                        )
+                        for i in range(len(stats)):
+                            delta_score = abs(stats[i]["original_score"] - stats[i]["score_after_perturbation"])
+                            proto_idx = stats[i]["proto_idx"]
+                            if proto_idx not in r:
+                                original_scores[proto_idx] = stats[i]["original_score"]
+                                r[proto_idx] = [delta_score]
+                            else:
+                                r[proto_idx].append(delta_score)
+                    max_value = ceil(max([max(delta_score) for delta_score in r.values()]))
+
+                    graph = PrototypeAnalysisGraph()
+                    for proto_idx, delta_scores in r.items():
+                        radar_plot(
+                            labels=names,
+                            data=delta_scores,
+                            output_file=self._output_dir / "analysis" / "local_perturbation" / f"proto_{proto_idx}.png",
+                            title=f"Prototype {proto_idx}",
+                            max_value=max_value,
+                        )
+                        graph.add_block(
+                            prototype_label=f"Prototype {proto_idx}",
+                            prototype_img_path=self._prototype_dir / f"prototype_{proto_idx}.png",
+                            test_patch_img_path=self._output_dir
+                            / "analysis"
+                            / "local_perturbation"
+                            / "images"
+                            / f"img_p{proto_idx}_patch.png",
+                            radar_plot_path=self._output_dir
+                            / "analysis"
+                            / "local_perturbation"
+                            / f"proto_{proto_idx}.png",
+                            original_sim_score=original_scores[proto_idx],
+                        )
+                    graph.render(
+                        self._output_dir / "analysis" / "local_perturbation" / "img_sensitivity", output_format="png"
+                    )
                 return Image.open(self._output_dir / "analysis" / "local_perturbation" / "img_sensitivity.png")
             else:
                 if gradio_config["segmentation"] is None:

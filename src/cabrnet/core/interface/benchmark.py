@@ -4,6 +4,8 @@ import gradio as gr
 from cabrnet.core.interface.utils import change_visibility
 from gradio.components.base import Component
 
+SUPPORTED_PERTURBATIONS = ["brightness", "contrast", "saturation", "hue", "blur", "distortion"]
+
 
 def create_perturbation_benchmark_gui(benchmark_selection: gr.Dropdown, visible: bool = False) -> set[Component]:
     r"""Returns a set of components for configuring the local perturbation analysis.
@@ -14,7 +16,7 @@ def create_perturbation_benchmark_gui(benchmark_selection: gr.Dropdown, visible:
     """
     with gr.Column(visible=visible) as col:
         perturbation_selection = gr.Dropdown(
-            choices=["brightness", "contrast", "saturation", "hue", "blur", "distortion"],
+            choices=SUPPORTED_PERTURBATIONS + ["all"],
             label="Perturbation selection",
             interactive=True,
             key="perturbation_selection",
@@ -112,15 +114,21 @@ def create_perturbation_benchmark_gui(benchmark_selection: gr.Dropdown, visible:
             visible=False,
         )
 
-        perturbation_selection.change(change_visibility("brightness"), perturbation_selection, brightness)
-        perturbation_selection.change(change_visibility("contrast"), perturbation_selection, contrast)
-        perturbation_selection.change(change_visibility("saturation"), perturbation_selection, saturation)
-        perturbation_selection.change(change_visibility("hue"), perturbation_selection, hue)
-        perturbation_selection.change(change_visibility("blur"), perturbation_selection, gaussian_ksize)
-        perturbation_selection.change(change_visibility("blur"), perturbation_selection, gaussian_sigma)
-        perturbation_selection.change(change_visibility("distortion"), perturbation_selection, distortion_periods)
-        perturbation_selection.change(change_visibility("distortion"), perturbation_selection, distortion_amplitude)
-        perturbation_selection.change(change_visibility("distortion"), perturbation_selection, distortion_direction)
+        perturbation_selection.change(change_visibility(["brightness", "all"]), perturbation_selection, brightness)
+        perturbation_selection.change(change_visibility(["contrast", "all"]), perturbation_selection, contrast)
+        perturbation_selection.change(change_visibility(["saturation", "all"]), perturbation_selection, saturation)
+        perturbation_selection.change(change_visibility(["hue", "all"]), perturbation_selection, hue)
+        perturbation_selection.change(change_visibility(["blur", "all"]), perturbation_selection, gaussian_ksize)
+        perturbation_selection.change(change_visibility(["blur", "all"]), perturbation_selection, gaussian_sigma)
+        perturbation_selection.change(
+            change_visibility(["distortion", "all"]), perturbation_selection, distortion_periods
+        )
+        perturbation_selection.change(
+            change_visibility(["distortion", "all"]), perturbation_selection, distortion_amplitude
+        )
+        perturbation_selection.change(
+            change_visibility(["distortion", "all"]), perturbation_selection, distortion_direction
+        )
 
     benchmark_selection.change(change_visibility("Local perturbation analysis"), benchmark_selection, col)
     return {

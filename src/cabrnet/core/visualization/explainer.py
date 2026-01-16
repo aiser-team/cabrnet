@@ -440,3 +440,78 @@ class PointingGameGraph(GenericGraph):
             )
 
         self._num_blocks += 1
+
+
+class PrototypeAnalysisGraph(GenericGraph):
+    r"""Object based on Graphviz used to visualize global prototype analysis.
+
+    Attributes:
+        output_dir: Path to output directory.
+    """
+
+    def __init__(self, font_color: str = "black", **kwargs) -> None:
+        r"""Initializes graph.
+
+        Args:
+            output_dir (Path): Path to output directory.
+            font_color (str, optional): Font color. Default: black.
+        """
+        super().__init__(output_dir=None)
+        self._dot.attr(layout="neato")
+        # Default node attributes
+        self._dot.attr("node", height="2.3", imagepos="tc", labelloc="b", imagescale="True", fontcolor=font_color)
+        self._num_blocks = 0
+
+    def add_block(
+        self,
+        prototype_label: str,
+        prototype_img_path: Path,
+        test_patch_img_path: Path,
+        radar_plot_path: Path,
+        original_sim_score: float,
+    ):
+        r"""Adds an analysis block to the graph.
+
+        Args:
+            prototype_label (str): Prototype name.
+            prototype_img_path (Path): Path to prototype patch visualization.
+            test_patch_img_path (Path): Path to test image patch visualization.
+            radar_plot_path (Path): Path to the radar plot.
+            original_sim_score (float): Original similarity score, before perturbation.
+        """
+        # Reference coordinate
+        y_ref = -self._num_blocks * 4
+
+        # Create subgraph
+        subgraph = graphviz.Digraph()
+
+        # Add all image nodes
+        subgraph.node(
+            name=f"node_{self._num_blocks}_test_ref",
+            label="Test patch",
+            image=str(test_patch_img_path),
+            pos=f"4,{y_ref + 2.5}!",
+        )
+        subgraph.node(
+            name=f"node_{self._num_blocks}_proto",
+            label=prototype_label,
+            image=str(prototype_img_path),
+            pos=f"8,{y_ref+2.5}!",
+        )
+        subgraph.node(
+            height="5",
+            width="5",
+            imagescale="True",
+            name=f"node_{self._num_blocks}_radar",
+            image=str(radar_plot_path),
+            pos=f"0,{y_ref + 2.5}!",
+        )
+        # Connect everything
+        subgraph.edge(
+            tail_name=f"node_{self._num_blocks}_test_ref",
+            head_name=f"node_{self._num_blocks}_proto",
+            dir="both",
+            label=f"{original_sim_score:.2f}",
+        )
+        self._dot.subgraph(subgraph)
+        self._num_blocks += 1
