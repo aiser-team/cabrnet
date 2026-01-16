@@ -152,7 +152,7 @@ def load_checkpoint(
     if optimizer_mngr is not None:
         optimizer_state_path = directory_path / OptimizerManager.DEFAULT_TRAINING_STATE
         if optimizer_state_path.is_file():
-            optimizer_mngr.load_state_dict(torch.load(optimizer_state_path, map_location="cpu", weights_only=True))
+            optimizer_mngr.load_state_dict(torch.load(optimizer_state_path, map_location="cpu", weights_only=False))
         else:
             logger.warning(f"Could not find optimizer state {optimizer_state_path}. Using default state instead.")
 
