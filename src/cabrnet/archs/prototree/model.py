@@ -512,12 +512,12 @@ class ProtoTree(CaBRNet):
             Returns:
                 Updated graph
             """
-            if node.proto_idxs is None:
+            if not node.proto_ids:
                 # Leaf
                 class_idx = torch.argmax(node.distribution).item()
                 graph.node(name=f"node_{node.node_id}", label=f"Class {class_idx}", fontsize="25", height="0.5")
             else:
-                proto_idx = node.proto_idxs[0]
+                proto_idx = node.proto_ids[0]
                 img_path = str(prototype_dir.absolute() / f"prototype_{proto_idx}.png")
                 graph.node(name=f"node_{node.node_id}", image=img_path, imagescale="True")
                 for child_name, similarity in zip(["nsim", "sim"], ["not similar", "similar"]):

@@ -100,9 +100,9 @@ def check_args(args: Namespace) -> Namespace:
         if param is None:
             raise ArgumentError(f"Missing {name} file (option {option}).")
 
-    if args.overwrite or (args.output_dir / "prototypes").exists():
-        raise ArgumentError(
-            f"Output directory {(args.output_dir / 'prototypes')} is not empty. "
+    if not args.overwrite and (args.output_dir / "prototypes").exists():
+        logger.warning(
+            f"Output directory {(args.output_dir / 'prototypes')} is not empty. I will use the existing images."
             f"To overwrite existing results, use --overwrite option."
         )
     return args
