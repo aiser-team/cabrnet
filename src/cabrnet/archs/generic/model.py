@@ -265,9 +265,10 @@ class CaBRNet(nn.Module):
     @staticmethod
     def check_args(
         args: argparse.Namespace,
-        checkpoint_dest: str = "checkpoint-dir",
+        checkpoint_dest: str = "--checkpoint-dir",
         alternatives: list[tuple[str, str, Path]] | None = None,
         strict: bool = True,
+        check_defined: bool = False,
     ) -> argparse.Namespace:
         r"""Parses the namespace to find the options that the checkpoint provides an alternative for
         (if this option is provided).
@@ -281,6 +282,8 @@ class CaBRNet(nn.Module):
             strict (bool): if true, forbids the definition of both the checkpoint option
               and any of the option that the checkpoint is an alternative for.
               Otherwise, uses the checkpoint only for the options that are not specified.
+            check_defined (bool): if true, indicates that each parameter in the alternative
+              must be defined either separately or via the alternative.
 
         Returns:
             modified (or created) parser.
@@ -296,6 +299,18 @@ class CaBRNet(nn.Module):
                     raise ArgumentError(f"Cannot specify both options {checkpoint_dest} and {param_name}")
                 if not vars(args)[dest]:
                     vars(args)[dest] = dir / default_path
+        else:
+            if check_defined:
+                not_defined = []
+                for param_name, _ in alternatives:
+                    dest = CaBRNet.attribute_of_option(param_name)
+                    if not vars(args)[dest]:
+                        not_defined.append(param_name)
+                if not_defined:
+                    raise ArgumentError(
+                        f"Following parameter not defined: {str(not_defined)}. "
+                        f"Alternative {checkpoint_dest} also possible."
+                    )
         return args
 
     def export_arch(self, output_dir: Path):
