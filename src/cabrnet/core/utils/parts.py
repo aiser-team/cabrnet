@@ -38,7 +38,8 @@ def parse(
     Args:
         dataset (Dataset): Dataset that contains the images.
             It is assumed that the filename of the images is accessible
-            via `dataset["dataset"].imgs`.
+            via `dataset.imgs`.
+            (The dataset might be reached via `loader.dataset`.)
         image_description (Path): Path to a file that contains the description of each image.
             The description is assumed to be a list of lines, each of the form `image_idx filename`.
             The `image_idx` here is a fresh id; it is unrelated to the actual position in the dataset
@@ -59,7 +60,7 @@ def parse(
 
     image_idx_to_dataset_idx: dict[int, tuple[int, str]] = {}
     # image_idx_to_dataset_idx[image_idx] = (dataset_idx, filename)
-    for dataset_idx, (complete_name, _) in enumerate(dataset["dataset"].imgs):
+    for dataset_idx, (complete_name, _) in enumerate(dataset.imgs):
         found = False
         for suffix, image_idx in filename_to_image_idx.items():
             if complete_name.endswith(suffix):
