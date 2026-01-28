@@ -1,9 +1,9 @@
 train_set:
-  # module: torchvision.datasets.stanford_cars # The dataset used to be available here
-  module: torchvision.datasets # Module name
-  name: ImageFolder # Class name
-  params: # How to initialize the dataset
-    root: data/cars/dataset/train
+  module: torchvision.datasets
+  name: StanfordCars
+  params:
+    split: train
+    root: data/
     transform:
       resize:
         type: Resize
@@ -50,9 +50,10 @@ train_set:
 
 projection_set:
   module: torchvision.datasets
-  name: ImageFolder
+  name: StanfordCars
   params:
-    root: data/cars/dataset/train
+    split: train
+    root: data/
     transform:
       resize:
         type: Resize
@@ -72,9 +73,10 @@ projection_set:
 
 test_set:
   module: torchvision.datasets
-  name: ImageFolder
+  name: StanfordCars
   params:
-    root: data/cars/dataset/test
+    split: test
+    root: data/
     transform:
       resize:
         type: Resize

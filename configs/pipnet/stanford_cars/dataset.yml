@@ -1,8 +1,9 @@
 train_set:
   module: torchvision.datasets
-  name: ImageFolder
+  name: StanfordCars
   params:
-    root: data/stanford_cars/dataset/train
+    split: train
+    root: data/
     transform: # Transform 1 in PIPNet
       resize:
         type: Resize
@@ -45,9 +46,10 @@ train_set:
 
 pretrain_set:
   module: torchvision.datasets
-  name: ImageFolder
+  name: StanfordCars
   params:
-    root: data/stanford_cars/dataset/train
+    split: train
+    root: data/
     transform: # Transform 1b
       resize:
         type: Resize
@@ -90,9 +92,10 @@ pretrain_set:
 
 projection_set:
   module: torchvision.datasets
-  name: ImageFolder
+  name: StanfordCars
   params:
-    root: data/stanford_cars/dataset/train
+    split: train
+    root: data/
     transform:
       resize:
         type: Resize
@@ -111,9 +114,10 @@ projection_set:
 
 test_set:
   module: torchvision.datasets
-  name: ImageFolder
+  name: StanfordCars
   params:
-    root: data/stanford_cars/dataset/test
+    split: test
+    root: data/
     transform:
       resize:
         type: Resize
