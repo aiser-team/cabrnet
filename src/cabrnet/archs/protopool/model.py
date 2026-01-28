@@ -388,7 +388,7 @@ class ProtoPool(CaBRNet):
             Projection information.
         """
         # Hard assignment of prototypes to slots using one-hot distributions
-        class_mapping = self.class_mapping
+        class_mapping = self.classifier.class_mapping
         with torch.no_grad():
             if not self._compatibility_mode:
                 hard_proto_slot_map = torch.zeros_like(self.classifier.proto_slot_map).to(device)
