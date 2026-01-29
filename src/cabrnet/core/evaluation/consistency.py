@@ -258,8 +258,8 @@ def execute(
 
         result = {"proto_idx": [], "consistency": []}
         for proto_idx, cons in consistencies.items():
-            result["proto_idx"] = proto_idx
-            result["consistency"] = cons
+            result["proto_idx"].append(proto_idx)
+            result["consistency"].append(cons)
         result = pd.DataFrame(result)
         result.to_csv(root_dir / "consistencies.csv")
 
