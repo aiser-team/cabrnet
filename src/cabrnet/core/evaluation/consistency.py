@@ -178,11 +178,12 @@ def execute(
     dataset_name: str,
     image_description: Path,
     part_annotations: Path,
+    load_distances: bool,
+    save_distances: bool,
+    root_dir: Path,
+    half_size: int | None,
     verbose: bool,
     device: torch.device | str,
-    load_distances: Path | None,
-    save_distances: Path | None,
-    half_size: int | None,
     **kwargs,
 ) -> None:
     model.to(device)
@@ -201,7 +202,7 @@ def execute(
     if load_distances:
         if verbose:
             logger.info("Loading distances")
-        df = pd.read_csv(load_distances)
+        df = pd.read_csv(root_dir / "distances.csv")
         distances = {proto_idx: {} for proto_idx in range(model.num_prototypes)}
         for idx in df.index:
             proto_idx = df["proto_idx"][idx]
@@ -241,7 +242,7 @@ def execute(
                     result["distance"].append(distance)
 
         result = pd.DataFrame(result)
-        result.to_csv(save_distances)
+        result.to_csv(root_dir / "distances.csv")
 
     if half_size:
         if verbose:
@@ -254,5 +255,13 @@ def execute(
                 consistency_pp = sum(1 for d in distances_pp if d <= half_size) / len(distances_pp)
                 proto_consistency = max(proto_consistency, consistency_pp)
             consistencies[proto_idx] = proto_consistency
+
+        result = {"proto_idx": [], "consistency": []}
+        for proto_idx, cons in consistencies.items():
+            result["proto_idx"] = proto_idx
+            result["consistency"] = cons
+        result = pd.DataFrame(result)
+        result.to_csv(root_dir / "consistencies.csv")
+
         ave_consistency = sum(consistencies.values()) / len(consistencies)
         print(f"Average consistency: {ave_consistency}")
