@@ -51,9 +51,9 @@ def get_config(config_file: Path) -> dict[str, Any] | None:
 
     for optional_param in ["load_distances", "save_distances"]:
         if optional_param in bench_config:
-            bench_config[optional_param] = Path(bench_config[optional_param])
+            bench_config[optional_param] = bool(bench_config[optional_param])
         else:
-            bench_config[optional_param] = None
+            bench_config[optional_param] = False
 
     if "half_size" in bench_config:
         bench_config["half_size"] = int(bench_config["half_size"])
