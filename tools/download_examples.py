@@ -44,7 +44,7 @@ FILE_LIST = [
         "description": "ProtoPNet models trained using CaBRNet on Stanford Cars "
         "(with ResNet50 backbone pretrained on ImageNet)",
         "type": "zenodo",
-        "record": "13611658",
+        "record": "18431383",
         "dir": "trained_models",
         "file": "cabrnet_protopnet_stanfordcars_resnet50.zip",
     },
@@ -53,7 +53,7 @@ FILE_LIST = [
         "description": "ProtoTree models trained using CaBRNet on Stanford Cars "
         "(with ResNet50 backbone pretrained on ImageNet)",
         "type": "zenodo",
-        "record": "13611890",
+        "record": "18430455",
         "dir": "trained_models",
         "file": "cabrnet_prototree_stanfordcars_resnet50_depth9.zip",
     },
@@ -79,7 +79,7 @@ FILE_LIST = [
         "identifier": "cabrnet_pipnet_cub200_stanford_cars_convnext",
         "description": "PIPNet models trained using CaBRNet on CUB200 and Stanford Cars " "(with ConvNext backbone)",
         "type": "zenodo",
-        "record": "18169812",
+        "record": "18429182",
         "dir": "trained_models",
         "file": "pipnet_cub200_stanfordcars.zip",
     },
