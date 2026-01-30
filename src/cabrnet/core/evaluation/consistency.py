@@ -53,7 +53,7 @@ def get_config(config_file: Path) -> dict[str, Any] | None:
         if optional_param in bench_config:
             bench_config[optional_param] = bool(bench_config[optional_param])
         else:
-            bench_config[optional_param] = False
+            bench_config[optional_param] = None
 
     if "half_size" in bench_config:
         bench_config["half_size"] = int(bench_config["half_size"])
@@ -178,8 +178,8 @@ def execute(
     dataset_name: str,
     image_description: Path,
     part_annotations: Path,
-    load_distances: bool,
-    save_distances: bool,
+    load_distances: bool | None,
+    save_distances: bool | None,
     root_dir: Path,
     half_size: int | None,
     verbose: bool,
@@ -198,20 +198,32 @@ def execute(
 
     # data_iter = tqdm(range(len(dataset)), desc="Consistency checking", disable=not verbose)
 
-    # COMPUTES THE DISTANCES
-    if load_distances:
-        if verbose:
-            logger.info("Loading distances")
-        df = pd.read_csv(root_dir / "distances.csv")
-        distances = {proto_idx: {} for proto_idx in range(model.num_prototypes)}
-        for idx in df.index:
-            proto_idx = df["proto_idx"][idx]
-            part_idx = df["part_idx"][idx]
-            distance = df["distance"][idx]
-            if part_idx not in distances[proto_idx]:
-                distances[proto_idx][part_idx] = []
-            distances[proto_idx][part_idx].append(distance)
-    else:
+    # COMPUTES OR LOADS THE DISTANCES
+    distances_path = root_dir / "distances.csv"
+    distances = None
+    if load_distances is None or load_distances:
+        # Default behaviour when `load_distances is None` is to try to load it.
+        # If that fails, the exception is caught and the distances will be computed instead.
+        try:
+            if verbose:
+                logger.info("Trying to load distances")
+            df = pd.read_csv(distances_path)
+            distances = {proto_idx: {} for proto_idx in range(model.num_prototypes)}
+            for idx in df.index:
+                proto_idx = df["proto_idx"][idx]
+                part_idx = df["part_idx"][idx]
+                distance = df["distance"][idx]
+                if part_idx not in distances[proto_idx]:
+                    distances[proto_idx][part_idx] = []
+                distances[proto_idx][part_idx].append(distance)
+            if verbose:
+                logger.info("Distances successfully loaded")
+        except Exception as e:
+            if load_distances is not None:
+                raise e
+
+    did_compute_distances = False
+    if distances is None:
         if verbose:
             logger.info("Computing distances")
         distances = compute_distances(
@@ -224,8 +236,9 @@ def execute(
             verbose=verbose,
             device=device,
         )
+        did_compute_distances = True
 
-    if save_distances:
+    if (save_distances is None and did_compute_distances) or save_distances:
         if verbose:
             logger.info("Saving distances")
         # Saving the distances in a csv file
@@ -242,12 +255,12 @@ def execute(
                     result["distance"].append(distance)
 
         result = pd.DataFrame(result)
-        result.to_csv(root_dir / "distances.csv")
+        result.to_csv(distances_path)
 
     if half_size:
         if verbose:
             logger.info("Computing consistency")
-        consistencies: dict[int, float] = {}
+        consistencies: dict[int, float] = {}  # consistency of each prototype
         for proto_idx in range(model.num_prototypes):
             proto_consistency = 0.0
             for part_idx in distances[proto_idx]:
