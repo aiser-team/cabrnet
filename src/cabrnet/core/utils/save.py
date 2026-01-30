@@ -157,20 +157,27 @@ def load_checkpoint(
             logger.warning(f"Could not find optimizer state {optimizer_state_path}. Using default state instead.")
 
     # Restore RNG state
-    with open(directory_path / "state.pickle", "rb") as file:
-        state = pickle.load(file)
+    if (directory_path / "state.pickle").is_file():
+        with open(directory_path / "state.pickle", "rb") as file:
+            state = pickle.load(file)
 
-    torch_rng = state.get("random_generators").get("torch_rng_state")
-    numpy_rng = state.get("random_generators").get("numpy_rng_state")
-    python_rng = state.get("random_generators").get("python_rng_state")
-    torch.random.set_rng_state(torch_rng)
-    np.random.set_state(numpy_rng)
-    random.setstate(python_rng)
+        torch_rng = state.get("random_generators").get("torch_rng_state")
+        numpy_rng = state.get("random_generators").get("numpy_rng_state")
+        python_rng = state.get("random_generators").get("python_rng_state")
+        torch.random.set_rng_state(torch_rng)
+        np.random.set_state(numpy_rng)
+        random.setstate(python_rng)
 
-    epoch = state.get("epoch")
-    stats = state.get("stats")
-    seed = state.get("seed")
-    device = state.get("device")
+        epoch = state.get("epoch")
+        stats = state.get("stats")
+        seed = state.get("seed")
+        device = state.get("device")
+    else:
+        logger.warning(f"Could not find state file {directory_path}/state.pickle. " f"Using default values instead.")
+        epoch = 0
+        stats = {}
+        seed = 0
+        device = "cpu"
 
     logger.info(f"Successfully loaded checkpoint from epoch {epoch}.")
 
