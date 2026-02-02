@@ -12,7 +12,17 @@ Currently, CaBRNet supports metrics that are derived from the following works:
   [Sanity checks for patch visualisation in prototype-based image classification](https://ieeexplore.ieee.org/document/10208853),
   XAI4CV at CVPR (2023).
 
-## Metrics
+## Creating and Using Metrics
+
+To add new metrics, simply add a new file `<my_metrics.py>` into the directory [`core/evaluation`](../../src/cabrnet/core/evaluation).
+Such files need to implement two methods,
+
+- `get_config(config_file: Path) -> dict[str, Any] | None` reads the configuration file for this metrics.  It corresponds to the `-b`/`--benchmark-configuration` parameter of the `benchmark` application.
+- `execute(arg1, arg2, ..., **kwargs) -> None:` performs the evaluation of the model.  The parameters given to the function are the ones in the dictionary returned by `get_config` plus the following parameters, which are derived from the parameters of the applications: `model`, `dataset_config`, `visualization_config`, `projection_file`, `root_dir` (output directory where the results are to be stored), `device`, `verbose`, `prototype_dir`, and `sampling_ratio`.  To guarantee robustness with future implementations, it is recommended to use a catch-all `**kwargs` parameter.
+
+The metrics that should be executed are defined in the benchmark configuration file (parameter `-b`/`--benchmark-configuration`).  Each entry in this configuration refer to a python file from `core/evaluation`, and the sub-entries are the parameters for this specific metrics.
+
+## Existing Metrics
 
 ### Evaluating the relevance of a patch of image using the pointing game
 
@@ -214,11 +224,17 @@ to:
 
 ![sinus distortion](imgs/distortion.png)
 
+### Discriminative power of prototypes
+
+Benchmark `prototype_discrimination` evaluates how good individual prototypes are good at classifying images.
+This benchmark works by computing the activation of each prototype in each image of a dataset
+and applying a AUROC or AUPRC analysis to determine how much the prototype separates the images of its class(es) vs the images of other classes.
+
 ## Launching the benchmark
 
 Case-based reasoning models are evaluated on these metrics using the [benchmark](cabrnet.md#evaluating-a-cabrnet-model)
 application. For simplicity, CaBRNet uses a single YML file containing the configuration of each metric
 (see example
-provided [here](https://github.com/aiser-team/cabrnet/blob/develop/configs/benchmarks/test_configuration.yml).
+provided [here](https://github.com/aiser-team/cabrnet/blob/develop/configs/benchmarks/test_configuration.yml)).
 
 

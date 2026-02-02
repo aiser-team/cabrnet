@@ -28,6 +28,6 @@ IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR).
     - [Training configuration](training.md)
     - [Visualization configuration](visualize.md)
 - [Example: MNIST](mnist.md)
-- [Benchmark](evaluation.md)
+- [Benchmark](benchmark.md)
 - [Compatibility with legacy codes](legacy.md)
 - [Downloading pre-trained models](download.md)
