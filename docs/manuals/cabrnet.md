@@ -258,7 +258,7 @@ To compute dedicated metrics for case-based reasoning models, the `cabrnet bench
   the location of a CaBRNet or legacy state dictionary that should be used to initialize the model.
 - `--dataset|-d </path/to/file.yml>` indicates how to [load and prepare the test data for the evaluation](data.md).
 - `--visualization </path/to/file.yml>` indicates how to [visualize the prototypes](visualize.md).
-- `--benchmark-configuration <path_to_file>` indicates how to [configure the metrics](evaluation.md).
+- `--benchmark-configuration <path_to_file>` indicates how to [configure the metrics](benchmark.md).
 - `--output-dir <path/to/output/directory>` indicates where to store the evaluation reports.
 
 Similar to the `--config-dir` option in `cabrnet train`, the `--checkpoint-dir <dir>` option is equivalent to:
