@@ -61,7 +61,7 @@ Romain Xu-Darme, Aymeric Varasse, Alban Grastien, Julien Girard-Satabin, Zakaria
 
 BibTex citation:
 ```
-@article{xudarme2024cabrnet,
+@InProceedings{xudarme2024cabrnet,
   title={CaBRNet, an open-source library for developing and evaluating Case-Based Reasoning Models},
   author={Romain Xu-Darme and Aymeric Varasse and Alban Grastien and Julien Girard and Zakaria Chihani},
   booktitle={Proceedings of the xAI-2024 Late-breaking Work, Demos and Doctoral Consortium at the 2nd World Conference on eXplainable Artificial Intelligence},
