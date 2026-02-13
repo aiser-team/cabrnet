@@ -10,8 +10,8 @@ from cabrnet.core.utils.exceptions import ArgumentError
 
 
 @dataclass
-class Annotation:
-    r"""An annotation is a dataclass that contains a single annotation,
+class PartAnnotation:
+    r"""A part annotation is a dataclass that contains a single annotation,
     i.e., the fact that a part is located at a given position in a given image
     (or does not appear on the image).
 
@@ -26,11 +26,12 @@ class Annotation:
     complete_filename: str | None  # File that contains the image
 
 
-def parse(
+def parse_cub200_annotations(
     dataset: Dataset,
     image_description: Path,
     part_annotations: Path,
-) -> dict[int, dict[int, Annotation]]:
+    **kwargs,
+) -> dict[int, dict[int, PartAnnotation]]:
     r"""Reads the relevant information and computes a dictionary `d`
     such that `d[image_idx][part_idx]` contains the annotation information
     related to image `image_idx` about part `part_idx`.
@@ -88,7 +89,7 @@ def parse(
             img_dict = {}
             result[dataset_idx] = img_dict
 
-        img_dict[part_idx] = Annotation(
+        img_dict[part_idx] = PartAnnotation(
             image_idx=dataset_idx,
             part_idx=part_idx,
             x=x,

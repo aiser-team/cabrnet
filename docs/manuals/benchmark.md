@@ -2,6 +2,8 @@
 
 To go beyond the evaluation of the accuracy of case-based reasoning models,
 CaBRNet implements several metrics for evaluating the quality of prototypes.
+This is done through the `benchmark` app and is therefore performed by calling
+`cabrnet benchmark`.
 Currently, CaBRNet supports metrics that are derived from the following works:
 
 - Sensitivity of prototype similarity to geometric perturbations, as described in *M.Nauta, A.Jutte, J.C.Provoost,
@@ -10,7 +12,11 @@ Currently, CaBRNet supports metrics that are derived from the following works:
   PKDD/ECML Workshops, 2020.
 - Relevance of prototypes, as described in *R.Xu-Darme, G.Quénot, Z.Chihani, M.-C.Rousset*,
   [Sanity checks for patch visualisation in prototype-based image classification](https://ieeexplore.ieee.org/document/10208853),
-  XAI4CV at CVPR (2023).
+  XAI4CV at CVPR, 2023.
+- Prototype consistency to part annotations, as described
+  in *Huang, Q., Xue, M., Huang, W., Zhang, H., Song, J., Jing, Y., & Song, M*,
+  [Evaluation and improvement of interpretability for self-explainable part-prototype networks](https://openaccess.thecvf.com/content/ICCV2023/html/Huang_Evaluation_and_Improvement_of_Interpretability_for_Self-Explainable_Part-Prototype_Networks_ICCV_2023_paper.html),
+  ICCV (2023).
 
 ## Creating and Using Metrics
 
@@ -249,25 +255,31 @@ by Qihan Huang et al.
 The idea is to verify whether each prototype can be linked to a specific *part*
 that has been recognised by an expert (through an annotation).
 
-Consistency is computed as follows.
-For a given prototype $p$ associated with class $k = c(p)$, let $I\sb{k}$ be the images of class $k$.
-Let $O\sb{k}$ be the set of *object parts* associated with class $k$
+Let us start with some notations.
+For a given prototype $p$ associated with class $k = c(p)$, let $I_k$ be the images of class $k$.
+Let $O_k$ be the set of *object parts* associated with class $k$
 (i.e., parts that are typically present in images of this class)
-and let $i \in O\sb{k}$ be one of these parts;
-$I\sb{k,i}$ are the images that contain this part,
-and for a given image $im \in I\sb{k,O}$, the *location* of the part $i$ in the image is denoted
-$(x\sb{im,i},y\sb{im,i})$.
-For a given attribution method $v$ and an input image $im$,
-we upsample the $H \times W$ activation map to get an attribution map on the whole image,
-and find the unit $(x\sb{im,u},y\sb{im,u})$ with maximal attribution.
-We then set $o^{p}\sb{im,i}$ to $1$ if the $L1$ distance between $(x\sb{im,u},y\sb{im,u})$
-and $(x\sb{im,i},y\sb{im,i})$ is lower than some threshold $s$
-(i.e., the prototype activated roughly where the part is).
+and let $i \in O_k$ be one of these parts;
+$I_{k,i} \subseteq I_k$ are the images that contain part $i$,
+and for a given image $im \in I_{k,i}$, the *location* (pixel) of part $i$ in the image is denoted
+$(x_{im,i},y_{im,i})$.
+
+Consistency is computed as follows.
+For a prototype $p$ and an input image $im \in I_{c(p)}$,
+CaBRNet uses the attribution method (specified through the `--visualization`/`-z` parameter)
+to upsample the $(H,W)$ similarity map and compute the pixel $(x_{im,p},y_{im,p})$ with maximal attribution;
+this pixel is interpreted as the location of the prototype in the image.
+If part $i$ appears in image $im$,
+variable $o^{p}_{im,i}$ indicates whether the location of the prototype
+roughly matches the location of the part in this image;
+in practice, variable $o^{p}_{im,i}$ is set to $1$
+if the $L1$ distance between $(x_{im,p},y_{im,p})$ and $(x_{im,i},y_{im,i})$
+is lower than some threshold $s$, and to $0$ otherwise.
 
 The *level of consistency* of prototype $p$ is then the maximum proportion --- amongst the parts ---
-of proper activation of the prototype:
+of proper location of the prototype:
 $$
-cons(p) = \max\sb{i \in O\sb{c(p)}}\ \frac{\sum\sb{im \in I\sb{c(p),i}} o^p\sb{im,i}}{|| I\sb{c(p),i}||}.
+cons(p) = \max_{i \in O_{c(p)}}\ \frac{\sum_{im \in I_{c(p),i}} o^p_{im,i}}{|| I_{c(p),i}||}.
 $$
 Finally, a prototype is deemed *consistent* if its level of consistency is above a certain threshold $\mu$.
 
@@ -279,8 +291,9 @@ The metrics is configured in a YML format as follows:
 
 ```yaml
 consistency:
-  image_description: data/CUB_200_2011/images.txt
-  part_annotations: data/CUB_200_2011/parts/part_locs.txt
+  part_parser: parse_cub200_annotations
+  image_description: data/CUB_200_2011/images.txt  # Specific to the parser
+  part_annotations: data/CUB_200_2011/parts/part_locs.txt  # Specific to the parser
   dataset_name: test_set
   load_distances: True # Load saved distances (will not recompute) from $output_folder/distances.csv
   save_distances: False # Set to true to save distances in $output_folder/distances.csv
@@ -288,7 +301,10 @@ consistency:
   threshold: 0.8
 ```
 
-The two files `image_description` and `part_annotations` are used to load the part annotations.
+Parameter `part_parser` indicates which method from `cabrnet.core.utils.parts`
+should be used to read the list of parts and their location.
+Because `parse_cub200_annotations` is used,
+we need to specify the two files `image_description` and `part_annotations`.
 It assumed that `image_description` is a text file with one line per image
 and where each line contains `image_idx image_file_path`;
 this allows CaBRNet to attribute an index to each image.

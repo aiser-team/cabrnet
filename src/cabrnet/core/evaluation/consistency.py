@@ -21,7 +21,8 @@ from cabrnet.core.utils.data import DatasetManager
 from cabrnet.core.utils.exceptions import ArgumentError
 from cabrnet.core.utils.image import safe_open_image
 from cabrnet.core.utils.parser import load_config
-from cabrnet.core.utils.parts import Annotation, parse as parse_parts
+import cabrnet.core.utils.parts
+from cabrnet.core.utils.parts import PartAnnotation
 from cabrnet.core.visualization.visualizer import SimilarityVisualizer
 
 
@@ -163,7 +164,7 @@ def compute_distances(
     dataset: Dataset,
     preprocess: Callable,
     visualizer: SimilarityVisualizer,
-    annotations: dict[int, dict[int, Annotation]],
+    annotations: dict[int, dict[int, PartAnnotation]],
     protos_of_class: dict[int, list[int]],
     verbose: bool,
     device: str | torch.device,
@@ -176,7 +177,8 @@ def compute_distances(
         dataset (Dataset): Dataset (test set) used for evaluation.
         preprocess (Callable): Preprocessing method to apply on images.
         visualizer (SimilarityVisualizer): Visualizer used to determine where the prototype is recognized in the image.
-        annotations (dict[int, dict[int, Annotation]]: Annotations in the form `img_idx -> part_idx -> Annotation`.
+        annotations (dict[int, dict[int, PartAnnotation]]: PartAnnotations in the form
+            `img_idx -> part_idx -> PartAnnotation`.
         protos_of_class (dict[int, list[int]]): List of prototypes relevant to each class.
         verbose (bool): If true, prints progress of evaluation.
         device (str | torch.device): Device on which the computation is to be performed.
@@ -186,7 +188,6 @@ def compute_distances(
         between the centre of prototype `proto_idx` in the images for which it is relevant
         and the centre of part `part_idx` in these images.
     """
-    # distances = {proto_idx: {} for proto_idx in range(model.num_prototypes)}
     distances = {}
 
     data_iter = tqdm(range(len(dataset)), desc="Consistency checking", disable=not verbose)
@@ -229,8 +230,7 @@ def execute(
     visualization_config: Path | dict[str, Any],
     dataset_config: Path | dict[str, Any],
     dataset_name: str,
-    image_description: Path,
-    part_annotations: Path,
+    part_parser: str,
     load_distances: bool | None,
     save_distances: bool | None,
     root_dir: Path,
@@ -248,8 +248,7 @@ def execute(
             the location of the prototypes on the map.
         dataset_config (dict): Dataset configuration.
         dataset_name (str): Name of dataset on which consistency is tested.
-        image_description (Path): Path to file containing the images indices.
-        part_annotations (Path): Path to file containing the location of parts in the images.
+        part_parser (str): Name of function used to extract the parts.
         load_distances (bool|None): Whether the distances should be read (if None, tries to read).
         save_distances (bool|None): Whether the distances should be saved
             (if None, saves if the distances have been computed).
@@ -269,7 +268,7 @@ def execute(
     dataset = dataloader.dataset
     preprocess = getattr(dataset, "transform", ToTensor())
 
-    annots = parse_parts(dataset, image_description, part_annotations)
+    annots = getattr(cabrnet.core.utils.parts, part_parser)(dataset, **kwargs)
     protos_of_class = compute_protos_of_class(model)
 
     # COMPUTES OR LOADS THE DISTANCES
@@ -332,7 +331,6 @@ def execute(
                     max_y = half_size if half_size >= 1 else (half_size * d["image_height"])
                     if (d["distance_x"] <= max_x) and (d["distance_y"] <= max_y):
                         num_in_distances += 1
-                        # print(f"  yes")
                 consistency_pp = num_in_distances / len(distances_pp)
                 if consistency_pp > consistencies[proto_idx]:
                     consistencies[proto_idx] = consistency_pp
@@ -349,8 +347,8 @@ def execute(
         result.to_csv(root_dir / "consistencies.csv")
 
         ave_consistency = sum(consistencies.values()) / len(consistencies)
-        print(f"Average consistency: {ave_consistency}")
-        print(f"Consistency score: {num_consistent / model.num_prototypes}")
+        logger.info(f"Average consistency: {ave_consistency}")
+        logger.info(f"Consistency score: {num_consistent / model.num_prototypes}")
     else:
         if verbose:
             logger.info("Not computing consistency (half-size or threshold not provided)")
