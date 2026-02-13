@@ -14,13 +14,21 @@ Currently, CaBRNet supports metrics that are derived from the following works:
 
 ## Creating and Using Metrics
 
-To add new metrics, simply add a new file `<my_metrics.py>` into the directory [`core/evaluation`](../../src/cabrnet/core/evaluation).
+To add new metrics, simply add a new file `<my_metrics.py>` into the
+directory [`core/evaluation`](../../src/cabrnet/core/evaluation).
 Such files need to implement two methods,
 
-- `get_config(config_file: Path) -> dict[str, Any] | None` reads the configuration file for this metrics.  It corresponds to the `-b`/`--benchmark-configuration` parameter of the `benchmark` application.
-- `execute(arg1, arg2, ..., **kwargs) -> None:` performs the evaluation of the model.  The parameters given to the function are the ones in the dictionary returned by `get_config` plus the following parameters, which are derived from the parameters of the applications: `model`, `dataset_config`, `visualization_config`, `projection_file`, `root_dir` (output directory where the results are to be stored), `device`, `verbose`, `prototype_dir`, and `sampling_ratio`.  To guarantee robustness with future implementations, it is recommended to use a catch-all `**kwargs` parameter.
+- `get_config(config_file: Path) -> dict[str, Any] | None` reads the configuration file for this metrics. It corresponds
+  to the `-b`/`--benchmark-configuration` parameter of the `benchmark` application.
+- `execute(arg1, arg2, ..., **kwargs) -> None:` performs the evaluation of the model. The parameters given to the
+  function are the ones in the dictionary returned by `get_config` plus the following parameters, which are derived from
+  the parameters of the applications: `model`, `dataset_config`, `visualization_config`, `projection_file`, `root_dir`
+  (output directory where the results are to be stored), `device`, `verbose`, `prototype_dir`, and `sampling_ratio`. To
+  guarantee robustness with future implementations, it is recommended to use a catch-all `**kwargs` parameter.
 
-The metrics that should be executed are defined in the benchmark configuration file (parameter `-b`/`--benchmark-configuration`).  Each entry in this configuration refer to a python file from `core/evaluation`, and the sub-entries are the parameters for this specific metrics.
+The metrics that should be executed are defined in the benchmark configuration file
+(parameter `-b`/`--benchmark-configuration`). Each entry in this configuration refers to a python file
+from `core/evaluation`, and the sub-entries are the parameters for this specific metrics.
 
 ## Existing Metrics
 
@@ -228,7 +236,88 @@ to:
 
 Benchmark `prototype_discrimination` evaluates how good individual prototypes are good at classifying images.
 This benchmark works by computing the activation of each prototype in each image of a dataset
-and applying a AUROC or AUPRC analysis to determine how much the prototype separates the images of its class(es) vs the images of other classes.
+and applying a AUROC or AUPRC analysis to determine how much the prototype separates the images of its class(es) vs the
+images of other classes.
+
+### Consistency
+
+#### Description
+
+This metrics is an implementation of the *consistency* metrics from the 2023 ICCV paper entitled
+"*Evaluation and Improvement of Interpretability for Self-Explainable Part-Prototype Networks*"
+by Qihan Huang et al.
+The idea is to verify whether each prototype can be linked to a specific *part*
+that has been recognised by an expert (through an annotation).
+
+Consistency is computed as follows.
+For a given prototype $p$ associated with class $k = c(p)$, let $I\sb{k}$ be the images of class $k$.
+Let $O\sb{k}$ be the set of *object parts* associated with class $k$
+(i.e., parts that are typically present in images of this class)
+and let $i \in O\sb{k}$ be one of these parts;
+$I\sb{k,i}$ are the images that contain this part,
+and for a given image $im \in I\sb{k,O}$, the *location* of the part $i$ in the image is denoted
+$(x\sb{im,i},y\sb{im,i})$.
+For a given attribution method $v$ and an input image $im$,
+we upsample the $H \times W$ activation map to get an attribution map on the whole image,
+and find the unit $(x\sb{im,u},y\sb{im,u})$ with maximal attribution.
+We then set $o^{p}\sb{im,i}$ to $1$ if the $L1$ distance between $(x\sb{im,u},y\sb{im,u})$
+and $(x\sb{im,i},y\sb{im,i})$ is lower than some threshold $s$
+(i.e., the prototype activated roughly where the part is).
+
+The *level of consistency* of prototype $p$ is then the maximum proportion --- amongst the parts ---
+of proper activation of the prototype:
+$$
+cons(p) = \max\sb{i \in O\sb{c(p)}}\ \frac{\sum\sb{im \in I\sb{c(p),i}} o^p\sb{im,i}}{|| I\sb{c(p),i}||}.
+$$
+Finally, a prototype is deemed *consistent* if its level of consistency is above a certain threshold $\mu$.
+
+*Consistency* of the whole model is the proportion of prototypes that are consistent.
+
+#### Configuration
+
+The metrics is configured in a YML format as follows:
+
+```yaml
+consistency:
+  image_description: data/CUB_200_2011/images.txt
+  part_annotations: data/CUB_200_2011/parts/part_locs.txt
+  dataset_name: test_set
+  load_distances: True # Load saved distances (will not recompute) from $output_folder/distances.csv
+  save_distances: False # Set to true to save distances in $output_folder/distances.csv
+  half_size: 36
+  threshold: 0.8
+```
+
+The two files `image_description` and `part_annotations` are used to load the part annotations.
+It assumed that `image_description` is a text file with one line per image
+and where each line contains `image_idx image_file_path`;
+this allows CaBRNet to attribute an index to each image.
+It is further assumed that `part_annotations`
+is also a text file with one annotation per line,
+where each annotation has the form `image_idx part_idx x y visible`
+where $(x,y)$ is the location of part `part_idx` in image `image_idx`
+if `visible` is `1` (otherwise, the part is not visible in the image).
+
+`dataset_name` is the name of the dataset (from the dataset config file)
+used to verify consistency.
+`load_distances` and `save_distances` indicate whether the $L1$ distances mentioned before
+should be loaded or saved in a csv file
+(computing the distances can be time-consuming on non-trivial datasets).
+
+`half_size` refers to the $s$ parameter,
+i.e., the attribution is close to the annotation if the distance is less that this value.
+Instead of giving an absolute value (here, `36`),
+it is possible to provide a float between $0.0$ and $1.0$;
+in this case, the parameter $s$ is image-dependent
+and equals `half-size` times the size of the image.
+
+`threshold` is the $\mu$ parameter defined above.
+
+The app outputs the average consistency of prototypes
+as well as the consistency of the model (i.e., the proportion of prototypes
+whose consistency is above the $\mu$ threshold).
+It also generates a file `consistencies.csv` that records the consistency of each prototype
+and the part that is provided this consistency score.
 
 ## Launching the benchmark
 
