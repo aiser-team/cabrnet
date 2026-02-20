@@ -33,6 +33,49 @@ def safe_copy(src: Path, dst: Path) -> None:
         pass
 
 
+def save_configuration(
+    directory_path: Path,
+    model: CaBRNet,
+    model_arch: Path | dict[str, Any],
+    training_config: Path | dict[str, Any] | None,
+    dataset_config: Path | dict[str, Any],
+) -> None:
+    r"""Saves configuration files only.
+
+    Args:
+        directory_path (Path): Target location.
+        model (Module): CaBRNet model.
+        model_arch (Path|dict): Path to the model configuration file, or configuration dictionary.
+        training_config (Path|dict): Path to the training configuration file, or configuration dictionary.
+        dataset_config (Path|dict): Path to the dataset configuration file, or configuration dictionary.
+    """
+    directory_path.mkdir(parents=True, exist_ok=True)
+
+    model.eval()
+    model.export_arch(directory_path)  # Export auxiliary infos if necessary
+
+    if isinstance(model_arch, Path):
+        safe_copy(src=model_arch, dst=directory_path / CaBRNet.DEFAULT_MODEL_CONFIG)
+    else:
+        with open(directory_path / CaBRNet.DEFAULT_MODEL_CONFIG, "w") as fout:
+            # Save dictionary to file
+            yaml.dump(model_arch, fout, sort_keys=False)
+    if training_config is not None:
+        if isinstance(training_config, Path):
+            safe_copy(src=training_config, dst=directory_path / OptimizerManager.DEFAULT_TRAINING_CONFIG)
+        else:
+            with open(directory_path / OptimizerManager.DEFAULT_TRAINING_CONFIG, "w") as fout:
+                # Save dictionary to file
+                yaml.dump(training_config, fout, sort_keys=False)
+
+    if isinstance(dataset_config, Path):
+        safe_copy(src=dataset_config, dst=directory_path / DatasetManager.DEFAULT_DATASET_CONFIG)
+    else:
+        with open(directory_path / DatasetManager.DEFAULT_DATASET_CONFIG, "w") as fout:
+            # Save dictionary to file
+            yaml.dump(dataset_config, fout, sort_keys=False)
+
+
 def save_checkpoint(
     directory_path: Path,
     model: CaBRNet,
@@ -61,35 +104,19 @@ def save_checkpoint(
         device (str | device): Hardware device (recorded for reproducibility).
         stats (dictionary, optional): Other optional statistics. Default: None.
     """
-    directory_path.mkdir(parents=True, exist_ok=True)
-
+    # Saves configuration files first
+    save_configuration(
+        directory_path=directory_path,
+        model=model,
+        model_arch=model_arch,
+        training_config=training_config,
+        dataset_config=dataset_config,
+    )
     model.eval()
-
     torch.save(model.state_dict(), directory_path / CaBRNet.DEFAULT_MODEL_STATE)
-    model.export_arch(directory_path)  # Export auxiliary infos if necessary
 
     if optimizer_mngr is not None:
         torch.save(optimizer_mngr.state_dict(), directory_path / OptimizerManager.DEFAULT_TRAINING_STATE)
-    if isinstance(model_arch, Path):
-        safe_copy(src=model_arch, dst=directory_path / CaBRNet.DEFAULT_MODEL_CONFIG)
-    else:
-        with open(directory_path / CaBRNet.DEFAULT_MODEL_CONFIG, "w") as fout:
-            # Save dictionary to file
-            yaml.dump(model_arch, fout, sort_keys=False)
-    if training_config is not None:
-        if isinstance(training_config, Path):
-            safe_copy(src=training_config, dst=directory_path / OptimizerManager.DEFAULT_TRAINING_CONFIG)
-        else:
-            with open(directory_path / OptimizerManager.DEFAULT_TRAINING_CONFIG, "w") as fout:
-                # Save dictionary to file
-                yaml.dump(training_config, fout, sort_keys=False)
-
-    if isinstance(dataset_config, Path):
-        safe_copy(src=dataset_config, dst=directory_path / DatasetManager.DEFAULT_DATASET_CONFIG)
-    else:
-        with open(directory_path / DatasetManager.DEFAULT_DATASET_CONFIG, "w") as fout:
-            # Save dictionary to file
-            yaml.dump(dataset_config, fout, sort_keys=False)
 
     state = {
         "random_generators": {

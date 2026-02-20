@@ -9,10 +9,11 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard.writer import SummaryWriter
 
 from cabrnet.archs.generic.model import CaBRNet
+from cabrnet.core.utils.data import DatasetManager
 from cabrnet.core.utils.monitoring import metrics_to_str
 from cabrnet.core.utils.optimizers import OptimizerManager
 from cabrnet.core.utils.parser import load_config
-from cabrnet.core.utils.save import load_checkpoint, save_checkpoint
+from cabrnet.core.utils.save import load_checkpoint, save_checkpoint, save_configuration
 
 LATEST_DIR = Path("latest")
 FINAL_DIR = Path("final")
@@ -161,16 +162,35 @@ def training_loop(
     epochs_since_best = 0
     trained = False
 
-    # Save initial model before training
-    if list(epoch_range) and next(iter(epoch_range)) == 0 and checkpoint_frequency is not None:
-        train_info = model.evaluate(dataloaders=dataloaders, dataset_name="train_set", device=device, verbose=verbose)
+    if list(epoch_range) and next(iter(epoch_range)) == 0:
+        config_dir = working_dir / INITIAL_DIR
+        if checkpoint_frequency is not None:
+            # Save initial model before training
+            train_info = model.evaluate(
+                dataloaders=dataloaders, dataset_name="train_set", device=device, verbose=verbose
+            )
 
-        # Add all stats to Tensorboard
-        for key, value in train_info.items():
-            writer.add_scalar(key, value, 0)
-        writer.flush()
-
-        save(dir_name=INITIAL_DIR, epoch="init", optimizer=optimizer_mngr)
+            # Add all stats to Tensorboard
+            for key, value in train_info.items():
+                writer.add_scalar(key, value, 0)
+            writer.flush()
+            save(dir_name=INITIAL_DIR, epoch="init", optimizer=optimizer_mngr)
+        else:
+            # Saves configuration files
+            save_configuration(
+                directory_path=config_dir,
+                model=model,
+                model_arch=model_arch,
+                training_config=training_config,
+                dataset_config=dataset_config,
+            )
+        # Update paths if necessary
+        if isinstance(model_arch, Path):
+            model_arch = config_dir / CaBRNet.DEFAULT_MODEL_CONFIG
+        if isinstance(training_config, Path):
+            training_config = config_dir / OptimizerManager.DEFAULT_TRAINING_CONFIG
+        if isinstance(dataset_config, Path):
+            dataset_config = config_dir / DatasetManager.DEFAULT_DATASET_CONFIG
 
     for epoch in epoch_range:
         # Handle early abort
