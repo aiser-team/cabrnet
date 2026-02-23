@@ -513,6 +513,7 @@ class OptimizerManager:
             self.schedulers[optim_name].load_state_dict(state_dict["schedulers"][optim_name])
 
     DEFAULT_TRAINING_CONFIG = Path("training.yml")
+    TRAINING_ALTERNATIVE = [("--training", DEFAULT_TRAINING_CONFIG)]  # Used by CaBRNet.create_checkpoint_parser
     DEFAULT_TRAINING_STATE = Path("optimizer_state.pth")
 
     @staticmethod

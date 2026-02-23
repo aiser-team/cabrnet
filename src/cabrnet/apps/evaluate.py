@@ -11,6 +11,13 @@ from cabrnet.core.utils.exceptions import ArgumentError
 
 description = "evaluates the accuracy of a CaBRNet model"
 
+alternatives = (
+    CaBRNet.ARCHITECTURE_ALTERNATIVE
+    + CaBRNet.STATE_ALTERNATIVE
+    + DatasetManager.DATASET_ALTERNATIVE
+    + OptimizerManager.TRAINING_ALTERNATIVE
+)
+
 
 def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     r"""Creates the argument parser for evaluating a CaBRNet model.
@@ -27,15 +34,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     parser = CaBRNet.create_parser(parser)
     parser = DatasetManager.create_parser(parser)
     parser = OptimizerManager.create_parser(parser)
-    parser.add_argument(
-        "-c",
-        "--checkpoint-dir",
-        type=Path,
-        required=False,
-        metavar="/path/to/checkpoint/dir",
-        help="path to a checkpoint directory "
-        "(alternative to --model-arch, --model-state-dict, --dataset and --training)",
-    )
+    parser = CaBRNet.create_checkpoint_parser(parser, checkpoint_dest="--checkpoint-dir", alternatives=alternatives)
     parser.add_argument(
         "--targets",
         type=str,
@@ -57,18 +56,7 @@ def check_args(args: Namespace) -> Namespace:
     Returns:
         Modified argument namespace.
     """
-    if args.checkpoint_dir is not None:
-        # Fetch all files from directory
-        for param, name in zip(
-            [args.model_arch, args.model_state_dict, args.dataset, args.training],
-            ["--model-arch", "--model-state-dict", "--dataset", "--training"],
-        ):
-            if param is not None:
-                logger.warning(f"Ignoring option {name}: using content pointed by --checkpoint-dir instead")
-        args.model_arch = args.checkpoint_dir / CaBRNet.DEFAULT_MODEL_CONFIG
-        args.model_state_dict = args.checkpoint_dir / CaBRNet.DEFAULT_MODEL_STATE
-        args.dataset = args.checkpoint_dir / DatasetManager.DEFAULT_DATASET_CONFIG
-        args.training = args.checkpoint_dir / OptimizerManager.DEFAULT_TRAINING_CONFIG
+    CaBRNet.check_args(args, checkpoint_dest="--checkpoint-dir", alternatives=alternatives)
 
     # Check configuration completeness
     for param, name, option in zip(

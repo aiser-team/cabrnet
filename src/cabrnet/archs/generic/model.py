@@ -20,7 +20,7 @@ import time
 
 from cabrnet.archs.generic.conv_extractor import ConvExtractor, LAYER_INIT_FUNCTIONS
 from cabrnet.archs.generic.decision import CaBRNetClassifier
-from cabrnet.core.utils.exceptions import check_mandatory_fields
+from cabrnet.core.utils.exceptions import check_mandatory_fields, ArgumentError
 from cabrnet.core.utils.optimizers import OptimizerManager
 from cabrnet.core.utils.parser import load_config
 from cabrnet.core.visualization.visualizer import SimilarityVisualizer
@@ -197,6 +197,121 @@ class CaBRNet(nn.Module):
                 help="path to the model state dictionary",
             )
         return parser
+
+    ARCHITECTURE_ALTERNATIVE = [("--model-arch", DEFAULT_MODEL_CONFIG)]
+    STATE_ALTERNATIVE = [("--model-state-dict", DEFAULT_MODEL_STATE)]
+
+    @staticmethod
+    def attribute_of_option(option: str) -> str:
+        r"""Translates a ArgsParser option name into the corresponding attributes
+        that allows the user to access this value.
+
+        Args:
+            option (str): the name of the option (generally, something like "--my-option").
+
+        Returns:
+            the name of the attribute in the parser (e.g., "my_option").
+        """
+        if option.startswith("--"):
+            option = option[2:]
+        return option.replace("-", "_")
+
+    @staticmethod
+    def create_checkpoint_parser(
+        parser: argparse.ArgumentParser | None = None,
+        checkpoint_dest: str = "--checkpoint-dir",
+        alternatives: list[tuple[str, Path]] | None = None,
+    ) -> argparse.ArgumentParser:
+        r"""Creates a checkpoint option in the parser which allows the user
+        to specify a default folder where input files are found.
+        This method requires to specify the list of files that the checkpoint contains.
+        For instance, if the checkpoint may contain the model architecture, the model state,
+        the dataset, and the training file, one could specify:
+
+        .. code-block:: python
+
+          alternatives=CaBRNet.ARCHITECTURE_ALTERNATIVE
+          + CaBRNet.STATE_ALTERNATIVE
+          + DatasetManager.DATASET_ALTERNATIVE
+          + OptimizerManager.TRAINING_ALTERNATIVE,
+
+        Args:
+            parser (argparse.ArgumentParser | None): parser to which the option is added.
+            checkpoint_dest (str): name of the option (e.g., "--checkpoint-dir").
+            alternatives (list[tuple[str, Path]] | None): list of options for which this provides an option;
+              each option is described by its name and the path that allows CaBRNet to find the file.
+
+        Returns:
+            modified (or created) parser.
+        """
+        if alternatives is None:
+            alternatives = CaBRNet.ARCHITECTURE_ALTERNATIVE
+        if parser is None:
+            parser = argparse.ArgumentParser(description="Build a CaBRNet model")
+        alternative_names = [param_name for (param_name, _) in alternatives]
+        alternative_name = ", ".join(alternative_names)
+
+        parser.add_argument(
+            "-c",
+            checkpoint_dest,
+            type=Path,
+            required=False,
+            metavar="/path/to/config/dir",
+            help="path to directory containing all configuration files of model "
+            f"(alternative to {alternative_name})",
+        )
+        return parser
+
+    @staticmethod
+    def check_args(
+        args: argparse.Namespace,
+        checkpoint_dest: str = "--checkpoint-dir",
+        alternatives: list[tuple[str, str, Path]] | None = None,
+        strict: bool = True,
+        check_defined: bool = False,
+    ) -> argparse.Namespace:
+        r"""Parses the namespace to find the options that the checkpoint provides an alternative for
+        (if this option is provided).
+        see: :py:func:`.create_checkpoint_parser`.
+
+        Args:
+            args (argparse.Namespace): namespace in which parameters are provided.
+            checkpoint_dest (str): name of the option (e.g., "--checkpoint-dir").
+            alternatives (list[tuple[str, Path]] | None): list of options for which this provides an option;
+              each option is described by its name and the path that allows CaBRNet to find the file.
+            strict (bool): if true, forbids the definition of both the checkpoint option
+              and any of the option that the checkpoint is an alternative for.
+              Otherwise, uses the checkpoint only for the options that are not specified.
+            check_defined (bool): if true, indicates that each parameter in the alternative
+              must be defined either separately or via the alternative.
+
+        Returns:
+            modified (or created) parser.
+        """
+        if alternatives is None:
+            alternatives = [CaBRNet.ARCHITECTURE_ALTERNATIVE]
+        checkpoint = CaBRNet.attribute_of_option(checkpoint_dest)
+        if vars(args)[checkpoint]:
+            dir: Path = vars(args)[checkpoint]
+            for (param_name, default_path) in alternatives:
+                dest = CaBRNet.attribute_of_option(param_name)
+                if strict and vars(args)[dest]:
+                    raise ArgumentError(f"Cannot specify both options {checkpoint_dest} and {param_name}")
+                if not vars(args)[dest]:
+                    vars(args)[dest] = dir / default_path
+        else:
+            if check_defined:
+                not_defined = []
+                for param_name, _ in alternatives:
+                    dest = CaBRNet.attribute_of_option(param_name)
+                    if not vars(args)[dest]:
+                        not_defined.append(param_name)
+                if not_defined:
+                    raise ArgumentError(
+                        f"Following parameter not defined: {str(not_defined)}. "
+                        f"Alternative {checkpoint_dest} also possible."
+                    )
+        return args
 
     def export_arch(self, output_dir: Path):
         """Export model information (other than state dictionary).
