@@ -137,7 +137,8 @@ class ProtoPool(CaBRNet):
         r"""Loss function.
 
         Args:
-            model_output (Any): Model output, in this case a tuple containing the prediction and the minimum distances.
+            model_output (Any): Model output, in this case a tuple containing the prediction, the minimum distances,
+                and the probabilities that each prototype belongs to a given slot associated with a given class.
             label (tensor): Original batch labels.
             mixed_label (tensor, optional): Mixed batch labels. Default: None.
             mix_percentage (float, optional): Mix percentage. A value 1.0 indicates that no mix was performed.
