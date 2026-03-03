@@ -135,7 +135,7 @@ class PIPNetClassifier(CaBRNetClassifier):
         features = F.softmax(features, dim=1)
         prototype_presence = F.adaptive_max_pool2d(input=features, output_size=(1, 1)).flatten(start_dim=1)
         prediction = self.last_layer(prototype_presence)
-        return features, prototype_presence, prediction
+        return prediction, features, prototype_presence
 
     def clamp_parameters(self):
         r"""Clamps parameters in-between epochs."""

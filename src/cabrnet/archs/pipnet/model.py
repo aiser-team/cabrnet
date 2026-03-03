@@ -133,7 +133,7 @@ class PIPNet(CaBRNet):
         Returns:
             Loss tensor and batch statistics.
         """
-        features, prototype_presence, prediction = model_output
+        prediction, features, prototype_presence = model_output
 
         if features.size(0) == label.size(0):  # Evaluation mode
             alignment_loss = torch.zeros(1, device=features.device)
