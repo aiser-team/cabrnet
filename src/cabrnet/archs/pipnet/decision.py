@@ -128,9 +128,9 @@ class PIPNetClassifier(CaBRNetClassifier):
             features (tensor): Convolutional features from extractor. Shape (N, D, H, W).
 
         Returns:
+            Vector of logits. Shape (N, C).
             Tensor of prototypical features. Shape (N, P, H, W).
             Tensor of prototype presence. Shape (N, P).
-            Vector of logits. Shape (N, C).
         """
         features = F.softmax(features, dim=1)
         prototype_presence = F.adaptive_max_pool2d(input=features, output_size=(1, 1)).flatten(start_dim=1)
