@@ -8,7 +8,8 @@ import requests
 from loguru import logger
 from PIL import Image
 from pathlib import Path
-import scipy
+import scipy.io
+import xml.etree.ElementTree as ET
 
 def show_file_list() -> str:
     """Shows list of files to download.
