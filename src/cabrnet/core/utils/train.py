@@ -9,11 +9,10 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard.writer import SummaryWriter
 
 from cabrnet.archs.generic.model import CaBRNet
-from cabrnet.core.utils.data import DatasetManager
 from cabrnet.core.utils.monitoring import metrics_to_str
 from cabrnet.core.utils.optimizers import OptimizerManager
 from cabrnet.core.utils.parser import load_config
-from cabrnet.core.utils.save import load_checkpoint, save_checkpoint, save_configuration
+from cabrnet.core.utils.save import load_checkpoint, save_checkpoint
 
 LATEST_DIR = Path("latest")
 FINAL_DIR = Path("final")
@@ -128,6 +127,14 @@ def training_loop(
     projection_info = None  # Default value used by subroutine [save]. Might be a parameter of [save] instead.
     train_info = None
 
+    # Open YAML files once and for all
+    if isinstance(model_arch, Path):
+        model_arch = load_config(model_arch)
+    if isinstance(training_config, Path):
+        training_config = load_config(training_config)
+    if isinstance(dataset_config, Path):
+        dataset_config = load_config(dataset_config)
+
     def save(dir_name: Path, epoch: int | str, optimizer: OptimizerManager | None) -> None:
         r"""Saves the model by calling :func:`~cabrnet.core.utils.save.save_checkpoint`. Most parameters are already known
         in [training_loop], which is why they do not need to be repeated when calling this subroutine.
@@ -175,22 +182,6 @@ def training_loop(
                 writer.add_scalar(key, value, 0)
             writer.flush()
             save(dir_name=INITIAL_DIR, epoch="init", optimizer=optimizer_mngr)
-        else:
-            # Saves configuration files
-            save_configuration(
-                directory_path=config_dir,
-                model=model,
-                model_arch=model_arch,
-                training_config=training_config,
-                dataset_config=dataset_config,
-            )
-        # Update paths if necessary
-        if isinstance(model_arch, Path):
-            model_arch = config_dir / CaBRNet.DEFAULT_MODEL_CONFIG
-        if isinstance(training_config, Path):
-            training_config = config_dir / OptimizerManager.DEFAULT_TRAINING_CONFIG
-        if isinstance(dataset_config, Path):
-            dataset_config = config_dir / DatasetManager.DEFAULT_DATASET_CONFIG
 
     for epoch in epoch_range:
         # Handle early abort
@@ -268,11 +259,7 @@ def training_loop(
         load_checkpoint(directory_path=path_to_best, model=model, optimizer_mngr=optimizer_mngr)
 
     # Call epilogue
-    epilogue_params = (
-        training_config.get("epilogue", {})
-        if isinstance(training_config, dict)
-        else load_config(training_config).get("epilogue", {})
-    )
+    epilogue_params = training_config.get("epilogue", {})
     projection_info = model.epilogue(  # Save projection infos before final checkpoint
         dataloaders=dataloaders,
         optimizer_mngr=optimizer_mngr,
