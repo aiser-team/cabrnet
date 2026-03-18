@@ -7,7 +7,8 @@ import Augmentor
 import requests
 from loguru import logger
 from PIL import Image
-
+from pathlib import Path
+import scipy
 
 def show_file_list() -> str:
     """Shows list of files to download.
@@ -305,10 +306,14 @@ def download_dogs(path: str, use_segmentation: bool) -> None:
     lists_url = "http://vision.stanford.edu/aditya86/ImageNetDogs/lists.tar"
 
     # Define paths
-    images_tar = os.path.join(dataset_dir, "images.tar")
-    annotations_tar = os.path.join(dataset_dir, "annotation.tar")
-    lists_tar = os.path.join(dataset_dir, "lists.tar")
-
+    # images_tar = os.path.join(dataset_dir, "images.tar")
+    # annotations_tar = os.path.join(dataset_dir, "annotation.tar")
+    # lists_tar = os.path.join(dataset_dir, "lists.tar")
+    images_tar = Path(dataset_dir) / "images.tar"
+    annotations_tar = Path(dataset_dir) / "annotation.tar"
+    lists_tar = Path(dataset_dir) / "lists.tar"
+    
+    
     # Download helper
     def download_file(url, dest):
         if not os.path.exists(dest):
