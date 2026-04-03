@@ -6,7 +6,11 @@ from argparse import ArgumentParser, RawTextHelpFormatter
 import Augmentor
 import requests
 from loguru import logger
+from pathlib import Path
 from PIL import Image
+import scipy.io
+from urllib.parse import urljoin
+import xml.etree.ElementTree as ET
 
 
 def show_file_list() -> str:
@@ -289,6 +293,135 @@ def preprocess_cub(path: str) -> None:
         del p
 
 
+def download_dogs(path: str, use_segmentation: bool) -> None:
+    """Downloads the Stanford Dogs dataset.
+
+    Args:
+        path (str): Path where to download the dataset to.
+        use_segmentation (bool): Ignored, as segmentation is not available for this dataset.
+    """
+    dataset_dir = Path(path) / "stanford_dogs"
+    os.makedirs(dataset_dir, exist_ok=True)
+
+    # URL for the Stanford Dogs dataset
+    url_dir = "http://vision.stanford.edu/aditya86/ImageNetDogs/"
+    filenames = ["images.tar", "annotation.tar", "lists.tar"]
+
+    # Download helper
+    def download_file(url, dest):
+        if not dest.exists():
+            logger.info(f"Downloading {dest}...")
+            response = requests.get(url, stream=True)
+            if response.status_code == 200:
+                with open(dest, "wb") as f:
+                    f.write(response.raw.read())
+            logger.info(f"Downloaded {dest}")
+        else:
+            logger.info(f"{os.path.basename(dest)} already exists.")
+
+    for filename in filenames:
+        download_file(urljoin(url_dir, filename), Path(dataset_dir) / filename)
+
+    # Extract files
+    if not os.path.exists(os.path.join(dataset_dir, "train_list.mat")):
+        for filename in filenames:
+            tar_path = Path(dataset_dir) / filename
+            logger.info(f"Extracting {tar_path}...")
+            with tarfile.open(tar_path) as tar:
+                # Extract specifically into the dataset_dir
+                tar.extractall(path=dataset_dir)
+        logger.info("Stanford Dogs dataset extracted.")
+    else:
+        logger.info("Stanford Dogs dataset already extracted.")
+
+    if use_segmentation:
+        logger.warning("Segmentation dataset is not available for Stanford Dogs.")
+
+
+def preprocess_dogs(path: str) -> None:
+    """Preprocesses Stanford Dogs dataset for ProtoTree/ProtoPNet (Cropping).
+
+    Args:
+        path (str): Path where the dataset is located.
+    """
+    # Define paths
+    images_root = os.path.join(path, "Images")
+    annotations_root = os.path.join(path, "Annotation")
+
+    # Stanford dogs uses .mat files for splits
+    train_list_path = os.path.join(path, "train_list.mat")
+    test_list_path = os.path.join(path, "test_list.mat")
+
+    logger.info(f"Train list path: {train_list_path}")
+    logger.info(f"Test list path: {test_list_path}")
+
+    if not os.path.exists(train_list_path) or not os.path.exists(test_list_path):
+        logger.error("Train/Test lists not found. content of lists.tar might be missing.")
+        return
+
+    # Output directories
+    train_full_path = os.path.join(path, "dataset/train_full/")
+    test_full_path = os.path.join(path, "dataset/test_full/")
+    train_crop_path = os.path.join(path, "dataset/train_crop/")
+    test_crop_path = os.path.join(path, "dataset/test_crop/")
+
+    # Helper to process splits
+    def process_split(mat_path, dst_dir, crop_bbox: bool = True):
+        mat = scipy.io.loadmat(mat_path)
+        # file_list is an array of arrays of strings. shape (N, 1)
+        file_list = [f[0][0] for f in mat["file_list"]]
+
+        for file_name in file_list:
+            # file_name example: 'n02085620-Chihuahua/n02085620_10976.jpg'
+            class_dir_name = os.path.dirname(file_name)
+            base_name = os.path.splitext(os.path.basename(file_name))[0]
+
+            # Paths
+            src_img_path = os.path.join(images_root, file_name)
+            xml_path = os.path.join(annotations_root, class_dir_name, base_name)  # Annotation has no extension
+
+            if not os.path.exists(src_img_path):
+                continue
+
+            # Create destination folder
+            save_dir = os.path.join(dst_dir, class_dir_name)
+            os.makedirs(save_dir, exist_ok=True)
+
+            # Load and Crop
+            img = Image.open(src_img_path).convert("RGB")
+
+            # Parse Bounding Box from XML
+            # LOGIC CHANGE HERE
+            bbox = None
+            if crop_bbox and os.path.exists(xml_path):
+                tree = ET.parse(xml_path)
+                root = tree.getroot()
+                bndbox = root.find("object/bndbox")
+                if bndbox is not None:
+                    xmin = int(bndbox.find("xmin").text)
+                    ymin = int(bndbox.find("ymin").text)
+                    xmax = int(bndbox.find("xmax").text)
+                    ymax = int(bndbox.find("ymax").text)
+                    bbox = (xmin, ymin, xmax, ymax)
+
+            if bbox:
+                cropped_img = img.crop(bbox)
+            else:
+                # If crop_bbox is False OR no bbox found, use full image
+                cropped_img = img
+
+            cropped_img.save(os.path.join(save_dir, base_name + ".jpg"))
+
+        logger.info(f"Processed {len(file_list)} images for {dst_dir}")
+
+    logger.info("Preprocessing Stanford Dogs (Cropping to BBox)...")
+    process_split(train_list_path, train_crop_path)
+    process_split(train_list_path, train_full_path, crop_bbox=False)
+    process_split(test_list_path, test_crop_path)
+    process_split(test_list_path, test_full_path, crop_bbox=False)
+    logger.info("Stanford Dogs preprocessing completed.")
+
+
 def download_flowers(path: str, use_segmentation: bool) -> None:
     """Downloads the Oxford Flowers 102 dataset.
 
@@ -341,6 +474,7 @@ def download_cifar100(path: str, use_segmentation: bool) -> None:
     if use_segmentation:
         logger.warning("Segmentation dataset is not available for CIFAR-100. Skipping segmentation download.")
 
+
 def download_pets(path: str, use_segmentation: bool) -> None:
     """Downloads the Oxford Pets dataset.
 
@@ -349,12 +483,14 @@ def download_pets(path: str, use_segmentation: bool) -> None:
         use_segmentation (bool): Whether to download the segmentation dataset too. Deprecated, as no segmentation dataset is available.
     """
     from torchvision.datasets import OxfordIIITPet
+
     _ = OxfordIIITPet(
         root=path,
         download=True,
         transform=None,  # No transformation needed for downloading
         split="trainval",  # Download the training split
     )
+
 
 def download_tiny_imagenet(path: str, use_segmentation: bool) -> None:
     """Downloads the Tiny ImageNet dataset.
@@ -364,13 +500,14 @@ def download_tiny_imagenet(path: str, use_segmentation: bool) -> None:
         use_segmentation (bool): Whether to download the segmentation dataset too. Deprecated, as no segmentation dataset is available.
     """
     from tiny_imagenet_torch import TinyImageNet
-    
+
     _ = TinyImageNet(
         root=path,
         download=True,
         transform=None,  # No transformation needed for downloading
         train=True,  # Download the training split
     )
+
 
 FILE_LIST = [
     {
@@ -414,6 +551,13 @@ FILE_LIST = [
         "dir": "tiny-imagenet-200",  # Standard directory from 'tiny_imagenet_torch'
         "download_fn": download_tiny_imagenet,
         "preprocess_fn": None,  # No preprocessing needed for this dataset
+    },
+    {
+        "identifier": "stanford_dogs",
+        "description": "Stanford Dogs dataset",
+        "dir": "stanford_dogs",
+        "download_fn": download_dogs,
+        "preprocess_fn": preprocess_dogs,
     },
 ]
 
