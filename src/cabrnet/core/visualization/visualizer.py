@@ -11,20 +11,22 @@ from loguru import logger
 from PIL import Image
 from torch import Tensor
 
+from cabrnet.core.attribution.augmentors import GaussianNoiseAugmentor
 from cabrnet.core.utils.exceptions import check_mandatory_fields
 from cabrnet.core.utils.parser import load_config
-from cabrnet.core.visualization.gradients import prp, randgrad, saliency, smoothgrad
+from cabrnet.core.visualization.gradients import attribute_prototypes
 from cabrnet.core.visualization.prp_utils import get_cabrnet_lrp_composite_model
 from cabrnet.core.visualization.upsampling import cubic_upsampling
 from cabrnet.core.visualization.view import SUPPORTED_VIEWING_FUNCTIONS
 
-SUPPORTED_ATTRIBUTION_FUNCTIONS = {
-    "cubic_upsampling": cubic_upsampling,
-    "smoothgrad": smoothgrad,
-    "saliency": saliency,
-    "randgrad": randgrad,
-    "prp": prp,
-}
+# FIXME: support cubic and randgrad
+# SUPPORTED_ATTRIBUTION_FUNCTIONS = {
+#     "cubic_upsampling": cubic_upsampling,
+#     "smoothgrad": smoothgrad,
+#     "saliency": saliency,
+#     "randgrad": randgrad,
+#     "prp": prp,
+# }
 
 
 class SimilarityVisualizer(nn.Module):
@@ -42,11 +44,12 @@ class SimilarityVisualizer(nn.Module):
     def __init__(
         self,
         model: nn.Module,
-        attribution_fn: Callable,
+        attribution_method: str,
         view_fn: Callable,
         attribution_params: dict | None = None,
         view_params: dict | None = None,
         config_file: Path | None = None,
+        augmentors: list[nn.Module] = [],
         *args,
         **kwargs,
     ):
@@ -61,14 +64,15 @@ class SimilarityVisualizer(nn.Module):
             config_file (Path, optional): Path to the file used to configure the visualizer. Default: None.
         """
         super().__init__(*args, **kwargs)
-        self.attribution = attribution_fn
+        self.attribution_method = attribution_method
         self.attribution_params = attribution_params if attribution_params is not None else {}
+        self.augmentors = augmentors
         self.view = view_fn
         self.view_params = view_params if view_params is not None else {}
         self.config_file = config_file
 
         self.model = model
-        if self.attribution == prp:
+        if self.attribution_method == "prp":
             logger.info("Canonizing model for PRP")
             self.model = get_cabrnet_lrp_composite_model(
                 model=model,
@@ -131,12 +135,14 @@ class SimilarityVisualizer(nn.Module):
             # Overwrite parameter in attribution_params
             attribution_params["location"] = location
 
-        return self.attribution(
+        return attribute_prototypes(
             model=self.model,
+            algorithm=self.attribution_method,
             img=img,
             img_tensor=img_tensor,
             proto_idx=proto_idx,
             device=device,
+            augmentors=self.augmentors,
             **attribution_params,
         )
 
@@ -192,8 +198,9 @@ class SimilarityVisualizer(nn.Module):
         )
 
         # Visualization function
-        attribution_fn = SUPPORTED_ATTRIBUTION_FUNCTIONS.get(config_dict["attribution"]["type"])
-        if attribution_fn is None:
+        # TODO: upsampling, randgrad
+        attribution_method = config_dict["attribution"]["type"]
+        if attribution_method not in ["saliency", "smoothgrad", "lrp"]:
             raise NotImplementedError(f"Unknown visualization function {config_dict['attribution']['type']}")
         attribution_params = config_dict["attribution"]["params"] if "params" in config_dict["attribution"] else None
 
@@ -204,11 +211,18 @@ class SimilarityVisualizer(nn.Module):
             raise NotImplementedError(f"Unknown viewing function {config_dict['view']['type']}")
         view_params = config_dict["view"]["params"] if "params" in config_dict["view"] else None
 
+        if attribution_method == "smoothgrad":
+            assert attribution_params is not None  # FIXME: fallback with default params
+            augmentors = [GaussianNoiseAugmentor(attribution_params["num_samples"], attribution_params["noise_ratio"])]
+        else:
+            augmentors = []
+
         return SimilarityVisualizer(
             model=model,
-            attribution_fn=attribution_fn,
+            attribution_method=attribution_method,
             view_fn=view_fn,
             attribution_params=attribution_params,
             view_params=view_params,
             config_file=config if isinstance(config, Path) else None,
+            augmentors=augmentors,
         )

@@ -12,6 +12,7 @@ from torch.fx import symbolic_trace
 from torch.nn import functional as F
 
 from cabrnet.archs.generic.decision import CaBRNetClassifier
+from cabrnet.archs.generic.model import CaBRNet
 from cabrnet.core.utils.similarities import ProtoPNetSimilarity
 
 
@@ -908,7 +909,7 @@ def get_extractor_lrp_composite_model(
 
 
 def get_cabrnet_lrp_composite_model(
-    model: nn.Module,
+    model: CaBRNet,
     set_bias_to_zero: bool = True,
     stability_factor: float = 1e-6,
     use_zbeta: bool = True,
