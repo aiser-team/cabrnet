@@ -3,6 +3,14 @@ The data configuration associated with a particular experiment is stored in a YM
 For more examples, see the [CUB200](https://github.com/aiser-team/cabrnet/blob/main/configs/prototree/cub200/dataset.yml) and 
 [Stanford Cars](https://github.com/aiser-team/cabrnet/blob/main/configs/prototree/stanford_cars/dataset.yml) configuration files.
 
+To help with the format of this file, a JSON schema is available in the `configs` directory. 
+JSON schemas are compatible with most editors (PyCharm, VSCode). To use a given schema, simply add the following
+line at the beginning of the YML file.
+```
+#yaml-language-server: $schema=<path/to/dataset-schema.json>
+```
+
+
 ## Configuring datasets 
 Each configuration file contains the location of one or several datasets, along with the list of 
 preprocessing operations that should be applied to these datasets.

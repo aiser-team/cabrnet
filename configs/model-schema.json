@@ -1,0 +1,241 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Model Configuration",
+  "type": "object",
+  "required": [
+    "top_arch",
+    "extractor",
+    "classifier",
+    "similarity"
+  ],
+  "additionalProperties": true,
+  "description": "The configuration for a cabrnet model",
+  "properties": {
+    "extractor": {
+      "$ref": "#/$defs/extractor",
+      "description": "Feature extractor."
+    },
+    "classifier": {
+      "type": "object",
+      "description": "Classifier.",
+      "required": [
+        "module",
+        "name"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "module": {
+          "type": "string",
+          "description": "Python module"
+        },
+        "name": {
+          "type": "string",
+          "description": "Class name"
+        },
+        "params": {
+          "type": "object",
+          "description": "Class parameters",
+          "additionalProperties": {
+            "type": [
+              "number",
+              "integer",
+              "string",
+              "boolean",
+              "array"
+            ]
+          }
+        }
+      }
+    },
+    "top_arch": {
+      "type": "object",
+      "required": [
+        "module",
+        "name"
+      ],
+      "additionalProperties": false,
+      "description": "Top architecture.",
+      "properties": {
+        "module": {
+          "type": "string",
+          "description": "Top module."
+        },
+        "name": {
+          "type": "string",
+          "description": "Class name."
+        }
+      }
+    },
+    "similarity": {
+      "type": "object",
+      "required": [
+        "name"
+      ],
+      "additionalProperties": true,
+      "description": "Configuration of the similarity layer.",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Class name."
+        },
+        "params": {
+          "type": "object",
+          "description": "Class parameters.",
+          "additionalProperties": {
+            "type": [
+              "number",
+              "integer",
+              "string",
+              "boolean",
+              "array"
+            ]
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "extractor": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/basic_backbone"
+        },
+        {
+          "$ref": "#/$defs/multilayer_backbone"
+        }
+      ]
+    },
+    "basic_backbone": {
+      "type": "object",
+      "required": [
+        "backbone"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "backbone": {
+          "required": [
+            "arch",
+            "layer"
+          ],
+          "additionalProperties": true,
+          "properties": {
+            "arch": {
+              "type": "string",
+              "description": "Supported model architecture for the backbone (must belong to torchvision.models.list_models())."
+            },
+            "layer": {
+              "type": "string",
+              "description": "Layer name inside the backbone for feature extraction."
+            },
+            "weights": {
+              "type": "string",
+              "description": "Backbone pretrained weights."
+            },
+            "params": {
+              "type": "object",
+              "additionalProperties": {
+                "type": [
+                  "number",
+                  "integer",
+                  "string",
+                  "boolean",
+                  "array"
+                ]
+              }
+            }
+          }
+        },
+        "add_on": {
+          "$ref": "#/$defs/add_on"
+        }
+      }
+    },
+    "multilayer_backbone": {
+      "type": "object",
+      "description": "Multilayer extraction backbone.",
+      "required": [
+        "backbone"
+      ],
+      "properties": {
+        "backbone": {
+          "required": [
+            "arch"
+          ],
+          "additionalProperties": true,
+          "properties": {
+            "arch": {
+              "type": "string",
+              "description": "Supported model architecture for the backbone (must belong to torchvision.models.list_models())."
+            },
+            "weights": {
+              "type": "string",
+              "description": "Backbone pretrained weights."
+            },
+            "params": {
+              "type": "object",
+              "additionalProperties": {
+                "type": [
+                  "number",
+                  "integer",
+                  "string",
+                  "boolean",
+                  "array"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "additionalProperties": {
+        "type": "object",
+        "description": "Feature extraction pipeline.",
+        "required": [
+          "source_layer"
+        ],
+        "properties": {
+          "source_layer": {
+            "type": "string",
+            "description": "Source layer inside the backbone."
+          }
+        }
+      }
+    },
+    "add_on": {
+      "type": "object",
+      "description": "Add-on layers after feature extraction from the backbone.",
+      "properties": {
+        "init_mode": {
+          "type": "string",
+          "description": "Layer initialization mode: PROTOPNET, XAVIER or XAVIER_UNIFORM."
+        }
+      },
+      "additionalProperties": {
+        "type": "object",
+        "description": "Add-on layer configuration.",
+        "required": [
+          "type"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "Layer type."
+          },
+          "params": {
+            "type": "object",
+            "description": "Layer parameters.",
+            "additionalProperties": {
+              "type": [
+                "number",
+                "integer",
+                "string",
+                "boolean",
+                "array"
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
