@@ -122,7 +122,7 @@ def attribute_prototypes(
         if location == "max":
             # Find location of feature vector with the highest similarity
             h_max, w_max = np.where(sim_map == np.max(sim_map))
-            positions_to_consider = [(h_max, w_max)]
+            positions_to_consider = [(h_max[0], w_max[0])]
         elif isinstance(location, tuple):
             # Location is predefined
             positions_to_consider = [location]
