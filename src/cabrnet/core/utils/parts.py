@@ -1,9 +1,9 @@
 """This file contains all the necessary tools to manipulate annotated parts."""
 
 from dataclasses import dataclass
-import pandas as pd
 from pathlib import Path
 
+import pandas as pd
 from torch.utils.data import Dataset
 
 from cabrnet.core.utils.exceptions import ArgumentError
@@ -18,6 +18,7 @@ class PartAnnotation:
     Specifically, if `observed` is `True`, then the part with index `path_idx`
     appears at location `(x,y)` in the image at position `image_idx` within the dataset.
     Otherwise, it does not appear in this image."""
+
     image_idx: int  # Index of the image in the current dataset (starting with 0)
     part_idx: int  # Index of the part as defined by `parts.txt`
     x: int

@@ -1,17 +1,17 @@
 """Implements the saving and loading capabilities for a CaBRNet model."""
 
 import csv
-from pathlib import Path
 import pickle
 import random
 import shutil
+from pathlib import Path
 from typing import Any
 
-from loguru import logger
 import numpy as np
 import pandas as pd
 import torch
 import yaml
+from loguru import logger
 
 from cabrnet.archs.custom_extractors.onnx_backbone import GenericONNXModel
 from cabrnet.archs.generic.model import CaBRNet

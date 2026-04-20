@@ -1,6 +1,7 @@
+from pathlib import Path
+
 import torch
 from cpuinfo import get_cpu_info
-from pathlib import Path
 
 
 def get_hardware_info(device: str | torch.device) -> str:

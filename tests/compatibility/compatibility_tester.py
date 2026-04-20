@@ -1,16 +1,17 @@
-import unittest
-import torch
-import torch.nn as nn
-import numpy as np
 import random
+import unittest
 from pathlib import Path
 from typing import Any
+
+import numpy as np
+import torch
+import torch.nn as nn
+from loguru import logger
+from torch.utils.data import Dataset, Subset
 
 from cabrnet.archs.generic.model import CaBRNet
 from cabrnet.core.utils.data import DatasetManager
 from cabrnet.core.utils.optimizers import OptimizerManager
-from torch.utils.data import Dataset, Subset
-from loguru import logger
 
 # Global sampling ratio used to speed up verification
 SAMPLING_RATIO = 6000
@@ -64,7 +65,7 @@ class CaBRNetCompatibilityTester(unittest.TestCase):
         if actual.size() != expected.size():
             self.fail(f"{msg} Mismatching tensor sizes: {actual.size()} v. {expected.size()}.")
         elif not torch.all(torch.eq(expected, actual)):
-            self.fail(f"{msg} Mismatching tensors (all close? {torch.allclose(expected,actual)}).")
+            self.fail(f"{msg} Mismatching tensors (all close? {torch.allclose(expected, actual)}).")
 
     def assertModelEqual(
         self, expected: nn.Module, actual: nn.Module, non_deterministic_inference: bool = False, **kwargs
@@ -123,4 +124,4 @@ class CaBRNetCompatibilityTester(unittest.TestCase):
             if key not in expected.keys():
                 logger.error(f"Extra parameter {key} in state under test")
                 equal = False
-        self.assertEqual(equal, True, f"State dictionaries do not match")
+        self.assertEqual(equal, True, "State dictionaries do not match")

@@ -1,12 +1,14 @@
 """Custom module for data preprocessing."""
 
-from cabrnet.core.utils.transform import load_transform
-from typing import Tuple, Dict, Callable, Any
+from typing import Any, Callable, Dict, Tuple
+
 import numpy as np
-import torchvision.transforms
 import torch
-from torch import Tensor
+import torchvision.transforms
 from PIL import Image
+from torch import Tensor
+
+from cabrnet.core.utils.transform import load_transform
 
 
 def convert_to_rgb() -> Callable:

@@ -1,6 +1,6 @@
 import csv
-from pathlib import Path
 import pickle
+from pathlib import Path
 from typing import Any, Callable
 
 import matplotlib.pyplot as plt
@@ -397,9 +397,11 @@ def analyze(
                     test_patch_img_path=patch_img_path,
                     test_patch_heatmap_path=patch_heatmap_path,
                     focus_test_patch_img_path=debug_dir / "images" / f"img{img_id}_p{proto_idx}_{pert_name}_focus.png",
-                    dual_test_patch_img_path=debug_dir / "images" / f"img{img_id}_p{proto_idx}_{pert_name}_dual.png"
-                    if enable_dual_mode
-                    else None,
+                    dual_test_patch_img_path=(
+                        debug_dir / "images" / f"img{img_id}_p{proto_idx}_{pert_name}_dual.png"
+                        if enable_dual_mode
+                        else None
+                    ),
                     original_sim_score=score,
                     focus_sim_score=perturbation_scores[0],
                     dual_sim_score=perturbation_scores[1] if enable_dual_mode else 0.0,

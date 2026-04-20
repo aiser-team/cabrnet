@@ -1,13 +1,13 @@
-from pathlib import Path
 from argparse import ArgumentParser, Namespace
+from pathlib import Path
 
 from loguru import logger
 
 from cabrnet.archs.generic.model import CaBRNet
 from cabrnet.core.utils.data import DatasetManager
+from cabrnet.core.utils.exceptions import ArgumentError
 from cabrnet.core.utils.optimizers import OptimizerManager
 from cabrnet.core.utils.parser import load_config
-from cabrnet.core.utils.exceptions import ArgumentError
 
 description = "evaluates the accuracy of a CaBRNet model"
 

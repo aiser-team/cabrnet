@@ -19,11 +19,11 @@
 
 import importlib
 import importlib.metadata
-from pathlib import Path
 import random
 import sys
 import traceback
 from argparse import ArgumentParser
+from pathlib import Path
 
 import numpy as np
 import torch

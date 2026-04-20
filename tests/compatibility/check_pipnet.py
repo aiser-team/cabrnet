@@ -1,28 +1,25 @@
 import copy
-import unittest
 import sys
-from pathlib import Path
-
-from loguru import logger
-from tqdm import tqdm
-
-import torch
-import torch.nn as nn
-from torch.utils.data import DataLoader
+import unittest
 from argparse import Namespace
-
-
-from compatibility_tester import CaBRNetCompatibilityTester, setup_rng, SAMPLING_RATIO
-from cabrnet.archs.generic.model import CaBRNet
-from cabrnet.core.utils.parser import load_config
-from cabrnet.core.utils.data import DatasetManager
-from cabrnet.core.utils.optimizers import OptimizerManager
+from pathlib import Path
 
 import pipnet_legacy.pipnet.pipnet as legacy_pipnet
 import pipnet_legacy.pipnet.train as legacy_train
-import pipnet_legacy.util.func as legacy_func
-import pipnet_legacy.util.data as legacy_data
 import pipnet_legacy.util.args as legacy_args
+import pipnet_legacy.util.data as legacy_data
+import pipnet_legacy.util.func as legacy_func
+import torch
+import torch.nn as nn
+from compatibility_tester import SAMPLING_RATIO, CaBRNetCompatibilityTester, setup_rng
+from loguru import logger
+from torch.utils.data import DataLoader
+from tqdm import tqdm
+
+from cabrnet.archs.generic.model import CaBRNet
+from cabrnet.core.utils.data import DatasetManager
+from cabrnet.core.utils.optimizers import OptimizerManager
+from cabrnet.core.utils.parser import load_config
 
 
 def legacy_get_namespace(config_dict: dict[str, Path], seed: int) -> Namespace:
@@ -136,9 +133,7 @@ def legacy_get_model(num_classes: int, args: Namespace, seed: int) -> nn.DataPar
     return legacy_model
 
 
-def legacy_get_optimizers(
-    legacy_model: nn.Module, args: Namespace
-) -> tuple[
+def legacy_get_optimizers(legacy_model: nn.Module, args: Namespace) -> tuple[
     torch.optim.Optimizer,
     torch.optim.Optimizer,
     list[torch.nn.parameter.Parameter],

@@ -1,5 +1,5 @@
-from pathlib import Path
 from argparse import ArgumentParser, Namespace
+from pathlib import Path
 
 from loguru import logger
 from tqdm import tqdm
@@ -10,8 +10,8 @@ from cabrnet.core.utils.exceptions import ArgumentError
 from cabrnet.core.utils.optimizers import OptimizerManager
 from cabrnet.core.utils.parser import load_config
 from cabrnet.core.utils.save import load_checkpoint
-from cabrnet.core.utils.train import training_loop, latest_dir, best_dir, final_dir
 from cabrnet.core.utils.system_info import get_hardware_info
+from cabrnet.core.utils.train import best_dir, final_dir, latest_dir, training_loop
 
 DEFAULT_LOGGER_FILE = "log.txt"
 

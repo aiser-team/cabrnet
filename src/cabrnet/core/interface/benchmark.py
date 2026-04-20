@@ -1,8 +1,9 @@
 from typing import Any
 
 import gradio as gr
-from cabrnet.core.interface.utils import change_visibility
 from gradio.components.base import Component
+
+from cabrnet.core.interface.utils import change_visibility
 
 SUPPORTED_PERTURBATIONS = ["brightness", "contrast", "saturation", "hue", "blur", "distortion"]
 

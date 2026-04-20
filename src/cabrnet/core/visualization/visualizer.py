@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import argparse
-from typing import Any, Callable
 from pathlib import Path
+from typing import Any, Callable
 
 import numpy as np
 import torch

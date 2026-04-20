@@ -1,22 +1,18 @@
-from argparse import Namespace
-import unittest
-import apps.train
-import cabrnet.utils.data
-import cabrnet.utils.save
-from cabrnet.utils.parser import load_config
 import os
+import unittest
+from argparse import Namespace
+
+import apps.train
+
+from cabrnet.utils.parser import load_config
 
 
 class TestConfigsLoading(unittest.TestCase):
     def setUp(self):
         self.dataset_config_file = os.path.join("tests", "configs", "dataset.yml")
         self.training_config_file = os.path.join("tests", "configs", "training.yml")
-        self.visualization_config_file = os.path.join(
-            "tests", "configs", "visualization.yml"
-        )
-        self.protopnet_config_file = os.path.join(
-            "tests", "configs", "protopnet_model_arch.yml"
-        )
+        self.visualization_config_file = os.path.join("tests", "configs", "visualization.yml")
+        self.protopnet_config_file = os.path.join("tests", "configs", "protopnet_model_arch.yml")
 
     def test_dataset_loading(self):
         load_config(self.dataset_config_file)
@@ -44,12 +40,8 @@ class TestTrainApp(unittest.TestCase):
         # utils, to ensure staying consistent with the configuration schema?
         self.dataset_config_file = os.path.join("tests", "configs", "dataset.yml")
         self.training_config_file = os.path.join("tests", "configs", "training.yml")
-        self.visualization_config_file = os.path.join(
-            "tests", "configs", "visualization.yml"
-        )
-        self.protopnet_config_file = os.path.join(
-            "tests", "configs", "protopnet_model_arch.yml"
-        )
+        self.visualization_config_file = os.path.join("tests", "configs", "visualization.yml")
+        self.protopnet_config_file = os.path.join("tests", "configs", "protopnet_model_arch.yml")
         self.seed = 42
         do_epilogue_only = False
         self.args = Namespace(
@@ -68,7 +60,7 @@ class TestTrainApp(unittest.TestCase):
             output_dir=os.path.relpath("tests/runs/"),
             seed=self.seed,
             checkpoint_frequency=5,
-            save_best="acc"
+            save_best="acc",
         )
 
     def test_protopnet_training(self):

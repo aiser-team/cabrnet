@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 import torch
 import torch.nn as nn
+from torch import Tensor
+
 from cabrnet.archs.generic.decision import CaBRNetClassifier
 from cabrnet.core.utils.prototypes import init_prototypes
-from torch import Tensor
-from typing import Any
 
 
 class ProtoPoolClassifier(CaBRNetClassifier):

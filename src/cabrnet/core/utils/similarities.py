@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+
 import torch
 import torch.nn as nn
 from loguru import logger

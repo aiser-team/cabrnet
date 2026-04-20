@@ -3,25 +3,27 @@ from 2023 ICCV paper entitled
 "Evaluation and Improvement of Interpretability for Self-Explainable Part-Prototype Networks"
 by  Qihan Huang et al.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
-import pandas as pd
 from pathlib import Path
-from loguru import logger
+from typing import Any, Callable
+
 import numpy as np
+import pandas as pd
 import torch
+from loguru import logger
 from torch.utils.data import Dataset
 from torchvision.transforms import ToTensor
 from tqdm import tqdm
-from typing import Any, Callable
 
+import cabrnet.core.utils.parts
 from cabrnet.archs.generic.model import CaBRNet
 from cabrnet.core.utils.data import DatasetManager
 from cabrnet.core.utils.exceptions import ArgumentError
 from cabrnet.core.utils.image import safe_open_image
 from cabrnet.core.utils.parser import load_config
-import cabrnet.core.utils.parts
 from cabrnet.core.utils.parts import PartAnnotation
 from cabrnet.core.visualization.visualizer import SimilarityVisualizer
 

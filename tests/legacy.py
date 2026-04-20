@@ -1,28 +1,28 @@
-import unittest
-import sys
 import os
-from typing import Any
-from loguru import logger
-import numpy as np
 import random
+import sys
+import unittest
 from argparse import Namespace
-import torch
-import torch.nn as nn
+from typing import Any
 
-from cabrnet.generic.model import CaBRNet
-from cabrnet.utils.parser import load_config
-from cabrnet.utils.data import DatasetManager
-from cabrnet.utils.optimizers import OptimizerManager
-from cabrnet.prototree.decision import SamplingStrategy
-
+import legacy.prototree.prototree.project as legacy_project
 import legacy.prototree.prototree.prototree as legacy_prototree
+import legacy.prototree.prototree.prune as legacy_prune
 import legacy.prototree.prototree.train as legacy_train
-import legacy.prototree.util.net as legacy_net
+import legacy.prototree.util.args as legacy_args
 import legacy.prototree.util.data as legacy_data
 import legacy.prototree.util.init as legacy_init
-import legacy.prototree.util.args as legacy_args
-import legacy.prototree.prototree.prune as legacy_prune
-import legacy.prototree.prototree.project as legacy_project
+import legacy.prototree.util.net as legacy_net
+import numpy as np
+import torch
+import torch.nn as nn
+from loguru import logger
+
+from cabrnet.generic.model import CaBRNet
+from cabrnet.prototree.decision import SamplingStrategy
+from cabrnet.utils.data import DatasetManager
+from cabrnet.utils.optimizers import OptimizerManager
+from cabrnet.utils.parser import load_config
 
 
 def setup_rng(seed: int):
@@ -152,7 +152,7 @@ class TestProtoTreeCompatibility(unittest.TestCase):
         if actual.size() != expected.size():
             self.fail(f"Mismatching tensor sizes: {actual.size()} v. {expected.size()}")
         elif not torch.all(torch.eq(expected, actual)):
-            self.fail(f"Mismatching tensors (all close? {torch.allclose(expected,actual)})")
+            self.fail(f"Mismatching tensors (all close? {torch.allclose(expected, actual)})")
 
     def assertModelEqual(self, expected: nn.Module, actual: nn.Module):
         expected.eval()

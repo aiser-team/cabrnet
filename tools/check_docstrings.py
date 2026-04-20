@@ -47,7 +47,7 @@ def parse_ast(ast_module: Any, filename: str, ignore_imperative_warnings: bool) 
             module_docstring = ast.get_docstring(body_content)
             class_name = body_content.name
             if not module_docstring:
-                logger.error(f"Missing docstring for class '{class_name}' " f"({filename}:{body_content.lineno})")
+                logger.error(f"Missing docstring for class '{class_name}' ({filename}:{body_content.lineno})")
                 complies = False
             else:
                 attr_location = re.search("\n[\s]*Attributes:", module_docstring)  # type: ignore
@@ -76,7 +76,7 @@ def parse_ast(ast_module: Any, filename: str, ignore_imperative_warnings: bool) 
             function_docstring = ast.get_docstring(body_content)
             function_name = body_content.name
             if not function_docstring:
-                logger.error(f"Missing docstring for function '{function_name}' " f"({filename}:{body_content.lineno})")
+                logger.error(f"Missing docstring for function '{function_name}' ({filename}:{body_content.lineno})")
                 complies = False
                 continue
 

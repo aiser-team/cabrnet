@@ -1,27 +1,32 @@
-import unittest
 import sys
-from typing import Any
-from loguru import logger
+import unittest
 from argparse import Namespace
-import torch
-import torch.nn as nn
 from pathlib import Path
+from typing import Any
 
-from compatibility_tester import CaBRNetCompatibilityTester, DummyLogger, setup_rng, SAMPLING_RATIO
-from cabrnet.archs.generic.model import CaBRNet
-from cabrnet.core.utils.parser import load_config
-from cabrnet.core.utils.data import DatasetManager
-from cabrnet.core.utils.optimizers import OptimizerManager
-from cabrnet.archs.prototree.decision import SamplingStrategy
-
+import prototree_legacy.prototree.project as legacy_project
 import prototree_legacy.prototree.prototree as legacy_prototree
+import prototree_legacy.prototree.prune as legacy_prune
 import prototree_legacy.prototree.train as legacy_train
-import prototree_legacy.util.net as legacy_net
+import prototree_legacy.util.args as legacy_args
 import prototree_legacy.util.data as legacy_data
 import prototree_legacy.util.init as legacy_init
-import prototree_legacy.util.args as legacy_args
-import prototree_legacy.prototree.prune as legacy_prune
-import prototree_legacy.prototree.project as legacy_project
+import prototree_legacy.util.net as legacy_net
+import torch
+import torch.nn as nn
+from compatibility_tester import (
+    SAMPLING_RATIO,
+    CaBRNetCompatibilityTester,
+    DummyLogger,
+    setup_rng,
+)
+from loguru import logger
+
+from cabrnet.archs.generic.model import CaBRNet
+from cabrnet.archs.prototree.decision import SamplingStrategy
+from cabrnet.core.utils.data import DatasetManager
+from cabrnet.core.utils.optimizers import OptimizerManager
+from cabrnet.core.utils.parser import load_config
 
 
 def legacy_get_namespace(config_dict: dict[str, Path]) -> Namespace:
