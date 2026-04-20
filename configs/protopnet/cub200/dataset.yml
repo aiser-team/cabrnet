@@ -1,3 +1,4 @@
+#yaml-language-server: $schema=../../dataset-schema.json
 train_set:
   module: torchvision.datasets
   name: ImageFolder

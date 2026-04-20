@@ -1,0 +1,199 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Training Configuration",
+  "type": "object",
+  "description": "Configuration of the training process.",
+  "required": [
+    "optimizers",
+    "num_epochs"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "param_groups": {
+      "description": "Describes the parameter groups.",
+      "additionalProperties": {
+        "description": "Group configuration.",
+        "anyOf": [
+          {
+            "type": "array"
+          },
+          {
+            "type": "string"
+          },
+          {
+            "$ref": "#/$defs/complex_param_group"
+          }
+        ]
+      }
+    },
+    "optimizers": {
+      "description": "Configuration of the optimizers.",
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "type"
+        ],
+        "description": "Optimizer configuration.",
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "Optimizer type."
+          },
+          "params": {
+            "description": "Optimizer parameters.",
+            "additionalProperties": {
+              "type": [
+                "number",
+                "integer",
+                "string",
+                "boolean",
+                "array"
+              ]
+            }
+          },
+          "groups": {
+            "description": "List of associated parameter groups.",
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": [
+                  "number",
+                  "integer",
+                  "string",
+                  "boolean",
+                  "array"
+                ]
+              }
+            }
+          },
+          "scheduler": {
+            "description": "Learning rate scheduler.",
+            "type": "object",
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "type": {
+                "type": "string",
+                "description": "Scheduler type."
+              },
+              "trigger": {
+                "type": "string",
+                "description": "Scheduler trigger (epoch or batch)."
+              },
+              "params": {
+                "additionalProperties": {
+                  "type": [
+                    "number",
+                    "integer",
+                    "string",
+                    "boolean",
+                    "array"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "num_epochs": {
+      "type": [
+        "number",
+        "integer"
+      ],
+      "minimum": 1,
+      "description": "Number of training epochs."
+    },
+    "periods": {
+      "description": "Configuration of the training periods.",
+      "additionalProperties": {
+        "description": "Configuration of the training period.",
+        "additionalProperties": false,
+        "required": [
+          "optimizers"
+        ],
+        "properties": {
+          "optimizers": {
+            "type": [
+              "string",
+              "array"
+            ],
+            "description": "Optimizers to use during this period."
+          },
+          "num_epochs": {
+            "type": [
+              "integer",
+              "number"
+            ],
+            "minimum": 1,
+            "description": "Number of training epochs of the period."
+          },
+          "epoch_range": {
+            "description": "First and last epochs of the period.",
+            "type": "array",
+            "items": {
+              "type": [
+                "number",
+                "integer"
+              ]
+            }
+          },
+          "freeze": {
+            "type": [
+              "array",
+              "string"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "description": "List of parameter groups to freeze."
+          }
+        }
+      }
+    },
+    "auxiliary_info": {
+      "description": "Auxiliary information passed on to the CaBRNet module.",
+      "additionalProperties": {
+        "additionalProperties": {
+          "type": [
+            "number",
+            "integer",
+            "string",
+            "boolean",
+            "array"
+          ]
+        }
+      }
+    }
+  },
+  "$defs": {
+    "complex_param_group": {
+      "properties": {
+        "include": {
+          "description": "List of submodules to include.",
+          "type": "array"
+        },
+        "exclude": {
+          "description": "List of submodules to exclude.",
+          "type": "array"
+        },
+        "type": {
+          "description": "List of parameter types to include.",
+          "type": "array"
+        },
+        "start": {
+          "description": "Name of first parameter to include.",
+          "type": "string"
+        },
+        "stop": {
+          "description": "Name of last parameter to include.",
+          "type": "string"
+        },
+        "exclude_type": {
+          "description": "List of parameter types to exclude.",
+          "type": "array"
+        }
+      }
+    }
+  }
+}

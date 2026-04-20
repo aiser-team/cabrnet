@@ -5,6 +5,13 @@ For more examples, see
 the [ProtoPNet](https://github.com/aiser-team/cabrnet/tree/main/configs/protopnet/cub200/training.yml) and
 [ProtoTree](https://github.com/aiser-team/cabrnet/tree/main/configs/prototree/cub200/training.yml) configuration files.
 
+To help with the format of this file, a JSON schema is available in the `configs` directory. 
+JSON schemas are compatible with most editors (PyCharm, VSCode). To use a given schema, simply add the following
+line at the beginning of the YML file.
+```
+#yaml-language-server: $schema=<path/to/training-schema.json>
+```
+
 ## Defining parameter groups
 
 Parameters of the model can be sorted into different groups, using the following formats:
