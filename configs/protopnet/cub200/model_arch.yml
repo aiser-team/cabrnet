@@ -1,3 +1,4 @@
+#yaml-language-server: $schema=../../model-schema.json
 top_arch:
   module: cabrnet.archs.protopnet.model
   name: ProtoPNet

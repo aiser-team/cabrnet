@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Dataset Configuration",
+  "type": "object",
+  "required": [
+    "train_set",
+    "test_set",
+    "projection_set"
+  ],
+  "additionalProperties": "#/$defs/dataset",
+  "description": "The configuration for a cabrnet dataset.",
+  "properties": {
+    "train_set": {
+      "$ref": "#/$defs/dataset",
+      "description": "Main dataset used for training."
+    },
+    "projection_set": {
+      "$ref": "#/$defs/dataset",
+      "description": "Dataset used for prototype projection."
+    },
+    "test_set": {
+      "$ref": "#/$defs/dataset",
+      "description": "Dataset used for testing."
+    }
+  },
+  "$defs": {
+    "dataset": {
+      "type": "object",
+      "required": [
+        "module",
+        "name",
+        "params",
+        "batch_size",
+        "shuffle"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "module": {
+          "type": "string",
+          "description": "Python module."
+        },
+        "name": {
+          "type": "string",
+          "description": "Class name inside the module."
+        },
+        "num_workers": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of workers for data processing."
+        },
+        "batch_size": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Dataloader batch size."
+        },
+        "shuffle": {
+          "type": "boolean",
+          "description": "If True, shuffle the dataset."
+        },
+        "partition": {
+          "type": "array",
+          "description": "Start/stop fractions for the partition of the dataset."
+        },
+        "partition_seed": {
+          "type": "integer",
+          "description": "Partition random seed."
+        },
+        "params": {
+          "type": "object",
+          "properties": {
+            "root": {
+              "type": "string",
+              "description": "Path to the dataset."
+            },
+            "transform": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/$defs/data_transform"
+              },
+              "description": "Data transformation."
+            },
+            "target_transform": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/$defs/data_transform"
+              },
+              "description": "Label transformation."
+
+            }
+          }
+        }
+      }
+    },
+    "data_transform": {
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "module": {
+          "type": "string",
+          "description": "Python module implementing the transformation."
+        },
+        "type": {
+          "type": "string",
+          "description": "Transformation function."
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": {
+            "type": [
+              "number",
+              "integer",
+              "string",
+              "boolean",
+              "array"
+            ]
+          }
+        },
+        "transforms": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/data_transform"
+          }
+        }
+      }
+    }
+  }
+}

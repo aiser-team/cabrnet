@@ -1,3 +1,4 @@
+#yaml-language-server: $schema=../../training-schema.json
 param_groups:
   backbone: extractor.convnet
   addons: extractor.add_on
