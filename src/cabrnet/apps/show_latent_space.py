@@ -1,18 +1,20 @@
-import torch
-import numpy as np
-from pacmap.pacmap import PaCMAP
 from argparse import ArgumentParser, Namespace
-from cabrnet.archs.generic.model import CaBRNet
-from cabrnet.core.utils.data import DatasetManager
+from pathlib import Path
+
+import numpy as np
+import torch
 from loguru import logger
 from matplotlib import pyplot as plt
 from matplotlib.colors import Normalize
-from torch.utils.data import DataLoader
-from sklearn.manifold import TSNE
+from pacmap.pacmap import PaCMAP
 from sklearn.decomposition import PCA
-from cabrnet.core.utils.exceptions import ArgumentError
+from sklearn.manifold import TSNE
+from torch.utils.data import DataLoader
 from tqdm import tqdm
-from pathlib import Path
+
+from cabrnet.archs.generic.model import CaBRNet
+from cabrnet.core.utils.data import DatasetManager
+from cabrnet.core.utils.exceptions import ArgumentError
 
 description = "visualizes the latent space"
 

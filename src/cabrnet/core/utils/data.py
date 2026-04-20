@@ -4,16 +4,17 @@ import argparse
 import copy
 import importlib
 import os
-from pathlib import Path
 import random
+from pathlib import Path
 from typing import Any, Callable
 
 import torch
 import torchvision.transforms
-from cabrnet.core.utils.parser import load_config
-from cabrnet.core.utils.transform import load_transform, TRANSFORM_FIELDS
 from loguru import logger
 from torch.utils.data import DataLoader, Dataset, Subset
+
+from cabrnet.core.utils.parser import load_config
+from cabrnet.core.utils.transform import TRANSFORM_FIELDS, load_transform
 
 
 # Custom collate functions

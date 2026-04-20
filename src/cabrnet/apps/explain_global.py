@@ -1,5 +1,5 @@
-from pathlib import Path
 from argparse import ArgumentParser, Namespace
+from pathlib import Path
 
 from loguru import logger
 

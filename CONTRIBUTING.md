@@ -27,33 +27,30 @@ To install everything necessary for developing new CaBRNet features, run
 ```bash
 git clone https://github.com/aiser-team/cabrnet
 ```
-Then, follow the [installation guide](docs/manuals/install.md) to install running dependencies.
+Then, follow the [installation guide](docs/manuals/install.md) to install run and dev dependencies.
 
-Once installed, you can proceed the development dependencies:
-```
-unittest
-build
-black
-pyright
-pydoc-markdown
-```
+The configuration for the development dependencies are described in `pyproject.toml`.
 
-The configuration for the development dependencies are described in
-`pyproject.toml`.
 Please make sure to respect the following guidelines for your contributions:
 1. [Coding style consistency](#code-style)
-1. [Type checking compliance](#type-hints)
-1. [Documentation generation](#documentation)
+2. [Type checking compliance](#type-hints)
+3. [Documentation generation](#documentation)
 
 ### Code Style
 
-CaBRNet uses [black](https://pypi.org/project/black/) to ensure a common code style across the entire code base.
-Black can be installed locally using:  
+CaBRNet uses [black](https://pypi.org/project/black/) and to ensure a common code style across the entire code base.
+`black` is configured via `pyproject.toml` to use a maximum line length of 120. It is taken into account automatically by most editors.
+
+Unfortunately, all editors do not agree in the way they organize module imports. For this reason, we use [isort](https://github.com/PyCQA/isort). Some editors support automatically or can be configured (See guide for [Pycharm](https://www.jetbrains.com/help/pycharm/creating-and-optimizing-imports.html#optimize-on-save)). You can also use [ruff](https://docs.astral.sh/ruff/) which has the right defaults.
+
+We **strongly recommend** to use a "pre-commit hook", that will run all formatting automatically. To install it:
+
 ```bash
-python3 -m pip install black
+cp .githooks/pre-commit .git/hooks/pre-commit
+chmod +x .git/hooks/pre-commit
 ```
-As indicated in `pyproject.toml`, CaBRNet uses a maximum line length of 120 (this configuration should be 
-automatically taken into account when using a development environment such as [PyCharm](https://www.jetbrains.com/pycharm/)).
+
+This will run `black` and `isort` each time you commit your changes.
 
 ### Type Hints
 

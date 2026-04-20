@@ -1,7 +1,7 @@
 import importlib
 from abc import ABC, abstractmethod
-from typing import Any
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import torch.nn as nn

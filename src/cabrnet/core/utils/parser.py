@@ -1,6 +1,8 @@
 """This file contains all the necessary tools to parse the various config files."""
-import torch  # necessary in case a dtype is torch.something
+
 from pathlib import Path
+
+import torch  # necessary in case a dtype is torch.something
 import yaml
 
 

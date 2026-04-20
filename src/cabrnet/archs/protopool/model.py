@@ -1,4 +1,5 @@
 import copy
+import time
 from pathlib import Path
 from typing import Any, Callable
 
@@ -6,6 +7,10 @@ import graphviz
 import numpy as np
 import torch
 import torch.nn as nn
+from loguru import logger
+from PIL import Image
+from torch.utils.data import DataLoader
+from tqdm import tqdm
 
 from cabrnet.archs.generic.decision import CaBRNetClassifier
 from cabrnet.archs.generic.model import CaBRNet
@@ -14,11 +19,6 @@ from cabrnet.core.utils.image import safe_open_image
 from cabrnet.core.utils.optimizers import OptimizerManager
 from cabrnet.core.visualization.explainer import ExplanationGraph
 from cabrnet.core.visualization.visualizer import SimilarityVisualizer
-from loguru import logger
-from PIL import Image
-from torch.utils.data import DataLoader
-from tqdm import tqdm
-import time
 
 
 class ProtoPool(CaBRNet):

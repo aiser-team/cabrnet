@@ -1,16 +1,16 @@
 from __future__ import annotations
 
 import argparse
-from typing import Any
+import re
 from pathlib import Path
+from typing import Any
 
 import torch
 import torch.nn as nn
+from loguru import logger
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from cabrnet.core.utils.parser import load_config
-from loguru import logger
-import re
 
 
 def move_optimizer_to(optim: torch.optim.Optimizer, device: str | torch.device) -> None:
@@ -236,7 +236,9 @@ class OptimizerManager:
 
             if "Muon" in optim_fn:
                 try:
-                    from muon import SingleDeviceMuon  # pylint: disable=import-outside-toplevel
+                    from muon import (
+                        SingleDeviceMuon,  # pylint: disable=import-outside-toplevel
+                    )
                 except ImportError as exc:
                     raise ImportError(
                         f"Optimizer '{optim_fn}' requires the Muon package. "

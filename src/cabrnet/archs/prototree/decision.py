@@ -3,10 +3,10 @@ from __future__ import annotations
 from enum import Enum
 from typing import Any
 
+import numpy as np
 import torch
 import torch.nn as nn
 from torch import Tensor
-import numpy as np
 
 from cabrnet.archs.generic.decision import CaBRNetClassifier
 from cabrnet.core.utils.prototypes import init_prototypes

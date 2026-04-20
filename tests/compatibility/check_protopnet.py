@@ -1,27 +1,32 @@
-import unittest
 import sys
-from loguru import logger
-from tqdm import tqdm
+import unittest
 from pathlib import Path
 
+import protopnet_legacy.preprocess as legacy_preprocess
+import protopnet_legacy.prune as legacy_prune
+import protopnet_legacy.push as legacy_push
+import protopnet_legacy.settings as legacy_settings
+import protopnet_legacy.train_and_test as legacy_tnt
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader
-import torchvision.transforms as transforms
 import torchvision.datasets as datasets
+import torchvision.transforms as transforms
+from compatibility_tester import (
+    SAMPLING_RATIO,
+    CaBRNetCompatibilityTester,
+    DummyLogger,
+    get_subset,
+    setup_rng,
+)
+from loguru import logger
+from protopnet_legacy.model import construct_PPNet
+from torch.utils.data import DataLoader
+from tqdm import tqdm
 
-from compatibility_tester import CaBRNetCompatibilityTester, DummyLogger, setup_rng, get_subset, SAMPLING_RATIO
 from cabrnet.archs.generic.model import CaBRNet
-from cabrnet.core.utils.parser import load_config
 from cabrnet.core.utils.data import DatasetManager
 from cabrnet.core.utils.optimizers import OptimizerManager
-
-import protopnet_legacy.settings as legacy_settings
-import protopnet_legacy.preprocess as legacy_preprocess
-from protopnet_legacy.model import construct_PPNet
-import protopnet_legacy.push as legacy_push
-import protopnet_legacy.train_and_test as legacy_tnt
-import protopnet_legacy.prune as legacy_prune
+from cabrnet.core.utils.parser import load_config
 
 
 def legacy_get_model(seed: int) -> nn.Module:

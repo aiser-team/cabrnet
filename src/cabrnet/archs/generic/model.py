@@ -1,26 +1,26 @@
 from __future__ import annotations
 
-import random
 import argparse
 import importlib
+import random
 import shutil
-from typing import Any, Callable
-from thop import profile as profile_batch
+import time
 from pathlib import Path
+from typing import Any, Callable
 
+import numpy as np
 import torch
 import torch.nn as nn
 from loguru import logger
 from PIL import Image
-import numpy as np
+from thop import profile as profile_batch
 from torch import Tensor
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-import time
 
-from cabrnet.archs.generic.conv_extractor import ConvExtractor, LAYER_INIT_FUNCTIONS
+from cabrnet.archs.generic.conv_extractor import LAYER_INIT_FUNCTIONS, ConvExtractor
 from cabrnet.archs.generic.decision import CaBRNetClassifier
-from cabrnet.core.utils.exceptions import check_mandatory_fields, ArgumentError
+from cabrnet.core.utils.exceptions import ArgumentError, check_mandatory_fields
 from cabrnet.core.utils.optimizers import OptimizerManager
 from cabrnet.core.utils.parser import load_config
 from cabrnet.core.visualization.visualizer import SimilarityVisualizer
@@ -293,7 +293,7 @@ class CaBRNet(nn.Module):
         checkpoint = CaBRNet.attribute_of_option(checkpoint_dest)
         if vars(args)[checkpoint]:
             dir: Path = vars(args)[checkpoint]
-            for (param_name, default_path) in alternatives:
+            for param_name, default_path in alternatives:
                 dest = CaBRNet.attribute_of_option(param_name)
                 if strict and vars(args)[dest]:
                     raise ArgumentError(f"Cannot specify both options {checkpoint_dest} and {param_name}")

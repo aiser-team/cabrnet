@@ -1,10 +1,11 @@
 from typing import Any
 
 import gradio as gr
+from gradio.components.base import Component
+
 from cabrnet.core.interface.utils import change_visibility
 from cabrnet.core.visualization.view import SUPPORTED_VIEWING_FUNCTIONS
 from cabrnet.core.visualization.visualizer import SUPPORTED_ATTRIBUTION_FUNCTIONS
-from gradio.components.base import Component
 
 
 def create_visualization_gui(
