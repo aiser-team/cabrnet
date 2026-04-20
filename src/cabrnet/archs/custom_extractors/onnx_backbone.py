@@ -1,14 +1,15 @@
 from __future__ import annotations
+
 from pathlib import Path
 from typing import Callable, Dict, Optional, Tuple, Union
 
-from loguru import logger
 import numpy as np
 import onnx
 import onnx_graphsurgeon as gs
 import onnxruntime as rt
 import torch
 import torch.nn as nn
+from loguru import logger
 from torchvision.models._api import register_model
 
 __all__ = ["generic_onnx_model", "GenericONNXModel"]

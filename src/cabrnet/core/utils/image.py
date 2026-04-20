@@ -1,8 +1,9 @@
-from PIL import Image
-import torch
-from torchvision.transforms import ToTensor
-from typing import Callable, Any
 from pathlib import Path
+from typing import Any, Callable
+
+import torch
+from PIL import Image
+from torchvision.transforms import ToTensor
 
 
 def square_resize(img: Image.Image) -> Image.Image:

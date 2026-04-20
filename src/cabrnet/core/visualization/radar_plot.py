@@ -1,6 +1,7 @@
-import matplotlib.pyplot as plt
 from math import ceil, pi
 from pathlib import Path
+
+import matplotlib.pyplot as plt
 
 
 def radar_plot(

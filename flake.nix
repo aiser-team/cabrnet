@@ -206,8 +206,13 @@
               (oldAttrs: {
                 doCheck = true;
                 name = "check-${oldAttrs.name}-code";
+                nativeBuildInputs = oldAttrs.nativeBuildInputs ++ (with pythonPkgs; [
+                    black
+                    isort
+                ]);
                 checkPhase = ''
                   black --check src/ tools/
+                  isort --check src/ tools/
                 '';
               });
           formattingDocstring =
@@ -267,7 +272,3 @@
           };
       });
 }
-
-
-
-

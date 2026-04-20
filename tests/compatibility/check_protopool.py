@@ -1,25 +1,24 @@
-import unittest
 import sys
-import numpy as np
-from tqdm import tqdm
-from loguru import logger
-import torch
-import torch.nn as nn
-from torch.utils.data import DataLoader
+import unittest
 from pathlib import Path
 
-
-from compatibility_tester import CaBRNetCompatibilityTester, setup_rng, SAMPLING_RATIO
-from cabrnet.archs.generic.model import CaBRNet
-from cabrnet.archs.protopool.model import ProtoPool
-from cabrnet.core.utils.parser import load_config
-from cabrnet.core.utils.data import DatasetManager
-from cabrnet.core.utils.custom_preprocess import batch_mixup
-from cabrnet.core.utils.optimizers import OptimizerManager
-
+import numpy as np
+import torch
+import torch.nn as nn
+from compatibility_tester import SAMPLING_RATIO, CaBRNetCompatibilityTester, setup_rng
+from loguru import logger
+from protopool_legacy.main import dist_loss, update_prototypes_on_batch
 from protopool_legacy.model import PrototypeChooser
 from protopool_legacy.utils import mixup_data
-from protopool_legacy.main import dist_loss, update_prototypes_on_batch
+from torch.utils.data import DataLoader
+from tqdm import tqdm
+
+from cabrnet.archs.generic.model import CaBRNet
+from cabrnet.archs.protopool.model import ProtoPool
+from cabrnet.core.utils.custom_preprocess import batch_mixup
+from cabrnet.core.utils.data import DatasetManager
+from cabrnet.core.utils.optimizers import OptimizerManager
+from cabrnet.core.utils.parser import load_config
 
 
 def legacy_get_model(model_config_file: Path, seed: int) -> PrototypeChooser:

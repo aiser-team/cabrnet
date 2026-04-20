@@ -1,6 +1,6 @@
 import csv
-from pathlib import Path
 import pickle
+from pathlib import Path
 from typing import Any, Callable
 
 import numpy as np

@@ -1,7 +1,7 @@
-from pathlib import Path
 import sys
+from pathlib import Path
+from shutil import copytree, rmtree
 from typing import Any, Iterable
-from shutil import rmtree, copytree
 
 import torch
 from loguru import logger

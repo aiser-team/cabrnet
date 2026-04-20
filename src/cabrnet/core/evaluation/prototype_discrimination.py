@@ -1,14 +1,14 @@
-import numpy
-import pandas as pd
 from pathlib import Path
-from sklearn.metrics import roc_auc_score
-from sklearn.metrics import average_precision_score
-import torch
-from tqdm import tqdm
 from typing import Any
 
+import numpy
+import pandas as pd
+import torch
+from sklearn.metrics import average_precision_score, roc_auc_score
+from tqdm import tqdm
+
 from cabrnet.archs.generic.model import CaBRNet
-from cabrnet.core.utils.data import DatasetManager, DataLoader
+from cabrnet.core.utils.data import DataLoader, DatasetManager
 from cabrnet.core.utils.exceptions import ArgumentError
 from cabrnet.core.utils.parser import load_config
 

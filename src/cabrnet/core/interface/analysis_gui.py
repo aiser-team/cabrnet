@@ -1,3 +1,4 @@
+from math import ceil
 from pathlib import Path
 from typing import Any, Callable
 
@@ -5,7 +6,6 @@ import gradio as gr
 import torch
 import yaml
 from gradio.components.base import Component
-from math import ceil
 from loguru import logger
 from PIL import Image
 from torchvision.transforms import ToTensor
@@ -14,11 +14,11 @@ import cabrnet.core.evaluation.local_perturbation_analysis
 import cabrnet.core.evaluation.relevance_analysis
 from cabrnet.archs.generic.model import CaBRNet
 from cabrnet.core.interface.benchmark import (
+    SUPPORTED_PERTURBATIONS,
     create_perturbation_benchmark_gui,
     create_pointing_benchmark_gui,
     get_perturbation_config,
     get_pointing_game_config,
-    SUPPORTED_PERTURBATIONS,
 )
 from cabrnet.core.interface.utils import (
     create_browse_folder_component,
@@ -28,11 +28,11 @@ from cabrnet.core.interface.visualization import (
     create_visualization_gui,
     get_visualization_config,
 )
-from cabrnet.core.visualization.radar_plot import radar_plot
-from cabrnet.core.visualization.explainer import PrototypeAnalysisGraph
 from cabrnet.core.utils.data import DatasetManager
 from cabrnet.core.utils.monitoring import metrics_to_str
 from cabrnet.core.utils.save import load_projection_info
+from cabrnet.core.visualization.explainer import PrototypeAnalysisGraph
+from cabrnet.core.visualization.radar_plot import radar_plot
 from cabrnet.core.visualization.visualizer import SimilarityVisualizer
 
 

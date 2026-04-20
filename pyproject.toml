@@ -38,8 +38,6 @@ dependencies = [
     "py-cpuinfo~=9.0.0",
     "gradio~=4.43.0",
     "tensorboard>=2.17.0",
-    "ray[tune]~=2.34.0",
-    "optuna~=3.6.1",
     "onnxruntime~=1.19.0",
     "onnx~=1.19.1",
     "onnx_graphsurgeon~=0.5.2",
@@ -49,9 +47,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["black==24.10.0", "build", "pyright", "twine"]
-doc = ["mkdocs", "pydoc-markdown", "pymdown-extensions", "python-markdown-math"]
-legacy = ["gdown~=4.7.1", "requests~=2.32.0", "Augmentor~=0.2.12"]
+tune = [
+    "ray[tune]~=2.34.0",
+    "optuna~=3.6.1",
+]
 
 [project.urls]
 Homepage = "https://github.com/aiser-team/cabrnet"
@@ -64,8 +63,25 @@ cabrnet-gui = "cabrnet.main_gui:main"
 [tool.black]
 line-length = 120
 
+[tool.ruff]
+line-length = 120
+
+[tool.isort]
+profile="black"
+
 [tool.pyright]
 pythonVersion = "3.10"
 typeCheckingMode = "basic"
 reportMissingTypeStubs = false
 reportMissingImports = true
+
+[dependency-groups]
+dev = [
+ "black==24.10.0",
+ "build",
+ "isort>=8.0.1",
+ "pyright",
+ "twine",
+]
+doc = ["mkdocs", "pydoc-markdown", "pymdown-extensions", "python-markdown-math"]
+legacy = ["gdown~=4.7.1", "requests~=2.32.0", "Augmentor~=0.2.12"]

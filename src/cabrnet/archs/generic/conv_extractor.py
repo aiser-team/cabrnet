@@ -1,20 +1,20 @@
+import warnings
 from collections import OrderedDict
 from pathlib import Path
 from typing import Tuple
-import warnings
 
-from loguru import logger
 import torch
 import torch.nn as nn
 import torchvision.models as torch_models
+from loguru import logger
 from torchvision.models.feature_extraction import (
     create_feature_extractor,
     get_graph_node_names,
 )
 
+from cabrnet.archs.custom_extractors import *
 from cabrnet.core.utils.exceptions import check_mandatory_fields
 from cabrnet.core.utils.init import LAYER_INIT_FUNCTIONS
-from cabrnet.archs.custom_extractors import *
 
 warnings.filterwarnings("ignore")
 

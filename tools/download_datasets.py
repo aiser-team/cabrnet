@@ -1,16 +1,16 @@
 import os
 import shutil
 import tarfile
+import xml.etree.ElementTree as ET
 from argparse import ArgumentParser, RawTextHelpFormatter
+from pathlib import Path
+from urllib.parse import urljoin
 
 import Augmentor
 import requests
-from loguru import logger
-from pathlib import Path
-from PIL import Image
 import scipy.io
-from urllib.parse import urljoin
-import xml.etree.ElementTree as ET
+from loguru import logger
+from PIL import Image
 
 
 def show_file_list() -> str:
@@ -271,7 +271,9 @@ def preprocess_cub(path: str) -> None:
         # rotation
         p = Augmentor.Pipeline(source_directory=class_dir, output_directory=class_aug_dir)
         p.rotate(
-            probability=1, max_left_rotation=10, max_right_rotation=10  # Reduce angle to avoid errors in Augmentor
+            probability=1,
+            max_left_rotation=10,
+            max_right_rotation=10,  # Reduce angle to avoid errors in Augmentor
         )
         p.flip_left_right(probability=0.5)
         for _ in range(10):
