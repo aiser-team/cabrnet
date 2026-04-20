@@ -33,10 +33,10 @@ def _check_tensor_dims(x: Tensor) -> Tensor:
     return x
 
 
-def apply_augmentors(input: Tensor, augmentors: list[nn.Module]) -> Tensor:
-    result = input.unsqueeze(0)
+def apply_augmentors(input_tensor: Tensor, augmentors: list[nn.Module]) -> Tensor:
+    result = input_tensor
     for augment_module in augmentors:
-        result = torch.cat([augment_module(x) for x in result])
+        result = torch.cat([augment_module(x.unsqueeze(0)) for x in result])
     return result
 
 
@@ -150,7 +150,7 @@ def attribute_prototypes(
         else:
             weight = sim_map[h, w].item()
 
-        attributions = torch.cat([attributor.attribute(x, target=(proto_idx, h, w)) for x in attribution_inputs])
+        attributions = torch.stack([attributor.attribute(x, target=(proto_idx, h, w)) for x in attribution_inputs])
         grads += weight * attributions.mean(0)  # average all the attributions by default: smoothgrad-like behaviour
 
         if algorithm == "lrp":
