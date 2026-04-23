@@ -1,6 +1,6 @@
 # Install
 
-## Installating dependencies with UV:
+## Installing dependencies with UV:
 
 The easiest and recommended way to install packages is with `uv` (you can still use pip if you want, see below)
 
@@ -43,13 +43,13 @@ And optional dependencies:
 
 ```bash
 # pyright, black, isort ...
-pip install -e --group dev
+pip install -e . --group dev
 
 # Install documentation related dependencies:
-pip install -e --group doc
+pip install -e . --group doc
 
 # Install legacy testing dependencies:
-pip install -e --group legacy
+pip install -e . --group legacy
 
 # install ray-tune (for bayesian optimization)
 pip install -e ".[tune]"

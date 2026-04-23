@@ -9,9 +9,6 @@ from typing import Any
 import numpy as np
 import torch
 from loguru import logger
-from ray import train, tune
-from ray.tune import Trainable
-from ray.tune.search.optuna import OptunaSearch
 
 from cabrnet.apps.train import training_loop
 from cabrnet.archs.generic.model import CaBRNet
@@ -189,6 +186,11 @@ def execute(args: Namespace) -> None:
         args (Namespace): Parsed arguments.
 
     """
+    # Lazy import to improve starting time on other apps
+    from ray import train, tune
+    from ray.tune import Trainable
+    from ray.tune.search.optuna import OptunaSearch
+
     # Check and post-process options
     args = check_args(args)
 
