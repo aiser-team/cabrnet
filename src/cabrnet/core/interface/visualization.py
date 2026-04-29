@@ -1,11 +1,10 @@
 from typing import Any
 
 import gradio as gr
-from gradio.components.base import Component
-
 from cabrnet.core.interface.utils import change_visibility
 from cabrnet.core.visualization.view import SUPPORTED_VIEWING_FUNCTIONS
-from cabrnet.core.visualization.visualizer import SUPPORTED_ATTRIBUTION_FUNCTIONS
+from cabrnet.core.visualization.visualizer import SUPPORTED_ATTRIBUTION_METHODS
+from gradio.components.base import Component
 
 
 def create_visualization_gui(
@@ -26,7 +25,7 @@ def create_visualization_gui(
         with gr.Row():
             # Select attribution method
             attribution_select = gr.Dropdown(
-                choices=list(SUPPORTED_ATTRIBUTION_FUNCTIONS.keys()),
+                choices=list(SUPPORTED_ATTRIBUTION_METHODS),
                 value=default_attribution,
                 label="Attribution function",
                 key="attribution_select",

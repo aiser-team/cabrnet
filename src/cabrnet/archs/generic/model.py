@@ -1067,7 +1067,6 @@ class CaBRNet(nn.Module):
     def extract_prototypes(
         self,
         dataloader_raw: DataLoader,
-        dataloader: DataLoader,
         projection_info: list[dict],
         visualizer: SimilarityVisualizer,
         dir_path: Path,
@@ -1079,7 +1078,6 @@ class CaBRNet(nn.Module):
 
         Args:
             dataloader_raw (DataLoader): Dataloader containing raw projection images (without preprocessing).
-            dataloader (DataLoader): Dataloader containing projection tensors (with preprocessing).
             projection_info (list): Projection information (as returned by project method).
             visualizer (SimilarityVisualizer): Similarity visualizer.
             dir_path (Path): Destination directory.
@@ -1119,24 +1117,26 @@ class CaBRNet(nn.Module):
                 continue
             # Original image obtained from dataloader without normalization
             img = dataloader_raw.dataset[proto_info["img_idx"]][0]
-            # Preprocessed image tensor
-            img_tensor = dataloader.dataset[proto_info["img_idx"]][0]
             h, w = proto_info["h"], proto_info["w"]
-            prototype_part = visualizer.forward(
-                img=img,
-                img_tensor=img_tensor,
+
+            # Determine filename based on prototype count
+            if proto_count.get(proto_idx):
+                # Handles multiple representations of the same prototype
+                filename = f"prototype_{proto_idx}_{proto_count.get(proto_idx)}"
+                proto_count[proto_idx] += 1
+            else:
+                filename = f"prototype_{proto_idx}"
+                proto_count[proto_idx] = 1
+
+            # Save visualization using depictor interface
+            visualizer.save(
+                raw_input=img,
+                folder=dir_path,
+                filename=filename,
                 proto_idx=proto_idx,
                 device=device,
                 location=(h, w),
             )
-            if proto_count.get(proto_idx):
-                # Handles multiple representations of the same prototype
-                img_path = dir_path / f"prototype_{proto_idx}_{proto_count.get(proto_idx)}.png"
-                proto_count[proto_idx] += 1
-            else:
-                img_path = dir_path / f"prototype_{proto_idx}.png"
-                proto_count[proto_idx] = 1
-            prototype_part.save(fp=img_path)
 
     def explain(
         self,

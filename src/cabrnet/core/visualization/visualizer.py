@@ -1,11 +1,10 @@
 from __future__ import annotations
-import argparse
+
 from pathlib import Path
 from typing import Any, Callable, Literal, get_args
 
 import numpy as np
 import torch
-import torch.nn as nn
 from loguru import logger
 from PIL import Image
 from torch import Tensor
@@ -18,6 +17,7 @@ from cabrnet.core.visualization.gradients import attribute_prototypes
 from cabrnet.core.visualization.prp_utils import get_cabrnet_lrp_composite_model
 from cabrnet.core.visualization.upsampling import cubic_upsampling
 from cabrnet.core.visualization.view import SUPPORTED_VIEWING_FUNCTIONS
+from cabrnet.core.visualization.depictor import Depictor
 
 # Type alias for attribution methods
 AttributionMethod = Literal["saliency", "smoothgrad", "prp", "randgrad", "cubic"]
@@ -82,7 +82,7 @@ def compute_attribution(
     )
 
 
-class SimilarityVisualizer(nn.Module):
+class SimilarityVisualizer(Depictor):
     r"""Object used to extract patch visualizations from a model.
 
     Attributes:
@@ -92,15 +92,22 @@ class SimilarityVisualizer(nn.Module):
         view_params: Parameters of the viewing function.
         config_file: Path to the configuration file used to create this object.
         model: Target CaBRNet model.
+        transform: Preprocessing transform applied to raw input.
     """
 
-    SUPPORTED_ATTRIBUTION_FUNCTIONS: tuple[str, ...] = get_args(AttributionMethod)
+    # Supported attribution methods
+    SUPPORTED_ATTRIBUTION_METHODS: tuple[str, ...] = get_args(AttributionMethod)
+
+    @property
+    def extension(self) -> str:
+        return "png"
 
     def __init__(
         self,
         model: CaBRNet,
         attribution_method: AttributionMethod,
         view_fn: Callable,
+        transform: Callable | None = None,
         attribution_params: dict | None = None,
         view_params: dict | None = None,
         config_file: Path | None = None,
@@ -110,12 +117,13 @@ class SimilarityVisualizer(nn.Module):
         r"""Initializes a patch visualizer.
 
         Args:
-            model (Module): Attach visualizer to a specific model.
-            attribution_fn (Callable): Attribution function.
-            view_fn (Callable): Viewing function.
-            attribution_params (dictionary, optional): Parameters to attribution function. Default: None.
-            view_params (dictionary, optional): Parameters to viewing function. Default: None.
-            config_file (Path, optional): Path to the file used to configure the visualizer. Default: None.
+            model: Attach visualizer to a specific model.
+            attribution_method: Attribution method name.
+            view_fn: Viewing function.
+            transform: Preprocessing transform applied to raw input.
+            attribution_params: Parameters to attribution function. Default: None.
+            view_params: Parameters to viewing function. Default: None.
+            config_file: Path to the file used to configure the visualizer. Default: None.
         """
         super().__init__(*args, **kwargs)
         self.attribution_method: AttributionMethod = attribution_method
@@ -123,6 +131,7 @@ class SimilarityVisualizer(nn.Module):
         self.view = view_fn
         self.view_params = view_params if view_params is not None else {}
         self.config_file = config_file
+        self.transform = transform
 
         self.model = model
         if self.attribution_method == "prp":
@@ -145,11 +154,11 @@ class SimilarityVisualizer(nn.Module):
         r"""Generates a visualization of the most similar patch to a given prototype.
 
         Args:
-            img (Image): Original image.
-            img_tensor (tensor): Image tensor.
-            proto_idx (int): Prototype index.
-            device (str | device): Hardware device.
-            location (tuple[int,int], str or None, optional): Location inside the similarity map.
+            img: Original image.
+            img_tensor: Image tensor.
+            proto_idx: Prototype index.
+            device: Hardware device.
+            location: Location inside the similarity map.
                 Can be given as an explicit location (tuple) or "max" for the location of maximum similarity.
                 Default: max.
 
@@ -160,6 +169,42 @@ class SimilarityVisualizer(nn.Module):
             img=img, img_tensor=img_tensor, proto_idx=proto_idx, device=device, location=location
         )
         return self.view(img=img, sim_map=sim_map, **self.view_params)
+
+    def save(
+        self,
+        raw_input: Image.Image,
+        folder: Path,
+        filename: str,
+        proto_idx: int,
+        device: str | torch.device,
+        location: tuple[int, int] | str | None = None,
+    ) -> Path:
+        r"""Generates and saves a visualization.
+
+        Args:
+            raw_input: Raw input image (PIL Image).
+            folder: Output directory.
+            filename: Filename without extension.
+            proto_idx: Prototype index.
+            device: Hardware device.
+            location: Location inside the similarity map.
+                Can be given as an explicit location (tuple) or "max" for the location of maximum similarity.
+                Default: None.
+
+        Returns:
+            Path to the saved file.
+        """
+        if self.transform is None:
+            raise ValueError("Transform must be set to use save() method")
+
+        img_tensor = self.transform(raw_input)
+        visualization = self.forward(
+            img=raw_input, img_tensor=img_tensor, proto_idx=proto_idx, device=device, location=location
+        )
+        folder.mkdir(parents=True, exist_ok=True)
+        output_path = folder / f"{filename}.{self.extension}"
+        visualization.save(output_path)
+        return output_path
 
     def get_attribution(
         self,
@@ -199,44 +244,19 @@ class SimilarityVisualizer(nn.Module):
             **attribution_params,
         )
 
-    DEFAULT_VISUALIZATION_CONFIG = Path("visualization.yml")
-
     @staticmethod
-    def create_parser(
-        parser: argparse.ArgumentParser | None = None,
-        mandatory_config: bool = False,
-    ) -> argparse.ArgumentParser:
-        r"""Creates the argument parser for a ProtoVisualizer.
+    def build_from_config(
+        config: Path | dict[str, Any], model: CaBRNet, transform: Callable | None = None
+    ) -> SimilarityVisualizer:
+        r"""Builds a SimilarityVisualizer from a configuration file or dictionary.
 
         Args:
-            parser (ArgumentParser, optional): Existing parser (if any). Default: None.
-            mandatory_config (bool, optional): If True, makes the configuration mandatory. Default: False.
+            config: Path to configuration file or dictionary.
+            model: Target model.
+            transform: Preprocessing transform applied to raw input.
 
         Returns:
-            The parser itself.
-        """
-        if parser is None:
-            parser = argparse.ArgumentParser(description="Build a ProtoVisualizer")
-        parser.add_argument(
-            "-z",
-            "--visualization",
-            type=Path,
-            required=mandatory_config,
-            metavar="/path/to/file.yml",
-            help="path to the visualization configuration file",
-        )
-        return parser
-
-    @staticmethod
-    def build_from_config(config: Path | dict[str, Any], model: CaBRNet) -> SimilarityVisualizer:
-        r"""Builds a ProtoVisualizer from a configuration file or dictionary.
-
-        Args:
-            config (Path): Path to configuration file or dictionary.
-            model (Module): Target model.
-
-        Returns:
-            ProtoVisualizer.
+            SimilarityVisualizer.
         """
         if isinstance(config, Path):
             logger.info(f"Loading patch visualizer from {config}.")
@@ -252,7 +272,7 @@ class SimilarityVisualizer(nn.Module):
 
         # Visualization function
         attribution_method = config_dict["attribution"]["type"]
-        if attribution_method not in SimilarityVisualizer.SUPPORTED_ATTRIBUTION_FUNCTIONS:
+        if attribution_method not in SimilarityVisualizer.SUPPORTED_ATTRIBUTION_METHODS:
             raise NotImplementedError(f"Unknown visualization function {config_dict['attribution']['type']}")
         attribution_params = config_dict["attribution"]["params"] if "params" in config_dict["attribution"] else None
 
@@ -267,6 +287,7 @@ class SimilarityVisualizer(nn.Module):
             model=model,
             attribution_method=attribution_method,
             view_fn=view_fn,
+            transform=transform,
             attribution_params=attribution_params,
             view_params=view_params,
             config_file=config if isinstance(config, Path) else None,

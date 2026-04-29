@@ -400,12 +400,14 @@ def execute(
         # Get dataloaders and projection info, then build prototypes
         dataloaders = DatasetManager.get_dataloaders(config=dataset_config)
         projection_info = load_projection_info(projection_file)
-        visualizer = SimilarityVisualizer.build_from_config(config=visualization_config, model=model)
+        transform = DatasetManager.get_dataset_transform(config=dataset_config, dataset="projection_set")
+        visualizer = SimilarityVisualizer.build_from_config(
+            config=visualization_config, model=model, transform=transform
+        )
 
         # Avoid generating prototypes if the directory already exists
         model.extract_prototypes(
             dataloader_raw=dataloaders["projection_set_raw"],
-            dataloader=dataloaders["projection_set"],
             projection_info=projection_info,
             visualizer=visualizer,
             dir_path=prototype_dir,

@@ -468,7 +468,10 @@ def execute(
 
     # Create dataloaders and visualizer
     datasets = DatasetManager.get_datasets(dataset_config, sampling_ratio=sampling_ratio)
-    visualizer = SimilarityVisualizer.build_from_config(config=visualization_config, model=model)
+    transform = (
+        DatasetManager.get_dataset_transform(config=dataset_config, dataset="projection_set") if debug_mode else None
+    )
+    visualizer = SimilarityVisualizer.build_from_config(config=visualization_config, model=model, transform=transform)
 
     # Recover preprocessing function
     preprocess = getattr(datasets["test_set"]["dataset"], "transform", ToTensor())
@@ -503,7 +506,6 @@ def execute(
         if not prototype_dir.is_dir():
             model.extract_prototypes(
                 dataloader_raw=dataloaders["projection_set_raw"],
-                dataloader=dataloaders["projection_set"],
                 projection_info=projection_info,
                 visualizer=visualizer,
                 dir_path=prototype_dir,

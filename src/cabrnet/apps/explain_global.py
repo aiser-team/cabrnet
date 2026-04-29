@@ -121,8 +121,9 @@ def execute(args: Namespace) -> None:
     # Build model and load state dictionary
     model: CaBRNet = CaBRNet.build_from_config(config=args.model_arch, state_dict_path=args.model_state_dict)
 
-    # Init visualizer
-    visualizer = SimilarityVisualizer.build_from_config(config=args.visualization, model=model)
+    # Init visualizer with transform
+    transform = DatasetManager.get_dataset_transform(config=args.dataset, dataset="projection_set")
+    visualizer = SimilarityVisualizer.build_from_config(config=args.visualization, model=model, transform=transform)
 
     # Build prototypes
     dataloaders = DatasetManager.get_dataloaders(config=args.dataset)
@@ -130,7 +131,6 @@ def execute(args: Namespace) -> None:
     if args.overwrite or not (args.output_dir / "prototypes").exists():
         model.extract_prototypes(
             dataloader_raw=dataloaders["projection_set_raw"],
-            dataloader=dataloaders["projection_set"],
             projection_info=projection_info,
             visualizer=visualizer,
             dir_path=args.output_dir / "prototypes",
