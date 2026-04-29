@@ -14,6 +14,7 @@ from cabrnet.core.attribution.augmentors import GaussianNoiseAugmentor
 from cabrnet.core.utils.exceptions import check_mandatory_fields
 from cabrnet.core.utils.parser import load_config
 from cabrnet.core.visualization.gradients import attribute_prototypes
+from cabrnet.core.visualization.postprocess import post_process
 from cabrnet.core.visualization.prp_utils import get_cabrnet_lrp_composite_model
 from cabrnet.core.visualization.upsampling import cubic_upsampling
 from cabrnet.core.visualization.view import SUPPORTED_VIEWING_FUNCTIONS
@@ -68,16 +69,20 @@ def compute_attribution(
             **kwargs,
         )
 
-    return attribute_prototypes(
+    grads = attribute_prototypes(
         model=model,
         algorithm=attribution_method,
-        img=img,
-        img_tensor=img_tensor,
+        input=img_tensor,
         proto_idx=proto_idx,
         device=device,
         augmentors=augmentors,
-        # scores between 0 and 1 for visualization
-        normalize=True,
+    )
+
+    return post_process(
+        array=grads,
+        img_shape=img.size,
+        img_tensor=img_tensor,
+        resize=True,
         **kwargs,
     )
 

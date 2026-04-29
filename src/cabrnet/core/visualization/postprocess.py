@@ -1,6 +1,5 @@
 import cv2
 import numpy as np
-from PIL import Image
 from scipy.ndimage import gaussian_filter
 from torch import Tensor
 
@@ -55,7 +54,7 @@ def normalize_min_max(array: np.ndarray) -> np.ndarray:
 
 def post_process(
     array: np.ndarray,
-    img: Image.Image,
+    img_shape: tuple[int, int],
     img_tensor: Tensor,
     resize: bool = True,
     polarity: str | None = "absolute",
@@ -67,7 +66,7 @@ def post_process(
 
     Args:
         array (Numpy array): Source array.
-        img (Image): Raw input image.
+        img_shape (tuple): Image shape as (width, height).
         img_tensor (tensor): Input image tensor.
         resize (bool, optional): If True, resizes the array to the original image size. Default: True.
         polarity (str, optional): Polarity filter (None, "absolute", "positive", or "negative"). Default: absolute.
@@ -93,7 +92,7 @@ def post_process(
     if gaussian_ksize:
         array = gaussian_filter(array, sigma=gaussian_ksize)
     if resize:
-        array = cv2.resize(src=array, dsize=(img.width, img.height), interpolation=cv2.INTER_CUBIC)
+        array = cv2.resize(src=array, dsize=img_shape, interpolation=cv2.INTER_CUBIC)
     if normalize:
         array = normalize_min_max(array)
     return array

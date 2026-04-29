@@ -6,12 +6,10 @@ import torch.nn as nn
 from captum.attr import LRP, Saliency
 from captum.attr._utils.attribution import GradientAttribution
 from loguru import logger
-from PIL import Image
 from torch import Tensor
 
 from cabrnet.archs.generic.model import CaBRNet
 
-from cabrnet.core.visualization.postprocess import post_process
 from cabrnet.core.visualization.prp_utils import attach_lrp_comp_rules, get_cabrnet_lrp_composite_model
 
 
@@ -110,32 +108,27 @@ def _ensure_lrp_ready(model: CaBRNet, stability_factor: float) -> CaBRNet:
 def attribute_prototypes(
     model: CaBRNet,
     algorithm: Literal["saliency", "prp", "randgrad"],
-    img: Image.Image,
-    img_tensor: Tensor,
+    input_tensor: Tensor,
     proto_idx: int,
     device: str | torch.device,
     augmentors: Sequence[nn.Module] = [],
     post_augmentation_transform: nn.Module = nn.Identity(),
     location: tuple[int, int] | str | None = None,
-    polarity: str | None = "absolute",
-    gaussian_ksize: int = 5,
-    normalize: bool = False,
-    grads_x_input: bool = False,
     similarity_threshold: float = 0.1,
     stability_factor: float = 1e-6,
     **kwargs,
 ) -> np.ndarray:
-    img_tensor = _check_tensor_dims(img_tensor)
+    input_tensor = _check_tensor_dims(input_tensor)
 
     if algorithm == "prp":
         model = _ensure_lrp_ready(model, stability_factor)
 
     model.eval()
     model.to(device)
-    img_tensor = img_tensor.to(device)
+    input_tensor = input_tensor.to(device)
 
     with torch.no_grad():
-        sim_map = model.similarities(img_tensor)[0, proto_idx].cpu().numpy()
+        sim_map = model.similarities(input_tensor)[0, proto_idx].cpu().numpy()
 
     positions = _resolve_positions(sim_map, location, similarity_threshold)
 
@@ -147,13 +140,13 @@ def attribute_prototypes(
     else:  # randgrad
         attributor = RandGrad(model.similarities)
 
-    augmented_imgs = apply_augmentors(img_tensor, augmentors)
+    augmented_imgs = apply_augmentors(input_tensor, augmentors)
     attribution_inputs = post_augmentation_transform(augmented_imgs)
 
     # PRP (LRP) already scales by output value internally; other methods weight by similarity score
     weights = [1.0 if algorithm == "prp" else sim_map[h, w].item() for h, w in positions]
 
-    grads = np.zeros_like(img_tensor[0].detach().cpu().numpy())
+    grads = np.zeros_like(input_tensor[0].detach().cpu().numpy())
     for (h, w), weight in zip(positions, weights):
         model.zero_grad()
         attributions = torch.stack(
@@ -163,13 +156,4 @@ def attribute_prototypes(
         if algorithm == "prp":
             attach_lrp_comp_rules(model)
 
-    return post_process(
-        array=grads,
-        img=img,
-        img_tensor=img_tensor,
-        resize=True,
-        polarity=polarity,
-        gaussian_ksize=gaussian_ksize,
-        normalize=normalize,
-        grads_x_input=grads_x_input,
-    )
+    return grads
