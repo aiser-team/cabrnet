@@ -178,7 +178,7 @@ class ProtoTree(CaBRNet):
         Returns:
             Loss tensor and batch accuracy.
         """
-        ys_pred, _ = model_output
+        ys_pred = model_output[0]
         if self.classifier.log_probabilities:
             # Prediction already given as a log value
             batch_loss = torch.nn.functional.nll_loss(ys_pred, label)
@@ -439,7 +439,7 @@ class ProtoTree(CaBRNet):
             leaf_path = self.classifier.tree.get_mapping(mode=MappingMode.NODE_PATHS)[leaf_id]
 
             # Build explanation
-            img_path = output_dir / "original.png"
+            img_path = output_dir.absolute() / "original.png"
             if not disable_rendering:
                 (output_dir / "test_patches").mkdir(parents=True, exist_ok=exist_ok)
                 # Copy source image
@@ -453,7 +453,7 @@ class ProtoTree(CaBRNet):
             most_relevant_prototypes = []  # Keep track of most relevant prototypes
             for node_id in leaf_path[1:]:
                 # Recover path to prototype image
-                prototype_image_path = prototype_dir / f"prototype_{proto_idx}.png"
+                prototype_image_path = prototype_dir.absolute() / f"prototype_{proto_idx}.png"
                 score = tree_info[node_id]["conditional_probability"].item()
                 if node_id == node_mapping[parent_id].get_submodule(f"{parent_id}_child_nsim").node_id:
                     # No similarity
@@ -467,7 +467,7 @@ class ProtoTree(CaBRNet):
                 else:
                     # Similarity
                     most_relevant_prototypes.append((proto_idx, score, True))
-                    patch_image_path = output_dir / "test_patches" / f"proto_similarity_{proto_idx}.png"
+                    patch_image_path = output_dir.absolute() / "test_patches" / f"proto_similarity_{proto_idx}.png"
                     if not disable_rendering:
                         patch_image = visualizer.forward(
                             img=img, img_tensor=img_tensor, proto_idx=proto_idx, device=device
@@ -512,12 +512,12 @@ class ProtoTree(CaBRNet):
             Returns:
                 Updated graph
             """
-            if not node.proto_ids:
+            if not node.proto_idxs:
                 # Leaf
                 class_idx = torch.argmax(node.distribution).item()
                 graph.node(name=f"node_{node.node_id}", label=f"Class {class_idx}", fontsize="25", height="0.5")
             else:
-                proto_idx = node.proto_ids[0]
+                proto_idx = node.proto_idxs[0]
                 img_path = str(prototype_dir.absolute() / f"prototype_{proto_idx}.png")
                 graph.node(name=f"node_{node.node_id}", image=img_path, imagescale="True")
                 for child_name, similarity in zip(["nsim", "sim"], ["not similar", "similar"]):
