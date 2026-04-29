@@ -19,7 +19,18 @@ class RandGrad(GradientAttribution):
     A placeholder class for future implementation.
     """
 
-    pass
+    def attribute(self, inputs: Tensor, *args, **kwargs) -> Tensor:
+        """Return random attributions (baseline).
+
+        Args:
+            inputs: Input tensor.
+            *args: Ignored arguments.
+            **kwargs: Ignored keyword arguments.
+
+        Returns:
+            Random tensor with the same shape as inputs.
+        """
+        return torch.randn(inputs.shape)
 
 
 def _check_tensor_dims(x: Tensor) -> Tensor:
@@ -154,6 +165,8 @@ def attribute_prototypes(
         attributor = Saliency(model)
     elif algorithm == "lrp":
         attributor = LRP(model)
+    elif algorithm == "randgrad":
+        attributor = RandGrad(model)
     else:
         raise ValueError(f"Unsupported attribution method: {algorithm}")
 
