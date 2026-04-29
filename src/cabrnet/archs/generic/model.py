@@ -23,7 +23,11 @@ from cabrnet.archs.generic.decision import CaBRNetClassifier
 from cabrnet.core.utils.exceptions import ArgumentError, check_mandatory_fields
 from cabrnet.core.utils.optimizers import OptimizerManager
 from cabrnet.core.utils.parser import load_config
-from cabrnet.core.visualization.visualizer import SimilarityVisualizer
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from cabrnet.core.visualization.visualizer import SimilarityVisualizer
 
 
 class CaBRNet(nn.Module):

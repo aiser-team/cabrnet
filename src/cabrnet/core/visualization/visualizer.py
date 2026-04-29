@@ -1,5 +1,4 @@
 from __future__ import annotations
-
 import argparse
 from pathlib import Path
 from typing import Any, Callable, Literal, get_args
@@ -16,14 +15,12 @@ from cabrnet.core.attribution.augmentors import GaussianNoiseAugmentor
 from cabrnet.core.utils.exceptions import check_mandatory_fields
 from cabrnet.core.utils.parser import load_config
 from cabrnet.core.visualization.gradients import attribute_prototypes
-from cabrnet.core.visualization.prp_utils import \
-    get_cabrnet_lrp_composite_model
+from cabrnet.core.visualization.prp_utils import get_cabrnet_lrp_composite_model
 from cabrnet.core.visualization.upsampling import cubic_upsampling
 from cabrnet.core.visualization.view import SUPPORTED_VIEWING_FUNCTIONS
 
 # Type alias for attribution methods
-AttributionMethod = Literal["saliency", "smoothgrad", "lrp", "randgrad", "cubic"]
-SUPPORTED_IMAGE_ATTRIBUTION_FUNCTIONS = get_args(AttributionMethod)
+AttributionMethod = Literal["saliency", "smoothgrad", "prp", "randgrad", "cubic"]
 
 
 def compute_attribution(
@@ -66,6 +63,8 @@ def compute_attribution(
             img_tensor=img_tensor,
             proto_idx=proto_idx,
             device=device,
+            # scores between 0 and 1 for visualization
+            normalize=True,
             **kwargs,
         )
 
@@ -77,6 +76,8 @@ def compute_attribution(
         proto_idx=proto_idx,
         device=device,
         augmentors=augmentors,
+        # scores between 0 and 1 for visualization
+        normalize=True,
         **kwargs,
     )
 
@@ -92,6 +93,8 @@ class SimilarityVisualizer(nn.Module):
         config_file: Path to the configuration file used to create this object.
         model: Target CaBRNet model.
     """
+
+    SUPPORTED_ATTRIBUTION_FUNCTIONS: tuple[str, ...] = get_args(AttributionMethod)
 
     def __init__(
         self,
@@ -249,7 +252,7 @@ class SimilarityVisualizer(nn.Module):
 
         # Visualization function
         attribution_method = config_dict["attribution"]["type"]
-        if attribution_method not in SUPPORTED_IMAGE_ATTRIBUTION_FUNCTIONS:
+        if attribution_method not in SimilarityVisualizer.SUPPORTED_ATTRIBUTION_FUNCTIONS:
             raise NotImplementedError(f"Unknown visualization function {config_dict['attribution']['type']}")
         attribution_params = config_dict["attribution"]["params"] if "params" in config_dict["attribution"] else None
 

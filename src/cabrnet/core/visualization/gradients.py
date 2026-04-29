@@ -1,3 +1,5 @@
+from collections.abc import Sequence
+from typing import Literal
 import numpy as np
 import torch
 import torch.nn as nn
@@ -8,9 +10,9 @@ from PIL import Image
 from torch import Tensor
 
 from cabrnet.archs.generic.model import CaBRNet
+
 from cabrnet.core.visualization.postprocess import post_process
-from cabrnet.core.visualization.prp_utils import (
-    attach_lrp_comp_rules, get_cabrnet_lrp_composite_model)
+from cabrnet.core.visualization.prp_utils import attach_lrp_comp_rules, get_cabrnet_lrp_composite_model
 
 
 class RandGrad(GradientAttribution):
@@ -20,7 +22,7 @@ class RandGrad(GradientAttribution):
     """
 
     def attribute(self, inputs: Tensor, *args, **kwargs) -> Tensor:
-        """Return random attributions (baseline).
+        """Return random attributions (baseli).
 
         Args:
             inputs: Input tensor.
@@ -52,7 +54,7 @@ def _check_tensor_dims(x: Tensor) -> Tensor:
     return x
 
 
-def apply_augmentors(input_tensor: Tensor, augmentors: list[nn.Module]) -> Tensor:
+def apply_augmentors(input_tensor: Tensor, augmentors: Sequence[nn.Module]) -> Tensor:
     """Apply a sequence of augmentors to an input tensor.
 
     Each augmentor takes a single sample and returns a batch of augmented versions.
@@ -66,27 +68,29 @@ def apply_augmentors(input_tensor: Tensor, augmentors: list[nn.Module]) -> Tenso
     Returns:
         Tensor containing all augmented samples.
     """
+    assert input_tensor.shape[0] == 1
     result = input_tensor
     for augment_module in augmentors:
+        # invariant: always has a batch dimension
         result = torch.cat([augment_module(x.unsqueeze(0)) for x in result])
     return result
 
 
 def attribute_prototypes(
     model: CaBRNet,
-    algorithm: str,
+    algorithm: Literal["saliency", "prp", "randgrad"],
     img: Image.Image,
     img_tensor: Tensor,
     proto_idx: int,
     device: str | torch.device,
-    augmentors: list[nn.Module] = [],
+    augmentors: Sequence[nn.Module] = [],
     post_augmentation_transform: nn.Module = nn.Identity(),
     location: tuple[int, int] | str | None = None,
     polarity: str | None = "absolute",
     gaussian_ksize: int = 5,
     normalize: bool = False,
     grads_x_input: bool = False,
-    similarity_threshold: float | None = None,
+    similarity_threshold: float = 0.1,
     stability_factor: float = 1e-6,
     **kwargs,
 ) -> np.ndarray:
@@ -108,21 +112,14 @@ def attribute_prototypes(
         grads_x_input (bool, optional): If True, performs element-wise multiplication between gradient and image.
             Default: False.
         similarity_threshold (float, optional): Ignore locations in the similarity map with a score lower than this
-            threshold. Default: 0.1.
+            threshold. Default: 0.1. If both threshold and location are provided, threshold is ignored.
 
     Returns:
         Similarity map.
     """
-    if similarity_threshold is not None and location is not None:
-        raise ValueError(
-            f"Both location={location} and similatiy_threshold={similarity_threshold} were provided for feature attribution, aborting"
-        )
-    if similarity_threshold is None and location is None:
-        similarity_threshold = 0.1
-
     img_tensor = _check_tensor_dims(img_tensor)
 
-    if algorithm == "lrp":
+    if algorithm == "prp":
         if not hasattr(model, "lrp_ready"):
             logger.warning(
                 "Canonizing model on-the-fly for PRP. For multiple explanations, "
@@ -162,11 +159,11 @@ def attribute_prototypes(
             raise ValueError(f"Invalid target location {location}")
 
     if algorithm == "saliency":
-        attributor = Saliency(model)
-    elif algorithm == "lrp":
+        attributor = Saliency(model.similarities)
+    elif algorithm == "prp":
         attributor = LRP(model)
     elif algorithm == "randgrad":
-        attributor = RandGrad(model)
+        attributor = RandGrad(model.similarities)
     else:
         raise ValueError(f"Unsupported attribution method: {algorithm}")
 
@@ -178,16 +175,19 @@ def attribute_prototypes(
     for h, w in positions_to_consider:
         model.zero_grad()
 
-        if algorithm == "lrp":
+        if algorithm == "prp":
             # LRP already weights the attribution map by the output value
             weight = 1
         else:
             weight = sim_map[h, w].item()
 
-        attributions = torch.stack([attributor.attribute(x, target=(proto_idx, h, w)) for x in attribution_inputs])
-        grads += weight * attributions.mean(0)  # average all the attributions by default: smoothgrad-like behaviour
+        attributions = torch.cat(
+            [attributor.attribute(x.unsqueeze(0), target=(proto_idx, h, w)) for x in attribution_inputs]
+        )
+        # average all the attributions. For now only mean (smoothgrad-like behaviour)
+        grads += weight * attributions.mean(0).detach().cpu().numpy()
 
-        if algorithm == "lrp":
+        if algorithm == "prp":
             # Reattach LRP-Comp rules to underlying model
             attach_lrp_comp_rules(model)
 

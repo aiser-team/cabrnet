@@ -1,3 +1,4 @@
+from __future__ import annotations
 import importlib
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -7,7 +8,10 @@ import numpy as np
 import torch.nn as nn
 from torch import Tensor
 
-from cabrnet.core.utils.similarities import SimilarityLayer
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from cabrnet.core.utils.similarities import SimilarityLayer
 
 
 class CaBRNetClassifier(nn.Module, ABC):

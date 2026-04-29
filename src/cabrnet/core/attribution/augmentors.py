@@ -20,4 +20,9 @@ class GaussianNoiseAugmentor(nn.Module):
             input_tensor.shape[0] == 1
         ), f"GaussianNoiseAugmentor input must be a single image, got batch dimension {input_tensor.shape[0]}"
         noise_std = (input_tensor.max() - input_tensor.min()) * self.noise_ratio
-        return torch.cat([input_tensor + torch.randn(input_tensor.shape) * noise_std for _ in range(self.num_samples)])
+        return torch.cat(
+            [
+                input_tensor + torch.randn(input_tensor.shape, device=input_tensor.device) * noise_std
+                for _ in range(self.num_samples)
+            ]
+        )
