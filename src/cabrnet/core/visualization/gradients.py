@@ -76,6 +76,37 @@ def apply_augmentors(input_tensor: Tensor, augmentors: Sequence[nn.Module]) -> T
     return result
 
 
+def _resolve_positions(
+    sim_map: np.ndarray,
+    location: tuple[int, int] | str | None,
+    similarity_threshold: float,
+) -> list[tuple[int, int]]:
+    if location is None:
+        h_idx, w_idx = np.where(sim_map > similarity_threshold)
+        return list(zip(h_idx.tolist(), w_idx.tolist()))
+    if location == "max":
+        h, w = np.unravel_index(np.argmax(sim_map), sim_map.shape)
+        return [(int(h), int(w))]
+    if isinstance(location, tuple):
+        return [location]
+    raise ValueError(f"Invalid target location: {location!r}")
+
+
+def _ensure_lrp_ready(model: CaBRNet, stability_factor: float) -> CaBRNet:
+    if not hasattr(model, "lrp_ready"):
+        logger.warning(
+            "Canonizing model on-the-fly for PRP. For multiple explanations, "
+            "consider performing canonization beforehand."
+        )
+        return get_cabrnet_lrp_composite_model(
+            model=model,
+            set_bias_to_zero=True,
+            stability_factor=stability_factor,
+            use_zbeta=True,
+        )
+    return model
+
+
 def attribute_prototypes(
     model: CaBRNet,
     algorithm: Literal["saliency", "prp", "randgrad"],
@@ -94,101 +125,42 @@ def attribute_prototypes(
     stability_factor: float = 1e-6,
     **kwargs,
 ) -> np.ndarray:
-    r"""Computes attributions using a post-hoc explanation method from Captum.
-
-    Args:
-        model (Module): Target model.
-        algorithm (str): Name of the attribution method.
-        img (Image): Raw input image.
-        img_tensor (tensor): Input image tensor.
-        proto_idx (int): Prototype index.
-        device (str | device): Hardware device.
-        location (tuple[int,int], str or None, optional): Location inside the similarity map.
-                Can be given as an explicit location (tuple) or "max" for the location of maximum similarity.
-                Default: None.
-        polarity (str, optional): Polarity filter (None, "absolute", "positive", or "negative"). Default: absolute.
-        gaussian_ksize (int, optional): Size of gaussian filter kernel size. Default: 5.
-        normalize (bool, optional): If True, performs min-max normalization. Default: False.
-        grads_x_input (bool, optional): If True, performs element-wise multiplication between gradient and image.
-            Default: False.
-        similarity_threshold (float, optional): Ignore locations in the similarity map with a score lower than this
-            threshold. Default: 0.1. If both threshold and location are provided, threshold is ignored.
-
-    Returns:
-        Similarity map.
-    """
     img_tensor = _check_tensor_dims(img_tensor)
 
     if algorithm == "prp":
-        if not hasattr(model, "lrp_ready"):
-            logger.warning(
-                "Canonizing model on-the-fly for PRP. For multiple explanations, "
-                "consider performing canonization beforehand."
-            )
-            model = get_cabrnet_lrp_composite_model(
-                model=model, set_bias_to_zero=True, stability_factor=stability_factor, use_zbeta=True
-            )
+        model = _ensure_lrp_ready(model, stability_factor)
 
-    # Map model to device
     model.eval()
     model.to(device)
-
-    # Map to device
     img_tensor = img_tensor.to(device)
 
-    # Perform inference
     with torch.no_grad():
-        # Compute similarity map
-        sim_map = model.similarities(img_tensor.to(device))[0, proto_idx].cpu().numpy()
-        sim_map_height, sim_map_width = sim_map.shape[0], sim_map.shape[1]
+        sim_map = model.similarities(img_tensor)[0, proto_idx].cpu().numpy()
 
-    # Location of interest (if any)
-    if location is None:
-        positions_to_consider = [
-            (h, w) for h in range(sim_map_height) for w in range(sim_map_width) if sim_map[h, w] > similarity_threshold
-        ]
-    else:
-        if location == "max":
-            # Find location of feature vector with the highest similarity
-            h_max, w_max = np.where(sim_map == np.max(sim_map))
-            positions_to_consider = [(h_max[0], w_max[0])]
-        elif isinstance(location, tuple):
-            # Location is predefined
-            positions_to_consider = [location]
-        else:
-            raise ValueError(f"Invalid target location {location}")
+    positions = _resolve_positions(sim_map, location, similarity_threshold)
 
+    # Build attributor — each algorithm wraps a different target function/model
     if algorithm == "saliency":
         attributor = Saliency(model.similarities)
     elif algorithm == "prp":
         attributor = LRP(model)
-    elif algorithm == "randgrad":
+    else:  # randgrad
         attributor = RandGrad(model.similarities)
-    else:
-        raise ValueError(f"Unsupported attribution method: {algorithm}")
 
     augmented_imgs = apply_augmentors(img_tensor, augmentors)
     attribution_inputs = post_augmentation_transform(augmented_imgs)
 
-    # Init gradient accumulator
+    # PRP (LRP) already scales by output value internally; other methods weight by similarity score
+    weights = [1.0 if algorithm == "prp" else sim_map[h, w].item() for h, w in positions]
+
     grads = np.zeros_like(img_tensor[0].detach().cpu().numpy())
-    for h, w in positions_to_consider:
+    for (h, w), weight in zip(positions, weights):
         model.zero_grad()
-
+        attributions = torch.stack(
+            [attributor.attribute(x.unsqueeze(0), target=(proto_idx, h, w)).squeeze(0) for x in attribution_inputs]
+        ).mean(0)
+        grads += weight * attributions.detach().cpu().numpy()
         if algorithm == "prp":
-            # LRP already weights the attribution map by the output value
-            weight = 1
-        else:
-            weight = sim_map[h, w].item()
-
-        attributions = torch.cat(
-            [attributor.attribute(x.unsqueeze(0), target=(proto_idx, h, w)) for x in attribution_inputs]
-        )
-        # average all the attributions. For now only mean (smoothgrad-like behaviour)
-        grads += weight * attributions.mean(0).detach().cpu().numpy()
-
-        if algorithm == "prp":
-            # Reattach LRP-Comp rules to underlying model
             attach_lrp_comp_rules(model)
 
     return post_process(
