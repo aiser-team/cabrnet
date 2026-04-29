@@ -2,6 +2,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 from captum.attr import LRP, Saliency
+from captum.attr._utils.attribution import GradientAttribution
 from loguru import logger
 from PIL import Image
 from torch import Tensor
@@ -10,6 +11,15 @@ from cabrnet.archs.generic.model import CaBRNet
 from cabrnet.core.visualization.postprocess import post_process
 from cabrnet.core.visualization.prp_utils import (
     attach_lrp_comp_rules, get_cabrnet_lrp_composite_model)
+
+
+class RandGrad(GradientAttribution):
+    """Random gradient attribution method.
+
+    A placeholder class for future implementation.
+    """
+
+    pass
 
 
 def _check_tensor_dims(x: Tensor) -> Tensor:
