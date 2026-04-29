@@ -9,9 +9,7 @@ from torch import Tensor
 from cabrnet.archs.generic.model import CaBRNet
 from cabrnet.core.visualization.postprocess import post_process
 from cabrnet.core.visualization.prp_utils import (
-    attach_lrp_comp_rules,
-    get_cabrnet_lrp_composite_model,
-)
+    attach_lrp_comp_rules, get_cabrnet_lrp_composite_model)
 
 
 def _check_tensor_dims(x: Tensor) -> Tensor:
@@ -34,6 +32,19 @@ def _check_tensor_dims(x: Tensor) -> Tensor:
 
 
 def apply_augmentors(input_tensor: Tensor, augmentors: list[nn.Module]) -> Tensor:
+    """Apply a sequence of augmentors to an input tensor.
+
+    Each augmentor takes a single sample and returns a batch of augmented versions.
+    The augmentors are applied sequentially, with each augmentor processing all
+    samples produced by the previous one.
+
+    Args:
+        input_tensor: Input tensor to augment.
+        augmentors: List of augmentor modules to apply sequentially.
+
+    Returns:
+        Tensor containing all augmented samples.
+    """
     result = input_tensor
     for augment_module in augmentors:
         result = torch.cat([augment_module(x.unsqueeze(0)) for x in result])
