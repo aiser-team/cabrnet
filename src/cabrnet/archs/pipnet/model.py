@@ -613,7 +613,7 @@ class PIPNet(CaBRNet):
             img_tensor = img_tensor.to(device)
 
             # Perform inference
-            _, prototype_presence, prediction = self.forward(img_tensor)
+            prediction, _, prototype_presence = self.forward(img_tensor)
             class_idx = int(torch.argmax(prediction, dim=1)[0].item())
 
             prototype_presence = prototype_presence[0]

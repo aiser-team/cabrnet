@@ -537,7 +537,7 @@ class ProtoPool(CaBRNet):
                     min_distances[proto_idx] = float("inf")
 
             # Build explanation
-            img_path = output_dir / "original.png"
+            img_path = output_dir.absolute() / "original.png"
             if not disable_rendering:
                 (output_dir / "test_patches").mkdir(parents=True, exist_ok=exist_ok)
                 # Copy source image
@@ -557,9 +557,9 @@ class ProtoPool(CaBRNet):
                     (proto_idx, score, True)
                 )  # ProtoPool only considers positive similarities
                 # Recover path to prototype image
-                prototype_image_path = prototype_dir / f"prototype_{proto_idx}.png"
+                prototype_image_path = prototype_dir.absolute() / f"prototype_{proto_idx}.png"
                 # Generate test image patch
-                patch_image_path = output_dir / "test_patches" / f"proto_similarity_{proto_idx}.png"
+                patch_image_path = output_dir.absolute() / "test_patches" / f"proto_similarity_{proto_idx}.png"
                 if not disable_rendering:
                     patch_image = visualizer.forward(img=img, img_tensor=img_tensor, proto_idx=proto_idx, device=device)
                     patch_image.save(patch_image_path)
