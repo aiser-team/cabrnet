@@ -8,7 +8,7 @@ import torch
 from cabrnet.archs.generic.model import CaBRNet
 from cabrnet.core.utils.data import DatasetManager
 from cabrnet.core.utils.save import load_projection_info
-from cabrnet.core.visualization.visualizer import SimilarityVisualizer
+from cabrnet.core.visualization.depictor import ProtoDepictor
 
 
 def setup_rng(seed: int):
@@ -50,11 +50,17 @@ class TestProtoTree(unittest.TestCase):
         setup_rng(42)
 
         model = CaBRNet.build_from_config(config=model_config_file, state_dict_path=model_state_dict)
+        transform = DatasetManager.get_dataset_transform(config=dataset_config, dataset="test_set")
+        assert transform is not None
         model.extract_prototypes(
             dataloader_raw=dataloaders["projection_set_raw"],
             dataloader=dataloaders["projection_set"],
             projection_info=projection_info,
-            visualizer=SimilarityVisualizer.build_from_config(config=visualization_config, model=model),
+            depictor=ProtoDepictor.build_from_config(
+                config=visualization_config,
+                model=model,
+                transform=transform,
+            ),
             dir_path=prototype_dir,
             device="cpu",
         )
@@ -73,10 +79,15 @@ class TestProtoTree(unittest.TestCase):
         setup_rng(42)
 
         model = CaBRNet.build_from_config(config=model_config_file, state_dict_path=model_state_dict)
+        transform = DatasetManager.get_dataset_transform(config=dataset_config, dataset="test_set")
+        assert transform is not None
         model.explain(
             img=os.path.join(test_dir, "..", "examples/images/mnist_sample.png"),
-            preprocess=DatasetManager.get_dataset_transform(config=dataset_config, dataset="test_set"),
-            visualizer=SimilarityVisualizer.build_from_config(config=visualization_config, model=model),
+            depictor=ProtoDepictor.build_from_config(
+                config=visualization_config,
+                model=model,
+                transform=transform,
+            ),
             prototype_dir=prototype_dir,
             output_dir=output_dir,
             exist_ok=True,

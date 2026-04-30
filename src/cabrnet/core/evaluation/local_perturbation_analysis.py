@@ -306,6 +306,7 @@ def analyze(
     # Perform dummy explanation to capture most relevant prototypes
     most_relevant_prototypes = model.explain(
         img=img,
+        preprocess=preprocess,
         depictor=visualizer,
         prototype_dir=Path.cwd(),
         output_dir=Path.cwd(),
@@ -464,13 +465,12 @@ def execute(
 
     # Create dataloaders and visualizer
     datasets = DatasetManager.get_datasets(dataset_config, sampling_ratio=sampling_ratio)
-    transform = (
+    preprocess = (
         DatasetManager.get_dataset_transform(config=dataset_config, dataset="projection_set") if debug_mode else None
     )
-    visualizer = SimilarityVisualizer.build_from_config(config=visualization_config, model=model, transform=transform)
+    visualizer = SimilarityVisualizer.build_from_config(config=visualization_config, model=model, transform=preprocess)
 
     # Recover preprocessing function
-    preprocess = getattr(datasets["test_set"]["dataset"], "transform", ToTensor())
     dataset = datasets["test_set"]["raw_dataset"]
 
     test_iter = tqdm(
@@ -503,7 +503,7 @@ def execute(
             model.extract_prototypes(
                 dataloader_raw=dataloaders["projection_set_raw"],
                 projection_info=projection_info,
-                visualizer=visualizer,
+                depictor=visualizer,
                 dir_path=prototype_dir,
                 device=device,
                 verbose=verbose,
