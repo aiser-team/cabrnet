@@ -16,8 +16,7 @@ from cabrnet.archs.generic.decision import CaBRNetClassifier
 from cabrnet.archs.generic.model import CaBRNet
 from cabrnet.core.utils.image import safe_open_image
 from cabrnet.core.utils.optimizers import OptimizerManager
-from cabrnet.core.visualization.depictor import Depictor
-from cabrnet.core.visualization.visualizer import SimilarityVisualizer
+from cabrnet.core.visualization.depictor import ProtoDepictor
 
 
 class PIPNet(CaBRNet):
@@ -575,7 +574,7 @@ class PIPNet(CaBRNet):
         self,
         img: Path | Image.Image,
         preprocess: Callable | None,
-        depictor: Depictor,
+        depictor: ProtoDepictor,
         prototype_dir: Path,
         output_dir: Path,
         output_format: str = "pdf",

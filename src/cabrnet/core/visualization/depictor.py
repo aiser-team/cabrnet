@@ -10,10 +10,10 @@ from loguru import logger
 from cabrnet.archs.generic.model import CaBRNet
 
 
-class Depictor(ABC):
-    r"""Base class for visualization depictors.
-
-    A depictor generates and saves visualizations for model interpretations.
+class ProtoDepictor(ABC):
+    r"""Base class for *depictors*.
+   
+    A depictor generates and saves interpretations of a prototype to a human-readable format (image, audio ...).
     """
 
     DEFAULT_VISUALIZATION_CONFIG = Path("visualization.yml")
@@ -22,12 +22,17 @@ class Depictor(ABC):
     SUPPORTED_ATTRIBUTION_METHODS: tuple[str, ...] = ()
 
     config_file: Path | None
+    
+    transform: Callable
+    """
+    transformed used to generate model input from raw data. Must be set to (lambda x: x) if no transform.
+    """
 
     @property
     @abstractmethod
     def extension(self) -> str:
         r"""File extension for output files (without dot)."""
-        pass
+        raise NotImplementedError
 
     @abstractmethod
     def save(
@@ -52,7 +57,7 @@ class Depictor(ABC):
         Returns:
             Path to the saved file.
         """
-        pass
+        raise NotImplementedError
 
     @staticmethod
     def create_parser(
@@ -81,8 +86,7 @@ class Depictor(ABC):
         return parser
 
     @staticmethod
-    @abstractmethod
-    def build_from_config(config: Path | dict[str, Any], model: CaBRNet, transform: Callable) -> "Depictor":
+    def build_from_config(config: Path | dict[str, Any], model: CaBRNet, transform: Callable) -> "ProtoDepictor":
         r"""Builds a depictor from a configuration file or dictionary.
 
         Args:
@@ -107,7 +111,7 @@ class Depictor(ABC):
         depictor_classname = config_dict.pop("type", None) or config_dict.get("name", None) or "SimilarityVisualizer"
         # Import and build the appropriate depictor
         module = importlib.import_module(depictor_module)
-        depictor_class: Depictor = getattr(module, depictor_classname)
+        depictor_class: ProtoDepictor = getattr(module, depictor_classname)
 
         result = depictor_class.build_from_config(config_dict, model=model, transform=transform)
         result.config_file = config_path

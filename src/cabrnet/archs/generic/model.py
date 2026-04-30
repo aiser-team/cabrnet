@@ -18,15 +18,14 @@ from torch import Tensor
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from cabrnet.archs.generic.conv_extractor import (LAYER_INIT_FUNCTIONS,
-                                                  ConvExtractor)
+from cabrnet.archs.generic.conv_extractor import LAYER_INIT_FUNCTIONS, ConvExtractor
 from cabrnet.archs.generic.decision import CaBRNetClassifier
 from cabrnet.core.utils.exceptions import ArgumentError, check_mandatory_fields
 from cabrnet.core.utils.optimizers import OptimizerManager
 from cabrnet.core.utils.parser import load_config
 
 if TYPE_CHECKING:
-    from cabrnet.core.visualization.depictor import Depictor
+    from cabrnet.core.visualization.depictor import ProtoDepictor
 
 
 class CaBRNet(nn.Module):
@@ -1067,7 +1066,7 @@ class CaBRNet(nn.Module):
         self,
         dataloader_raw: DataLoader,
         projection_info: list[dict],
-        depictor: Depictor,
+        depictor: ProtoDepictor,
         dir_path: Path,
         device: str | torch.device = "cuda:0",
         verbose: bool = False,
@@ -1140,7 +1139,8 @@ class CaBRNet(nn.Module):
     def explain(
         self,
         img: Path | Image.Image,
-        depictor: Depictor,
+        preprocess: Callable | None,
+        depictor: ProtoDepictor,
         prototype_dir: Path,
         output_dir: Path,
         output_format: str = "pdf",

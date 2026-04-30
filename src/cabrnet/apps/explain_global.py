@@ -7,7 +7,7 @@ from cabrnet.archs.generic.model import CaBRNet
 from cabrnet.core.utils.data import DatasetManager
 from cabrnet.core.utils.exceptions import ArgumentError
 from cabrnet.core.utils.save import load_projection_info, safe_copy
-from cabrnet.core.visualization.depictor import Depictor
+from cabrnet.core.visualization.depictor import ProtoDepictor
 
 description = "explains the global behaviour of a CaBRNet model"
 
@@ -26,7 +26,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         parser = ArgumentParser(description)
     parser = CaBRNet.create_parser(parser)
     parser = DatasetManager.create_parser(parser)
-    parser = Depictor.create_parser(parser, mandatory_config=True)
+    parser = ProtoDepictor.create_parser(parser, mandatory_config=True)
     parser.add_argument(
         "-p",
         "--projection-info",
@@ -123,7 +123,7 @@ def execute(args: Namespace) -> None:
 
     # Init depictor with transform
     transform = DatasetManager.get_dataset_transform(config=args.dataset, dataset="projection_set")
-    depictor = Depictor.build_from_config(config=args.visualization, model=model, transform=transform)
+    depictor = ProtoDepictor.build_from_config(config=args.visualization, model=model, transform=transform)
 
     # Build prototypes
     dataloaders = DatasetManager.get_dataloaders(config=args.dataset)
@@ -141,7 +141,7 @@ def execute(args: Namespace) -> None:
         # Save visualization config
         safe_copy(
             args.visualization,
-            args.output_dir / "prototypes" / Depictor.DEFAULT_VISUALIZATION_CONFIG,
+            args.output_dir / "prototypes" / ProtoDepictor.DEFAULT_VISUALIZATION_CONFIG,
         )
 
     # Generate explanation

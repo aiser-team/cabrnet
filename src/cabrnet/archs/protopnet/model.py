@@ -15,9 +15,9 @@ from cabrnet.archs.generic.decision import CaBRNetClassifier
 from cabrnet.archs.generic.model import CaBRNet
 from cabrnet.core.utils.image import safe_open_image
 from cabrnet.core.utils.optimizers import OptimizerManager
-from cabrnet.core.visualization.depictor import Depictor
+from cabrnet.core.visualization.depictor import ProtoDepictor
 from cabrnet.core.visualization.explainer import ExplanationGraph
-from cabrnet.core.visualization.visualizer import SimilarityVisualizer
+from typing_extensions import override
 
 
 class ProtoPNet(CaBRNet):
@@ -142,6 +142,8 @@ class ProtoPNet(CaBRNet):
             # Load state dictionary
             super().load_state_dict(state_dict, **kwargs)
 
+
+    @override
     def loss(self, model_output: Any, label: torch.Tensor, **kwargs) -> tuple[torch.Tensor, dict[str, float]]:
         r"""Loss function.
 
@@ -479,8 +481,8 @@ class ProtoPNet(CaBRNet):
     def explain(
         self,
         img: Path | Image.Image,
-        preprocess: Callable[[Image.Image], Image.Image] | None,
-        depictor: Depictor,
+        preprocess: Callable | None,
+        depictor: ProtoDepictor,
         prototype_dir: Path = Path.cwd(),
         output_dir: Path = Path.cwd(),
         output_format: str = "pdf",

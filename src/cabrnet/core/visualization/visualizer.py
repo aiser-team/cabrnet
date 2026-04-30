@@ -18,7 +18,7 @@ from cabrnet.core.visualization.postprocess import post_process
 from cabrnet.core.visualization.prp_utils import get_cabrnet_lrp_composite_model
 from cabrnet.core.visualization.upsampling import cubic_upsampling
 from cabrnet.core.visualization.view import SUPPORTED_VIEWING_FUNCTIONS
-from cabrnet.core.visualization.depictor import Depictor
+from cabrnet.core.visualization.depictor import ProtoDepictor
 
 # Type alias for attribution methods
 AttributionMethod = Literal["saliency", "smoothgrad", "prp", "randgrad", "cubic"]
@@ -88,7 +88,7 @@ def compute_attribution(
     )
 
 
-class SimilarityVisualizer(Depictor):
+class SimilarityVisualizer(ProtoDepictor):
     r"""Object used to extract patch visualizations from a model.
 
     Attributes:

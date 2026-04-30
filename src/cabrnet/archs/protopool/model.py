@@ -17,9 +17,8 @@ from cabrnet.archs.generic.model import CaBRNet
 from cabrnet.core.utils.custom_preprocess import batch_mixup
 from cabrnet.core.utils.image import safe_open_image
 from cabrnet.core.utils.optimizers import OptimizerManager
-from cabrnet.core.visualization.depictor import Depictor
+from cabrnet.core.visualization.depictor import ProtoDepictor
 from cabrnet.core.visualization.explainer import ExplanationGraph
-from cabrnet.core.visualization.visualizer import SimilarityVisualizer
 
 
 class ProtoPool(CaBRNet):
@@ -484,7 +483,7 @@ class ProtoPool(CaBRNet):
         self,
         img: Path | Image.Image,
         preprocess: Callable | None,
-        depictor: Depictor,
+        depictor: ProtoDepictor,
         prototype_dir: Path = Path.cwd(),
         output_dir: Path = Path.cwd(),
         output_format: str = "pdf",
