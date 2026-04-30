@@ -170,6 +170,7 @@ class SimilarityVisualizer(ProtoDepictor):
             Patch visualization.
         """
         sim_map = self.get_attribution(img=img, proto_idx=proto_idx, device=device, location=location)
+        assert not np.any(np.isnan(sim_map)), f"sim map contains nan: {sim_map}"
         return self.view(img=img, sim_map=sim_map, **self.view_params)
 
     def save(
