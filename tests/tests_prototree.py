@@ -50,8 +50,8 @@ class TestProtoTree(unittest.TestCase):
         setup_rng(42)
 
         model = CaBRNet.build_from_config(config=model_config_file, state_dict_path=model_state_dict)
-        transform = DatasetManager.get_dataset_transform(config=dataset_config, dataset="test_set")
-        assert transform is not None
+        datasets = DatasetManager.get_datasets(config=dataset_config)
+        projection_dataset = datasets["projection_set"]["dataset"]
         model.extract_prototypes(
             dataloader_raw=dataloaders["projection_set_raw"],
             dataloader=dataloaders["projection_set"],
@@ -59,7 +59,7 @@ class TestProtoTree(unittest.TestCase):
             depictor=ProtoDepictor.build_from_config(
                 config=visualization_config,
                 model=model,
-                transform=transform,
+                dataset=projection_dataset,
             ),
             dir_path=prototype_dir,
             device="cpu",
@@ -79,14 +79,15 @@ class TestProtoTree(unittest.TestCase):
         setup_rng(42)
 
         model = CaBRNet.build_from_config(config=model_config_file, state_dict_path=model_state_dict)
-        transform = DatasetManager.get_dataset_transform(config=dataset_config, dataset="test_set")
-        assert transform is not None
+        datasets = DatasetManager.get_datasets(config=dataset_config)
+        test_dataset = datasets["test_set"]["dataset"]
         model.explain(
             img=os.path.join(test_dir, "..", "examples/images/mnist_sample.png"),
+            preprocess=test_dataset.transform,
             depictor=ProtoDepictor.build_from_config(
                 config=visualization_config,
                 model=model,
-                transform=transform,
+                dataset=test_dataset,
             ),
             prototype_dir=prototype_dir,
             output_dir=output_dir,

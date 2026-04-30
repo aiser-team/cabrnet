@@ -121,9 +121,12 @@ def execute(args: Namespace) -> None:
     # Build model and load state dictionary
     model: CaBRNet = CaBRNet.build_from_config(config=args.model_arch, state_dict_path=args.model_state_dict)
 
-    # Init depictor with transform
-    transform = DatasetManager.get_dataset_transform(config=args.dataset, dataset="projection_set")
-    depictor = ProtoDepictor.build_from_config(config=args.visualization, model=model, transform=transform)
+    # Get dataset for visualizer
+    datasets = DatasetManager.get_datasets(config=args.dataset)
+    projection_dataset = datasets["projection_set"]["dataset"]
+
+    # Init depictor
+    depictor = ProtoDepictor.build_from_config(config=args.visualization, model=model, dataset=projection_dataset)
 
     # Build prototypes
     dataloaders = DatasetManager.get_dataloaders(config=args.dataset)

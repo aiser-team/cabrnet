@@ -8,6 +8,7 @@ import torch
 from loguru import logger
 from PIL import Image
 from torch import Tensor
+from torch.utils.data import Dataset
 
 from cabrnet.archs.generic.model import CaBRNet
 from cabrnet.core.attribution.augmentors import GaussianNoiseAugmentor
@@ -169,9 +170,7 @@ class SimilarityVisualizer(ProtoDepictor):
         Returns:
             Patch visualization.
         """
-        sim_map = self.get_attribution(
-            img=img, proto_idx=proto_idx, device=device, location=location
-        )
+        sim_map = self.get_attribution(img=img, proto_idx=proto_idx, device=device, location=location)
         return self.view(img=img, sim_map=sim_map, **self.view_params)
 
     def save(
@@ -201,9 +200,7 @@ class SimilarityVisualizer(ProtoDepictor):
         if self.transform is None:
             raise ValueError("Transform must be set to use save() method")
 
-        visualization = self.forward(
-            img=raw_input, proto_idx=proto_idx, device=device, location=location
-        )
+        visualization = self.forward(img=raw_input, proto_idx=proto_idx, device=device, location=location)
         folder.mkdir(parents=True, exist_ok=True)
         output_path = folder / f"{filename}.{self.extension}"
         visualization.save(output_path)
@@ -248,18 +245,29 @@ class SimilarityVisualizer(ProtoDepictor):
 
     @staticmethod
     def build_from_config(
-        config: Path | dict[str, Any], model: CaBRNet, transform: Callable | None
+        config: Path | dict[str, Any], model: CaBRNet, dataset: Dataset
     ) -> SimilarityVisualizer:
         r"""Builds a SimilarityVisualizer from a configuration file or dictionary.
 
         Args:
             config: Path to configuration file or dictionary.
             model: Target model.
-            transform: Preprocessing transform applied to raw input.
+            transform: Preprocessing transform (if provided directly).
+            dataset: Dataset to extract transform from (alternative to transform param).
 
         Returns:
             SimilarityVisualizer.
+
+        Raises:
+            ValueError: If neither transform nor dataset is provided, or if dataset has None transform.
         """
+        if hasattr(dataset, "transform"):
+            transform = getattr(dataset, "transform")
+        else:
+            raise ValueError(
+                f"Dataset {dataset} does not have a 'transform' attribute."
+            )
+
         if isinstance(config, Path):
             logger.info(f"Loading patch visualizer from {config}.")
             config_dict = load_config(config)

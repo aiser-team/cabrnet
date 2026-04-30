@@ -263,9 +263,14 @@ def execute(
     """
     model.to(device)
     model.eval()
-    transform = DatasetManager.get_dataset_transform(dataset_config)
-    assert transform is not None
-    visualizer = SimilarityVisualizer.build_from_config(config=visualization_config, model=model, transform=transform)
+
+    # Get dataset for visualizer
+    datasets = DatasetManager.get_datasets(dataset_config)
+    projection_dataset = datasets["projection_set"]["dataset"]
+    visualizer = SimilarityVisualizer.build_from_config(
+        config=visualization_config, model=model, dataset=projection_dataset
+    )
+
     dataloaders = DatasetManager.get_dataloaders(dataset_config)
     dataloader = dataloaders[dataset_name]
     dataset = dataloader.dataset

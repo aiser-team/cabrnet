@@ -134,11 +134,13 @@ def execute(args: Namespace) -> None:
     # Build model and load state dictionary
     model: CaBRNet = CaBRNet.build_from_config(config=args.model_arch, state_dict_path=args.model_state_dict)
 
-    # Recover preprocessing function
-    preprocess = DatasetManager.get_dataset_transform(config=args.dataset, dataset="test_set")
+    # Get dataset for visualizer and preprocessing
+    datasets = DatasetManager.get_datasets(config=args.dataset)
+    test_dataset = datasets["test_set"]["dataset"]
+    preprocess = test_dataset.transform
 
     # Init visualizer
-    depictor = ProtoDepictor.build_from_config(config=args.visualization, model=model, transform=preprocess)
+    depictor = ProtoDepictor.build_from_config(config=args.visualization, model=model, dataset=test_dataset)
 
     # Dedicated directory for target image
     output_dir = Path(args.output_dir, Path(args.image).stem)

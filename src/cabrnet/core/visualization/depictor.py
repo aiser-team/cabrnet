@@ -6,13 +6,14 @@ from typing import Any, Callable
 
 import torch
 from loguru import logger
+from torch.utils.data import Dataset
 
 from cabrnet.archs.generic.model import CaBRNet
 
 
 class ProtoDepictor(ABC):
     r"""Base class for *depictors*.
-   
+
     A depictor generates and saves interpretations of a prototype to a human-readable format (image, audio ...).
     """
 
@@ -22,7 +23,7 @@ class ProtoDepictor(ABC):
     SUPPORTED_ATTRIBUTION_METHODS: tuple[str, ...] = ()
 
     config_file: Path | None
-    
+
     transform: Callable
     """
     transformed used to generate model input from raw data. Must be set to (lambda x: x) if no transform.
@@ -86,15 +87,20 @@ class ProtoDepictor(ABC):
         return parser
 
     @staticmethod
-    def build_from_config(config: Path | dict[str, Any], model: CaBRNet, transform: Callable) -> "ProtoDepictor":
+    def build_from_config(
+        config: Path | dict[str, Any], model: CaBRNet, dataset: Dataset
+    ) -> "ProtoDepictor":
         r"""Builds a depictor from a configuration file or dictionary.
 
         Args:
             config: Path to configuration file or dictionary.
             model: Target model.
+            transform: Preprocessing transform (if provided directly).
+            dataset: Dataset to extract transform from (alternative to transform param).
 
         Returns:
             Depictor instance.
+
         """
         from cabrnet.core.utils.parser import load_config
 
@@ -113,6 +119,6 @@ class ProtoDepictor(ABC):
         module = importlib.import_module(depictor_module)
         depictor_class: ProtoDepictor = getattr(module, depictor_classname)
 
-        result = depictor_class.build_from_config(config_dict, model=model, transform=transform)
+        result = depictor_class.build_from_config(config_dict, model=model, dataset=dataset)
         result.config_file = config_path
         return result

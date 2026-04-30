@@ -465,13 +465,12 @@ def execute(
 
     # Create dataloaders and visualizer
     datasets = DatasetManager.get_datasets(dataset_config, sampling_ratio=sampling_ratio)
-    preprocess = (
-        DatasetManager.get_dataset_transform(config=dataset_config, dataset="projection_set") if debug_mode else None
-    )
-    visualizer = SimilarityVisualizer.build_from_config(config=visualization_config, model=model, transform=preprocess)
 
-    # Recover preprocessing function
-    dataset = datasets["test_set"]["raw_dataset"]
+    # Get projection dataset for visualizer (required for transform)
+    projection_dataset = datasets["projection_set"]["dataset"]
+    transform = projection_dataset.transform
+    assert transform is not None
+    visualizer = SimilarityVisualizer.build_from_config(config=visualization_config, model=model, transform=transform)
 
     test_iter = tqdm(
         enumerate(dataset),  # type: ignore
