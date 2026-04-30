@@ -55,8 +55,8 @@ class SpectrogramDepictor(ProtoDepictor):
         view_fn: Callable,
         spectro_config: SpectroConfig,
         spectro_to_img: SpectroToImg,
-        attribution_params: dict | None = None,
-        view_params: dict | None = None,
+        attribution_params: dict,
+        view_params: dict,
         config_file: Path | None = None,
         *args,
         **kwargs,
@@ -69,15 +69,23 @@ class SpectrogramDepictor(ProtoDepictor):
             view_fn: Viewing function.
             spectro_config: Spectrogram configuration (FFT parameters).
             spectro_to_img: Transform to convert complex STFT to image tensor.
-            attribution_params: Parameters to attribution function. Default: None.
-            view_params: Parameters to viewing function. Default: None.
+            attribution_params: Parameters to attribution function.
+            view_params: Parameters to viewing function.
             config_file: Path to the file used to configure the depictor. Default: None.
+
+        Raises:
+            ValueError: If attribution_params or view_params is None.
         """
+        if attribution_params is None:
+            raise ValueError("attribution_params must be provided.")
+        if view_params is None:
+            raise ValueError("view_params must be provided.")
+
         super().__init__(*args, **kwargs)
         self.attribution_method: AttributionMethod = attribution_method
-        self.attribution_params = attribution_params if attribution_params is not None else {}
+        self.attribution_params = attribution_params
         self.view_fn = view_fn
-        self.view_params = view_params if view_params is not None else {}
+        self.view_params = view_params
         self.config_file = config_file
         self.spectro_config = spectro_config
         self.spectro_to_img = spectro_to_img
@@ -86,9 +94,9 @@ class SpectrogramDepictor(ProtoDepictor):
         self.brown_noise_augmentor = BrownNoiseAugmentor(
             n_fft=spectro_config.n_fft,
             width=spectro_config.width,
-            num_samples=attribution_params.get("num_samples", 16) if attribution_params else 16,
-            noise_ratio=attribution_params.get("noise_ratio", 0.1) if attribution_params else 0.1,
-            bank_size=attribution_params.get("bank_size", 256) if attribution_params else 256,
+            num_samples=attribution_params.get("num_samples", 16),
+            noise_ratio=attribution_params.get("noise_ratio", 0.1),
+            bank_size=attribution_params.get("bank_size", 256),
         )
 
         self.model = model
@@ -208,8 +216,7 @@ class SpectrogramDepictor(ProtoDepictor):
     def build_from_config(
         config: Path | dict[str, Any],
         model: CaBRNet,
-        transform: Callable | None = None,
-        dataset: LabeledSpectroDataset | None = None,
+        dataset: LabeledSpectroDataset ,
     ) -> "SpectrogramDepictor":
         r"""Builds a SpectrogramDepictor from a configuration file or dictionary.
 
@@ -269,15 +276,6 @@ class SpectrogramDepictor(ProtoDepictor):
             f_max=config_dict.get("f_max", spectro_config.sample_rate / 2),
             alpha=config_dict.get("alpha", 0.5),
             flip=config_dict.get("flip", False),
-        )
-
-        # Brown noise augmentor from dataset config
-        brown_noise = BrownNoiseAugmentor(
-            n_fft=spectro_config.n_fft,
-            width=spectro_config.width,
-            num_samples=attribution_params.get("num_samples", 16) if attribution_params else 16,
-            noise_ratio=attribution_params.get("noise_ratio", 0.1) if attribution_params else 0.1,
-            bank_size=attribution_params.get("bank_size", 256) if attribution_params else 256,
         )
 
         return SpectrogramDepictor(
