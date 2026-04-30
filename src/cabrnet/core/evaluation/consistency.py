@@ -199,9 +199,8 @@ def compute_distances(
         with safe_open_image(Path(image_filename), preprocess=preprocess) as (img, img_tensor):
             for proto_idx in protos_of_class[k]:
                 attrib = visualizer.get_attribution(
-                    img,
-                    img_tensor,
-                    proto_idx,
+                    img=img,
+                    proto_idx=proto_idx,
                     device=device,
                     location="max",
                 )
@@ -264,11 +263,12 @@ def execute(
     """
     model.to(device)
     model.eval()
-    visualizer = SimilarityVisualizer.build_from_config(config=visualization_config, model=model)
+    transform = DatasetManager.get_dataset_transform(dataset_config)
+    assert transform is not None
+    visualizer = SimilarityVisualizer.build_from_config(config=visualization_config, model=model, transform=transform)
     dataloaders = DatasetManager.get_dataloaders(dataset_config)
     dataloader = dataloaders[dataset_name]
     dataset = dataloader.dataset
-    preprocess = getattr(dataset, "transform", ToTensor())
 
     annots = getattr(cabrnet.core.utils.parts, part_parser)(dataset, **kwargs)
     protos_of_class = compute_protos_of_class(model)
@@ -297,7 +297,7 @@ def execute(
         distances = compute_distances(
             model=model,
             dataset=dataset,
-            preprocess=preprocess,
+            preprocess=transform,
             visualizer=visualizer,
             annotations=annots,
             protos_of_class=protos_of_class,

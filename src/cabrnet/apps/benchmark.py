@@ -9,7 +9,7 @@ from loguru import logger
 from cabrnet.archs.generic.model import CaBRNet
 from cabrnet.core.utils.data import DatasetManager
 from cabrnet.core.utils.exceptions import ArgumentError
-from cabrnet.core.visualization.visualizer import SimilarityVisualizer
+from cabrnet.core.visualization.depictor import Depictor
 
 description = "computes a set of evaluation metrics on a CaBRNet model"
 
@@ -28,7 +28,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         parser = ArgumentParser(description)
     parser = CaBRNet.create_parser(parser)
     parser = DatasetManager.create_parser(parser)
-    parser = SimilarityVisualizer.create_parser(parser, mandatory_config=True)
+    parser = Depictor.create_parser(parser, mandatory_config=True)
     parser.add_argument(
         "-p",
         "--projection-info",

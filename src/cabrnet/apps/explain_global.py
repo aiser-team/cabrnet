@@ -7,7 +7,7 @@ from cabrnet.archs.generic.model import CaBRNet
 from cabrnet.core.utils.data import DatasetManager
 from cabrnet.core.utils.exceptions import ArgumentError
 from cabrnet.core.utils.save import load_projection_info, safe_copy
-from cabrnet.core.visualization.visualizer import SimilarityVisualizer
+from cabrnet.core.visualization.depictor import Depictor
 
 description = "explains the global behaviour of a CaBRNet model"
 
@@ -26,7 +26,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         parser = ArgumentParser(description)
     parser = CaBRNet.create_parser(parser)
     parser = DatasetManager.create_parser(parser)
-    parser = SimilarityVisualizer.create_parser(parser, mandatory_config=True)
+    parser = Depictor.create_parser(parser, mandatory_config=True)
     parser.add_argument(
         "-p",
         "--projection-info",
@@ -121,9 +121,9 @@ def execute(args: Namespace) -> None:
     # Build model and load state dictionary
     model: CaBRNet = CaBRNet.build_from_config(config=args.model_arch, state_dict_path=args.model_state_dict)
 
-    # Init visualizer with transform
+    # Init depictor with transform
     transform = DatasetManager.get_dataset_transform(config=args.dataset, dataset="projection_set")
-    visualizer = SimilarityVisualizer.build_from_config(config=args.visualization, model=model, transform=transform)
+    depictor = Depictor.build_from_config(config=args.visualization, model=model, transform=transform)
 
     # Build prototypes
     dataloaders = DatasetManager.get_dataloaders(config=args.dataset)
@@ -132,7 +132,7 @@ def execute(args: Namespace) -> None:
         model.extract_prototypes(
             dataloader_raw=dataloaders["projection_set_raw"],
             projection_info=projection_info,
-            visualizer=visualizer,
+            depictor=depictor,
             dir_path=args.output_dir / "prototypes",
             device=args.device,
             verbose=args.verbose,
@@ -141,7 +141,7 @@ def execute(args: Namespace) -> None:
         # Save visualization config
         safe_copy(
             args.visualization,
-            args.output_dir / "prototypes" / SimilarityVisualizer.DEFAULT_VISUALIZATION_CONFIG,
+            args.output_dir / "prototypes" / Depictor.DEFAULT_VISUALIZATION_CONFIG,
         )
 
     # Generate explanation

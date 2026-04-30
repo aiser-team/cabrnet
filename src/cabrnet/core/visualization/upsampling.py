@@ -2,15 +2,13 @@ import cv2
 import numpy as np
 import torch
 import torch.nn as nn
-from PIL import Image
-from torch import Tensor
-
 from cabrnet.core.visualization.postprocess import normalize_min_max
+from torch import Tensor
 
 
 def cubic_upsampling(
     model: nn.Module,
-    img: Image.Image,
+    img_size: tuple[int, int],
     img_tensor: Tensor,
     proto_idx: int,
     device: str | torch.device,
@@ -63,7 +61,7 @@ def cubic_upsampling(
         sim_map[h, w] = 1
 
     # Upsample to image size
-    sim_map = cv2.resize(src=sim_map, dsize=(img.width, img.height), interpolation=cv2.INTER_CUBIC)
+    sim_map = cv2.resize(src=sim_map, dsize=img_size, interpolation=cv2.INTER_CUBIC)
     if normalize:
         sim_map = normalize_min_max(sim_map)
     return sim_map

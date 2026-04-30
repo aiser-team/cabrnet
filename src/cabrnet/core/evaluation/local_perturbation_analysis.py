@@ -265,7 +265,6 @@ def analyze(
         model (Module): CaBRNet model, assumed to be in eval mode and already mapped on the correct device.
         img (Image): Input image.
         img_id (int | str): Image identifier.
-        preprocess (Callable): Preprocessing function.
         visualizer (SimilarityVisualizer): Patch visualizer.
         device (str | device): Hardware device.
         perturbations (dict[str,dict]): Map of perturbations whose key is the name of the perturbation
@@ -307,8 +306,7 @@ def analyze(
     # Perform dummy explanation to capture most relevant prototypes
     most_relevant_prototypes = model.explain(
         img=img,
-        preprocess=preprocess,
-        visualizer=visualizer,
+        depictor=visualizer,
         prototype_dir=Path.cwd(),
         output_dir=Path.cwd(),
         device=device,
@@ -327,9 +325,7 @@ def analyze(
 
     for proto_idx in most_relevant_prototypes:
         # Compute attribution map and expand to (H x W x 1)
-        attribution = visualizer.get_attribution(
-            img=img, img_tensor=img_tensor, proto_idx=proto_idx, location="max", device=device
-        )
+        attribution = visualizer.get_attribution(img=img, proto_idx=proto_idx, location="max", device=device)
         attribution_heatmap = heatmap(img=img, sim_map=attribution, overlay=True)
         attribution = np.expand_dims(attribution, axis=-1)
 
@@ -519,7 +515,6 @@ def execute(
             model=model,
             img=img,
             img_id=img_id,
-            preprocess=preprocess,
             visualizer=visualizer,
             device=device,
             debug_dir=debug_dir if debug_mode else None,

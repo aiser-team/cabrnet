@@ -15,6 +15,7 @@ from cabrnet.archs.generic.decision import CaBRNetClassifier
 from cabrnet.archs.generic.model import CaBRNet
 from cabrnet.core.utils.image import safe_open_image
 from cabrnet.core.utils.optimizers import OptimizerManager
+from cabrnet.core.visualization.depictor import Depictor
 from cabrnet.core.visualization.explainer import ExplanationGraph
 from cabrnet.core.visualization.visualizer import SimilarityVisualizer
 
@@ -479,7 +480,7 @@ class ProtoPNet(CaBRNet):
         self,
         img: Path | Image.Image,
         preprocess: Callable[[Image.Image], Image.Image] | None,
-        visualizer: SimilarityVisualizer,
+        depictor: Depictor,
         prototype_dir: Path = Path.cwd(),
         output_dir: Path = Path.cwd(),
         output_format: str = "pdf",
@@ -511,6 +512,9 @@ class ProtoPNet(CaBRNet):
             and <similar> indicates whether the prototype is considered similar or dissimilar.
         """
         self.eval()
+
+        # ProtopNet only supports image explanations
+        assert depictor.extension == "png", "ProtopNet only supports image explanations"
 
         with safe_open_image(img, preprocess) as (img, img_tensor):
             # Map to device
@@ -553,10 +557,14 @@ class ProtoPNet(CaBRNet):
                 prototype_image_path = prototype_dir.absolute() / f"prototype_{proto_idx}.png"
                 prototype_class_idx = int(torch.argmax(self.classifier.proto_class_map[proto_idx]))
                 # Generate test image patch
-                patch_image_path = output_dir.absolute() / "test_patches" / f"proto_similarity_{proto_idx}.png"
                 if not disable_rendering:
-                    patch_image = visualizer.forward(img=img, img_tensor=img_tensor, proto_idx=proto_idx, device=device)
-                    patch_image.save(patch_image_path)
+                    patch_image_path = depictor.save(
+                        raw_input=img,
+                        folder=output_dir.absolute() / "test_patches",
+                        filename=f"proto_similarity_{proto_idx}",
+                        proto_idx=proto_idx,
+                        device=device,
+                    )
                 explanation.add_similarity(
                     prototype_img_path=prototype_image_path,
                     test_patch_img_path=patch_image_path,

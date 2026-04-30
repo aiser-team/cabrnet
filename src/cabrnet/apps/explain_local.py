@@ -6,7 +6,7 @@ from cabrnet.archs.generic.model import CaBRNet
 from cabrnet.core.utils.data import DatasetManager
 from cabrnet.core.utils.exceptions import ArgumentError
 from cabrnet.core.utils.save import safe_copy
-from cabrnet.core.visualization.visualizer import SimilarityVisualizer
+from cabrnet.core.visualization.depictor import Depictor
 
 description = "explains the decision of a CaBRNet model"
 
@@ -27,7 +27,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     # Relies on dataset configuration of the test to deduce the type of preprocessing
     # that needs to be applied on the source image
     parser = DatasetManager.create_parser(parser)
-    parser = SimilarityVisualizer.create_parser(parser, mandatory_config=True)
+    parser = Depictor.create_parser(parser, mandatory_config=True)
     parser.add_argument(
         "-c",
         "--checkpoint-dir",
@@ -134,11 +134,11 @@ def execute(args: Namespace) -> None:
     # Build model and load state dictionary
     model: CaBRNet = CaBRNet.build_from_config(config=args.model_arch, state_dict_path=args.model_state_dict)
 
-    # Init visualizer
-    visualizer = SimilarityVisualizer.build_from_config(config=args.visualization, model=model)
-
     # Recover preprocessing function
     preprocess = DatasetManager.get_dataset_transform(config=args.dataset, dataset="test_set")
+
+    # Init visualizer
+    depictor = Depictor.build_from_config(config=args.visualization, model=model, transform=preprocess)
 
     # Dedicated directory for target image
     output_dir = Path(args.output_dir, Path(args.image).stem)
@@ -147,7 +147,7 @@ def execute(args: Namespace) -> None:
     model.explain(
         img=args.image,
         preprocess=preprocess,
-        visualizer=visualizer,
+        depictor=depictor,
         prototype_dir=args.prototype_dir,
         output_dir=output_dir,
         output_format=args.format,
@@ -158,5 +158,5 @@ def execute(args: Namespace) -> None:
     # Save visualization config
     safe_copy(
         args.visualization,
-        output_dir / SimilarityVisualizer.DEFAULT_VISUALIZATION_CONFIG,
+        output_dir / Depictor.DEFAULT_VISUALIZATION_CONFIG,
     )

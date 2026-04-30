@@ -6,7 +6,7 @@ import random
 import shutil
 import time
 from pathlib import Path
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any, Callable
 
 import numpy as np
 import torch
@@ -14,20 +14,19 @@ import torch.nn as nn
 from loguru import logger
 from PIL import Image
 from thop import profile as profile_batch
-from torch import LongTensor, Tensor
+from torch import Tensor
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from cabrnet.archs.generic.conv_extractor import LAYER_INIT_FUNCTIONS, ConvExtractor
+from cabrnet.archs.generic.conv_extractor import (LAYER_INIT_FUNCTIONS,
+                                                  ConvExtractor)
 from cabrnet.archs.generic.decision import CaBRNetClassifier
 from cabrnet.core.utils.exceptions import ArgumentError, check_mandatory_fields
 from cabrnet.core.utils.optimizers import OptimizerManager
 from cabrnet.core.utils.parser import load_config
 
-from typing import TYPE_CHECKING
-
 if TYPE_CHECKING:
-    from cabrnet.core.visualization.visualizer import SimilarityVisualizer
+    from cabrnet.core.visualization.depictor import Depictor
 
 
 class CaBRNet(nn.Module):
@@ -1068,7 +1067,7 @@ class CaBRNet(nn.Module):
         self,
         dataloader_raw: DataLoader,
         projection_info: list[dict],
-        visualizer: SimilarityVisualizer,
+        depictor: Depictor,
         dir_path: Path,
         device: str | torch.device = "cuda:0",
         verbose: bool = False,
@@ -1079,7 +1078,7 @@ class CaBRNet(nn.Module):
         Args:
             dataloader_raw (DataLoader): Dataloader containing raw projection images (without preprocessing).
             projection_info (list): Projection information (as returned by project method).
-            visualizer (SimilarityVisualizer): Similarity visualizer.
+            depictor (Depictor): Depictor instance.
             dir_path (Path): Destination directory.
             device (str | device, optional): Hardware device. Default: cuda:0.
             verbose (bool, optional): Display progress bar. Default: 0.
@@ -1089,14 +1088,14 @@ class CaBRNet(nn.Module):
         # Create destination directory if necessary
         dir_path.mkdir(parents=True, exist_ok=True)
         # Copy visualizer configuration file
-        if visualizer.config_file is not None and visualizer.config_file.is_file():
+        if depictor.config_file is not None and depictor.config_file.is_file():
             try:
                 shutil.copyfile(
-                    src=visualizer.config_file,
-                    dst=dir_path / SimilarityVisualizer.DEFAULT_VISUALIZATION_CONFIG,
+                    src=depictor.config_file,
+                    dst=dir_path / depictor.DEFAULT_VISUALIZATION_CONFIG,
                 )
             except shutil.SameFileError:
-                logger.warning(f"Ignoring file copy from {visualizer.config_file} to itself.")
+                logger.warning(f"Ignoring file copy from {depictor.config_file} to itself.")
                 pass
 
         proto_count = {}
@@ -1129,7 +1128,7 @@ class CaBRNet(nn.Module):
                 proto_count[proto_idx] = 1
 
             # Save visualization using depictor interface
-            visualizer.save(
+            depictor.save(
                 raw_input=img,
                 folder=dir_path,
                 filename=filename,
@@ -1141,8 +1140,7 @@ class CaBRNet(nn.Module):
     def explain(
         self,
         img: Path | Image.Image,
-        preprocess: Callable | None,
-        visualizer: SimilarityVisualizer,
+        depictor: Depictor,
         prototype_dir: Path,
         output_dir: Path,
         output_format: str = "pdf",
@@ -1156,7 +1154,7 @@ class CaBRNet(nn.Module):
         Args:
             img (Path or Image): Path to image or image itself.
             preprocess (Callable): Preprocessing function.
-            visualizer (SimilarityVisualizer): Similarity visualizer.
+            depictor (Depictor): Depictor instance.
             prototype_dir (Path): Path to directory containing prototype visualizations.
             output_dir (Path): Path to output directory.
             output_format (str, optional): Output file format. Default: pdf.

@@ -1,16 +1,16 @@
 import argparse
+import importlib
 from abc import ABC, abstractmethod
-
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import torch
-import torch.nn as nn
+from loguru import logger
 
 from cabrnet.archs.generic.model import CaBRNet
 
 
-class Depictor(nn.Module, ABC):
+class Depictor(ABC):
     r"""Base class for visualization depictors.
 
     A depictor generates and saves visualizations for model interpretations.
@@ -20,6 +20,8 @@ class Depictor(nn.Module, ABC):
 
     # Supported attribution methods (overridden by subclasses)
     SUPPORTED_ATTRIBUTION_METHODS: tuple[str, ...] = ()
+
+    config_file: Path | None
 
     @property
     @abstractmethod
@@ -79,7 +81,8 @@ class Depictor(nn.Module, ABC):
         return parser
 
     @staticmethod
-    def build_from_config(config: Path | dict[str, Any], model: CaBRNet) -> "Depictor":
+    @abstractmethod
+    def build_from_config(config: Path | dict[str, Any], model: CaBRNet, transform: Callable) -> "Depictor":
         r"""Builds a depictor from a configuration file or dictionary.
 
         Args:
@@ -89,5 +92,23 @@ class Depictor(nn.Module, ABC):
         Returns:
             Depictor instance.
         """
-        # To be implemented by subclasses or use a registry pattern
-        raise NotImplementedError("Subclasses must implement build_from_config")
+        from cabrnet.core.utils.parser import load_config
+
+        if isinstance(config, Path):
+            logger.info(f"Loading depictor from {config}.")
+            config_dict = load_config(config)
+            config_path = config
+        else:
+            config_dict = config
+            config_path = None
+
+        # Get depictor type, default to similarity
+        depictor_module = config_dict.pop("module", "cabrnet.core.visualization.visualizer")
+        depictor_classname = config_dict.pop("type", None) or config_dict.get("name", None) or "SimilarityVisualizer"
+        # Import and build the appropriate depictor
+        module = importlib.import_module(depictor_module)
+        depictor_class: Depictor = getattr(module, depictor_classname)
+
+        result = depictor_class.build_from_config(config_dict, model=model, transform=transform)
+        result.config_file = config_path
+        return result

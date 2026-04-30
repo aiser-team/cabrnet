@@ -27,7 +27,7 @@ AttributionMethod = Literal["saliency", "smoothgrad", "prp", "randgrad", "cubic"
 def compute_attribution(
     model: CaBRNet,
     attribution_method: AttributionMethod,
-    img: Image.Image,
+    img_size: tuple[int, int],
     img_tensor: Tensor,
     proto_idx: int,
     device: str | torch.device,
@@ -38,7 +38,7 @@ def compute_attribution(
     Args:
         model: Target model.
         attribution_method: Attribution method.
-        img: Original image.
+        img_size: Original image size (width, height).
         img_tensor: Image tensor.
         proto_idx: Prototype index.
         device: Hardware device.
@@ -60,7 +60,7 @@ def compute_attribution(
     if attribution_method == "cubic":
         return cubic_upsampling(
             model=model,
-            img=img,
+            img_size=img_size,
             img_tensor=img_tensor,
             proto_idx=proto_idx,
             device=device,
@@ -72,7 +72,7 @@ def compute_attribution(
     grads = attribute_prototypes(
         model=model,
         algorithm=attribution_method,
-        input=img_tensor,
+        input_tensor=img_tensor,
         proto_idx=proto_idx,
         device=device,
         augmentors=augmentors,
@@ -80,9 +80,10 @@ def compute_attribution(
 
     return post_process(
         array=grads,
-        img_shape=img.size,
+        img_shape=img_size,
         img_tensor=img_tensor,
         resize=True,
+        normalize=True,
         **kwargs,
     )
 
@@ -112,7 +113,7 @@ class SimilarityVisualizer(Depictor):
         model: CaBRNet,
         attribution_method: AttributionMethod,
         view_fn: Callable,
-        transform: Callable | None = None,
+        transform: Callable | None,
         attribution_params: dict | None = None,
         view_params: dict | None = None,
         config_file: Path | None = None,
@@ -136,8 +137,7 @@ class SimilarityVisualizer(Depictor):
         self.view = view_fn
         self.view_params = view_params if view_params is not None else {}
         self.config_file = config_file
-        self.transform = transform
-
+        self.transform = transform or (lambda x: x)
         self.model = model
         if self.attribution_method == "prp":
             logger.info("Canonizing model for PRP")
@@ -151,7 +151,6 @@ class SimilarityVisualizer(Depictor):
     def forward(
         self,
         img: Image.Image,
-        img_tensor: Tensor,
         proto_idx: int,
         device: str | torch.device,
         location: tuple[int, int] | str | None = "max",
@@ -171,7 +170,7 @@ class SimilarityVisualizer(Depictor):
             Patch visualization.
         """
         sim_map = self.get_attribution(
-            img=img, img_tensor=img_tensor, proto_idx=proto_idx, device=device, location=location
+            img=img, proto_idx=proto_idx, device=device, location=location
         )
         return self.view(img=img, sim_map=sim_map, **self.view_params)
 
@@ -202,9 +201,8 @@ class SimilarityVisualizer(Depictor):
         if self.transform is None:
             raise ValueError("Transform must be set to use save() method")
 
-        img_tensor = self.transform(raw_input)
         visualization = self.forward(
-            img=raw_input, img_tensor=img_tensor, proto_idx=proto_idx, device=device, location=location
+            img=raw_input, proto_idx=proto_idx, device=device, location=location
         )
         folder.mkdir(parents=True, exist_ok=True)
         output_path = folder / f"{filename}.{self.extension}"
@@ -214,7 +212,6 @@ class SimilarityVisualizer(Depictor):
     def get_attribution(
         self,
         img: Image.Image,
-        img_tensor: Tensor,
         proto_idx: int,
         device: str | torch.device,
         location: tuple[int, int] | str | None = None,
@@ -241,17 +238,17 @@ class SimilarityVisualizer(Depictor):
         return compute_attribution(
             model=self.model,
             attribution_method=self.attribution_method,
-            img=img,
-            img_tensor=img_tensor,
+            img_size=(img.width, img.height),
+            img_tensor=self.transform(img),
             proto_idx=proto_idx,
             location=location,
             device=device,
-            **attribution_params,
+            **self.attribution_params,
         )
 
     @staticmethod
     def build_from_config(
-        config: Path | dict[str, Any], model: CaBRNet, transform: Callable | None = None
+        config: Path | dict[str, Any], model: CaBRNet, transform: Callable | None
     ) -> SimilarityVisualizer:
         r"""Builds a SimilarityVisualizer from a configuration file or dictionary.
 
