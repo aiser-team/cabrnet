@@ -8,9 +8,8 @@ import torch
 from loguru import logger
 from PIL import Image
 from torch import Tensor
-from torch.utils.data import Dataset
-
 from cabrnet.archs.generic.model import CaBRNet
+from cabrnet.core.utils.data import DatasetManager
 from cabrnet.core.attribution.augmentors import GaussianNoiseAugmentor
 from cabrnet.core.utils.exceptions import check_mandatory_fields
 from cabrnet.core.utils.parser import load_config
@@ -245,28 +244,24 @@ class SimilarityVisualizer(ProtoDepictor):
 
     @staticmethod
     def build_from_config(
-        config: Path | dict[str, Any], model: CaBRNet, dataset: Dataset
+        config: Path | dict[str, Any], model: CaBRNet, dataset_config: dict[str, Any]
     ) -> SimilarityVisualizer:
         r"""Builds a SimilarityVisualizer from a configuration file or dictionary.
 
         Args:
             config: Path to configuration file or dictionary.
             model: Target model.
-            transform: Preprocessing transform (if provided directly).
-            dataset: Dataset to extract transform from (alternative to transform param).
+            dataset_config: Dataset configuration dictionary.
 
         Returns:
             SimilarityVisualizer.
 
         Raises:
-            ValueError: If neither transform nor dataset is provided, or if dataset has None transform.
+            ValueError: If transform cannot be extracted from dataset config.
         """
-        if hasattr(dataset, "transform"):
-            transform = getattr(dataset, "transform")
-        else:
-            raise ValueError(
-                f"Dataset {dataset} does not have a 'transform' attribute."
-            )
+        transform = DatasetManager.get_dataset_transform(config=dataset_config, dataset="projection_set")
+        if transform is None:
+            raise ValueError("Could not extract transform from dataset config.")
 
         if isinstance(config, Path):
             logger.info(f"Loading patch visualizer from {config}.")

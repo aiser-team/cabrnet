@@ -6,6 +6,7 @@ from loguru import logger
 from cabrnet.archs.generic.model import CaBRNet
 from cabrnet.core.utils.data import DatasetManager
 from cabrnet.core.utils.exceptions import ArgumentError
+from cabrnet.core.utils.parser import load_config
 from cabrnet.core.utils.save import load_projection_info, safe_copy
 from cabrnet.core.visualization.depictor import ProtoDepictor
 
@@ -121,12 +122,11 @@ def execute(args: Namespace) -> None:
     # Build model and load state dictionary
     model: CaBRNet = CaBRNet.build_from_config(config=args.model_arch, state_dict_path=args.model_state_dict)
 
-    # Get dataset for visualizer
-    datasets = DatasetManager.get_datasets(config=args.dataset)
-    projection_dataset = datasets["projection_set"]["dataset"]
+    # Load dataset config for visualizer
+    dataset_config = load_config(args.dataset)
 
     # Init depictor
-    depictor = ProtoDepictor.build_from_config(config=args.visualization, model=model, dataset=projection_dataset)
+    depictor = ProtoDepictor.build_from_config(config=args.visualization, model=model, dataset_config=dataset_config)
 
     # Build prototypes
     dataloaders = DatasetManager.get_dataloaders(config=args.dataset)

@@ -241,8 +241,7 @@ def patches_relevance_analysis(
 
     # Create dataloaders and visualizer
     datasets = DatasetManager.get_datasets(dataset_config, sampling_ratio=sampling_ratio, load_segmentation=True)
-    test_dataset = datasets["test_set"]["dataset"]
-    visualizer = SimilarityVisualizer.build_from_config(config=visualization_config, model=model, dataset=test_dataset)
+    visualizer = SimilarityVisualizer.build_from_config(config=visualization_config, model=model, dataset_config=load_config(dataset_config))
 
     # Recover preprocessing function
     preprocess = getattr(datasets["test_set"]["dataset"], "transform", ToTensor())
@@ -316,9 +315,8 @@ def proto_relevance_analysis(
 
     # Create dataloaders and visualizer
     datasets = DatasetManager.get_datasets(dataset_config, load_segmentation=True)
-    projection_dataset = datasets["projection_set"]["dataset"]
     visualizer = SimilarityVisualizer.build_from_config(
-        config=visualization_config, model=model, dataset=projection_dataset
+        config=visualization_config, model=model, dataset_config=load_config(dataset_config)
     )
 
     # Recover preprocessing function
@@ -404,10 +402,8 @@ def execute(
         # Get dataloaders and projection info, then build prototypes
         dataloaders = DatasetManager.get_dataloaders(config=dataset_config)
         projection_info = load_projection_info(projection_file)
-        datasets = DatasetManager.get_datasets(dataset_config)
-        projection_dataset = datasets["projection_set"]["dataset"]
         visualizer = SimilarityVisualizer.build_from_config(
-            config=visualization_config, model=model, dataset=projection_dataset
+            config=visualization_config, model=model, dataset_config=load_config(dataset_config)
         )
 
         # Avoid generating prototypes if the directory already exists

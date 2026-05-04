@@ -467,10 +467,9 @@ def execute(
     datasets = DatasetManager.get_datasets(dataset_config, sampling_ratio=sampling_ratio)
 
     # Get projection dataset for visualizer (required for transform)
-    projection_dataset = datasets["projection_set"]["dataset"]
-    transform = projection_dataset.transform
-    assert transform is not None
-    visualizer = SimilarityVisualizer.build_from_config(config=visualization_config, model=model, transform=transform)
+    visualizer = SimilarityVisualizer.build_from_config(config=visualization_config, model=model, dataset_config=load_config(dataset_config))
+
+    dataset = datasets["test_set"]["raw_dataset"]
 
     test_iter = tqdm(
         enumerate(dataset),  # type: ignore

@@ -5,6 +5,7 @@ from pathlib import Path
 from cabrnet.archs.generic.model import CaBRNet
 from cabrnet.core.utils.data import DatasetManager
 from cabrnet.core.utils.exceptions import ArgumentError
+from cabrnet.core.utils.parser import load_config
 from cabrnet.core.utils.save import safe_copy
 from cabrnet.core.visualization.depictor import ProtoDepictor
 
@@ -134,13 +135,12 @@ def execute(args: Namespace) -> None:
     # Build model and load state dictionary
     model: CaBRNet = CaBRNet.build_from_config(config=args.model_arch, state_dict_path=args.model_state_dict)
 
-    # Get dataset for visualizer and preprocessing
-    datasets = DatasetManager.get_datasets(config=args.dataset)
-    test_dataset = datasets["test_set"]["dataset"]
-    preprocess = test_dataset.transform
+    # Load dataset config for visualizer and preprocessing
+    dataset_config = load_config(args.dataset)
+    preprocess = DatasetManager.get_dataset_transform(config=dataset_config, dataset="test_set")
 
     # Init visualizer
-    depictor = ProtoDepictor.build_from_config(config=args.visualization, model=model, dataset=test_dataset)
+    depictor = ProtoDepictor.build_from_config(config=args.visualization, model=model, dataset_config=dataset_config)
 
     # Dedicated directory for target image
     output_dir = Path(args.output_dir, Path(args.image).stem)

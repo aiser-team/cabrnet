@@ -6,8 +6,6 @@ from typing import Any, Callable
 
 import torch
 from loguru import logger
-from torch.utils.data import Dataset
-
 from cabrnet.archs.generic.model import CaBRNet
 
 
@@ -88,15 +86,14 @@ class ProtoDepictor(ABC):
 
     @staticmethod
     def build_from_config(
-        config: Path | dict[str, Any], model: CaBRNet, dataset: Dataset
+        config: Path | dict[str, Any], model: CaBRNet, dataset_config: dict[str, Any]
     ) -> "ProtoDepictor":
         r"""Builds a depictor from a configuration file or dictionary.
 
         Args:
             config: Path to configuration file or dictionary.
             model: Target model.
-            transform: Preprocessing transform (if provided directly).
-            dataset: Dataset to extract transform from (alternative to transform param).
+            dataset_config: Dataset configuration dictionary.
 
         Returns:
             Depictor instance.
@@ -119,6 +116,6 @@ class ProtoDepictor(ABC):
         module = importlib.import_module(depictor_module)
         depictor_class: ProtoDepictor = getattr(module, depictor_classname)
 
-        result = depictor_class.build_from_config(config_dict, model=model, dataset=dataset)
+        result = depictor_class.build_from_config(config_dict, model=model, dataset_config=dataset_config)
         result.config_file = config_path
         return result

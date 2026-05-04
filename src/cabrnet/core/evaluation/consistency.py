@@ -6,7 +6,6 @@ by  Qihan Huang et al.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
@@ -15,7 +14,6 @@ import pandas as pd
 import torch
 from loguru import logger
 from torch.utils.data import Dataset
-from torchvision.transforms import ToTensor
 from tqdm import tqdm
 
 import cabrnet.core.utils.parts
@@ -265,15 +263,19 @@ def execute(
     model.eval()
 
     # Get dataset for visualizer
-    datasets = DatasetManager.get_datasets(dataset_config)
-    projection_dataset = datasets["projection_set"]["dataset"]
+    dataset_config_dict = load_config(dataset_config) if isinstance(dataset_config, Path) else dataset_config
     visualizer = SimilarityVisualizer.build_from_config(
-        config=visualization_config, model=model, dataset=projection_dataset
+        config=visualization_config, model=model, dataset_config=dataset_config_dict
     )
 
     dataloaders = DatasetManager.get_dataloaders(dataset_config)
     dataloader = dataloaders[dataset_name]
     dataset = dataloader.dataset
+
+    # Get transform for preprocessing
+    transform = DatasetManager.get_dataset_transform(config=dataset_config_dict, dataset="projection_set")
+    if transform is None:
+        raise ValueError("Could not extract transform from dataset config.")
 
     annots = getattr(cabrnet.core.utils.parts, part_parser)(dataset, **kwargs)
     protos_of_class = compute_protos_of_class(model)
