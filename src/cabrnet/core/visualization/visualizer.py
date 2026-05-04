@@ -83,7 +83,7 @@ class SimilarityVisualizer(nn.Module):
         img_tensor: Tensor,
         proto_idx: int,
         device: str | torch.device,
-        location: tuple[int, int] | str | None = None,
+        location: tuple[int, int] | str | None = "max",
     ) -> Image.Image:
         r"""Generates a visualization of the most similar patch to a given prototype.
 
@@ -94,7 +94,7 @@ class SimilarityVisualizer(nn.Module):
             device (str | device): Hardware device.
             location (tuple[int,int], str or None, optional): Location inside the similarity map.
                 Can be given as an explicit location (tuple) or "max" for the location of maximum similarity.
-                Default: None.
+                Default: max.
 
         Returns:
             Patch visualization.
@@ -126,9 +126,9 @@ class SimilarityVisualizer(nn.Module):
         Returns:
             Importance map.
         """
-        attribution_params = self.attribution_params
+        attribution_params = self.attribution_params.copy()
         if location is not None:
-            # Overwrite default location parameter if necessary
+            # Overwrite parameter in attribution_params
             attribution_params["location"] = location
 
         return self.attribution(
