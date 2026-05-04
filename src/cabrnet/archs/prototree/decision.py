@@ -115,15 +115,15 @@ class ProtoTreeClassifier(CaBRNetClassifier):
 
     def forward(
         self, features: Tensor, strategy: SamplingStrategy = SamplingStrategy.DISTRIBUTED, **kwargs
-    ) -> tuple[Tensor, dict] | None:
-        r"""Performs classification using a decision tree.
+    ) -> tuple[Tensor, dict]:
+        r"""Performs classification using a decision tree and returns additional info.
 
         Args:
             features (tensor): Convolutional features from extractor. Shape (N, D, H, W).
             strategy (SamplingStrategy, optional): Sampling strategy. Default: Distributed.
 
         Returns:
-            Vector of logits. Shape (N, C).
+            Tuple of (prediction, tree_info)
         """
         similarities = self.similarities(features)  # Shape (N, P, H, W)
         # Use only maximum similarity score for each prototype

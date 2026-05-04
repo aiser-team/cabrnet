@@ -337,7 +337,8 @@ class PointingGameGraph(GenericGraph):
         # Save the test patch, the segmentation, the heatmap and their intersection
         output_dir = self.output_dir / "images"
         output_dir.mkdir(parents=True, exist_ok=True)
-        object_seg = np.sum(np.asarray(segmentation), axis=-1)
+        object_seg = np.asarray(segmentation)
+        assert object_seg.ndim == 2, f"Expected grayscale segmentation (mode='L'), got shape {object_seg.shape}"
         test_img_seg_path = output_dir / f"img_{img_id}.png"
         test_patch_img_path = output_dir / f"img_{img_id}_v_proto{proto_idx}.png"
         test_patch_heatmap_path = output_dir / f"img_{img_id}_v_proto{proto_idx}_heatmap.png"

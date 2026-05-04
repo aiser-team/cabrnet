@@ -94,14 +94,15 @@ class CaBRNetClassifier(nn.Module, ABC):
         return True
 
     @abstractmethod
-    def forward(self, features: Any, **kwargs) -> Any:
+    def forward(self, features: Tensor, **kwargs) -> tuple[Tensor, ...]:
         r"""Performs classification using the extracted features.
 
         Args:
             features (tensor): Convolutional features from extractor.
 
         Returns:
-            Model output (usually a vector of logits).
+            Tuple of tensors. By convention, the first element is the prediction logits.
+            See model.loss() for how the output tuple is consumed.
         """
         raise NotImplementedError
 
