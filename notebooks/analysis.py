@@ -26,6 +26,7 @@ with app.setup:
         analyze as pointing_game_analyze,
     )
     from cabrnet.core.utils.data import DatasetManager
+    from cabrnet.core.utils.parser import load_config
     from cabrnet.core.utils.save import load_projection_info
     from cabrnet.core.visualization.explainer import PrototypeAnalysisGraph
     from cabrnet.core.visualization.radar_plot import radar_plot
@@ -79,7 +80,6 @@ def _(checkpoint_browser):
         checkpoint_path,
         classes,
         dataloaders,
-        proj_dataset,
         state_dict_path,
         test_dataset,
         test_dataset_raw,
@@ -339,9 +339,9 @@ def _(default_view_params, view_selector):
 @app.cell(hide_code=True)
 def _(
     attribution_selector,
+    checkpoint_path,
     explanation_parameters,
     model,
-    proj_dataset,
     view_parameters,
     view_selector,
     viz_config_file,
@@ -362,7 +362,7 @@ def _(
     visualizer = SimilarityVisualizer.build_from_config(
         viz_config,
         model=model,
-        transform=proj_dataset.transform
+        dataset_config=load_config(checkpoint_path / DatasetManager.DEFAULT_DATASET_CONFIG)
     )
     return existing_viz_config, visualizer, viz_config
 
@@ -404,7 +404,7 @@ def _(
             projection_info=load_projection_info(
                 filename=checkpoint_path / CaBRNet.DEFAULT_PROJECTION_INFO
             ),
-            visualizer=visualizer,
+            depictor=visualizer,
             dir_path=prototype_path,
             device=device_selector.value,
             verbose=True,
@@ -559,7 +559,7 @@ def _(
     model_with_prototypes.to("cuda:0").explain(
         img=img,
         preprocess=test_dataset.transform,
-        visualizer=visualizer,
+        depictor=visualizer,
         device=device_selector.value,
         prototype_dir=prototype_path,
         output_dir=checkpoint_path / "explanations",

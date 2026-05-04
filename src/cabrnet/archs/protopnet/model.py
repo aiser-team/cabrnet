@@ -567,12 +567,12 @@ class ProtoPNet(CaBRNet):
                         proto_idx=proto_idx,
                         device=device,
                     )
-                explanation.add_similarity(
-                    prototype_img_path=prototype_image_path,
-                    test_patch_img_path=patch_image_path,
-                    label=f"Prototype {proto_idx}\n(class {prototype_class_idx}, score: {score:.2f})",
-                    font_color="black" if class_idx == prototype_class_idx else "red",
-                )
+                    explanation.add_similarity(
+                        prototype_img_path=prototype_image_path,
+                        test_patch_img_path=patch_image_path,
+                        label=f"Prototype {proto_idx}\n(class {prototype_class_idx}, score: {score:.2f})",
+                        font_color="black" if class_idx == prototype_class_idx else "red",
+                    )
                 # "Disable" prototype from search
                 min_distances[proto_idx] = float("inf")
             explanation.add_prediction(int(torch.argmax(prediction).item()))

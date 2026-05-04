@@ -321,7 +321,7 @@ class PointingGameGraph(GenericGraph):
             prototype_img_path (Path): Path to prototype patch visualization.
             original_img (Image): Original test image.
             test_patch_img (Image): Image patch visualization.
-            segmentation (Image): Object segmentation.
+            segmentation (Image): Object segmentation in grayscale.
             attribution (numpy array): Attribution array.
             area_percentage (float): Percentage of the most relevant pixels to intersect with segmentation mask.
             img_id (str or int): Test image identifier.
@@ -338,7 +338,6 @@ class PointingGameGraph(GenericGraph):
         output_dir = self.output_dir / "images"
         output_dir.mkdir(parents=True, exist_ok=True)
         object_seg = np.asarray(segmentation)
-        assert object_seg.ndim == 2, f"Expected grayscale segmentation (mode='L'), got shape {object_seg.shape}"
         test_img_seg_path = output_dir / f"img_{img_id}.png"
         test_patch_img_path = output_dir / f"img_{img_id}_v_proto{proto_idx}.png"
         test_patch_heatmap_path = output_dir / f"img_{img_id}_v_proto{proto_idx}_heatmap.png"

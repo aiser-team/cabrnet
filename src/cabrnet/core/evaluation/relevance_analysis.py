@@ -147,7 +147,7 @@ def analyze(
         most_relevant_prototypes = model.explain(
             img=img,
             preprocess=preprocess,
-            visualizer=visualizer,
+            depictor=visualizer,
             prototype_dir=Path.cwd(),
             output_dir=Path.cwd(),
             device=device,
@@ -171,7 +171,7 @@ def analyze(
     for proto_idx in most_relevant_prototypes:
         # Compute attribution map
         attribution = visualizer.get_attribution(
-            img=img, img_tensor=img_tensor, proto_idx=proto_idx, location="max", device=device
+            img=img, proto_idx=proto_idx, location="max", device=device
         )
 
         # Compute pointing game stats
@@ -410,7 +410,7 @@ def execute(
         model.extract_prototypes(
             dataloader_raw=dataloaders["projection_set_raw"],
             projection_info=projection_info,
-            visualizer=visualizer,
+            depictor=visualizer,
             dir_path=prototype_dir,
             device=device,
             verbose=verbose,
