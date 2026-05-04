@@ -50,13 +50,12 @@ def pg_mask_relevance(attribution: np.ndarray, object_seg: np.ndarray, area_perc
 
     Args:
         attribution (Numpy array): Attribution map.
-        object_seg (Numpy array): Segmentation of the object.
+        object_seg (Numpy array): Segmentation of the object (2D grayscale mask).
         area_percentage (float): Percentage of the most relevant pixels to intersect with segmentation mask.
 
     Returns:
         Relevance of the attribution w.r.t its size.
     """
-    object_seg = np.sum(object_seg, axis=-1)
     sorted_attribution = np.sort(np.reshape(attribution, (-1)))
     threshold = sorted_attribution[int(len(sorted_attribution) * (1 - area_percentage))]
     target_area = attribution > threshold
@@ -74,12 +73,11 @@ def pg_energy_relevance(attribution: np.ndarray, object_seg: np.ndarray) -> floa
 
     Args:
         attribution (Numpy array): Attribution map.
-        object_seg (Numpy array): Segmentation of the object.
+        object_seg (Numpy array): Segmentation of the object (2D grayscale mask).
 
     Returns:
         Relevance of the attribution w.r.t its energy.
     """
-    object_seg = np.sum(object_seg, axis=-1)
     attr_energy = np.sum(attribution)
     if attr_energy == 0:
         return 0.0
@@ -194,7 +192,7 @@ def analyze(
                 prototype_img_path=prototype_dir / f"prototype_{proto_idx}.png",
                 original_img=img,
                 test_patch_img=test_patch_img,
-                segmentation=seg,
+                segmentation=seg.convert('L') if seg.mode != 'L' else seg,
                 attribution=attribution,
                 area_percentage=area_percentage,
                 img_id=img_id,

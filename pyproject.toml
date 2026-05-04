@@ -36,7 +36,6 @@ dependencies = [
     "opencv-python-headless",
     "captum>=0.7.0",
     "py-cpuinfo~=9.0.0",
-    "gradio~=4.43.0",
     "tensorboard>=2.17.0",
     "onnxruntime~=1.19.0",
     "onnx~=1.19.1",
@@ -44,6 +43,7 @@ dependencies = [
     "pacmap~=0.7.3",
     "scikit-learn~=1.5.1",
     "thop~=0.1.1",
+    "pandas>=2.3.3",
 ]
 
 [project.optional-dependencies]
@@ -85,3 +85,6 @@ dev = [
 ]
 doc = ["mkdocs", "pydoc-markdown", "pymdown-extensions", "python-markdown-math"]
 legacy = ["gdown~=4.7.1", "requests~=2.32.0", "Augmentor~=0.2.12"]
+notebook = [
+    "marimo>=0.15.1",
+]

@@ -14,7 +14,7 @@ import torch.nn as nn
 from loguru import logger
 from PIL import Image
 from thop import profile as profile_batch
-from torch import Tensor
+from torch import LongTensor, Tensor
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
@@ -66,14 +66,15 @@ class CaBRNet(nn.Module):
                 "reproduces bugs and quirks from legacy codes."
             )
 
-    def forward(self, x: Tensor, **kwargs):
+    def forward(self, x: Tensor, **kwargs) -> tuple[Any, ...]:
         r"""Computes model output.
 
         Args:
             x (tensor): Input tensor.
 
         Returns:
-            Model output.
+            Tuple of tensors. By convention, the first element is the prediction logits.
+            See loss() for how the output tuple is consumed.
         """
         x = self.extractor(x, **kwargs)
         return self.classifier(x, **kwargs)
@@ -257,8 +258,7 @@ class CaBRNet(nn.Module):
             type=Path,
             required=False,
             metavar="/path/to/config/dir",
-            help="path to directory containing all configuration files of model "
-            f"(alternative to {alternative_name})",
+            help=f"path to directory containing all configuration files of model (alternative to {alternative_name})",
         )
         return parser
 
@@ -467,15 +467,18 @@ class CaBRNet(nn.Module):
 
         return model
 
-    def loss(self, model_output: Any, label: torch.Tensor, **kwargs) -> tuple[torch.Tensor, dict[str, float]]:
+    def loss(
+        self, model_output: tuple[Any, ...], label: torch.Tensor, **kwargs
+    ) -> tuple[torch.Tensor, dict[str, float]]:
         r"""Computes the loss and statistics over a batch of model outputs.
 
         Args:
-            model_output (Any): Model output.
+            model_output (tuple): Output from forward(), a tuple of tensors.
+                By convention, the first element of this tuple is the prediction logits.
             label (Tensor): Batch label.
 
         Returns:
-            Loss tensor and batch statistics.
+            Loss tensor and batch statistics dictionary.
         """
         raise NotImplementedError
 
@@ -681,6 +684,84 @@ class CaBRNet(nn.Module):
         """
         return []
 
+    def collect_predictions(
+        self,
+        dataloader: DataLoader,
+        device: str | torch.device = "cuda:0",
+        tqdm_position: int = 0,
+        verbose: bool = False,
+        **kwargs,
+    ) -> tuple[Tensor, Tensor, dict[str, float]]:
+        r"""Runs inference and collects predictions from the model.
+
+        Args:
+            dataloader (DataLoader): Dataloader containing evaluation data.
+            device (str | device, optional): Hardware device. Default: cuda:0.
+            tqdm_position (int, optional): Position of the progress bar. Default: 0.
+            verbose (bool, optional): Display progress bar. Default: False.
+
+        Returns:
+            Tuple of (outputs, labels, timing_info) where:
+                - outputs: tuple where each element corresponds to a component of the model output
+                - labels: Tensor of targets, on the specified device
+                - timing_info: Dictionary with 'time/batch' and 'time/data' metrics
+        """
+        self.eval()
+        self.to(device)
+
+        all_outputs: list[Tensor] = []
+        labels: list[Tensor] = []
+        timing_info = {"time/batch": 0.0, "time/data": 0.0}
+
+        data_iter = tqdm(
+            dataloader,
+            desc="Collecting predictions",
+            total=len(dataloader),
+            leave=False,
+            position=tqdm_position,
+            disable=not verbose,
+        )
+
+        def _estimated_total_size(batch_outputs):
+            batch_bytes = sum(t.element_size() * t.numel() for t in batch_outputs)
+            return batch_bytes * len(dataloader)
+
+        with torch.no_grad():
+            ref_time = time.time()
+            for inputs, batch_labels in data_iter:
+                inputs = inputs.to(device)
+                batch_labels = batch_labels.to(device)
+                data_time = time.time() - ref_time
+
+                # By convention, the logits correspond to the first output
+                all_outputs.append(self.forward(inputs, **kwargs)[0].detach())
+                labels.append(batch_labels)
+
+                if len(all_outputs) == 1:
+                    estimated_size = _estimated_total_size(all_outputs[0])
+                    if estimated_size > 100_000_000:
+                        logger.warning(
+                            f"Estimated output size of total predictions is {estimated_size / 1024**2:.1f} MB on device "
+                            "Consider moving outputs to CPU during collection or reducing batch size."
+                        )
+
+                batch_time = time.time() - ref_time
+                timing_info["time/batch"] += batch_time
+                timing_info["time/data"] += data_time
+
+                data_iter.set_postfix_str(f"time: {batch_time:.2f}s (data: {data_time:.2f})")
+                ref_time = time.time()
+
+        batch_count = len(all_outputs)
+        if batch_count > 0:
+            timing_info["time/batch"] /= batch_count
+            timing_info["time/data"] /= batch_count
+
+        outputs = torch.cat(all_outputs)
+        all_labels = torch.cat(labels)
+
+        return outputs, all_labels, timing_info
+
     def evaluate(
         self,
         dataloaders: dict[str, DataLoader],
@@ -738,7 +819,7 @@ class CaBRNet(nn.Module):
 
                 # Perform inference and compute loss
                 ys_pred = self.forward(xs, **kwargs)
-                batch_loss, batch_stats = self.loss(ys_pred, ys)
+                _, batch_stats = self.loss(ys_pred, ys)
 
                 # Update all metrics
                 if not stats:

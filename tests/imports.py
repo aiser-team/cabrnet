@@ -42,9 +42,3 @@ class TestImports(unittest.TestCase):
         Tests the import of cabrnet visualization module.
         """
         importlib.import_module("cabrnet.core.visualization")
-
-    def test_cabrnet_interface(self):
-        """
-        Tests the import of cabrnet interface module.
-        """
-        importlib.import_module("cabrnet.core.interface")
