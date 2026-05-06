@@ -130,8 +130,6 @@ def attribute_prototypes(
     model.to(device)
     input_tensor = input_tensor.to(device)
     input_tensor_transformed = post_augmentation_transform(input_tensor)
-    raw = model.similarities(input_tensor_transformed)
-    print(f"similarities output shape: {raw.shape}")
 
     with torch.no_grad():
         sim_map = model.similarities(input_tensor_transformed)[0, proto_idx].cpu().numpy()

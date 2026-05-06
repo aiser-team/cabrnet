@@ -51,8 +51,8 @@ def compute_attribution(
     """
     # Handle smoothgrad: transform into saliency with noise augmentor
     if attribution_method == "smoothgrad":
-        num_samples = kwargs.pop("num_samples")
-        noise_ratio = kwargs.pop("noise_ratio")
+        num_samples = kwargs.pop("num_samples", 10)
+        noise_ratio = kwargs.pop("noise_ratio", 0.2)
         augmentors = [GaussianNoiseAugmentor(num_samples, noise_ratio)]
         attribution_method = "saliency"
     else:
@@ -77,6 +77,7 @@ def compute_attribution(
         proto_idx=proto_idx,
         device=device,
         augmentors=augmentors,
+        **kwargs,
     )
 
     return post_process(
@@ -239,7 +240,6 @@ class SimilarityVisualizer(ProtoDepictor):
             img_size=(img.width, img.height),
             img_tensor=self.transform(img),
             proto_idx=proto_idx,
-            location=location,
             device=device,
             **self.attribution_params,
         )
