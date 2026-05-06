@@ -19,4 +19,4 @@ black src tools tests
 isort src tools tests
 
 # Re-add all staged files after modification by black/isort (see https://stackoverflow.com/questions/31057527/git-pre-commit-hook-to-format-and-re-add-files-at-the-same-time)
-git add $(git diff --name-only --cached)
+git add $(git diff --name-only --diff-filter=d --cached)
