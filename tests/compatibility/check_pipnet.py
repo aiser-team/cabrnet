@@ -283,6 +283,24 @@ class Tester(CaBRNetCompatibilityTester):
             seed=self.seed,
         )
 
+    def assertModelEqual(
+        self, expected: nn.Module, actual: nn.Module, non_deterministic_inference: bool = False, **kwargs
+    ):
+        # Overwrite function to reorder model outputs
+        expected.eval()
+        actual.eval()
+        expected.to(self.device)
+        actual.to(self.device)
+        x = torch.rand(16, 3, 224, 224).to(self.device)
+        with torch.no_grad():
+            if non_deterministic_inference:
+                setup_rng(self.seed)
+            features, pooled, out = expected(x, **kwargs)
+            if non_deterministic_inference:
+                setup_rng(self.seed)
+            y_a = actual(x, **kwargs)
+        self.assertGenericEqual((out, features, pooled), y_a, msg="Checking model outputs.")
+
     def test_model_init(self):
         # CaBRNet
         setup_rng(self.seed)
@@ -307,7 +325,7 @@ class Tester(CaBRNetCompatibilityTester):
         )
 
         cabrnet_model.load_state_dict(legacy_model.state_dict())
-        self.assertModelEqual(cabrnet_model, legacy_model)
+        self.assertModelEqual(legacy_model, cabrnet_model)
 
     def test_dataloaders(self):
         # # CaBRNet
