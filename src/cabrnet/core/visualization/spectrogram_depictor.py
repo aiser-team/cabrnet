@@ -11,11 +11,10 @@ from torch import Tensor
 
 from cabrnet.archs.generic.model import CaBRNet
 from cabrnet.core.attribution.augmentors import BrownNoiseAugmentor
-from cabrnet.core.utils.audio_datasets import SpectroConfig
+from cabrnet.core.utils.audio_datasets import LabeledSpectroDataset, SpectroConfig
 from cabrnet.core.utils.exceptions import check_mandatory_fields
 from cabrnet.core.utils.parser import load_config
 from cabrnet.core.utils.spectrogram import SpectroToImg
-from cabrnet.core.utils.audio_datasets import LabeledSpectroDataset
 from cabrnet.core.visualization.depictor import ProtoDepictor
 from cabrnet.core.visualization.gradients import attribute_prototypes
 from cabrnet.core.visualization.prp_utils import get_cabrnet_lrp_composite_model
@@ -216,7 +215,7 @@ class SpectrogramDepictor(ProtoDepictor):
     def build_from_config(
         config: Path | dict[str, Any],
         model: CaBRNet,
-        dataset: LabeledSpectroDataset ,
+        dataset: LabeledSpectroDataset,
     ) -> "SpectrogramDepictor":
         r"""Builds a SpectrogramDepictor from a configuration file or dictionary.
 

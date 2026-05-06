@@ -2,8 +2,9 @@ import cv2
 import numpy as np
 import torch
 import torch.nn as nn
-from cabrnet.core.visualization.postprocess import normalize_min_max
 from torch import Tensor
+
+from cabrnet.core.visualization.postprocess import normalize_min_max
 
 
 def cubic_upsampling(

@@ -65,10 +65,12 @@ class LabeledSpectroDataset(ABC, Dataset[tuple[Tensor, int]]):
         width: int,
         window_fn: "str" = "hann_window",
         transform: torch.nn.Module | None = None,
-    ): ...
+    ):
+        ...
 
     @abstractmethod
-    def __len__(self) -> int: ...
+    def __len__(self) -> int:
+        ...
 
     @property
     @abstractmethod
@@ -79,14 +81,17 @@ class LabeledSpectroDataset(ABC, Dataset[tuple[Tensor, int]]):
 
     @property
     @abstractmethod
-    def classes(self) -> list[int]: ...
+    def classes(self) -> list[int]:
+        ...
 
     @abstractmethod
-    def get_class(self, idx: int) -> int: ...
+    def get_class(self, idx: int) -> int:
+        ...
 
     @property
     @abstractmethod
-    def spectro_config(self) -> SpectroConfig: ...
+    def spectro_config(self) -> SpectroConfig:
+        ...
 
     @property
     @abstractmethod

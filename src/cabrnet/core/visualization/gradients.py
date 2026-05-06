@@ -46,16 +46,12 @@ def _check_tensor_dims(x: Tensor) -> Tensor:
         Modified tensor (if necessary).
     """
     if x.dim() not in [3, 4]:
-        raise ValueError(
-            f"Unsupported number of dimensions in tensor. Expected 3 or 4, got {x.dim()}"
-        )
+        raise ValueError(f"Unsupported number of dimensions in tensor. Expected 3 or 4, got {x.dim()}")
     if x.dim() == 3:
         # Fix number of dimensions
         x = torch.unsqueeze(x, dim=0)
     elif x.size(0) != 1:
-        raise ValueError(
-            f"Gradient operations only support single images. Received batch of size {x.size(0)}"
-        )
+        raise ValueError(f"Gradient operations only support single images. Received batch of size {x.size(0)}")
     return x
 
 
@@ -125,7 +121,6 @@ def attribute_prototypes(
     stability_factor: float = 1e-6,
     **kwargs,
 ) -> np.ndarray:
-    #input_tensor = _check_tensor_dims(input_tensor)
     input_tensor = (input_tensor).unsqueeze(0)
 
     if algorithm == "prp":
@@ -157,20 +152,13 @@ def attribute_prototypes(
     attribution_inputs = post_augmentation_transform(augmented_imgs)
 
     # PRP (LRP) already scales by output value internally; other methods weight by similarity score
-    weights = [
-        1.0 if algorithm == "prp" else sim_map[h, w].item() for h, w in positions
-    ]
+    weights = [1.0 if algorithm == "prp" else sim_map[h, w].item() for h, w in positions]
 
     grads = np.zeros_like(input_tensor_transformed[0].detach().cpu().numpy())
     for (h, w), weight in zip(positions, weights):
         model.zero_grad()
         attributions = torch.stack(
-            [
-                attributor.attribute(x.unsqueeze(0), target=(proto_idx, h, w)).squeeze(
-                    0
-                )
-                for x in attribution_inputs
-            ]
+            [attributor.attribute(x.unsqueeze(0), target=(proto_idx, h, w)).squeeze(0) for x in attribution_inputs]
         ).mean(0)
         grads += weight * attributions.detach().cpu().numpy()
         if algorithm == "prp":

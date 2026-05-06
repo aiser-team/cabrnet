@@ -10,6 +10,7 @@ from loguru import logger
 from PIL import Image
 from torch.utils.data import DataLoader
 from tqdm import tqdm
+from typing_extensions import override
 
 from cabrnet.archs.generic.decision import CaBRNetClassifier
 from cabrnet.archs.generic.model import CaBRNet
@@ -17,7 +18,6 @@ from cabrnet.core.utils.image import safe_open_image
 from cabrnet.core.utils.optimizers import OptimizerManager
 from cabrnet.core.visualization.depictor import ProtoDepictor
 from cabrnet.core.visualization.explainer import ExplanationGraph
-from typing_extensions import override
 
 
 class ProtoPNet(CaBRNet):
@@ -141,7 +141,6 @@ class ProtoPNet(CaBRNet):
                 self.classifier.last_layer = pruned_last_layer
             # Load state dictionary
             super().load_state_dict(state_dict, **kwargs)
-
 
     @override
     def loss(self, model_output: Any, label: torch.Tensor, **kwargs) -> tuple[torch.Tensor, dict[str, float]]:

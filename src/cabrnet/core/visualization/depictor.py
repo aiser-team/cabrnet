@@ -6,6 +6,7 @@ from typing import Any, Callable
 
 import torch
 from loguru import logger
+
 from cabrnet.archs.generic.model import CaBRNet
 
 

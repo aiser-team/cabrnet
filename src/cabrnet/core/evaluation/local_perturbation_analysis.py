@@ -467,7 +467,9 @@ def execute(
     datasets = DatasetManager.get_datasets(dataset_config, sampling_ratio=sampling_ratio)
 
     # Get projection dataset for visualizer (required for transform)
-    visualizer = SimilarityVisualizer.build_from_config(config=visualization_config, model=model, dataset_config=load_config(dataset_config))
+    visualizer = SimilarityVisualizer.build_from_config(
+        config=visualization_config, model=model, dataset_config=load_config(dataset_config)
+    )
 
     dataset = datasets["test_set"]["raw_dataset"]
 

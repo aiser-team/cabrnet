@@ -170,9 +170,7 @@ def analyze(
 
     for proto_idx in most_relevant_prototypes:
         # Compute attribution map
-        attribution = visualizer.get_attribution(
-            img=img, proto_idx=proto_idx, location="max", device=device
-        )
+        attribution = visualizer.get_attribution(img=img, proto_idx=proto_idx, location="max", device=device)
 
         # Compute pointing game stats
         mask_relevance = pg_mask_relevance(attribution, np.asarray(seg), area_percentage)
@@ -192,7 +190,7 @@ def analyze(
                 prototype_img_path=prototype_dir / f"prototype_{proto_idx}.png",
                 original_img=img,
                 test_patch_img=test_patch_img,
-                segmentation=seg.convert('L') if seg.mode != 'L' else seg,
+                segmentation=seg.convert("L") if seg.mode != "L" else seg,
                 attribution=attribution,
                 area_percentage=area_percentage,
                 img_id=img_id,
@@ -241,7 +239,9 @@ def patches_relevance_analysis(
 
     # Create dataloaders and visualizer
     datasets = DatasetManager.get_datasets(dataset_config, sampling_ratio=sampling_ratio, load_segmentation=True)
-    visualizer = SimilarityVisualizer.build_from_config(config=visualization_config, model=model, dataset_config=load_config(dataset_config))
+    visualizer = SimilarityVisualizer.build_from_config(
+        config=visualization_config, model=model, dataset_config=load_config(dataset_config)
+    )
 
     # Recover preprocessing function
     preprocess = getattr(datasets["test_set"]["dataset"], "transform", ToTensor())

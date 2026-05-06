@@ -133,7 +133,9 @@ def legacy_get_model(num_classes: int, args: Namespace, seed: int) -> nn.DataPar
     return legacy_model
 
 
-def legacy_get_optimizers(legacy_model: nn.Module, args: Namespace) -> tuple[
+def legacy_get_optimizers(
+    legacy_model: nn.Module, args: Namespace
+) -> tuple[
     torch.optim.Optimizer,
     torch.optim.Optimizer,
     list[torch.nn.parameter.Parameter],

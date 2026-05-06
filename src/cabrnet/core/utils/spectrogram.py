@@ -55,9 +55,7 @@ def logscale_fbanks(
     all_freqs = torch.linspace(0, sample_rate // 2, n_freqs)
 
     # calculate log-spaced freq bins (simple logarithmic spacing)
-    f_pts = torch.logspace(
-        torch.log10(torch.tensor(f_min)), torch.log10(torch.tensor(f_max)), n_bands + 2
-    )
+    f_pts = torch.logspace(torch.log10(torch.tensor(f_min)), torch.log10(torch.tensor(f_max)), n_bands + 2)
 
     # create filterbank
     fb = _create_triangular_filterbank(all_freqs, f_pts)
@@ -137,7 +135,5 @@ class Repeat3Channel(nn.Module):
         super().__init__()
 
     def forward(self, input):
-        return repeat(
-            input, "b f t -> b c f t", c=3
-        )  # 3 channels for RGB compatibility
+        return repeat(input, "b f t -> b c f t", c=3)  # 3 channels for RGB compatibility
         return

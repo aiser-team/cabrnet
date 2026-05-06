@@ -8,17 +8,18 @@ import torch
 from loguru import logger
 from PIL import Image
 from torch import Tensor
+
 from cabrnet.archs.generic.model import CaBRNet
-from cabrnet.core.utils.data import DatasetManager
 from cabrnet.core.attribution.augmentors import GaussianNoiseAugmentor
+from cabrnet.core.utils.data import DatasetManager
 from cabrnet.core.utils.exceptions import check_mandatory_fields
 from cabrnet.core.utils.parser import load_config
+from cabrnet.core.visualization.depictor import ProtoDepictor
 from cabrnet.core.visualization.gradients import attribute_prototypes
 from cabrnet.core.visualization.postprocess import post_process
 from cabrnet.core.visualization.prp_utils import get_cabrnet_lrp_composite_model
 from cabrnet.core.visualization.upsampling import cubic_upsampling
 from cabrnet.core.visualization.view import SUPPORTED_VIEWING_FUNCTIONS
-from cabrnet.core.visualization.depictor import ProtoDepictor
 
 # Type alias for attribution methods
 AttributionMethod = Literal["saliency", "smoothgrad", "prp", "randgrad", "cubic"]
