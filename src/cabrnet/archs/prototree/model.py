@@ -474,7 +474,7 @@ class ProtoTree(CaBRNet):
                     if not disable_rendering:
                         patch_image_path = depictor.save(
                             raw_input=img,
-                            folder=output_dir / "test_patches",
+                            folder=output_dir.absolute() / "test_patches",
                             filename=f"proto_similarity_{proto_idx}",
                             proto_idx=proto_idx,
                             device=device,
