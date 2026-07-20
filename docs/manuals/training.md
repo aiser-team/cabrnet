@@ -5,7 +5,7 @@ For more examples, see
 the [ProtoPNet](https://github.com/aiser-team/cabrnet/tree/main/configs/protopnet/cub200/training.yml) and
 [ProtoTree](https://github.com/aiser-team/cabrnet/tree/main/configs/prototree/cub200/training.yml) configuration files.
 
-To help with the format of this file, a JSON schema is available in the `configs` directory. 
+To help with the format of this file, a JSON schema is available in the `configs` directory.
 JSON schemas are compatible with most editors (PyCharm, VSCode). To use a given schema, simply add the following
 line at the beginning of the YML file.
 ```
@@ -29,7 +29,7 @@ param_groups:
     exclude_type: [ <TYPE>, ... ]
 ```
 
-In other words, parameter groups can be either defined as an explicit list of submodule/parameters names/regular 
+In other words, parameter groups can be either defined as an explicit list of submodule/parameters names/regular
 expressions
 (see groups 1 and 2),
 or as a range of submodules/parameters, where the names of the parameters can be found as follows:
@@ -62,11 +62,11 @@ Example of parameter groups when using the Muon optimizer:
 ```yaml
 param_groups:
   # Contains all parameters of all convolutional layers, except the first one
-  backbone_with_muon: 
+  backbone_with_muon:
     include: extractor.convnet
     type: [Conv2d]
     exclude: extractor.convnet.conv1
-  # Contains all parameters of non-convolutional layers between BN1 and Layer4  
+  # Contains all parameters of non-convolutional layers between BN1 and Layer4
   backbone_with_adam:
     start: extractor.convnet.bn1
     stop: extractor.convnet.layer4
@@ -114,7 +114,7 @@ with different configurations (*e.g.* learning rate) for each parameter group.
 
 Additionally, each optimizer can be associated with an **optional** learning rate scheduler.
 By default, the scheduler is called after **each epoch**. By specifying `trigger: batch`, CaBRNet assumes
-that the scheduler is called after **each batch**, in the 
+that the scheduler is called after **each batch**, in the
 [`_training_batch_hook` method](model.md#defining-a-new-top-module) of the model.
 
 ## Specifying the number of training epochs

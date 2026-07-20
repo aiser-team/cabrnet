@@ -277,7 +277,7 @@ Prototype-based architectures provide both global and local explanations:
 - global explanations provide an overview of the decision-making process of the entire model.
 - local explanations provide information regarding a particular decision (for a particular image).
 
-IMPORTANT NOTE: CaBRNet requires the [GraphViz](https://graphviz.org/) 
+IMPORTANT NOTE: CaBRNet requires the [GraphViz](https://graphviz.org/)
 package to generate explanations.
 
 ### Global explanations
