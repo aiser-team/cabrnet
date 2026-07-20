@@ -77,11 +77,11 @@ reportMissingImports = true
 
 [dependency-groups]
 dev = [
- "black==24.10.0",
- "build",
- "isort>=8.0.1",
- "pyright",
- "twine",
+    "build",
+    "pre-commit>=4.6.0",
+    "pyright",
+    "ruff>=0.15.22",
+    "twine",
 ]
 doc = ["mkdocs", "pydoc-markdown", "pymdown-extensions", "python-markdown-math"]
 legacy = ["gdown~=4.7.1", "requests~=2.32.0", "Augmentor~=0.2.12"]

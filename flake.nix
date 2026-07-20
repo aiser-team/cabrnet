@@ -206,13 +206,9 @@
               (oldAttrs: {
                 doCheck = true;
                 name = "check-${oldAttrs.name}-code";
-                nativeBuildInputs = oldAttrs.nativeBuildInputs ++ (with pythonPkgs; [
-                    black
-                    isort
-                ]);
+                nativeBuildInputs = oldAttrs.nativeBuildInputs ++ [ pkgs.ruff ];
                 checkPhase = ''
-                  black --check src/ tools/
-                  isort --check src/ tools/
+                  ruff format --check src/ tools/
                 '';
               });
           formattingDocstring =

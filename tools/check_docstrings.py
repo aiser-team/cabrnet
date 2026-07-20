@@ -50,7 +50,7 @@ def parse_ast(ast_module: Any, filename: str, ignore_imperative_warnings: bool) 
                 logger.error(f"Missing docstring for class '{class_name}' ({filename}:{body_content.lineno})")
                 complies = False
             else:
-                attr_location = re.search("\n[\s]*Attributes:", module_docstring)  # type: ignore
+                attr_location = re.search(r"\n[\s]*Attributes:", module_docstring)
                 if attr_location is None:
                     logger.warning(
                         f"Missing 'Attributes' field in docstring for class '{class_name}' "
@@ -85,22 +85,23 @@ def parse_ast(ast_module: Any, filename: str, ignore_imperative_warnings: bool) 
             if num_args > 0 and body_content.args.args[0].arg == "self":
                 num_args -= 1
 
-            args_location = re.search("\n[\s]*Args:", function_docstring)  # type: ignore
-            if args_location is None and num_args > 0:
-                logger.error(
-                    f"Missing 'Args' keyword in function '{function_name}' description "
-                    f"({filename}:{body_content.lineno})"
-                )
-                complies = False
-                continue
+            args_location = re.search(r"\n[\s]*Args:", function_docstring)
+            if num_args > 0:
+                if args_location is None:
+                    logger.error(
+                        f"Missing 'Args' keyword in function '{function_name}' description "
+                        f"({filename}:{body_content.lineno})"
+                    )
+                    complies = False
+                    continue
+                function_desc = function_docstring[: args_location.start()]
 
-            return_location = re.search("[\s]*Returns", function_docstring)  # type: ignore
+            return_location = re.search(r"[\s]*Returns", function_docstring)
 
             if (
                 return_location is None
                 and body_content.returns is not None
-                and hasattr(body_content.returns, "value")
-                and body_content.returns.value is not None  # type: ignore
+                and not (isinstance(body_content.returns, ast.Constant) and body_content.returns.value is None)
             ):
                 logger.error(
                     f"Missing docstring for return value in function '{function_name}' "
@@ -118,7 +119,7 @@ def parse_ast(ast_module: Any, filename: str, ignore_imperative_warnings: bool) 
                 else:
                     function_desc = function_docstring[: return_location.start()]
             else:
-                function_desc = function_docstring[: args_location.start()]  # type: ignore
+                function_desc = function_docstring[: args_location.start()]
             function_desc = function_desc.rstrip().lstrip()
 
             # Check usage of 3rd person and uppercase
@@ -168,7 +169,7 @@ def parse_ast(ast_module: Any, filename: str, ignore_imperative_warnings: bool) 
                         complies = False
             if num_args == 0:
                 continue
-            args_docstring = function_docstring[args_location.end() :]  # type: ignore
+            args_docstring = function_docstring[args_location.end() :]
             function_args = body_content.args
             num_default = len(function_args.defaults)
             for arg_index, arg in enumerate(function_args.args):
@@ -242,7 +243,7 @@ def parse_ast(ast_module: Any, filename: str, ignore_imperative_warnings: bool) 
                         )
                         complies = False
                         continue
-                    if re.search("Default: [^\.]+\.", arg_desc) is None:  # type: ignore
+                    if re.search(r"Default: [^.]+\.", arg_desc) is None:
                         logger.error(
                             f"Missing default value in argument '{arg_name}' description "
                             f"in function '{function_name}': {arg_desc} ({filename}:{body_content.lineno})"
@@ -251,7 +252,7 @@ def parse_ast(ast_module: Any, filename: str, ignore_imperative_warnings: bool) 
     return complies
 
 
-def check_docstrings(dir_path: str, ignore_imperative_warnings: bool, quiet: bool) -> None:
+def check_docstrings(dir_path: str, ignore_imperative_warnings: bool, quiet: bool) -> bool:
     r"""Checks the docstring format of all python files inside the directory *dir_path*.
 
     Args:
@@ -260,10 +261,12 @@ def check_docstrings(dir_path: str, ignore_imperative_warnings: bool, quiet: boo
         quiet (bool): If True, does not display success messages.
 
     Raises:
-        DocStringFormatError when DocString format does not comply with policy.
+        True if and only if all checked files comply with the docstring policy.
     """
 
-    def check_file(filepath: str):
+    complies = True
+
+    def check_file(filepath: str) -> bool:
         with open(filepath, "r") as fin:
             if not parse_ast(
                 ast_module=ast.parse(fin.read()),
@@ -271,27 +274,36 @@ def check_docstrings(dir_path: str, ignore_imperative_warnings: bool, quiet: boo
                 ignore_imperative_warnings=ignore_imperative_warnings,
             ):
                 logger.error(f"Errors found in {filepath}")
+                return False
             elif not quiet:
                 logger.success(f"File {filepath} complies with docstring policy")
+        return True
 
     for filename in os.listdir(dir_path):
         path = os.path.join(dir_path, filename)
         if os.path.isfile(path) and path.endswith(".py"):
-            check_file(filepath=path)
+            complies = check_file(filepath=path) and complies
         elif os.path.isdir(path):
             # Recursive call
-            check_docstrings(
-                dir_path=path,
-                ignore_imperative_warnings=ignore_imperative_warnings,
-                quiet=quiet,
+            complies = (
+                check_docstrings(
+                    dir_path=path,
+                    ignore_imperative_warnings=ignore_imperative_warnings,
+                    quiet=quiet,
+                )
+                and complies
             )
+    return complies
 
 
-def main():
+def main() -> None:
     r"""Checks the docstring format of all files inside a given directory."""
     parser = create_parser()
     args = parser.parse_args()
-    check_docstrings(dir_path=args.dir, ignore_imperative_warnings=args.ignore_imperative_warnings, quiet=args.quiet)
+    if not check_docstrings(
+        dir_path=args.dir, ignore_imperative_warnings=args.ignore_imperative_warnings, quiet=args.quiet
+    ):
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":
