@@ -192,7 +192,7 @@ def analyze(
                 prototype_img_path=prototype_dir / f"prototype_{proto_idx}.png",
                 original_img=img,
                 test_patch_img=test_patch_img,
-                segmentation=seg.convert('L') if seg.mode != 'L' else seg,
+                segmentation=seg.convert("L") if seg.mode != "L" else seg,
                 attribution=attribution,
                 area_percentage=area_percentage,
                 img_id=img_id,

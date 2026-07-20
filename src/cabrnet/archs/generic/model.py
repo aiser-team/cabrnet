@@ -35,6 +35,10 @@ class CaBRNet(nn.Module):
     """
 
     # Regroups common default file names in a single location
+    extractor: nn.Module
+    classifier: CaBRNetClassifier
+    _compatibility_mode: bool
+
     DEFAULT_MODEL_CONFIG: Path = Path("model_arch.yml")
     DEFAULT_MODEL_STATE: Path = Path("model_state.pth")
     DEFAULT_PROJECTION_INFO: Path = Path("projection_info.csv")
@@ -266,7 +270,7 @@ class CaBRNet(nn.Module):
     def check_args(
         args: argparse.Namespace,
         checkpoint_dest: str = "--checkpoint-dir",
-        alternatives: list[tuple[str, str, Path]] | None = None,
+        alternatives: list[tuple[str, Path]] | None = None,
         strict: bool = True,
         check_defined: bool = False,
     ) -> argparse.Namespace:
@@ -289,7 +293,7 @@ class CaBRNet(nn.Module):
             modified (or created) parser.
         """
         if alternatives is None:
-            alternatives = [CaBRNet.ARCHITECTURE_ALTERNATIVE]
+            alternatives = CaBRNet.ARCHITECTURE_ALTERNATIVE
         checkpoint = CaBRNet.attribute_of_option(checkpoint_dest)
         if vars(args)[checkpoint]:
             dir: Path = vars(args)[checkpoint]
@@ -898,7 +902,10 @@ class CaBRNet(nn.Module):
 
         # Mapping between classes and prototypes
         proto_class_map = self.classifier.prototype_class_mapping
-        class_mapping = {c: list(np.nonzero(proto_class_map[:, c])[0]) for c in range(self.classifier.num_classes)}
+        class_mapping = {
+            c: [int(proto_idx) for proto_idx in np.nonzero(proto_class_map[:, c])[0]]
+            for c in range(self.classifier.num_classes)
+        }
 
         # Sanity check to ensure that each class is associated with at least one prototype
         for class_idx in range(self.classifier.num_classes):

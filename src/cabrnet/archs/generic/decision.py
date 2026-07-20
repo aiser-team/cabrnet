@@ -20,6 +20,8 @@ class CaBRNetClassifier(nn.Module, ABC):
         similarity_layer: Layer used to compute similarity scores between the prototypes and the convolutional features.
     """
 
+    num_classes: int
+    num_features: int
     prototypes: Tensor
     similarity_layer: SimilarityLayer
 

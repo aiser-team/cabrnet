@@ -110,7 +110,7 @@ def check_args(args: Namespace) -> Namespace:
     output_dir = Path(args.output_dir, Path(args.image).stem)
     if os.path.exists(output_dir) and not args.overwrite:
         raise ArgumentError(
-            f"Output directory {output_dir} is not empty. " f"To overwrite existing results, use --overwrite option."
+            f"Output directory {output_dir} is not empty. To overwrite existing results, use --overwrite option."
         )
 
     if not os.path.exists(args.prototype_dir):

@@ -5,6 +5,7 @@ import copy
 import importlib
 import os
 import random
+from collections.abc import Sized
 from pathlib import Path
 from typing import Any, Callable
 
@@ -174,7 +175,10 @@ class DatasetManager:
             # Handle Deterministic Partitioning (Splitting Train into Train/Val)
             if "partition" in dconfig:
                 start_frac, end_frac = dconfig["partition"]
-                total_len = len(dataset["dataset"])  # type: ignore
+                dataset_to_partition = dataset["dataset"]
+                if not isinstance(dataset_to_partition, Sized):
+                    raise TypeError(f"Dataset {dataset_name} does not define a length")
+                total_len = len(dataset_to_partition)
 
                 # Create the full list of indices
                 indices = list(range(total_len))
@@ -204,7 +208,10 @@ class DatasetManager:
 
             if sampling_ratio > 1:
                 # Apply data sub-selection
-                selected_indices = [idx for idx in range(len(dataset["dataset"]))][::sampling_ratio]  # type: ignore
+                dataset_to_sample = dataset["dataset"]
+                if not isinstance(dataset_to_sample, Sized):
+                    raise TypeError(f"Dataset {dataset_name} does not define a length")
+                selected_indices = list(range(len(dataset_to_sample)))[::sampling_ratio]
                 for key in ["dataset", "raw_dataset", "seg_dataset"]:
                     if dataset.get(key) is not None:
                         dset = dataset[key]

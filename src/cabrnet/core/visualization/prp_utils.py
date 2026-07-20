@@ -238,6 +238,9 @@ class ZBetaLayer(ABC):
                     )
                     # Backward pass
                     output.backward(normalized)
+                assert x.grad is not None
+                assert lower_bound_tensor.grad is not None
+                assert upper_bound_tensor.grad is not None
                 grads = (
                     x * x.grad
                     + lower_bound_tensor * lower_bound_tensor.grad

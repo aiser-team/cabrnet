@@ -14,6 +14,7 @@ from tqdm import tqdm
 
 from cabrnet.archs.generic.decision import CaBRNetClassifier
 from cabrnet.archs.generic.model import CaBRNet
+from cabrnet.archs.protopool.decision import ProtoPoolClassifier
 from cabrnet.core.utils.custom_preprocess import batch_mixup
 from cabrnet.core.utils.image import safe_open_image
 from cabrnet.core.utils.optimizers import OptimizerManager
@@ -31,13 +32,17 @@ class ProtoPool(CaBRNet):
         loss_coefficients: Parameters of the loss function used during training.
     """
 
+    classifier: ProtoPoolClassifier
+
     def __init__(self, extractor: nn.Module, classifier: CaBRNetClassifier, **kwargs):
         r"""Builds a ProtoPool.
 
         Args:
             extractor (Module): Feature extractor.
-            classifier (CaBRNetClassifier): Classification based on extracted features.
+            classifier (ProtoPoolClassifier): Classification based on extracted features.
         """
+        if not isinstance(classifier, ProtoPoolClassifier):
+            raise TypeError(f"ProtoPool only supports ProtoPoolClassifier, got {type(classifier).__name__}")
         super(ProtoPool, self).__init__(extractor, classifier, **kwargs)
 
         # Additional training configuration
