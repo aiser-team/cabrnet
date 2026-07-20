@@ -116,9 +116,9 @@ def check_args(args: Namespace) -> Namespace:
         Modified argument namespace.
     """
     # Check environment variable
-    assert (
-        os.environ.get("RAY_CHDIR_TO_TRIAL_DIR") == "0"
-    ), "Environment variable RAY_CHDIR_TO_TRIAL_DIR should be set to 0"
+    assert os.environ.get("RAY_CHDIR_TO_TRIAL_DIR") == "0", (
+        "Environment variable RAY_CHDIR_TO_TRIAL_DIR should be set to 0"
+    )
 
     if args.config_dir is not None:
         for param, name in zip(
@@ -152,8 +152,7 @@ def check_args(args: Namespace) -> Namespace:
 
     if args.output_dir.exists() and args.resume_from is None and not args.overwrite:
         raise ArgumentError(
-            f"Output directory {args.output_dir} is not empty. "
-            f"To overwrite existing results, use --overwrite option."
+            f"Output directory {args.output_dir} is not empty. To overwrite existing results, use --overwrite option."
         )
 
     return args

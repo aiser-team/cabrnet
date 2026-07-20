@@ -163,8 +163,7 @@ def check_args(args: Namespace) -> Namespace:
     final_model_path = final_dir(args.output_dir)
     if args.epilogue and final_model_path.exists() and not args.overwrite:
         raise ArgumentError(
-            f"Output directory {final_model_path} is not empty. "
-            f"To overwrite existing results, use --overwrite option."
+            f"Output directory {final_model_path} is not empty. To overwrite existing results, use --overwrite option."
         )
     if args.sanity_check and args.sampling_ratio == 1:
         # In sanity check mode, increase the sampling ratio

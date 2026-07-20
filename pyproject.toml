@@ -44,9 +44,12 @@ dependencies = [
     "scikit-learn~=1.5.1",
     "thop~=0.1.1",
     "pandas>=2.3.3",
+    "muon-optimizer>=0.1.0",
 ]
 
 [project.optional-dependencies]
+# optional-dependencies are non-mandatory dependencies for users, NOT DEVELOPERS.
+# for additional dependencies used when working on the cabrnet repository, see dependency-groups
 tune = [
     "ray[tune]~=2.34.0",
     "optuna~=3.6.1",
@@ -60,14 +63,8 @@ Issues = "https://github.com/aiser-team/cabrnet/issues"
 cabrnet = "cabrnet.main:main"
 cabrnet-analysis = "cabrnet.main_analysis:main"
 
-[tool.black]
-line-length = 120
-
 [tool.ruff]
 line-length = 120
-
-[tool.isort]
-profile="black"
 
 [tool.pyright]
 pythonVersion = "3.10"
@@ -76,6 +73,7 @@ reportMissingTypeStubs = false
 reportMissingImports = true
 
 [dependency-groups]
+# additional dependencies when using cabrnet from the git repository.
 dev = [
     "build",
     "pre-commit>=4.6.0",

@@ -45,7 +45,7 @@ projection_set:
   shuffle: true
   num_workers: 2
   pin_memory: true
-  
+
 
 test_set:
   module: torchvision.datasets.cifar

@@ -1,6 +1,6 @@
 import copy
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Protocol, runtime_checkable
 
 import graphviz
 import numpy as np
@@ -17,6 +17,15 @@ from cabrnet.archs.generic.model import CaBRNet
 from cabrnet.core.utils.image import safe_open_image
 from cabrnet.core.utils.optimizers import OptimizerManager
 from cabrnet.core.visualization.visualizer import SimilarityVisualizer
+
+
+@runtime_checkable
+class ClampableClassifier(Protocol):
+    r"""Classifier capability required by PIPNet's post-batch training step."""
+
+    def clamp_parameters(self) -> None:
+        r"""Clamps classifier parameters to PIPNet's valid range."""
+        ...
 
 
 class PIPNet(CaBRNet):
@@ -253,6 +262,10 @@ class PIPNet(CaBRNet):
             optimizer_mngr.schedulers["optimizer_classifier"].step(
                 epoch_idx - 1 - offset + (batch_idx / batch_num)  # type:ignore
             )
+            if not isinstance(self.classifier, ClampableClassifier):
+                raise TypeError(
+                    f"PIPNet training requires a classifier with clamp_parameters(), got {type(self.classifier).__name__}"
+                )
             self.classifier.clamp_parameters()
 
         if "fine_tuning" not in optimizer_mngr.get_active_periods(epoch_idx):
@@ -393,7 +406,10 @@ class PIPNet(CaBRNet):
 
         # Mapping between classes and prototypes
         proto_class_map = self.prototype_class_mapping
-        class_mapping = {c: list(np.nonzero(proto_class_map[:, c])[0]) for c in range(self.classifier.num_classes)}
+        class_mapping = {
+            c: [int(proto_idx) for proto_idx in np.nonzero(proto_class_map[:, c])[0]]
+            for c in range(self.classifier.num_classes)
+        }
 
         # Sanity check to ensure that each class is associated with at least one prototype
         for class_idx in range(self.classifier.num_classes):
@@ -540,7 +556,7 @@ class PIPNet(CaBRNet):
 
         # Show which classes are connected to this prototype
         proto_class_map = self.prototype_class_mapping
-        related_classes = list(np.nonzero(proto_class_map[proto_idx, :])[0])
+        related_classes = [int(class_idx) for class_idx in np.nonzero(proto_class_map[proto_idx, :])[0]]
         for related_class in related_classes:
             if related_class != target_class:
                 graph.node(
@@ -696,7 +712,10 @@ class PIPNet(CaBRNet):
             output_format (str, optional): Output file format. Default: pdf.
         """
         proto_class_map = self.prototype_class_mapping
-        class_mapping = {c: list(np.nonzero(proto_class_map[:, c])[0]) for c in range(self.classifier.num_classes)}
+        class_mapping = {
+            c: [int(proto_idx) for proto_idx in np.nonzero(proto_class_map[:, c])[0]]
+            for c in range(self.classifier.num_classes)
+        }
 
         # Render one cluster per prototype
         for proto_idx in tqdm(range(self.num_prototypes), desc="Rendering prototype clusters", leave=False):

@@ -82,9 +82,9 @@ def post_process(
     if img_tensor.dim() > 3:
         img_tensor = img_tensor[0]
     if grads_x_input:
-        assert (
-            array.shape == img_tensor.shape
-        ), f"Mismatching image tensor size. Expected {array.shape} but found {img_tensor.shape}"
+        assert array.shape == img_tensor.shape, (
+            f"Mismatching image tensor size. Expected {array.shape} but found {img_tensor.shape}"
+        )
         # Element-wise multiplication with source image
         array *= img_tensor.detach().cpu().numpy()
 

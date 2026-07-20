@@ -23,6 +23,11 @@ class ProtoPNetClassifier(CaBRNetClassifier):
         last_layer: Linear layer in charge of weighting similarity scores and computing the final logit vector.
     """
 
+    num_proto_per_class: int
+    proto_class_map: Tensor
+    last_layer: nn.Linear
+    _compatibility_mode: bool
+
     def __init__(
         self,
         similarity_config: dict[str, Any],

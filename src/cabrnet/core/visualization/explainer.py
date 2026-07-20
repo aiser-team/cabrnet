@@ -131,7 +131,7 @@ class ExplanationGraph(GenericGraph):
         )
         self._dot.subgraph(subgraph)
         self._dot.edge(
-            tail_name=f"node_{self._num_nodes-1}_test",
+            tail_name=f"node_{self._num_nodes - 1}_test",
             head_name=f"node_{self._num_nodes}_test",
             label="",
             style="invis" if not draw_arrows else "",
@@ -150,7 +150,7 @@ class ExplanationGraph(GenericGraph):
         subgraph.node(name="node_prediction", label=f"Class: {class_id}")
         self._dot.subgraph(subgraph)
         self._dot.edge(
-            tail_name=f"node_{self._num_nodes-1}_test",
+            tail_name=f"node_{self._num_nodes - 1}_test",
             head_name="node_prediction",
             label="",
         )
@@ -219,7 +219,7 @@ class PerturbationGraph(GenericGraph):
             name=f"node_{self._num_blocks}_proto",
             label=f"Prototype {prototype_label}",
             image=str(prototype_img_path),
-            pos=f"8,{y_ref+2.5}!",
+            pos=f"8,{y_ref + 2.5}!",
         )
         subgraph.node(
             name=f"node_{self._num_blocks}_test_hm",
@@ -232,7 +232,7 @@ class PerturbationGraph(GenericGraph):
             height=str(2.3 + 0.2 * perturbation.count("\n")),
             label=f"{perturbation} (focus)",
             image=str(focus_test_patch_img_path),
-            pos=f"4,{y_ref+2.5}!",
+            pos=f"4,{y_ref + 2.5}!",
         )
         if dual_test_patch_img_path is not None:
             subgraph.node(
@@ -386,31 +386,31 @@ class PointingGameGraph(GenericGraph):
         )
         self._dot.node(
             name=f"node_{self._num_blocks}_test_patch_mask",
-            label=f"Patch mask ({int(area_percentage*100)}% area)",
+            label=f"Patch mask ({int(area_percentage * 100)}% area)",
             image=str(test_patch_mask_path),
             pos=f"3, {y_ref}!",
         )
         self._dot.node(
             name=f"node_{self._num_blocks}_test_patch_heatmap_in",
-            label=f"Inside ({int(energy_score*100)}%)",
+            label=f"Inside ({int(energy_score * 100)}%)",
             image=str(test_patch_heatmap_in_path),
-            pos=f"7,{y_ref+3}!",
+            pos=f"7,{y_ref + 3}!",
         )
         self._dot.node(
             name=f"node_{self._num_blocks}_test_patch_mask_in",
-            label=f"Inside ({int(mask_score*100)}%)",
+            label=f"Inside ({int(mask_score * 100)}%)",
             image=str(test_patch_mask_in_path),
             pos=f"7,{y_ref}!",
         )
         self._dot.node(
             name=f"node_{self._num_blocks}_test_patch_heatmap_out",
-            label=f"Outside ({100-int(energy_score*100)}%)",
+            label=f"Outside ({100 - int(energy_score * 100)}%)",
             image=str(test_patch_heatmap_out_path),
-            pos=f"10,{y_ref+3}!",
+            pos=f"10,{y_ref + 3}!",
         )
         self._dot.node(
             name=f"node_{self._num_blocks}_test_patch_mask_out",
-            label=f"Outside ({100-int(mask_score*100)}%)",
+            label=f"Outside ({100 - int(mask_score * 100)}%)",
             image=str(test_patch_mask_out_path),
             pos=f"10,{y_ref}!",
         )
@@ -431,7 +431,7 @@ class PointingGameGraph(GenericGraph):
                 name=f"node_{self._num_blocks}_proto",
                 label=f"Prototype {proto_idx}",
                 image=str(prototype_resize_img_path),
-                pos=f"-4,{y_ref+3}!",
+                pos=f"-4,{y_ref + 3}!",
             )
             self._dot.edge(
                 tail_name=f"node_{self._num_blocks}_test_patch",
@@ -498,7 +498,7 @@ class PrototypeAnalysisGraph(GenericGraph):
             name=f"node_{self._num_blocks}_proto",
             label=prototype_label,
             image=str(prototype_img_path),
-            pos=f"8,{y_ref+2.5}!",
+            pos=f"8,{y_ref + 2.5}!",
         )
         subgraph.node(
             height="5",

@@ -74,6 +74,27 @@ class TreeNode(nn.Module):
         """
         raise NotImplementedError
 
+    def child_nodes(self) -> Iterator[TreeNode]:
+        r"""Iterates over this node's tree children."""
+        for child in self.children():
+            if not isinstance(child, TreeNode):
+                raise TypeError(f"Expected a TreeNode child, got {type(child).__name__}")
+            yield child
+
+    def named_child_nodes(self) -> Iterator[tuple[str, TreeNode]]:
+        r"""Iterates over this node's named tree children."""
+        for name, child in self.named_children():
+            if not isinstance(child, TreeNode):
+                raise TypeError(f"Expected a TreeNode child, got {type(child).__name__}")
+            yield name, child
+
+    def get_child_node(self, target: str) -> TreeNode:
+        r"""Returns a tree child by its module path."""
+        child = self.get_submodule(target)
+        if not isinstance(child, TreeNode):
+            raise TypeError(f"Expected a TreeNode child, got {type(child).__name__}")
+        return child
+
     @property
     def num_prototypes(self) -> int:
         r"""Returns the total number of prototypes pointed by this node and all its children."""
@@ -91,7 +112,7 @@ class TreeNode(nn.Module):
             threshold (float, optional): Pruning threshold. Default: 0.01.
         """
         prune_list = []
-        for name, child in self.named_children():
+        for name, child in self.named_child_nodes():
             if max([torch.max(leaf.distribution).item() for leaf in child.leaves]) <= threshold:
                 prune_list.append(name)
             else:
@@ -104,8 +125,8 @@ class TreeNode(nn.Module):
 
         # Replace children with a single child with that child
         singleton_list = []
-        for name, child in self.named_children():
-            grand_children = [grand_child for grand_child in child.children()]
+        for name, child in self.named_child_nodes():
+            grand_children = list(child.child_nodes())
             if len(grand_children) == 1:
                 singleton_list.append((name, grand_children[0]))
         for child_name, grand_child in singleton_list:
@@ -120,7 +141,7 @@ class TreeNode(nn.Module):
 
         names = ["nsim", "sim"]
         for child_name in names:
-            child = self.get_submodule(f"{self.node_id}_child_{child_name}")
+            child = self.get_child_node(f"{self.node_id}_child_{child_name}")
             child.prune_similar_children()
 
         # if a child of `this` is such that
@@ -128,7 +149,7 @@ class TreeNode(nn.Module):
         # replace child with its second child
         for child_name in names:
             childfullname = f"{self.node_id}_child_{child_name}"
-            child = self.get_submodule(childfullname)
+            child = self.get_child_node(childfullname)
 
             if child.proto_idxs is None:  # child has no children
                 continue
@@ -137,12 +158,12 @@ class TreeNode(nn.Module):
             decisions = set()
             grandchild = None
             for grandchild_name in names:
-                grandchild = child.get_submodule(f"{child.node_id}_child_{grandchild_name}")
-                if grandchild.proto_idxs is None:
+                grandchild = child.get_child_node(f"{child.node_id}_child_{grandchild_name}")
+                if not isinstance(grandchild, LeafNode):
+                    has_great_grand_children = True
+                else:
                     decision = torch.argmax(grandchild.distribution)
                     decisions.add(decision.item())
-                else:
-                    has_great_grand_children = True
             if has_great_grand_children:
                 continue
             if len(decisions) > 1:
@@ -156,9 +177,9 @@ class TreeNode(nn.Module):
         return self.num_nodes
 
     @property
-    def leaves(self) -> Iterator[nn.Module]:
+    def leaves(self) -> Iterator[LeafNode]:
         r"""Returns iterator on all leaves."""
-        for child in self.children():
+        for child in self.child_nodes():
             for leaf in child.leaves:
                 yield leaf
 
@@ -166,15 +187,15 @@ class TreeNode(nn.Module):
     def active_prototypes(self) -> list[int]:
         r"""Returns list of active prototypes."""
         res: list[int] = self.proto_idxs.copy() if self.proto_idxs is not None else []
-        res += [proto_idx for child in self.children() for proto_idx in child.active_prototypes]
+        res += [proto_idx for child in self.child_nodes() for proto_idx in child.active_prototypes]
         return res
 
     @property
     def num_leaves(self) -> int:
         r"""Returns the total number of leaves."""
-        return sum([child.num_leaves for child in self.children()])
+        return sum(child.num_leaves for child in self.child_nodes())
 
-    def get_mapping(self, mode: MappingMode) -> dict | None:
+    def get_mapping(self, mode: MappingMode) -> dict[Any, Any]:
         r"""Returns mapping between nodes, prototypes and classes.
 
         Args:
@@ -192,30 +213,30 @@ class TreeNode(nn.Module):
             if self.proto_idxs is not None:
                 for proto_idx in self.proto_idxs:
                     mapping[proto_idx] = mapped_classes
-            for child in self.children():
+            for child in self.child_nodes():
                 mapping.update(child.get_mapping(mode))
         elif mode == MappingMode.CLASS_TO_PROTOTYPE:
             if self.proto_idxs is not None:
                 for class_idx in mapped_classes:
                     mapping[class_idx] = self.proto_idxs.copy()
-            for child in self.children():
+            for child in self.child_nodes():
                 child_mapping = child.get_mapping(mode)
                 for class_idx in child_mapping:
                     mapping[class_idx] += child_mapping[class_idx]
         elif mode == MappingMode.NODE_TO_PROTOTYPE:
             mapping[self.node_id] = self.proto_idxs.copy() if self.proto_idxs is not None else None
-            for child in self.children():
+            for child in self.child_nodes():
                 mapping.update(child.get_mapping(mode))
         elif mode == MappingMode.NODE_PATHS:
             mapping[self.node_id] = [self.node_id]
-            for child in self.children():
+            for child in self.child_nodes():
                 child_paths = child.get_mapping(mode)
                 # Append node_id to all children paths
                 for node, node_path in child_paths.items():
                     mapping[node] = [self.node_id] + node_path
         elif mode == MappingMode.ID_TO_NODE:
             mapping[self.node_id] = self
-            for child in self.children():
+            for child in self.child_nodes():
                 mapping.update(child.get_mapping(mode))
         else:
             raise NotImplementedError
@@ -233,9 +254,9 @@ class TreeNode(nn.Module):
         }
         if isinstance(self, BinaryNode):
             for name in ["nsim", "sim"]:  # Order for serialization matters for reconstructing the tree
-                arch["children"].append(self.get_submodule(f"{self.node_id}_child_{name}").export_arch())
+                arch["children"].append(self.get_child_node(f"{self.node_id}_child_{name}").export_arch())
         else:
-            for child in self.children():
+            for child in self.child_nodes():
                 arch["children"].append(child.export_arch())
         return arch
 
@@ -339,7 +360,7 @@ class ComparativeNode(TreeNode):
                         torch.eq(torch.unsqueeze(children_probs[:, child_idx], dim=1), max_conditional_probs),
                     ),
                 )
-                for child_idx, child in enumerate(self.children())
+                for child_idx, child in enumerate(self.child_nodes())
             ]
         )
 
@@ -361,12 +382,12 @@ class ComparativeNode(TreeNode):
     @property
     def num_prototypes(self) -> int:
         r"""Returns the total number of prototypes pointed by this node and all its children."""
-        return sum([child.num_prototypes for child in self.children()])
+        return sum(child.num_prototypes for child in self.child_nodes())
 
     @property
     def num_nodes(self) -> int:
         r"""Returns the total size of the subtree, including this node."""
-        return 1 + sum([child.size() for child in self.children()])
+        return 1 + sum(child.size() for child in self.child_nodes())
 
 
 class BinaryNode(TreeNode):
@@ -437,7 +458,7 @@ class BinaryNode(TreeNode):
         # Compute all children contributions
         children_preds, children_probs_dicts = zip(
             *[
-                self.get_submodule(child_name)(
+                self.get_child_node(child_name)(
                     similarities=similarities,
                     parent_probs=absolute_probs,
                     conditional_probs=child_prob,
@@ -476,12 +497,12 @@ class BinaryNode(TreeNode):
     @property
     def num_prototypes(self) -> int:
         r"""Returns the total number of prototypes pointed by this node and all its children."""
-        return 1 + sum([child.num_prototypes for child in self.children()])
+        return 1 + sum(child.num_prototypes for child in self.child_nodes())
 
     @property
     def num_nodes(self) -> int:
         r"""Returns the total size of the subtree, including this node."""
-        return 1 + sum([child.size() for child in self.children()])
+        return 1 + sum(child.size() for child in self.child_nodes())
 
     @staticmethod
     def create_binary_tree(
@@ -612,7 +633,7 @@ class LeafNode(TreeNode):
         return 1
 
     @property
-    def leaves(self) -> Iterator[nn.Module]:
+    def leaves(self) -> Iterator[LeafNode]:
         r"""Returns self."""
         yield self
 
