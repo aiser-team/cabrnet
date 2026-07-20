@@ -58,7 +58,7 @@ Issues = "https://github.com/aiser-team/cabrnet/issues"
 
 [project.scripts]
 cabrnet = "cabrnet.main:main"
-cabrnet-gui = "cabrnet.main_gui:main"
+cabrnet-analysis = "cabrnet.main_analysis:main"
 
 [tool.black]
 line-length = 120
