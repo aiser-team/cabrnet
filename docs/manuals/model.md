@@ -1,9 +1,9 @@
 # Model configuration
 The specification of a CaBRNet model architecture is stored in a YML file, according to the following specification.
-For more examples, see the [ProtoPNet](https://github.com/aiser-team/cabrnet/tree/main/configs/protopnet/cub200/model_arch.yml) and 
+For more examples, see the [ProtoPNet](https://github.com/aiser-team/cabrnet/tree/main/configs/protopnet/cub200/model_arch.yml) and
 [ProtoTree](https://github.com/aiser-team/cabrnet/tree/main/configs/prototree/cub200/model_arch.yml) configuration files.
 
-To help with the format of this file, a JSON schema is available in the `configs` directory. 
+To help with the format of this file, a JSON schema is available in the `configs` directory.
 JSON schemas are compatible with most editors (PyCharm, VSCode). To use a given schema, simply add the following
 line at the beginning of the YML file.
 ```
@@ -13,15 +13,15 @@ line at the beginning of the YML file.
 
 As shown below, each CaBRNet model is composed of:
 
-- a [feature extractor](#extractor-configuration) that processes the input image and produces a set of features, 
+- a [feature extractor](#extractor-configuration) that processes the input image and produces a set of features,
 usually in the form of a 3-dimensional tensor (D, H, W) where:
     - D is the number of (convolutional) channels.
     - H x W represent the size of the image representation after downsampling. In other words, for each image,
 the feature extractor produce a HxW map of D-dimensional vectors, called the **feature map**.
-- a [similarity layer](#similarity-configuration) that computes similarity scores between each vector of the feature map and each prototype, using a similarity layer 
-    (*e.g.* based on the L2 distance between vectors in $\mathbb{R}^D$). 
+- a [similarity layer](#similarity-configuration) that computes similarity scores between each vector of the feature map and each prototype, using a similarity layer
+    (*e.g.* based on the L2 distance between vectors in $\mathbb{R}^D$).
 - a [classifier](#classifier-configuration) that:
-    - implements a set of prototypes that are either specific to a given class, or shared among multiples classes. 
+    - implements a set of prototypes that are either specific to a given class, or shared among multiples classes.
     - embeds the similarity layer to compute scores.
     - computes the classification logits based on these scores (*e.g.* using a Decision Tree in ProtoTree).
 
@@ -37,22 +37,22 @@ type of architecture is regrouped into a dedicated directory and contains:
 Instructions on how to define a new architecture can be found [here](#implementing-a-new-prototype-based-architecture).
 
 ## Extractor configuration
-The feature extractor is configured through a dedicated section of the configuration file, 
-using the `extractor` keyword. A feature extractor is based on a pre-existing CNN classifier architecture - identified by the `backbone` keyword - where the last layers (in charge of the classification itself) have been removed. 
+The feature extractor is configured through a dedicated section of the configuration file,
+using the `extractor` keyword. A feature extractor is based on a pre-existing CNN classifier architecture - identified by the `backbone` keyword - where the last layers (in charge of the classification itself) have been removed.
 
-Additionally, in order to reduce the number of dimensions, it is possible to add a set of additional 
+Additionally, in order to reduce the number of dimensions, it is possible to add a set of additional
 layers using the `add_on` keyword.
 
 
 ### Single layer extraction
-This is the default (and most used) mode for feature extraction, where we extract the result of a 
+This is the default (and most used) mode for feature extraction, where we extract the result of a
 single layer `<LAYER_NAME>` as follows:
 ```yaml
 extractor:
   backbone:
     arch: <FEATURE_EXTRACTOR_ARCH> # Must belong to torchvision.models.list_models()
     weights: <null | path/to/state/dict.pth | WEIGHTS_NAME>
-    layer: <LAYER_NAME> # Remove all layers in backbone after this one 
+    layer: <LAYER_NAME> # Remove all layers in backbone after this one
     params: # Optional parameters of the model init function
       <PARAM_NAME_1>: <VALUE>
 
@@ -73,19 +73,19 @@ classifier:
 ```
 Notes on the configuration of the backbone:
 
-- `arch`: Currently, CaBRNet only supports backbone architectures that belong to the list given by 
+- `arch`: Currently, CaBRNet only supports backbone architectures that belong to the list given by
 [torchvision.models.list_models()](https://pytorch.org/vision/main/generated/torchvision.models.list_models.html).
 - `weights`: The backbone parameters can be either initialized:
     - randomly (`null` keyword).
     - by providing the path to an existing state dictionary or trained model.
-    - by providing the name of a valid set of pre-trained parameters, as given by 
+    - by providing the name of a valid set of pre-trained parameters, as given by
 [torchvision.models.get_model_weights(arch)](https://pytorch.org/vision/main/generated/torchvision.models.get_model_weights.html) (*e.g.* `IMAGENET1K_V1` for ImageNet pre-trained weights).
-- `layer`: Since the backbone model is usually a classifier, CaBRNet uses the 
-[create_feature_extractor](https://pytorch.org/vision/main/generated/torchvision.models.feature_extraction.create_feature_extractor.html) 
+- `layer`: Since the backbone model is usually a classifier, CaBRNet uses the
+[create_feature_extractor](https://pytorch.org/vision/main/generated/torchvision.models.feature_extraction.create_feature_extractor.html)
 function to automatically remove its deepest layers and to keep only the convolutional layers.
 - `params`: Additional parameters can be provided to the constructor of the backbone model, such as the
 number of classes of the underlying classifier, *e.g.* when initializing a backbone from a pretrained classifier
-fine-tuned on a particular task. For example, when using a Resnet50 classifier pretrained on CUB200, the backbone 
+fine-tuned on a particular task. For example, when using a Resnet50 classifier pretrained on CUB200, the backbone
 configuration may look like this:
 
 ```yaml
@@ -99,23 +99,23 @@ extractor:
 ...
 ```
 
-Add-on layers can be added after the backbone in order to reduce the dimensionality of the learned prototypes, 
+Add-on layers can be added after the backbone in order to reduce the dimensionality of the learned prototypes,
 using the `add_on` keyword. In this case, each layer is identified by a layer name and configured using:
 
 - `type`: Supported layer types can be found in [torch.nn](https://pytorch.org/docs/stable/nn.html).
 - `params`: An optional field that contains the information necessary to build the layer.
 
-CaBRNet also supports the (optional) use of special function for the initialization of the add-on layers, 
+CaBRNet also supports the (optional) use of special function for the initialization of the add-on layers,
 through the `init_mode` keyword:
 
 - `XAVIER`: used in ProtoTree and based on [nn.init.xavier_normal_](https://pytorch.org/cppdocs/api/function_namespacetorch_1_1nn_1_1init_1a86191a828a085e1c720dbce185d6c307.html)
-- `PROTOPNET`: a combination of [nn.init.kaiming_normal_](https://pytorch.org/cppdocs/api/function_namespacetorch_1_1nn_1_1init_1ac8a913c051976a3f41f20df7d6126e57.html) 
-for convolutional layers and a static starting configuration for BatchNorm layers. 
+- `PROTOPNET`: a combination of [nn.init.kaiming_normal_](https://pytorch.org/cppdocs/api/function_namespacetorch_1_1nn_1_1init_1ac8a913c051976a3f41f20df7d6126e57.html)
+for convolutional layers and a static starting configuration for BatchNorm layers.
 
 ### Multi-layer extraction
 To extract features from multiple layers simultaneously, CaBRNet proposes an alternate way to describe
 feature extraction which removes the `layer` keyword inside the backbone configuration in favor of a
-more generic approach that focuses on several **pipelines**. In practice, a pipeline is defined by a 
+more generic approach that focuses on several **pipelines**. In practice, a pipeline is defined by a
 source layer inside the backbone, followed by an optional set of add-on layers.
 
 ```yaml
@@ -136,7 +136,7 @@ extractor:
           <PARAM_NAME_1>: <VALUE>
           <PARAM_NAME_2>: <VALUE>
       <LAYER_NAME_2>:
-  
+
   <PIPELINE_NAME_2>:
     source_layer: <LAYER_2> # Name of the source layer inside the model
     add_on: # Optional
@@ -147,7 +147,7 @@ extractor:
           <PARAM_NAME_1>: <VALUE>
           <PARAM_NAME_2>: <VALUE>
       <LAYER_NAME_2>:
-  
+
 
 similarity:
   ...
@@ -156,9 +156,9 @@ classifier:
   ...
 ```
 
-For instance, 
+For instance,
 ```yaml
-extractor:  
+extractor:
   backbone:
     arch: resnet50
     layer: layer4
@@ -174,9 +174,9 @@ extractor:
     sigmoid1:
       type: Sigmoid
 ```
-is equivalent to 
+is equivalent to
 ```yaml
-extractor:  
+extractor:
   backbone:
     arch: resnet50
     weights: IMAGENET1K_V1
@@ -196,10 +196,10 @@ extractor:
 
 ## Similarity configuration
 The similarity layer computes similarity scores and distances in the feature space.
-Although the choice of a similarity function is usually specific to each type of model 
+Although the choice of a similarity function is usually specific to each type of model
 architecture, CaBRNet offers a generic approach for using any similarity function with any architecture.
 ```yaml
-similarity: 
+similarity:
   module: <MODULE_NAME> # Optional. By default: cabrnet.utils.similarities
   name: <CLASS_NAME>
   params: # Optional
@@ -218,10 +218,10 @@ To implement a new similarity layer, see [here](#defining-a-new-similarity-layer
 
 ## Classifier configuration
 The classifier performs the classification based on similarities between the output of the feature extractor and a set
-of **prototypes**. Prototype management is specific to each type of model architecture (*e.g.* decision tree in ProtoTree, 
+of **prototypes**. Prototype management is specific to each type of model architecture (*e.g.* decision tree in ProtoTree,
 linear layer in ProtoPNet).
 ```yaml
-classifier: 
+classifier:
   module: <MODULE_NAME>
   name: <CLASS_NAME>
   params:
@@ -229,7 +229,7 @@ classifier:
     <PARAM_2>: <VALUE>
 ...
 ```
-Note that the parameter `num_features` is optional, as it can be recovered from the output of 
+Note that the parameter `num_features` is optional, as it can be recovered from the output of
 the feature extractor.
 
 ## Top-level configuration
@@ -466,12 +466,12 @@ class ArchName(CaBRNet):
         """
         """
         When using a default gradient descent training loop, simply use
-        
+
         return self._train_epoch(
             dataloaders, optimizer_mngr, "train_set", device, tqdm_position, epoch_idx, verbose
         )
         """
-        
+
         self.train()
         self.to(device)
 
@@ -512,7 +512,7 @@ class ArchName(CaBRNet):
                 for key, value in batch_stats.items():
                     train_info[key] += value * xs.size(0)
             nb_inputs += xs.size(0)
-            
+
             # Call hook
             self._training_batch_hook(
                 batch_idx=batch_idx,

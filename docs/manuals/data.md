@@ -1,9 +1,9 @@
 # Data configuration
 The data configuration associated with a particular experiment is stored in a YML file, according to the following specification.
-For more examples, see the [CUB200](https://github.com/aiser-team/cabrnet/blob/main/configs/prototree/cub200/dataset.yml) and 
+For more examples, see the [CUB200](https://github.com/aiser-team/cabrnet/blob/main/configs/prototree/cub200/dataset.yml) and
 [Stanford Cars](https://github.com/aiser-team/cabrnet/blob/main/configs/prototree/stanford_cars/dataset.yml) configuration files.
 
-To help with the format of this file, a JSON schema is available in the `configs` directory. 
+To help with the format of this file, a JSON schema is available in the `configs` directory.
 JSON schemas are compatible with most editors (PyCharm, VSCode). To use a given schema, simply add the following
 line at the beginning of the YML file.
 ```
@@ -11,17 +11,17 @@ line at the beginning of the YML file.
 ```
 
 
-## Configuring datasets 
-Each configuration file contains the location of one or several datasets, along with the list of 
+## Configuring datasets
+Each configuration file contains the location of one or several datasets, along with the list of
 preprocessing operations that should be applied to these datasets.
 
 ```yaml
 <DATASET_NAME>:
-  module: <MODULE_NAME> # Name of the module containing the dataset class (e.g. torchvision.datasets) 
+  module: <MODULE_NAME> # Name of the module containing the dataset class (e.g. torchvision.datasets)
   name: <CLASS_NAME> # Class name of the dataset (e.g. ImageFolder)
   partition: <[START_IDX, END_IDX]> # Partition of the dataset from the original dataset
   partition_seed: <SEED>  # Seed for splitting the dataset apart. Needs to be the same for Train and Validation set.
-  num_workers: <NUM> # Optional: number of worker processes for data preprocessing 
+  num_workers: <NUM> # Optional: number of worker processes for data preprocessing
   drop_last: <BOOL> # Optional: drop last incomplete batch
   batch_size: <BATCH_SIZE> # Size of each batch
   shuffle: <True | False> # Should data be shuffled (should be True for train_set)
@@ -43,7 +43,7 @@ For example, parameters for the `StanfordCars` class in the `torchvision.dataset
 
 > For other typical `torchvision` datasets, sometimes the split is indicated by a `train` bool. Furthermore, sometimes `split` accepts the value `val` or similar for a validation dataset.
 
-Note that, to be used seamlessly by the main CaBRNet tool (`cabrnet`), 
+Note that, to be used seamlessly by the main CaBRNet tool (`cabrnet`),
 each file **must** contain the description of a `train_set`, `test_set` and `projection_set` datasets.
 
 ## Configuring data preprocessing
@@ -54,7 +54,7 @@ easily describing the list of operations that should be carried out in both case
 transform | target_transform:
   <OPERATION_NAME_1>:
     module: <OPERATION_MODULE_1> # Optional. If not present, set to torchvision.transforms
-    type: <OPERATION_TYPE> # Name of the function inside the module 
+    type: <OPERATION_TYPE> # Name of the function inside the module
     params: # Optional
       <OP_PARAM_1>: <VALUE>
       <OP_PARAM_2>: <VALUE>
@@ -63,43 +63,43 @@ transform | target_transform:
     transforms: # Sublist of operation
       <OPERATION_NAME_3>:
         module: <OPERATION_MODULE_3>
-        type: <OPERATION_TYPE> 
+        type: <OPERATION_TYPE>
         params: # Optional
           <OP_PARAM_1>: <VALUE>
           <OP_PARAM_2>: <VALUE>
       <OPERATION_NAME_4>:
         module: <OPERATION_MODULE_4>
-        type: <OPERATION_TYPE> 
+        type: <OPERATION_TYPE>
         params: # Optional
           <OP_PARAM_1>: <VALUE>
           <OP_PARAM_2>: <VALUE>
 ...
 ```
 CaBRNet supports all functions provided by [torchvision.transforms](https://pytorch.org/vision/stable/transforms.html),
-and also authorizes the use of custom modules through the `module` keyword. 
-Blocks of operations can be nested through the `Compose`, `RandomOrder` or `RandomChoice` keywords. 
+and also authorizes the use of custom modules through the `module` keyword.
+Blocks of operations can be nested through the `Compose`, `RandomOrder` or `RandomChoice` keywords.
 
-Note that, by default, transform operations are applied in the order given in the configuration file, 
+Note that, by default, transform operations are applied in the order given in the configuration file,
 unless they are regrouped into a `RandomOrder` or `RandomChoice` block.
 
 ## Creating datasets and dataloaders
 CaBRNet provides two main functions for creating datasets and dataloaders from a configuration file:
 
-- `DatasetManager.get_datasets` parses the configuration file and returns a dictionary of entries, indexed by the name of the 
+- `DatasetManager.get_datasets` parses the configuration file and returns a dictionary of entries, indexed by the name of the
 dataset. Each entry is a dictionary containing the following information:
-    - `dataset`: A dataset object of the class given in the configuration file, with data preprocessing as specified in 
+    - `dataset`: A dataset object of the class given in the configuration file, with data preprocessing as specified in
 the `transform` and `target_transform` keywords.
-    - `raw_dataset`: A dataset object of the class given in the configuration file, **without** data preprocessing. 
+    - `raw_dataset`: A dataset object of the class given in the configuration file, **without** data preprocessing.
 This allows the user to access raw images rather than their preprocessed counterparts.
     - `batch_size`: Size of each batch. Used when building a dataloader from the dataset.
     - `shuffle` (True or False): Whether data should be shuffled. Used when building a dataloader from the dataset.
-- `DatasetManager.get_dataloaders` parses the configuration file and returns a dictionary of dataloaders. 
+- `DatasetManager.get_dataloaders` parses the configuration file and returns a dictionary of dataloaders.
 More precisely, each dataset specified in the configuration file produces two dataloaders:
     - `<DATASET_NAME>`: Dataloader returning preprocessed data
     - `<DATASET_NAME>_raw`: Dataloader returning raw data (see above)
 
 ## Downloading datasets to reproduce experiments from the state of the art
-CaBRNet provides a tool to download and pre-process datasets as described in 
+CaBRNet provides a tool to download and pre-process datasets as described in
 ProtoPNet and ProtoTree.
 
 ```bash

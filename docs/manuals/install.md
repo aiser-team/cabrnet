@@ -13,7 +13,7 @@ uv sync
 source .venv/bin/activate
 ```
 
-It will install all development dependencies by default (`black` formatter, `pyright`)
+This installs the default development dependency group, including Ruff, pre-commit, and Pyright.
 
 This should be enough for most users.
 
@@ -39,17 +39,17 @@ source .venv/bin/activate
 python3 -m pip install -e .
 ```
 
-And optional dependencies:
+With pip, install the base package and the tools needed for the workflow you use:
 
 ```bash
-# pyright, black, isort ...
-pip install -e . --group dev
+# Development tools:
+pip install -e . build "pre-commit>=4.6.0" pyright "ruff>=0.15.22" twine
 
-# Install documentation related dependencies:
-pip install -e . --group doc
+# Documentation related dependencies:
+pip install -e . mkdocs pydoc-markdown pymdown-extensions python-markdown-math
 
-# Install legacy testing dependencies:
-pip install -e . --group legacy
+# Legacy testing dependencies:
+pip install -e . "gdown~=4.7.1" "requests~=2.32.0" "Augmentor~=0.2.12"
 
 # install ray-tune (for bayesian optimization)
 pip install -e ".[tune]"
@@ -57,7 +57,7 @@ pip install -e ".[tune]"
 
 # Other requirements
 
-IMPORTANT NOTE: CaBRNet also requires the [GraphViz](https://graphviz.org/) 
+IMPORTANT NOTE: CaBRNet also requires the [GraphViz](https://graphviz.org/)
 package to generate explanations.
 
 # Contributing
