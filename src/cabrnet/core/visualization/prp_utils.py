@@ -1,7 +1,7 @@
 import copy
 import operator
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, cast
 
 import torch
 import torch.nn as nn
@@ -922,7 +922,7 @@ def get_cabrnet_lrp_composite_model(
     r"""Prepares a CaBRNet model for composite LRP.
 
     Args:
-        model (Module): Target model.
+        model (CaBRNet): Target model.
         set_bias_to_zero (bool, optional): If True, ignore bias in linear layers. Default: True.
         stability_factor (float, optional): Epsilon value used for numerical stability. Default: 1e-6.
         use_zbeta (bool, optional): If True, use z-beta rule on first convolution. Default: True.
@@ -934,20 +934,7 @@ def get_cabrnet_lrp_composite_model(
     Returns:
         Copy of the model, ready for running Captum LRP.
     """
-    if not hasattr(model, "extractor"):
-        # Check attribute presence rather than using isinstance(model, CaBRNet) to avoid circular dependencies
-        logger.warning("Target is not a CaBRNet model, using generic function instead.")
-        # Try to convert the model using the more generic function
-        return get_extractor_lrp_composite_model(
-            model=model,
-            set_bias_to_zero=set_bias_to_zero,
-            stability_factor=stability_factor,
-            use_zbeta=use_zbeta,
-            zbeta_lower_bound=zbeta_lower_bound,
-            zbeta_upper_bound=zbeta_upper_bound,
-        )
-
-    lrp_model = copy.deepcopy(model)
+    lrp_model = cast(CaBRNet, copy.deepcopy(model))
 
     # Convert feature extractor
     # FIXME: Should be fixed with model loading rewrite.

@@ -9,6 +9,7 @@ import torch.nn as nn
 import torch.nn.functional
 from loguru import logger
 from PIL import Image
+from torch import Tensor
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
@@ -17,7 +18,7 @@ from cabrnet.archs.generic.model import CaBRNet
 from cabrnet.archs.prototree.decision import ProtoTreeClassifier, SamplingStrategy
 from cabrnet.core.utils.image import safe_open_image
 from cabrnet.core.utils.optimizers import OptimizerManager
-from cabrnet.core.utils.tree import MappingMode, TreeNode
+from cabrnet.core.utils.tree import LeafNode, MappingMode, TreeNode
 from cabrnet.core.visualization.depictor import ProtoDepictor
 from cabrnet.core.visualization.explainer import ExplanationGraph
 
@@ -30,22 +31,42 @@ class ProtoTree(CaBRNet):
         classifier: Model used to compute the classification, based on similarity scores with a set of prototypes.
     """
 
+    classifier: ProtoTreeClassifier
+    _eye: Tensor
+
     def __init__(self, extractor: nn.Module, classifier: CaBRNetClassifier, **kwargs):
         r"""Initializes a ProtoTree.
 
         Args:
             extractor (Module): Feature extractor.
-            classifier (CaBRNetClassifier): Classification based on extracted features.
+            classifier (ProtoTreeClassifier): Classification based on extracted features.
         """
+        if not isinstance(classifier, ProtoTreeClassifier):
+            raise TypeError(f"ProtoTree only supports ProtoTreeClassifier, got {type(classifier).__name__}")
         super(ProtoTree, self).__init__(extractor, classifier, **kwargs)
 
         # Constant tensor for internal computations
         self.register_buffer("_eye", torch.eye(self.classifier.num_classes))
 
+    def forward(self, x: Tensor, **kwargs) -> tuple[Tensor, dict]:
+        r"""Computes ProtoTree predictions and per-node decision information.
+
+        Args:
+            x (tensor): Input tensor.
+            **kwargs: Additional arguments passed to the extractor and classifier.
+
+        Returns:
+            Prediction logits and per-node decision information.
+        """
+        return self.classifier(self.extractor(x, **kwargs), **kwargs)
+
     def get_extra_state(self) -> dict[str, Any] | None:
         r"""Returns the decision tree architecture to be saved in state_dict.
 
         This is automatically called by state_dict().
+
+        Returns:
+            Decision tree architecture, or None when using the PRP visualization classifier.
         """
         if isinstance(self.classifier, ProtoTreeClassifier):
             return self.classifier.tree.export_arch()
@@ -230,7 +251,7 @@ class ProtoTree(CaBRNet):
 
         # Record original leaf distributions
         with torch.no_grad():
-            old_dist_params: dict[int, torch.Tensor] = {}
+            old_dist_params: dict[str, torch.Tensor] = {}
             for leaf in self.classifier.tree.leaves:
                 old_dist_params[leaf.node_id] = leaf._relative_distribution.detach().clone()
 
@@ -281,9 +302,9 @@ class ProtoTree(CaBRNet):
                         )
                     else:
                         update = torch.sum((probs * leaf.distribution * target) / ys_pred, dim=0)
-                    leaf._relative_distribution -= old_dist_params[leaf.node_id] / batch_num
+                    leaf._relative_distribution.sub_(old_dist_params[leaf.node_id] / batch_num)
                     torch.nn.functional.relu_(leaf._relative_distribution)
-                    leaf._relative_distribution += update
+                    leaf._relative_distribution.add_(update)
 
             # Update progress bar
             batch_accuracy = batch_stats["accuracy"]
@@ -506,26 +527,27 @@ class ProtoTree(CaBRNet):
             output_format (str, optional): Output file format. Default: pdf.
         """
 
-        def build_tree_explanation(node: nn.Module, graph: graphviz.Digraph) -> graphviz.Digraph:
+        def build_tree_explanation(node: TreeNode, graph: graphviz.Digraph) -> graphviz.Digraph:
             r"""Builds tree explanation recursively.
 
             Args:
-                node (Module): current node
+                node (TreeNode): Current node.
                 graph (Digraph): current graph
 
             Returns:
                 Updated graph
             """
-            if not node.proto_idxs:
+            if isinstance(node, LeafNode):
                 # Leaf
                 class_idx = torch.argmax(node.distribution).item()
                 graph.node(name=f"node_{node.node_id}", label=f"Class {class_idx}", fontsize="25", height="0.5")
             else:
+                assert node.proto_idxs
                 proto_idx = node.proto_idxs[0]
                 img_path = str(prototype_dir.absolute() / f"prototype_{proto_idx}.png")
                 graph.node(name=f"node_{node.node_id}", image=img_path, imagescale="True")
                 for child_name, similarity in zip(["nsim", "sim"], ["not similar", "similar"]):
-                    child = node.get_submodule(f"{node.node_id}_child_{child_name}")
+                    child = node.get_child_node(f"{node.node_id}_child_{child_name}")
                     graph = build_tree_explanation(child, graph)
                     graph.edge(
                         tail_name=f"node_{node.node_id}",

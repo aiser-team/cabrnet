@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 import torch
 from loguru import logger
-from torch.utils.data import Dataset
+from torchvision.datasets import ImageFolder
 from tqdm import tqdm
 
 import cabrnet.core.utils.parts
@@ -183,7 +183,7 @@ def _load_distances(path: Path) -> dict[int, dict[int, list[dict]]]:
 
 def compute_distances(
     model: CaBRNet,
-    dataset: Dataset,
+    dataset: ImageFolder,
     preprocess: Callable,
     visualizer: SimilarityVisualizer,
     annotations: dict[int, dict[int, PartAnnotation]],
@@ -293,6 +293,8 @@ def execute(
     dataloaders = DatasetManager.get_dataloaders(dataset_config)
     dataloader = dataloaders[dataset_name]
     dataset = dataloader.dataset
+    if not isinstance(dataset, ImageFolder):
+        raise TypeError("Consistency analysis requires an ImageFolder dataset")
 
     # Get transform for preprocessing
     transform = DatasetManager.get_dataset_transform(config=dataset_config_dict, dataset="projection_set")
