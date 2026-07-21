@@ -102,8 +102,8 @@ def gather_statistics(
         device (str): Device on which computation is performed.
 
     Returns:
-         y_trues: matrix such that y_trues[p][img_index] iff prototype p should activate in img_index.
-         values: matrix such that values[p][img_index] is the activation of p in img_index.
+        y_trues: matrix such that y_trues[p][img_index] iff prototype p should activate in img_index.
+        values: matrix such that values[p][img_index] is the activation of p in img_index.
     """
     if not isinstance(dataloader.dataset, Sized):
         raise TypeError("Prototype discrimination requires a sized dataset")

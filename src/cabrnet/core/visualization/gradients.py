@@ -42,7 +42,8 @@ def _captum_saliency_wrapper(model: nn.Module) -> Attribution:
     Returns:
         Attribution object.
     """
-    return Saliency(model.similarities)
+    # FIXME: Should be fixed with model loading rewrite.
+    return Saliency(model.similarities)  # type: ignore[reportArgumentType]
 
 
 def _captum_saliency_nt_wrapper(model: nn.Module) -> Attribution:
@@ -54,7 +55,8 @@ def _captum_saliency_nt_wrapper(model: nn.Module) -> Attribution:
     Returns:
         Attribution object.
     """
-    return NoiseTunnel(attribution_method=Saliency(model.similarities))
+    # FIXME: Should be fixed with model loading rewrite.
+    return NoiseTunnel(attribution_method=Saliency(model.similarities))  # type: ignore[reportArgumentType]
 
 
 def _captum_attribute(captum_model: Attribution, img_tensor: Tensor, target: TargetType, **kwargs) -> np.ndarray:
@@ -167,7 +169,8 @@ def _captum_attribution(
     # Perform inference
     with torch.no_grad():
         # Compute similarity map
-        sim_map = model.similarities(img_tensor.to(device))[0, proto_idx].cpu().numpy()
+        # FIXME: Should be fixed with model loading rewrite.
+        sim_map = model.similarities(img_tensor.to(device))[0, proto_idx].cpu().numpy()  # type: ignore[reportCallIssue]
         sim_map_height, sim_map_width = sim_map.shape[0], sim_map.shape[1]
 
     # Location of interest (if any)

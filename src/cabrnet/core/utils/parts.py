@@ -41,7 +41,7 @@ def parse_cub200_annotations(
         dataset (Dataset): Dataset that contains the images.
             It is assumed that the filename of the images is accessible
             via `dataset.imgs`.
-            (The dataset might be reached via `loader.dataset`.)
+            (The dataset might be reached via `loader.dataset`).
         image_description (Path): Path to a file that contains the description of each image.
             The description is assumed to be a list of lines, each of the form `image_idx filename`.
             The `image_idx` here is a fresh id; it is unrelated to the actual position in the dataset

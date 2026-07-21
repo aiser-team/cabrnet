@@ -131,7 +131,7 @@ class ProtoTreeClassifier(CaBRNetClassifier):
             strategy (SamplingStrategy, optional): Sampling strategy. Default: Distributed.
 
         Returns:
-            Tuple of (prediction, tree_info)
+            Tuple of (prediction, tree_info).
         """
         similarities = self.similarities(features)  # Shape (N, P, H, W)
         # Use only maximum similarity score for each prototype

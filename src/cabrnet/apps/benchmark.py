@@ -19,7 +19,11 @@ class BenchmarkPlugin(Protocol):
     r"""Interface implemented by dynamically loaded benchmark modules."""
 
     def get_config(self, config_file: Path) -> dict[str, Any] | None:
-        r"""Loads the benchmark-specific configuration."""
+        r"""Loads the benchmark-specific configuration.
+
+        Args:
+            config_file (Path): Path to the benchmark configuration file.
+        """
         ...
 
     def execute(self, **kwargs: Any) -> None:

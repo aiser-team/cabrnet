@@ -1,15 +1,18 @@
 import cv2
 import numpy as np
 import torch
-import torch.nn as nn
 from PIL import Image
 from torch import Tensor
+from typing import TYPE_CHECKING
 
 from cabrnet.core.visualization.postprocess import normalize_min_max
 
+if TYPE_CHECKING:
+    from cabrnet.archs.generic.model import CaBRNet
+
 
 def cubic_upsampling(
-    model: nn.Module,
+    model: "CaBRNet",
     img: Image.Image,
     img_tensor: Tensor,
     proto_idx: int,
