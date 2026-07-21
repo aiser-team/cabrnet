@@ -108,11 +108,9 @@ def _(checkpoint_path, device_selector, state_dict_path):
 
 @app.cell(hide_code=True)
 def _():
-    mo.md(
-        r"""
+    mo.md(r"""
     ## Evaluation
-    """
-    )
+    """)
     return
 
 
@@ -129,25 +127,19 @@ def _(dataloaders, device_selector, model, run_button):
         not run_button.value,
         mo.callout("Click on previous button to evaluate model", "info"),
     )
-    stats_eval = model.evaluate(
-        dataloaders=dataloaders,
-        dataset_name="test_set",
-        device=device_selector.value,
-        verbose=True,
-    )
     outputs, labels, _timing = model.collect_predictions(
         dataloader=dataloaders["test_set"],
         dataset_name="test_set",
         device=device_selector.value,
         verbose=True,
     )
-    return labels, outputs, stats_eval
+    return labels, outputs
 
 
 @app.cell(hide_code=True)
-def _(labels, outputs, stats_eval):
+def _(device_selector, labels, model, outputs):
     preds = outputs.argmax(1)
-    confusion = confusion_matrix(preds.cpu(), labels.cpu())
+    confusion = confusion_matrix(labels.cpu(), preds.cpu())
     _, stats_eval = model.loss(outputs, labels.to(device_selector.value))
     mo.ui.tabs(
         {
@@ -160,11 +152,9 @@ def _(labels, outputs, stats_eval):
 
 @app.cell(hide_code=True)
 def _():
-    mo.md(
-        r"""
+    mo.md(r"""
     ## Analysis
-    """
-    )
+    """)
     return
 
 
@@ -360,9 +350,7 @@ def _(
             existing_viz_config = yaml.safe_load(_f)
 
     visualizer = SimilarityVisualizer.build_from_config(
-        viz_config,
-        model=model,
-        dataset_config=load_config(checkpoint_path / DatasetManager.DEFAULT_DATASET_CONFIG)
+        viz_config, model=model, dataset_config=load_config(checkpoint_path / DatasetManager.DEFAULT_DATASET_CONFIG)
     )
     return existing_viz_config, visualizer, viz_config
 
@@ -401,9 +389,7 @@ def _(
     if run_extract_proto.value:
         model.extract_prototypes(
             dataloader_raw=dataloaders["projection_set_raw"],
-            projection_info=load_projection_info(
-                filename=checkpoint_path / CaBRNet.DEFAULT_PROJECTION_INFO
-            ),
+            projection_info=load_projection_info(filename=checkpoint_path / CaBRNet.DEFAULT_PROJECTION_INFO),
             depictor=visualizer,
             dir_path=prototype_path,
             device=device_selector.value,
@@ -421,7 +407,14 @@ def _(
 
 
 @app.cell(hide_code=True)
-def _():
+def _(existing_viz_config, run_extract_proto, viz_config):
+    mo.stop(
+        not run_extract_proto.value and existing_viz_config != viz_config,
+        mo.callout(
+            "Prototypes must be re-generated, click on 'Extract prototypes'",
+            "warn",
+        ),
+    )
     run_explain_global = mo.ui.run_button(label="Generate global explanation")
     run_explain_global
     return (run_explain_global,)
@@ -474,11 +467,9 @@ def sample_examples_from_dataset(
 
 @app.cell(hide_code=True)
 def _():
-    mo.md(
-        r"""
+    mo.md(r"""
     **Select sample image**
-    """
-    )
+    """)
     return
 
 
@@ -573,25 +564,21 @@ def _(
 
 @app.cell(hide_code=True)
 def _():
-    mo.md(
-        r"""
+    mo.md(r"""
     # Explanation metrics
 
     This part provides different ways to measure the correctness / robustness of the provided explanations
-    """
-    )
+    """)
     return
 
 
 @app.cell(hide_code=True)
 def _():
-    mo.md(
-        r"""
+    mo.md(r"""
     ## Local perturbation analysis
 
     Tests prototype robustness to image perturbations (brightness, contrast, saturation, hue, blur, distortion).
-    """
-    )
+    """)
     return
 
 

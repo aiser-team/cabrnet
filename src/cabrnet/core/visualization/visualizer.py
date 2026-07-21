@@ -15,9 +15,9 @@ from cabrnet.core.utils.data import DatasetManager
 from cabrnet.core.utils.exceptions import check_mandatory_fields
 from cabrnet.core.utils.parser import load_config
 from cabrnet.core.visualization.depictor import ProtoDepictor
-from cabrnet.core.visualization.gradients import attribute_prototypes
+from cabrnet.core.attribution.attribute import attribute_prototypes
+from cabrnet.core.attribution.prp_utils import get_cabrnet_lrp_composite_model
 from cabrnet.core.visualization.postprocess import post_process
-from cabrnet.core.visualization.prp_utils import get_cabrnet_lrp_composite_model
 from cabrnet.core.visualization.upsampling import cubic_upsampling
 from cabrnet.core.visualization.view import SUPPORTED_VIEWING_FUNCTIONS
 
@@ -37,12 +37,12 @@ def compute_attribution(
     r"""Computes attribution map using the specified method.
 
     Args:
-        model: Target model.
-        attribution_method: Attribution method.
-        img_size: Original image size (width, height).
-        img_tensor: Image tensor.
-        proto_idx: Prototype index.
-        device: Hardware device.
+        model (CaBRNet): Target model.
+        attribution_method (AttributionMethod): Attribution method.
+        img_size (tuple[int, int]): Original image size as (width, height).
+        img_tensor (tensor): Image tensor.
+        proto_idx (int): Prototype index.
+        device (str | device): Hardware device.
         **kwargs: Additional parameters passed to the attribution function.
             For smoothgrad: num_samples and noise_ratio are required.
 
@@ -108,6 +108,11 @@ class SimilarityVisualizer(ProtoDepictor):
 
     @property
     def extension(self) -> str:
+        r"""Returns the file extension used for saved visualizations.
+
+        Returns:
+            File extension without a leading dot.
+        """
         return "png"
 
     def __init__(
@@ -125,13 +130,13 @@ class SimilarityVisualizer(ProtoDepictor):
         r"""Initializes a patch visualizer.
 
         Args:
-            model: Attach visualizer to a specific model.
-            attribution_method: Attribution method name.
-            view_fn: Viewing function.
-            transform: Preprocessing transform applied to raw input.
-            attribution_params: Parameters to attribution function. Default: None.
-            view_params: Parameters to viewing function. Default: None.
-            config_file: Path to the file used to configure the visualizer. Default: None.
+            model (CaBRNet): Model to visualize.
+            attribution_method (AttributionMethod): Attribution method name.
+            view_fn (Callable): Function used to render an attribution map.
+            transform (Callable | None): Preprocessing transform applied to raw input.
+            attribution_params (dict, optional): Parameters for the attribution function. Default: None.
+            view_params (dict, optional): Parameters for the viewing function. Default: None.
+            config_file (Path, optional): Path to the visualizer configuration file. Default: None.
         """
         super().__init__(*args, **kwargs)
         self.attribution_method: AttributionMethod = attribution_method
@@ -160,11 +165,10 @@ class SimilarityVisualizer(ProtoDepictor):
         r"""Generates a visualization of the most similar patch to a given prototype.
 
         Args:
-            img: Original image.
-            img_tensor: Image tensor.
-            proto_idx: Prototype index.
-            device: Hardware device.
-            location: Location inside the similarity map.
+            img (Image): Original image.
+            proto_idx (int): Prototype index.
+            device (str | device): Hardware device.
+            location (tuple[int, int] | str | None, optional): Location inside the similarity map.
                 Can be given as an explicit location (tuple) or "max" for the location of maximum similarity.
                 Default: max.
 
@@ -187,12 +191,12 @@ class SimilarityVisualizer(ProtoDepictor):
         r"""Generates and saves a visualization.
 
         Args:
-            raw_input: Raw input image (PIL Image).
-            folder: Output directory.
-            filename: Filename without extension.
-            proto_idx: Prototype index.
-            device: Hardware device.
-            location: Location inside the similarity map.
+            raw_input (Image): Raw input image.
+            folder (Path): Output directory.
+            filename (str): Filename without extension.
+            proto_idx (int): Prototype index.
+            device (str | device): Hardware device.
+            location (tuple[int, int] | str | None, optional): Location inside the similarity map.
                 Can be given as an explicit location (tuple) or "max" for the location of maximum similarity.
                 Default: None.
 
@@ -251,9 +255,9 @@ class SimilarityVisualizer(ProtoDepictor):
         r"""Builds a SimilarityVisualizer from a configuration file or dictionary.
 
         Args:
-            config: Path to configuration file or dictionary.
-            model: Target model.
-            dataset_config: Dataset configuration dictionary.
+            config (Path | dict[str, Any]): Path to configuration file or dictionary.
+            model (CaBRNet): Target model.
+            dataset_config (dict[str, Any]): Dataset configuration dictionary.
 
         Returns:
             SimilarityVisualizer.

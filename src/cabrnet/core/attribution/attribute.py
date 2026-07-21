@@ -10,28 +10,28 @@ from loguru import logger
 from torch import Tensor
 
 from cabrnet.archs.generic.model import CaBRNet
-from cabrnet.core.visualization.prp_utils import (
+from cabrnet.core.attribution.prp_utils import (
     attach_lrp_comp_rules,
     get_cabrnet_lrp_composite_model,
 )
 
 
 class RandGrad(GradientAttribution):
-    """Random gradient attribution method.
+    r"""Random gradient attribution method.
 
     A placeholder class for future implementation.
     """
 
     def attribute(self, inputs: Tensor, *args, **kwargs) -> Tensor:
-        """Return random attributions (baseli).
+        r"""Returns random baseline attributions.
 
         Args:
-            inputs: Input tensor.
-            *args: Ignored arguments.
+            inputs (tensor): Input tensor.
+            *args: Ignored positional arguments.
             **kwargs: Ignored keyword arguments.
 
         Returns:
-            Random tensor with the same shape as inputs.
+            Random tensor with the same shape as the inputs.
         """
         return torch.randn(inputs.shape)
 
@@ -56,15 +56,15 @@ def _check_tensor_dims(x: Tensor) -> Tensor:
 
 
 def apply_augmentors(input_tensor: Tensor, augmentors: Sequence[nn.Module]) -> Tensor:
-    """Apply a sequence of augmentors to an input tensor.
+    r"""Applies a sequence of augmentors to an input tensor.
 
     Each augmentor takes a single sample and returns a batch of augmented versions.
-    The augmentors are applied sequentially, with each augmentor processing all
+        The augmentors are applied sequentially, with each augmentor processing all
     samples produced by the previous one.
 
     Args:
-        input_tensor: Input tensor to augment.
-        augmentors: List of augmentor modules to apply sequentially.
+        input_tensor (tensor): Input tensor to augment.
+        augmentors (Sequence[Module]): Augmentor modules to apply sequentially.
 
     Returns:
         Tensor containing all augmented samples.
@@ -82,6 +82,16 @@ def _resolve_positions(
     location: tuple[int, int] | str | None,
     similarity_threshold: float,
 ) -> list[tuple[int, int]]:
+    r"""Finds locations in a similarity map to consider for attribution.
+
+    Args:
+        sim_map (ndarray): Similarity map for one prototype.
+        location (tuple[int, int] | str | None): Explicit location, "max", or None for all relevant locations.
+        similarity_threshold (float): Minimum similarity used when location is None.
+
+    Returns:
+        Locations selected for attribution.
+    """
     if location is None:
         h_idx, w_idx = np.where(sim_map > similarity_threshold)
         return list(zip(h_idx.tolist(), w_idx.tolist()))
@@ -94,6 +104,15 @@ def _resolve_positions(
 
 
 def _ensure_lrp_ready(model: CaBRNet, stability_factor: float) -> CaBRNet:
+    r"""Returns a model prepared for layer-wise relevance propagation.
+
+    Args:
+        model (CaBRNet): Model to prepare.
+        stability_factor (float): Numerical stability factor for LRP.
+
+    Returns:
+        LRP-ready model.
+    """
     if not hasattr(model, "lrp_ready"):
         logger.warning(
             "Canonizing model on-the-fly for PRP. For multiple explanations, "
@@ -121,6 +140,24 @@ def attribute_prototypes(
     stability_factor: float = 1e-6,
     **kwargs,
 ) -> np.ndarray:
+    r"""Computes pixel attribution scores for a prototype.
+
+    Args:
+        model (CaBRNet): Model containing the target prototype.
+        algorithm (str): Attribution algorithm to use.
+        input_tensor (tensor): Input image tensor without a batch dimension.
+        proto_idx (int): Target prototype index.
+        device (str | device): Device on which to run attribution.
+        augmentors (Sequence[Module], optional): Augmentors applied before attribution. Default: [].
+        post_augmentation_transform (Module, optional): Transform applied after augmentation. Default: Identity().
+        location (tuple[int, int] | str | None, optional): Target location, "max", or None. Default: None.
+        similarity_threshold (float, optional): Threshold used when location is None. Default: 0.1.
+        stability_factor (float, optional): Numerical stability factor for PRP. Default: 1e-6.
+        **kwargs: Additional unused keyword arguments.
+
+    Returns:
+        Attribution map with the same spatial shape as the input tensor.
+    """
     input_tensor = (input_tensor).unsqueeze(0)
 
     if algorithm == "prp":

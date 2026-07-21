@@ -502,7 +502,7 @@ class ProtoPNet(CaBRNet):
         Args:
             img (Path or Image): Path to image or image itself.
             preprocess (Callable): Preprocessing function.
-            visualizer (SimilarityVisualizer): Similarity visualizer.
+            depictor (ProtoDepictor): Depictor used to visualize prototypes.
             prototype_dir (Path, optional): Path to directory containing prototype visualizations. Default: "".
             output_dir (Path, optional): Path to output directory. Default: "".
             output_format (str, optional): Output file format. Default: pdf.

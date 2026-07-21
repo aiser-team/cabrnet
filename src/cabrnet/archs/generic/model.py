@@ -90,6 +90,9 @@ class CaBRNet(nn.Module):
 
         Args:
             x (tensor): Input tensor.
+
+        Returns:
+            Extracted convolutional features.
         """
         return self.extractor(x, **kwargs)
 
@@ -119,7 +122,11 @@ class CaBRNet(nn.Module):
 
     @property
     def num_prototypes(self) -> int:
-        r"""Returns the number of prototypes."""
+        r"""Returns the number of prototypes.
+
+        Returns:
+            Number of prototypes.
+        """
         return self.classifier.num_prototypes
 
     def prototype_is_active(self, proto_idx: int) -> bool:
@@ -127,6 +134,9 @@ class CaBRNet(nn.Module):
 
         Args:
             proto_idx (int): Prototype index.
+
+        Returns:
+            True if the prototype is active.
         """
         return self.classifier.prototype_is_active(proto_idx)
 

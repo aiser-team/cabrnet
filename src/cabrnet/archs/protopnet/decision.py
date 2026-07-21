@@ -86,6 +86,9 @@ class ProtoPNetClassifier(CaBRNetClassifier):
 
         Args:
             proto_idx (int): Prototype index.
+
+        Returns:
+            True if the prototype is active.
         """
         return not (int(torch.max(self.proto_class_map[proto_idx])) == 0)
 

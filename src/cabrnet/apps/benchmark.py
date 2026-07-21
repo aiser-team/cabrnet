@@ -23,6 +23,9 @@ class BenchmarkPlugin(Protocol):
 
         Args:
             config_file (Path): Path to the benchmark configuration file.
+
+        Returns:
+            Benchmark-specific configuration, if available.
         """
         ...
 

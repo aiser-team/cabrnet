@@ -17,14 +17,23 @@ class PartAnnotation:
 
     Specifically, if `observed` is `True`, then the part with index `path_idx`
     appears at location `(x,y)` in the image at position `image_idx` within the dataset.
-    Otherwise, it does not appear in this image."""
+    Otherwise, it does not appear in this image.
 
-    image_idx: int  # Index of the image in the current dataset (starting with 0)
-    part_idx: int  # Index of the part as defined by `parts.txt`
+    Attributes:
+        image_idx (int): Index of the image in the current dataset (starting with 0)
+        part_idx (int): Index of the part as defined by `parts.txt`
+        x (int): x-coordinate of the position in the latent map
+        y (int): y-coordinate of the position in the latent map
+        observed (bool): True if the part is observed in the image
+        complete_filename (str | None): File that contains the image
+    """
+
+    image_idx: int
+    part_idx: int
     x: int
     y: int
-    observed: bool  # True if the part is observed in the image
-    complete_filename: str | None  # File that contains the image
+    observed: bool
+    complete_filename: str | None
 
 
 def parse_cub200_annotations(

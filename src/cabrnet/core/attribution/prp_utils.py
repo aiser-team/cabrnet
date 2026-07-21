@@ -6,7 +6,6 @@ from typing import Any, cast
 import torch
 import torch.nn as nn
 from captum.attr._utils.lrp_rules import IdentityRule, PropagationRule
-from loguru import logger
 from torch import Tensor
 from torch.fx import symbolic_trace
 from torch.nn import functional as F

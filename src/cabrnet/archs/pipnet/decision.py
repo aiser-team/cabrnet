@@ -78,7 +78,11 @@ class PIPNetClassifier(CaBRNetClassifier):
 
     @property
     def num_prototypes(self) -> int:
-        r"""Returns the maximum number of prototypes."""
+        r"""Returns the maximum number of prototypes.
+
+        Returns:
+            Maximum number of prototypes.
+        """
         return self.num_features
 
     def prototype_is_active(self, proto_idx: int) -> bool:
@@ -86,6 +90,9 @@ class PIPNetClassifier(CaBRNetClassifier):
 
         Args:
             proto_idx (int): Prototype index.
+
+        Returns:
+            True if the prototype is active.
         """
         # A prototype is active if it is associated with at least one class
         class_mapping = self.prototype_class_mapping

@@ -75,7 +75,8 @@ def compute_prototypes(model: CaBRNet, relevant_prototypes: dict[str, Any] | Non
         contains the list of prototypes and the CSV key that indicates which column contains the indices;
         all prototypes from model if None.
 
-    Returns: list of prototype indices.
+    Returns:
+        List of prototype indices.
     """
     if relevant_prototypes is None:
         return [p for p in range(model.num_prototypes)]
@@ -146,6 +147,19 @@ def execute(
     relevant_prototypes: dict[str, Any] | None = None,
     **kwargs,
 ) -> None:
+    r"""Gathers discrimination statistics and saves them to ``root_dir / "stats.csv"``.
+
+    Args:
+        model (CaBRNet): Model whose prototypes are evaluated.
+        dataset_config (Path): Dataset configuration file.
+        dataset_name (str): Name of the dataset split to evaluate.
+        methods (list): Discrimination metrics to compute.
+        root_dir (Path): Directory where statistics are written.
+        verbose (bool): Whether to display progress information.
+        device (str | device): Device on which to run the model.
+        relevant_prototypes (dict[str, Any] | None, optional): Prototype-selection configuration. Default: None.
+        **kwargs: Additional unused keyword arguments.
+    """
     # Checking method names for early failure
     for method_name in methods:
         if method_name not in available_methods:

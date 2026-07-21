@@ -71,7 +71,7 @@ class CaBRNetClassifier(nn.Module, ABC):
             config (dict): Configuration of the similarity layer.
         """
         if "name" not in config:
-            raise ValueError(f"Missing mandatory field 'name' in similarity layer configuration")
+            raise ValueError("Missing mandatory field 'name' in similarity layer configuration")
 
         # Load similarity module and fetch parameters (if any)
         module = importlib.import_module(config.get("module", "cabrnet.core.utils.similarities"))
@@ -87,6 +87,9 @@ class CaBRNetClassifier(nn.Module, ABC):
         r"""Returns the maximum number of prototypes, as given by the corresponding tensor.
 
         Note: some prototypes might be inactive.
+
+        Returns:
+            Maximum number of prototypes.
         """
         return self.prototypes.size(0)
 
@@ -95,6 +98,9 @@ class CaBRNetClassifier(nn.Module, ABC):
 
         Args:
             proto_idx (int): Prototype index.
+
+        Returns:
+            True if the prototype is active.
         """
         return True
 
