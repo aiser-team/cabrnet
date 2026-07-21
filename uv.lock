@@ -309,7 +309,7 @@ provides-extras = ["tune"]
 dev = [
     { name = "build" },
     { name = "pre-commit", specifier = ">=4.6.0" },
-    { name = "pyright" },
+    { name = "pyright", specifier = ">=1.1.410" },
     { name = "ruff", specifier = ">=0.15.22" },
     { name = "twine" },
 ]
