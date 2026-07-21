@@ -7,6 +7,23 @@ from typing import Any
 from loguru import logger
 
 
+ATTRIBUTES_HEADER = re.compile(r"\n\s*Attributes:\s*(?:\n|$)")
+RETURNS_HEADER = re.compile(r"\n\s*Returns:\s*(?:\n|$)")
+TYPE_PATTERN = r"[\w., \[\]|]+"
+
+
+def has_class_attributes(class_node: ast.ClassDef) -> bool:
+    r"""Checks whether a class declares attributes in its body.
+
+    Args:
+        class_node (ast.ClassDef): Class definition to inspect.
+
+    Returns:
+        True if the class declares an attribute.
+    """
+    return any(isinstance(statement, ast.AnnAssign) for statement in class_node.body)
+
+
 def create_parser() -> ArgumentParser:
     r"""Creates the argument parser for checking docstrings.
 
@@ -50,13 +67,13 @@ def parse_ast(ast_module: Any, filename: str, ignore_imperative_warnings: bool) 
                 logger.error(f"Missing docstring for class '{class_name}' ({filename}:{body_content.lineno})")
                 complies = False
             else:
-                attr_location = re.search(r"\n[\s]*Attributes:", module_docstring)
-                if attr_location is None:
+                attr_location = ATTRIBUTES_HEADER.search(module_docstring)
+                if attr_location is None and has_class_attributes(body_content):
                     logger.warning(
                         f"Missing 'Attributes' field in docstring for class '{class_name}' "
                         f"({filename}:{body_content.lineno})"
                     )
-                else:
+                elif attr_location is not None:
                     module_docstring = module_docstring[: attr_location.start()]
                 if not module_docstring[0].isupper():
                     logger.error(
@@ -96,7 +113,7 @@ def parse_ast(ast_module: Any, filename: str, ignore_imperative_warnings: bool) 
                     continue
                 function_desc = function_docstring[: args_location.start()]
 
-            return_location = re.search(r"[\s]*Returns", function_docstring)
+            return_location = RETURNS_HEADER.search(function_docstring)
 
             if (
                 return_location is None
@@ -143,11 +160,7 @@ def parse_ast(ast_module: Any, filename: str, ignore_imperative_warnings: bool) 
                 complies = False
 
             if return_location:
-                return_docstring = (
-                    function_docstring[return_location.end() :].lstrip(":").lstrip().rstrip()
-                    if return_location.start() > 0
-                    else function_docstring.rstrip()
-                )
+                return_docstring = function_docstring[return_location.end() :].lstrip().rstrip()
                 if return_docstring == "":
                     logger.error(
                         f"Empty docstring for return value "
@@ -202,7 +215,7 @@ def parse_ast(ast_module: Any, filename: str, ignore_imperative_warnings: bool) 
                     next_arg_docstring_location = next_arg_docstring_location.start()
                     arg_docstring = args_docstring[arg_docstring_location:next_arg_docstring_location]
                 else:
-                    next_arg_docstring_location = re.search(r"\n[\s]*" + re.escape(next_arg_name) + " ", args_docstring)
+                    next_arg_docstring_location = RETURNS_HEADER.search(args_docstring)
                     if next_arg_docstring_location is None:
                         arg_docstring = args_docstring[arg_docstring_location:]
                     else:
@@ -211,7 +224,7 @@ def parse_ast(ast_module: Any, filename: str, ignore_imperative_warnings: bool) 
                 arg_docstring = arg_docstring.lstrip().rstrip()
                 optional_arg = arg_index >= len(function_args.args) - num_default
 
-                arg_desc = re.search(r"^" + re.escape(arg_name) + r" \([\w|\s|,|\[|\]]+\):", arg_docstring)
+                arg_desc = re.search(r"^" + re.escape(arg_name) + r" \(" + TYPE_PATTERN + r"\):", arg_docstring)
                 if arg_desc is None:
                     logger.error(
                         f"Missing type for argument '{arg_name}' "
@@ -234,7 +247,10 @@ def parse_ast(ast_module: Any, filename: str, ignore_imperative_warnings: bool) 
                     complies = False
                 if optional_arg:
                     if (
-                        re.search(r"^" + re.escape(arg_name) + r" \([\w|\s|,|\[|\]]+, optional\):", arg_docstring)
+                        re.search(
+                            r"^" + re.escape(arg_name) + r" \(" + TYPE_PATTERN + r", optional\):",
+                            arg_docstring,
+                        )
                         is None
                     ):
                         logger.error(
@@ -260,7 +276,7 @@ def check_docstrings(dir_path: str, ignore_imperative_warnings: bool, quiet: boo
         ignore_imperative_warnings (bool): If True, does not display warnings related to usage of imperative.
         quiet (bool): If True, does not display success messages.
 
-    Raises:
+    Returns:
         True if and only if all checked files comply with the docstring policy.
     """
 
