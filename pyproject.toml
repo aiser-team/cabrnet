@@ -77,7 +77,7 @@ reportMissingImports = true
 dev = [
     "build",
     "pre-commit>=4.6.0",
- "pyright>=1.1.410",
+    "pyright>=1.1.410",
     "ruff>=0.15.22",
     "twine",
 ]
