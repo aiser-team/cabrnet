@@ -12,6 +12,7 @@ from torch.fx import symbolic_trace
 from torch.nn import functional as F
 
 from cabrnet.archs.generic.decision import CaBRNetClassifier
+from cabrnet.archs.generic.model import CaBRNet
 from cabrnet.core.utils.similarities import ProtoPNetSimilarity
 
 
@@ -911,13 +912,13 @@ def get_extractor_lrp_composite_model(
 
 
 def get_cabrnet_lrp_composite_model(
-    model: nn.Module,
+    model: CaBRNet,
     set_bias_to_zero: bool = True,
     stability_factor: float = 1e-6,
     use_zbeta: bool = True,
     zbeta_lower_bound: float = min([-0.485 / 0.229, -0.456 / 0.224, -0.406 / 0.225]),
     zbeta_upper_bound: float = max([(1 - 0.485) / 0.229, (1 - 0.456) / 0.224, (1 - 0.406) / 0.225]),
-) -> nn.Module:
+) -> CaBRNet:
     r"""Prepares a CaBRNet model for composite LRP.
 
     Args:

@@ -17,9 +17,9 @@ from cabrnet.archs.generic.model import CaBRNet
 from cabrnet.archs.prototree.decision import ProtoTreeClassifier, SamplingStrategy
 from cabrnet.core.utils.image import safe_open_image
 from cabrnet.core.utils.optimizers import OptimizerManager
-from cabrnet.core.utils.tree import LeafNode, MappingMode, TreeNode
+from cabrnet.core.utils.tree import MappingMode, TreeNode
+from cabrnet.core.visualization.depictor import ProtoDepictor
 from cabrnet.core.visualization.explainer import ExplanationGraph
-from cabrnet.core.visualization.visualizer import SimilarityVisualizer
 
 
 class ProtoTree(CaBRNet):
@@ -30,18 +30,13 @@ class ProtoTree(CaBRNet):
         classifier: Model used to compute the classification, based on similarity scores with a set of prototypes.
     """
 
-    classifier: ProtoTreeClassifier
-    _eye: torch.Tensor
-
     def __init__(self, extractor: nn.Module, classifier: CaBRNetClassifier, **kwargs):
         r"""Initializes a ProtoTree.
 
         Args:
             extractor (Module): Feature extractor.
-            classifier (ProtoTreeClassifier): Classification based on extracted features.
+            classifier (CaBRNetClassifier): Classification based on extracted features.
         """
-        if not isinstance(classifier, ProtoTreeClassifier):
-            raise TypeError(f"ProtoTree only supports ProtoTreeClassifier, got {type(classifier).__name__}")
         super(ProtoTree, self).__init__(extractor, classifier, **kwargs)
 
         # Constant tensor for internal computations
@@ -235,7 +230,7 @@ class ProtoTree(CaBRNet):
 
         # Record original leaf distributions
         with torch.no_grad():
-            old_dist_params: dict[str, torch.Tensor] = {}
+            old_dist_params: dict[int, torch.Tensor] = {}
             for leaf in self.classifier.tree.leaves:
                 old_dist_params[leaf.node_id] = leaf._relative_distribution.detach().clone()
 
@@ -286,9 +281,9 @@ class ProtoTree(CaBRNet):
                         )
                     else:
                         update = torch.sum((probs * leaf.distribution * target) / ys_pred, dim=0)
-                    leaf._relative_distribution.sub_(old_dist_params[leaf.node_id] / batch_num)
+                    leaf._relative_distribution -= old_dist_params[leaf.node_id] / batch_num
                     torch.nn.functional.relu_(leaf._relative_distribution)
-                    leaf._relative_distribution.add_(update)
+                    leaf._relative_distribution += update
 
             # Update progress bar
             batch_accuracy = batch_stats["accuracy"]
@@ -397,7 +392,7 @@ class ProtoTree(CaBRNet):
         self,
         img: Path | Image.Image,
         preprocess: Callable | None,
-        visualizer: SimilarityVisualizer,
+        depictor: ProtoDepictor,
         prototype_dir: Path = Path.cwd(),
         output_dir: Path = Path.cwd(),
         output_format: str = "pdf",
@@ -412,7 +407,7 @@ class ProtoTree(CaBRNet):
         Args:
             img (Path | Image): Path to image or image itself.
             preprocess (Callable): Preprocessing function.
-            visualizer (SimilarityVisualizer): Similarity visualizer.
+            depictor (Depictor): Similarity visualizer.
             prototype_dir (Path, optional): Path to directory containing prototype visualizations. Default: "".
             output_dir (Path, optional): Path to output directory. Default: "".
             output_format (str, optional): Output file format. Default: pdf.
@@ -429,6 +424,9 @@ class ProtoTree(CaBRNet):
         """
         self.eval()
 
+        # ProtoTree only supports image explanations
+        assert depictor.extension == "png", "ProtoTree only supports image explanations"
+
         with safe_open_image(img, preprocess) as (img, img_tensor):
             # Map to device
             self.to(device)
@@ -439,12 +437,7 @@ class ProtoTree(CaBRNet):
             leaf_id = tree_info["decision_leaf"][0]
 
             # Compute path to leaf  TODO: This could be done once during model construction, then after pruning
-            node_paths = self.classifier.tree.get_mapping(mode=MappingMode.NODE_PATHS)
-            prototype_mapping = self.classifier.tree.get_mapping(mode=MappingMode.NODE_TO_PROTOTYPE)
-            node_mapping = self.classifier.tree.get_mapping(mode=MappingMode.ID_TO_NODE)
-            if node_paths is None or prototype_mapping is None or node_mapping is None:
-                raise RuntimeError("ProtoTree mappings are unavailable")
-            leaf_path = node_paths[leaf_id]
+            leaf_path = self.classifier.tree.get_mapping(mode=MappingMode.NODE_PATHS)[leaf_id]
 
             # Build explanation
             img_path = output_dir.absolute() / "original.png"
@@ -454,11 +447,10 @@ class ProtoTree(CaBRNet):
                 img.save(img_path)
             explanation = ExplanationGraph(output_dir=output_dir)
             explanation.set_test_image(img_path=img_path)
+            prototype_mapping = self.classifier.tree.get_mapping(mode=MappingMode.NODE_TO_PROTOTYPE)
+            node_mapping = self.classifier.tree.get_mapping(mode=MappingMode.ID_TO_NODE)
             parent_id = leaf_path[0]
-            first_prototypes = prototype_mapping[leaf_path[0]]
-            if first_prototypes is None:
-                raise RuntimeError(f"No prototype is associated with node {leaf_path[0]}")
-            proto_idx = first_prototypes[0]  # Index of the first prototype
+            proto_idx = prototype_mapping[leaf_path[0]][0]  # Index of the first prototype
             most_relevant_prototypes = []  # Keep track of most relevant prototypes
             for node_id in leaf_path[1:]:
                 # Recover path to prototype image
@@ -478,20 +470,22 @@ class ProtoTree(CaBRNet):
                     most_relevant_prototypes.append((proto_idx, score, True))
                     patch_image_path = output_dir.absolute() / "test_patches" / f"proto_similarity_{proto_idx}.png"
                     if not disable_rendering:
-                        patch_image = visualizer.forward(
-                            img=img, img_tensor=img_tensor, proto_idx=proto_idx, device=device
+                        patch_image_path = depictor.save(
+                            raw_input=img,
+                            folder=output_dir.absolute() / "test_patches",
+                            filename=f"proto_similarity_{proto_idx}",
+                            proto_idx=proto_idx,
+                            device=device,
                         )
-                        patch_image.save(patch_image_path)
                     explanation.add_similarity(
                         prototype_img_path=prototype_image_path,
                         test_patch_img_path=patch_image_path,
                         label=f"Similar\n (Score: {score:.2f})",
                     )
                 parent_id = node_id
-                node_prototypes = prototype_mapping[node_id]
-                if node_prototypes is None:
+                if prototype_mapping[node_id] is None:
                     break
-                proto_idx = node_prototypes[0]  # Update index of prototype associated with next node
+                proto_idx = prototype_mapping[node_id][0]  # Update index of prototype associated with next node
             explanation.add_prediction(int(torch.argmax(prediction).item()))
             if not disable_rendering:
                 explanation.render(output_format=output_format)
@@ -512,28 +506,26 @@ class ProtoTree(CaBRNet):
             output_format (str, optional): Output file format. Default: pdf.
         """
 
-        def build_tree_explanation(node: TreeNode, graph: graphviz.Digraph) -> graphviz.Digraph:
+        def build_tree_explanation(node: nn.Module, graph: graphviz.Digraph) -> graphviz.Digraph:
             r"""Builds tree explanation recursively.
 
             Args:
-                node (TreeNode): current node
+                node (Module): current node
                 graph (Digraph): current graph
 
             Returns:
                 Updated graph
             """
-            if isinstance(node, LeafNode):
+            if not node.proto_idxs:
                 # Leaf
                 class_idx = torch.argmax(node.distribution).item()
                 graph.node(name=f"node_{node.node_id}", label=f"Class {class_idx}", fontsize="25", height="0.5")
             else:
-                if not node.proto_idxs:
-                    raise ValueError(f"Decision node {node.node_id} has no associated prototype")
                 proto_idx = node.proto_idxs[0]
                 img_path = str(prototype_dir.absolute() / f"prototype_{proto_idx}.png")
                 graph.node(name=f"node_{node.node_id}", image=img_path, imagescale="True")
                 for child_name, similarity in zip(["nsim", "sim"], ["not similar", "similar"]):
-                    child = node.get_child_node(f"{node.node_id}_child_{child_name}")
+                    child = node.get_submodule(f"{node.node_id}_child_{child_name}")
                     graph = build_tree_explanation(child, graph)
                     graph.edge(
                         tail_name=f"node_{node.node_id}",

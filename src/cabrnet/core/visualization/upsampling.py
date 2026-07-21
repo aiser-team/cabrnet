@@ -1,7 +1,6 @@
 import cv2
 import numpy as np
 import torch
-from PIL import Image
 from torch import Tensor
 from typing import TYPE_CHECKING
 
@@ -13,7 +12,7 @@ if TYPE_CHECKING:
 
 def cubic_upsampling(
     model: "CaBRNet",
-    img: Image.Image,
+    img_size: tuple[int, int],
     img_tensor: Tensor,
     proto_idx: int,
     device: str | torch.device,
@@ -25,7 +24,7 @@ def cubic_upsampling(
 
     Args:
         model (Module): Target model.
-        img (Image): Raw input image.
+        img_size (tuple[int, int]): Width and height of the output image.
         img_tensor (tensor): Input image tensor.
         proto_idx (int): Prototype index.
         device (str | device): Hardware device.
@@ -66,7 +65,7 @@ def cubic_upsampling(
         sim_map[h, w] = 1
 
     # Upsample to image size
-    sim_map = cv2.resize(src=sim_map, dsize=(img.width, img.height), interpolation=cv2.INTER_CUBIC)
+    sim_map = cv2.resize(src=sim_map, dsize=img_size, interpolation=cv2.INTER_CUBIC)
     if normalize:
         sim_map = normalize_min_max(sim_map)
     return sim_map

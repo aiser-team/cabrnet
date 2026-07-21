@@ -6,7 +6,6 @@ by  Qihan Huang et al.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
@@ -15,8 +14,6 @@ import pandas as pd
 import torch
 from loguru import logger
 from torch.utils.data import Dataset
-from torchvision.datasets import ImageFolder
-from torchvision.transforms import ToTensor
 from tqdm import tqdm
 
 import cabrnet.core.utils.parts
@@ -121,7 +118,7 @@ def compute_protos_of_class(model: CaBRNet) -> dict[int, list[int]]:
 
 
 def _save_distances(distances: dict[int, dict[int, list[dict]]], path: Path) -> None:
-    """Saves prototype-part distance statistics to a CSV file.
+    r"""Saves prototype-part distance statistics to a CSV file.
 
     Args:
         distances (dict[int, dict[int, list[dict]]]): Mapping from prototype and part identifiers
@@ -186,7 +183,7 @@ def _load_distances(path: Path) -> dict[int, dict[int, list[dict]]]:
 
 def compute_distances(
     model: CaBRNet,
-    dataset: ImageFolder,
+    dataset: Dataset,
     preprocess: Callable,
     visualizer: SimilarityVisualizer,
     annotations: dict[int, dict[int, PartAnnotation]],
@@ -222,9 +219,8 @@ def compute_distances(
         with safe_open_image(Path(image_filename), preprocess=preprocess) as (img, img_tensor):
             for proto_idx in protos_of_class[k]:
                 attrib = visualizer.get_attribution(
-                    img,
-                    img_tensor,
-                    proto_idx,
+                    img=img,
+                    proto_idx=proto_idx,
                     device=device,
                     location="max",
                 )
@@ -287,13 +283,21 @@ def execute(
     """
     model.to(device)
     model.eval()
-    visualizer = SimilarityVisualizer.build_from_config(config=visualization_config, model=model)
+
+    # Get dataset for visualizer
+    dataset_config_dict = load_config(dataset_config) if isinstance(dataset_config, Path) else dataset_config
+    visualizer = SimilarityVisualizer.build_from_config(
+        config=visualization_config, model=model, dataset_config=dataset_config_dict
+    )
+
     dataloaders = DatasetManager.get_dataloaders(dataset_config)
     dataloader = dataloaders[dataset_name]
     dataset = dataloader.dataset
-    if not isinstance(dataset, ImageFolder):
-        raise TypeError("Consistency analysis requires an ImageFolder dataset")
-    preprocess = getattr(dataset, "transform", ToTensor())
+
+    # Get transform for preprocessing
+    transform = DatasetManager.get_dataset_transform(config=dataset_config_dict, dataset="projection_set")
+    if transform is None:
+        raise ValueError("Could not extract transform from dataset config.")
 
     annots = getattr(cabrnet.core.utils.parts, part_parser)(dataset, **kwargs)
     protos_of_class = compute_protos_of_class(model)
@@ -322,7 +326,7 @@ def execute(
         distances = compute_distances(
             model=model,
             dataset=dataset,
-            preprocess=preprocess,
+            preprocess=transform,
             visualizer=visualizer,
             annotations=annots,
             protos_of_class=protos_of_class,
