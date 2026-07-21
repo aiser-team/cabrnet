@@ -67,7 +67,7 @@ class TreeNode(nn.Module):
             parent_probs (tensor): Absolute (log) probability of reaching this node parent. Shape (N, ).
             conditional_probs (tensor): Probability (or log probability) of reaching this node,
                 knowing that it reached its parent. Shape (N, ).
-            greedy_path (tensor): Keep track of greedy path. Shape (N, ).*args, **kwargs) -> None:
+            greedy_path (tensor): Keeps track of the greedy path. Shape (N, ).
 
         Returns:
             Node prediction (shape (N,C)), dictionary of self and children probabilities.
@@ -89,7 +89,11 @@ class TreeNode(nn.Module):
             yield name, child
 
     def get_child_node(self, target: str) -> TreeNode:
-        r"""Returns a tree child by its module path."""
+        r"""Returns a tree child by its module path.
+
+        Args:
+            target (str): Module path of the child node.
+        """
         child = self.get_submodule(target)
         if not isinstance(child, TreeNode):
             raise TypeError(f"Expected a TreeNode child, got {type(child).__name__}")

@@ -23,7 +23,7 @@ def concat_collate(data: list[tuple]) -> tuple[torch.Tensor, torch.Tensor]:
     r"""Collate function using concatenation. Used in PIPNet.
 
     Args:
-        data (list of tuples): Input data, in the form [((a1,a2),y1),((b1,b2),y2), ...]
+        data (list of tuples): Input data, in the form [((a1,a2),y1),((b1,b2),y2), ...].
 
     Returns:
         A tuple of tensors [a1|a2, b1|b2, ...], [y1, y2, ....].

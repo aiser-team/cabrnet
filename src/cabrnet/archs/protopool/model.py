@@ -146,8 +146,8 @@ class ProtoPool(CaBRNet):
                 and the probabilities that each prototype belongs to a given slot associated with a given class.
             label (tensor): Original batch labels.
             mixed_label (tensor, optional): Mixed batch labels. Default: None.
-            mix_percentage (float, optional): Mix percentage. A value 1.0 indicates that no mix was performed.
-                Default: 1.0
+        mix_percentage (float, optional): Mix percentage. A value 1.0 indicates that no mix was performed.
+            Default: 1.0.
 
         Returns:
             Loss tensor and batch statistics.

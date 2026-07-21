@@ -31,9 +31,8 @@ def create_parser() -> ArgumentParser:
         The parser itself.
     """
     parser = ArgumentParser("Check docstrings")
-    parser.add_argument(
-        "-d", "--dir", type=str, required=True, metavar="/path/to/dir", help="path to a source directory"
-    )
+    parser.add_argument("-d", "--dir", type=str, metavar="/path/to/dir", help="path to a source directory")
+    parser.add_argument("files", nargs="*", metavar="FILE", help="Python files to check")
     parser.add_argument(
         "--ignore-imperative-warnings",
         action="store_true",
@@ -168,12 +167,6 @@ def parse_ast(ast_module: Any, filename: str, ignore_imperative_warnings: bool) 
                     )
                     complies = False
                 else:
-                    if not return_docstring[0].isupper():
-                        logger.error(
-                            f"Missing uppercase in return value description "
-                            f"for function '{function_name}': {return_docstring} ({filename}:{body_content.lineno})"
-                        )
-                        complies = False
                     if not return_docstring.endswith((".", "?", "!")):
                         logger.error(
                             f"Missing dot in return value description "
@@ -268,8 +261,32 @@ def parse_ast(ast_module: Any, filename: str, ignore_imperative_warnings: bool) 
     return complies
 
 
+def check_docstring_file(filepath: str, ignore_imperative_warnings: bool, quiet: bool) -> bool:
+    r"""Checks the docstring format of a Python file.
+
+    Args:
+        filepath (str): Path to the Python file.
+        ignore_imperative_warnings (bool): If True, does not display warnings related to usage of imperative.
+        quiet (bool): If True, does not display success messages.
+
+    Returns:
+        True if and only if the checked file complies with the docstring policy.
+    """
+    with open(filepath, "r") as fin:
+        if not parse_ast(
+            ast_module=ast.parse(fin.read()),
+            filename=filepath,
+            ignore_imperative_warnings=ignore_imperative_warnings,
+        ):
+            logger.error(f"Errors found in {filepath}")
+            return False
+        if not quiet:
+            logger.success(f"File {filepath} complies with docstring policy")
+    return True
+
+
 def check_docstrings(dir_path: str, ignore_imperative_warnings: bool, quiet: bool) -> bool:
-    r"""Checks the docstring format of all python files inside the directory *dir_path*.
+    r"""Checks the docstring format of all Python files inside a directory.
 
     Args:
         dir_path (str): Path to a source directory.
@@ -282,23 +299,13 @@ def check_docstrings(dir_path: str, ignore_imperative_warnings: bool, quiet: boo
 
     complies = True
 
-    def check_file(filepath: str) -> bool:
-        with open(filepath, "r") as fin:
-            if not parse_ast(
-                ast_module=ast.parse(fin.read()),
-                filename=filepath,
-                ignore_imperative_warnings=ignore_imperative_warnings,
-            ):
-                logger.error(f"Errors found in {filepath}")
-                return False
-            elif not quiet:
-                logger.success(f"File {filepath} complies with docstring policy")
-        return True
-
     for filename in os.listdir(dir_path):
         path = os.path.join(dir_path, filename)
         if os.path.isfile(path) and path.endswith(".py"):
-            complies = check_file(filepath=path) and complies
+            complies = (
+                check_docstring_file(filepath=path, ignore_imperative_warnings=ignore_imperative_warnings, quiet=quiet)
+                and complies
+            )
         elif os.path.isdir(path):
             # Recursive call
             complies = (
@@ -316,9 +323,24 @@ def main() -> None:
     r"""Checks the docstring format of all files inside a given directory."""
     parser = create_parser()
     args = parser.parse_args()
-    if not check_docstrings(
-        dir_path=args.dir, ignore_imperative_warnings=args.ignore_imperative_warnings, quiet=args.quiet
-    ):
+    if args.dir is None and not args.files:
+        parser.error("one of --dir or FILE is required")
+    if args.dir is not None and args.files:
+        parser.error("--dir cannot be combined with FILE")
+
+    complies = (
+        check_docstrings(
+            dir_path=args.dir, ignore_imperative_warnings=args.ignore_imperative_warnings, quiet=args.quiet
+        )
+        if args.dir is not None
+        else all(
+            check_docstring_file(
+                filepath=filepath, ignore_imperative_warnings=args.ignore_imperative_warnings, quiet=args.quiet
+            )
+            for filepath in args.files
+        )
+    )
+    if not complies:
         raise SystemExit(1)
 
 

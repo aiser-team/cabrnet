@@ -18,9 +18,9 @@ repos:
 
       - id: check-docstrings
         name: check docstrings
-        entry: uv run python tools/check_docstrings.py --dir src --quiet
+        entry: uv run python tools/check_docstrings.py --quiet --ignore-imperative-warnings
         language: system
-        pass_filenames: false
+        files: ^src/.*\.py$
         stages: [pre-push]
 
       - id: pyright

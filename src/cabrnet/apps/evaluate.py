@@ -23,8 +23,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     r"""Creates the argument parser for evaluating a CaBRNet model.
 
     Args:
-        parser (ArgumentParser, optional): Parent parser (if any).
-            Default: None
+        parser (ArgumentParser, optional): Parent parser (if any). Default: None.
 
     Returns:
         The parser itself.

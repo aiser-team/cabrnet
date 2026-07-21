@@ -152,14 +152,18 @@ class ConvExtractor(nn.Module):
                 self.convnet = model
             except ValueError as e:
                 logger.error(
-                    f"Could not create feature extractor from ONNX model. Possible layer names: {model.available_node_names()}"
+                    f"Could not create feature extractor from ONNX model. Possible layer names: "
+                    f"{model.available_node_names()}"  # type: ignore[reportCallIssue]
                 )
                 raise e
         else:
             try:
                 self.convnet = create_feature_extractor(model=model, return_nodes=return_nodes)
             except ValueError as e:
-                logger.error(f"Could not create feature extractor. Possible layer names: {get_graph_node_names(model)}")
+                # FIXME: Should be fixed with model loading rewrite.
+                logger.error(
+                    f"Could not create feature extractor. Possible layer names: {get_graph_node_names(model)}"  # type: ignore[reportCallIssue]
+                )
                 logger.error("See model architecture below")
                 logger.info(model)
                 raise e

@@ -949,8 +949,9 @@ def get_cabrnet_lrp_composite_model(
     lrp_model = copy.deepcopy(model)
 
     # Convert feature extractor
+    # FIXME: Should be fixed with model loading rewrite.
     lrp_model.extractor = get_extractor_lrp_composite_model(
-        model=lrp_model.extractor,
+        model=lrp_model.extractor,  # type: ignore[reportArgumentType]
         set_bias_to_zero=set_bias_to_zero,
         stability_factor=stability_factor,
         use_zbeta=use_zbeta,
@@ -959,7 +960,11 @@ def get_cabrnet_lrp_composite_model(
     )
 
     # Replace decision layer
-    lrp_model.classifier = DecisionLRPWrapper(classifier=lrp_model.classifier, stability_factor=1e-12)
+    # FIXME: Should be fixed with model loading rewrite.
+    lrp_model.classifier = DecisionLRPWrapper(
+        classifier=lrp_model.classifier,  # type: ignore[reportArgumentType]
+        stability_factor=1e-12,
+    )
     # Mark the model as ready for LRP
     lrp_model.lrp_ready = True  # type: ignore
     return lrp_model
