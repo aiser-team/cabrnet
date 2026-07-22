@@ -532,10 +532,10 @@ class ProtoTree(CaBRNet):
 
             Args:
                 node (TreeNode): Current node.
-                graph (Digraph): current graph
+                graph (Digraph): Current graph.
 
             Returns:
-                Updated graph
+                Updated graph.
             """
             if isinstance(node, LeafNode):
                 # Leaf
