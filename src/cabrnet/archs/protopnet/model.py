@@ -340,6 +340,8 @@ class ProtoPNet(CaBRNet):
                     verbose=verbose,
                 )
 
+        # Last layer fine-tuning after pruning (if applicable)
+        if num_fine_tuning_epochs > 0:
             # Last layer fine-tuning
             fine_tuning_progress = tqdm(
                 range(num_fine_tuning_epochs),
