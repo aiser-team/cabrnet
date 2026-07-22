@@ -6,7 +6,7 @@ variables:
 
 default:
   interruptible: true
-  tags: [ pub-nix ]
+  tags: [ nix-v2 ]
 
 stages:
   - prepare # setting up some env variables

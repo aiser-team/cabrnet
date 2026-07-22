@@ -3,6 +3,7 @@ import shutil
 import traceback
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
+from typing import Any, Protocol, cast
 
 from loguru import logger
 
@@ -12,6 +13,22 @@ from cabrnet.core.utils.exceptions import ArgumentError
 from cabrnet.core.visualization.visualizer import SimilarityVisualizer
 
 description = "computes a set of evaluation metrics on a CaBRNet model"
+
+
+class BenchmarkPlugin(Protocol):
+    r"""Interface implemented by dynamically loaded benchmark modules."""
+
+    def get_config(self, config_file: Path) -> dict[str, Any] | None:
+        r"""Loads the benchmark-specific configuration.
+
+        Args:
+            config_file (Path): Path to the benchmark configuration file.
+        """
+        ...
+
+    def execute(self, **kwargs: Any) -> None:
+        r"""Runs the benchmark."""
+        ...
 
 
 def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
@@ -43,7 +60,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         type=Path,
         required=False,
         metavar="/path/to/checkpoint/dir",
-        help="path to a checkpoint directory " "(alternative to --model-arch, --model-state-dict and --dataset)",
+        help="path to a checkpoint directory (alternative to --model-arch, --model-state-dict and --dataset)",
     )
     parser.add_argument(
         "-b",
@@ -158,16 +175,21 @@ def execute(args: Namespace) -> None:
                 skip_module = True
                 break
 
+        plugin = cast(BenchmarkPlugin, module)
+
         # Extract bench-specific options
-        config = module.get_config(bench_config)
+        config = plugin.get_config(bench_config)
         if config is None:
             logger.warning(f"Skipping benchmark {bench_module}: disabled in configuration file.")
-            skip_module = True
+            continue
+        if not all(isinstance(key, str) for key in config):
+            logger.warning(f"Skipping benchmark {bench_module}: configuration keys must be strings.")
+            continue
         if skip_module:
             continue
 
         # Benchmark is enabled
-        module.execute(
+        plugin.execute(
             model=model,
             dataset_config=dataset_config,
             visualization_config=visualizer_config,

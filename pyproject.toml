@@ -44,9 +44,12 @@ dependencies = [
     "scikit-learn~=1.5.1",
     "thop~=0.1.1",
     "pandas>=2.3.3",
+    "muon-optimizer>=0.1.0",
 ]
 
 [project.optional-dependencies]
+# optional-dependencies are non-mandatory dependencies for users, NOT DEVELOPERS.
+# for additional dependencies used when working on the cabrnet repository, see dependency-groups
 tune = [
     "ray[tune]~=2.34.0",
     "optuna~=3.6.1",
@@ -58,16 +61,10 @@ Issues = "https://github.com/aiser-team/cabrnet/issues"
 
 [project.scripts]
 cabrnet = "cabrnet.main:main"
-cabrnet-gui = "cabrnet.main_gui:main"
-
-[tool.black]
-line-length = 120
+cabrnet-analysis = "cabrnet.main_analysis:main"
 
 [tool.ruff]
 line-length = 120
-
-[tool.isort]
-profile="black"
 
 [tool.pyright]
 pythonVersion = "3.10"
@@ -76,12 +73,13 @@ reportMissingTypeStubs = false
 reportMissingImports = true
 
 [dependency-groups]
+# additional dependencies when using cabrnet from the git repository.
 dev = [
- "black==24.10.0",
- "build",
- "isort>=8.0.1",
- "pyright",
- "twine",
+    "build",
+    "pre-commit>=4.6.0",
+    "pyright>=1.1.410",
+    "ruff>=0.15.22",
+    "twine",
 ]
 doc = ["mkdocs", "pydoc-markdown", "pymdown-extensions", "python-markdown-math"]
 legacy = ["gdown~=4.7.1", "requests~=2.32.0", "Augmentor~=0.2.12"]

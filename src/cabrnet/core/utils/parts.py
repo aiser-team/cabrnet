@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import pandas as pd
-from torch.utils.data import Dataset
+from torchvision.datasets import ImageFolder
 
 from cabrnet.core.utils.exceptions import ArgumentError
 
@@ -28,7 +28,7 @@ class PartAnnotation:
 
 
 def parse_cub200_annotations(
-    dataset: Dataset,
+    dataset: ImageFolder,
     image_description: Path,
     part_annotations: Path,
     **kwargs,
@@ -41,7 +41,7 @@ def parse_cub200_annotations(
         dataset (Dataset): Dataset that contains the images.
             It is assumed that the filename of the images is accessible
             via `dataset.imgs`.
-            (The dataset might be reached via `loader.dataset`.)
+            (The dataset might be reached via `loader.dataset`).
         image_description (Path): Path to a file that contains the description of each image.
             The description is assumed to be a list of lines, each of the form `image_idx filename`.
             The `image_idx` here is a fresh id; it is unrelated to the actual position in the dataset
@@ -56,8 +56,8 @@ def parse_cub200_annotations(
     filename_to_image_idx = {}
     df = pd.read_csv(image_description, sep=" ", header=None)
     for idx in df.index:
-        image_idx = df[0][idx]
-        filename = df[1][idx]
+        image_idx = int(df.at[idx, 0])
+        filename = str(df.at[idx, 1])
         filename_to_image_idx[filename] = image_idx
 
     image_idx_to_dataset_idx: dict[int, tuple[int, str]] = {}
@@ -75,15 +75,15 @@ def parse_cub200_annotations(
     result = {}
     df = pd.read_csv(part_annotations, sep=" ", header=None)
     for idx in df.index:
-        image_idx = df[0][idx]
+        image_idx = int(df.at[idx, 0])
         if image_idx not in image_idx_to_dataset_idx:
             continue  # Only care about the images from the dataset
 
         dataset_idx, filename = image_idx_to_dataset_idx[image_idx]
-        part_idx = df[1][idx]
-        x = int(df[2][idx])
-        y = int(df[3][idx])
-        observed = df[4][idx] == 1
+        part_idx = int(df.at[idx, 1])
+        x = int(df.at[idx, 2])
+        y = int(df.at[idx, 3])
+        observed = int(df.at[idx, 4]) == 1
 
         img_dict = result.get(dataset_idx)
         if img_dict is None:

@@ -15,6 +15,7 @@ import pandas as pd
 import torch
 from loguru import logger
 from torch.utils.data import Dataset
+from torchvision.datasets import ImageFolder
 from torchvision.transforms import ToTensor
 from tqdm import tqdm
 
@@ -120,6 +121,13 @@ def compute_protos_of_class(model: CaBRNet) -> dict[int, list[int]]:
 
 
 def _save_distances(distances: dict[int, dict[int, list[dict]]], path: Path) -> None:
+    """Saves prototype-part distance statistics to a CSV file.
+
+    Args:
+        distances (dict[int, dict[int, list[dict]]]): Mapping from prototype and part identifiers
+            to per-image distance statistics.
+        path (Path): Output CSV path.
+    """
     df = {}
     first = True
     for _, distance_proto in distances.items():
@@ -137,6 +145,13 @@ def _save_distances(distances: dict[int, dict[int, list[dict]]], path: Path) -> 
 
 
 def _add_distance(distances: dict[int, dict[int, list[dict]]], ud: dict) -> None:
+    r"""Adds a distance observation to a prototype-part mapping.
+
+    Args:
+        distances (dict[int, dict[int, list[dict]]]): Mapping from prototype and part identifiers
+            to per-image distance statistics.
+        ud (dict): Distance observation containing prototype and part identifiers.
+    """
     proto_distances = distances.get(ud["prototype_idx"], {})
     if not proto_distances:  # This is a new entry.  It needs to be saved.
         distances[ud["prototype_idx"]] = proto_distances
@@ -149,6 +164,14 @@ def _add_distance(distances: dict[int, dict[int, list[dict]]], ud: dict) -> None
 
 
 def _load_distances(path: Path) -> dict[int, dict[int, list[dict]]]:
+    r"""Loads prototype-part distance statistics from a CSV file.
+
+    Args:
+        path (Path): Input CSV path.
+
+    Returns:
+        Mapping from prototype and part identifiers to per-image distance statistics.
+    """
     result = {}
 
     df = pd.read_csv(path)
@@ -163,7 +186,7 @@ def _load_distances(path: Path) -> dict[int, dict[int, list[dict]]]:
 
 def compute_distances(
     model: CaBRNet,
-    dataset: Dataset,
+    dataset: ImageFolder,
     preprocess: Callable,
     visualizer: SimilarityVisualizer,
     annotations: dict[int, dict[int, PartAnnotation]],
@@ -179,7 +202,7 @@ def compute_distances(
         dataset (Dataset): Dataset (test set) used for evaluation.
         preprocess (Callable): Preprocessing method to apply on images.
         visualizer (SimilarityVisualizer): Visualizer used to determine where the prototype is recognized in the image.
-        annotations (dict[int, dict[int, PartAnnotation]]: PartAnnotations in the form
+        annotations (dict[int, dict[int, PartAnnotation]]): Part annotations in the form
             `img_idx -> part_idx -> PartAnnotation`.
         protos_of_class (dict[int, list[int]]): List of prototypes relevant to each class.
         verbose (bool): If true, prints progress of evaluation.
@@ -242,7 +265,7 @@ def execute(
     threshold: float | None = None,
     **kwargs,
 ) -> None:
-    r"""Compute the consistency score for the model.  See the manual for details on this computation.
+    r"""Computes the consistency score for the model. See the manual for details on this computation.
 
     Args:
         model (CaBRNet): Model.
@@ -257,10 +280,10 @@ def execute(
         root_dir (Path): Folder where results are to be stored.
         verbose (bool): If True, prints out logging messages.
         device (torch.device | str): Device where computation to be made.
-        half_size (int | float | None): Parameter indicating when the location of a prototype
-            matches the location of a part.  If None, no computation is performed.
-        threshold (int | float | None): Parameter indicating when a prototype is consistent
-            with a specific part.  If None, no computation is performed.
+        half_size (int | float | None, optional): Parameter indicating when the location of a prototype
+            matches the location of a part. If None, no computation is performed. Default: None.
+        threshold (float | None, optional): Parameter indicating when a prototype is consistent
+            with a specific part. If None, no computation is performed. Default: None.
     """
     model.to(device)
     model.eval()
@@ -268,6 +291,8 @@ def execute(
     dataloaders = DatasetManager.get_dataloaders(dataset_config)
     dataloader = dataloaders[dataset_name]
     dataset = dataloader.dataset
+    if not isinstance(dataset, ImageFolder):
+        raise TypeError("Consistency analysis requires an ImageFolder dataset")
     preprocess = getattr(dataset, "transform", ToTensor())
 
     annots = getattr(cabrnet.core.utils.parts, part_parser)(dataset, **kwargs)

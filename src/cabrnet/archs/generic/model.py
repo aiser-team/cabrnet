@@ -35,6 +35,10 @@ class CaBRNet(nn.Module):
     """
 
     # Regroups common default file names in a single location
+    extractor: nn.Module
+    classifier: CaBRNetClassifier
+    _compatibility_mode: bool
+
     DEFAULT_MODEL_CONFIG: Path = Path("model_arch.yml")
     DEFAULT_MODEL_STATE: Path = Path("model_state.pth")
     DEFAULT_PROJECTION_INFO: Path = Path("projection_info.csv")
@@ -208,10 +212,10 @@ class CaBRNet(nn.Module):
         that allows the user to access this value.
 
         Args:
-            option (str): the name of the option (generally, something like "--my-option").
+            option (str): The name of the option (generally, something like "--my-option").
 
         Returns:
-            the name of the attribute in the parser (e.g., "my_option").
+            The name of the attribute in the parser (e.g., "my_option").
         """
         if option.startswith("--"):
             option = option[2:]
@@ -236,14 +240,17 @@ class CaBRNet(nn.Module):
           + DatasetManager.DATASET_ALTERNATIVE
           + OptimizerManager.TRAINING_ALTERNATIVE,
 
+        The parser accepts these alternatives.
+
         Args:
-            parser (argparse.ArgumentParser | None): parser to which the option is added.
-            checkpoint_dest (str): name of the option (e.g., "--checkpoint-dir").
-            alternatives (list[tuple[str, Path]] | None): list of options for which this provides an option;
-              each option is described by its name and the path that allows CaBRNet to find the file.
+            parser (argparse.ArgumentParser | None, optional): Parser to which the option is added. Default: None.
+            checkpoint_dest (str, optional): Name of the option (e.g., "--checkpoint-dir").
+                Default: --checkpoint-dir.
+            alternatives (list[tuple[str, Path]] | None, optional): List of options for which this provides an option;
+              each option is described by its name and the path that allows CaBRNet to find the file. Default: None.
 
         Returns:
-            modified (or created) parser.
+            Modified (or created) parser.
         """
         if alternatives is None:
             alternatives = CaBRNet.ARCHITECTURE_ALTERNATIVE
@@ -266,7 +273,7 @@ class CaBRNet(nn.Module):
     def check_args(
         args: argparse.Namespace,
         checkpoint_dest: str = "--checkpoint-dir",
-        alternatives: list[tuple[str, str, Path]] | None = None,
+        alternatives: list[tuple[str, Path]] | None = None,
         strict: bool = True,
         check_defined: bool = False,
     ) -> argparse.Namespace:
@@ -275,21 +282,22 @@ class CaBRNet(nn.Module):
         see: :py:func:`.create_checkpoint_parser`.
 
         Args:
-            args (argparse.Namespace): namespace in which parameters are provided.
-            checkpoint_dest (str): name of the option (e.g., "--checkpoint-dir").
-            alternatives (list[tuple[str, Path]] | None): list of options for which this provides an option;
-              each option is described by its name and the path that allows CaBRNet to find the file.
-            strict (bool): if true, forbids the definition of both the checkpoint option
+            args (argparse.Namespace): Namespace in which parameters are provided.
+            checkpoint_dest (str, optional): Name of the option (e.g., "--checkpoint-dir").
+                Default: --checkpoint-dir.
+            alternatives (list[tuple[str, Path]] | None, optional): List of options for which this provides an option;
+              each option is described by its name and the path that allows CaBRNet to find the file. Default: None.
+            strict (bool, optional): If true, forbids the definition of both the checkpoint option
               and any of the option that the checkpoint is an alternative for.
-              Otherwise, uses the checkpoint only for the options that are not specified.
-            check_defined (bool): if true, indicates that each parameter in the alternative
-              must be defined either separately or via the alternative.
+              Otherwise, uses the checkpoint only for the options that are not specified. Default: True.
+            check_defined (bool, optional): If true, indicates that each parameter in the alternative
+              must be defined either separately or via the alternative. Default: False.
 
         Returns:
-            modified (or created) parser.
+            Modified (or created) parser.
         """
         if alternatives is None:
-            alternatives = [CaBRNet.ARCHITECTURE_ALTERNATIVE]
+            alternatives = CaBRNet.ARCHITECTURE_ALTERNATIVE
         checkpoint = CaBRNet.attribute_of_option(checkpoint_dest)
         if vars(args)[checkpoint]:
             dir: Path = vars(args)[checkpoint]
@@ -704,7 +712,7 @@ class CaBRNet(nn.Module):
             Tuple of (outputs, labels, timing_info) where:
                 - outputs: tuple where each element corresponds to a component of the model output
                 - labels: Tensor of targets, on the specified device
-                - timing_info: Dictionary with 'time/batch' and 'time/data' metrics
+        - timing_info: Dictionary with 'time/batch' and 'time/data' metrics.
         """
         self.eval()
         self.to(device)
@@ -898,7 +906,10 @@ class CaBRNet(nn.Module):
 
         # Mapping between classes and prototypes
         proto_class_map = self.classifier.prototype_class_mapping
-        class_mapping = {c: list(np.nonzero(proto_class_map[:, c])[0]) for c in range(self.classifier.num_classes)}
+        class_mapping = {
+            c: [int(proto_idx) for proto_idx in np.nonzero(proto_class_map[:, c])[0]]
+            for c in range(self.classifier.num_classes)
+        }
 
         # Sanity check to ensure that each class is associated with at least one prototype
         for class_idx in range(self.classifier.num_classes):

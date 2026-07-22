@@ -200,7 +200,7 @@ def load_checkpoint(
         seed = state.get("seed")
         device = state.get("device")
     else:
-        logger.warning(f"Could not find state file {directory_path}/state.pickle. " f"Using default values instead.")
+        logger.warning(f"Could not find state file {directory_path}/state.pickle. Using default values instead.")
         epoch = 0
         stats = {}
         seed = 0

@@ -10,7 +10,7 @@ from torch import Tensor
 
 from cabrnet.archs.generic.decision import CaBRNetClassifier
 from cabrnet.core.utils.prototypes import init_prototypes
-from cabrnet.core.utils.tree import BinaryNode, MappingMode
+from cabrnet.core.utils.tree import BinaryNode, MappingMode, TreeNode
 
 
 class SamplingStrategy(Enum):
@@ -34,6 +34,14 @@ class ProtoTreeClassifier(CaBRNetClassifier):
         leaves_init_mode: Initialization mode for the leaf distributions.
         log_probabilities: If true, the decision tree treats similarity scores as log of probabilities.
     """
+
+    depth: int
+    leaves_init_mode: str
+    log_probabilities: bool
+    tree: TreeNode
+    _active_prototypes: list[int]
+    _root_prob: Tensor
+    _root_greedy_path: Tensor
 
     def __init__(
         self,
@@ -123,7 +131,7 @@ class ProtoTreeClassifier(CaBRNetClassifier):
             strategy (SamplingStrategy, optional): Sampling strategy. Default: Distributed.
 
         Returns:
-            Tuple of (prediction, tree_info)
+            Tuple of (prediction, tree_info).
         """
         similarities = self.similarities(features)  # Shape (N, P, H, W)
         # Use only maximum similarity score for each prototype

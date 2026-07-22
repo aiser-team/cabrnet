@@ -1,6 +1,6 @@
 # Contributing to CaBRNet
 
-First of all, thank you for your interest in contributing to CaBRNet! 
+First of all, thank you for your interest in contributing to CaBRNet!
 To be able to contribute, you will require a [GitHub](https://github.com) account.
 
 Contributions can take many forms:
@@ -11,10 +11,10 @@ Contributions can take many forms:
 2. Requesting a small feature that does not require important library changes (*e.g.* no major changes in the API, no additional packages). In this case, we suggest that you:
    1. Check whether this feature has not been already suggested in the [issue list](https://github.com/aiser-team/cabrnet/issues).
    2. Create a new issue, describing the requested feature, with as many details as possible.
-3. Requesting a feature that may involve major changes to the library (API, dependencies, etc.). 
+3. Requesting a feature that may involve major changes to the library (API, dependencies, etc.).
 In this case, we suggest that you:
    1. Check whether this feature has not been already suggested in the [issue list](https://github.com/aiser-team/cabrnet/issues).
-   2. Create a new issue, describing the requested feature, with as many details as possible, along with a 
+   2. Create a new issue, describing the requested feature, with as many details as possible, along with a
 **design plan** that should contain the foreseeable impact of the feature on the library. This design plan will be reviewed
 by the team to establish the feasibility of the development.
 4. Proposing an implementation of a bug-fix or a feature. In this case, we suggest to you:
@@ -38,19 +38,21 @@ Please make sure to respect the following guidelines for your contributions:
 
 ### Code Style
 
-CaBRNet uses [black](https://pypi.org/project/black/) and to ensure a common code style across the entire code base.
-`black` is configured via `pyproject.toml` to use a maximum line length of 120. It is taken into account automatically by most editors.
+CaBRNet uses [Ruff](https://docs.astral.sh/ruff/linter/) to ensure a common code style across the entire code base.
+`ruff` is configured via `pyproject.toml` to use a maximum line length of 120. It is taken into account automatically by most editors.
 
-Unfortunately, all editors do not agree in the way they organize module imports. For this reason, we use [isort](https://github.com/PyCQA/isort). Some editors support automatically or can be configured (See guide for [Pycharm](https://www.jetbrains.com/help/pycharm/creating-and-optimizing-imports.html#optimize-on-save)). You can also use [ruff](https://docs.astral.sh/ruff/) which has the right defaults.
-
-We **strongly recommend** to use a "pre-commit hook", that will run all formatting automatically. To install it:
+We **strongly recommend** to use a "pre-commit hook", that will run all code quality checks automatically. Install them with:
 
 ```bash
-cp .githooks/pre-commit .git/hooks/pre-commit
-chmod +x .git/hooks/pre-commit
+uv run pre-commit install
 ```
 
-This will run `black` and `isort` each time you commit your changes.
+This formats Python files with Ruff and trims trailing whitespace before each commit. Before each push, it runs those checks again, plus the docstring check and Pyright. To call all of these tools on all the files, run:
+
+```bash
+uv run pre-commit run --hook-stage pre-push --all-files
+```
+
 
 ### Type Hints
 
@@ -58,7 +60,7 @@ CaBRNet is (almost) fully typed using Python 3.6+ [type hints](https://www.pytho
 
 ### Unit Tests
 
-To implement unit tests, please use python's [`unittest`](https://docs.python.org/3/library/unittest.html). 
+To implement unit tests, please use python's [`unittest`](https://docs.python.org/3/library/unittest.html).
 
 ### Documentation
 
@@ -90,11 +92,11 @@ the 'optional' keyword, and specify the default value in the argument descriptio
 ```python
 def my_function (a: int, b: bool = False) -> Tensor | Tuple[Tensor, Tensor]:
    r"""Does an awesome function (use the third person).
-   
+
    Args:
       a (int): This is the first argument.
       b (bool, optional): This is the second argument. Default: False.
-   
+
    Returns:
       **single_output** or tuple of **single_output**, **aux_info**:
       - **single_output** (*Tensor*): Description
@@ -107,7 +109,7 @@ For class accessors, the function description can be used to replace the *Return
 ```python
 class MyClass:
     r"""A short description of the class purpose.
-    
+
     Attributes:
         field: A short description of the field.
     """

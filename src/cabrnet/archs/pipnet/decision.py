@@ -35,6 +35,9 @@ class PIPNetClassifier(CaBRNetClassifier):
         last_layer: Linear layer in charge of weighting similarity scores and computing the final logit vector.
     """
 
+    last_layer: NonNegLinear
+    normalization_multiplier: Tensor
+
     def __init__(
         self,
         num_classes: int,

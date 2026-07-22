@@ -15,8 +15,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
     r"""Creates the argument parser for explaining the decision of a CaBRNet model.
 
     Args:
-        parser (ArgumentParser, optional): Parent parser (if any).
-            Default: None
+        parser (ArgumentParser, optional): Parent parser (if any). Default: None.
 
     Returns:
         The parser itself.
@@ -110,7 +109,7 @@ def check_args(args: Namespace) -> Namespace:
     output_dir = Path(args.output_dir, Path(args.image).stem)
     if os.path.exists(output_dir) and not args.overwrite:
         raise ArgumentError(
-            f"Output directory {output_dir} is not empty. " f"To overwrite existing results, use --overwrite option."
+            f"Output directory {output_dir} is not empty. To overwrite existing results, use --overwrite option."
         )
 
     if not os.path.exists(args.prototype_dir):
