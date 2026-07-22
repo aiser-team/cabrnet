@@ -1,6 +1,7 @@
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
 
+import torch
 from loguru import logger
 from tqdm import tqdm
 
@@ -86,6 +87,16 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         "--sanity-check",
         action="store_true",
         help="check the training pipeline without performing the entire process.",
+    )
+    parser.add_argument(
+        "--detect-anomaly",
+        action="store_true",
+        help="enable PyTorch autograd anomaly detection and checks guarded by `torch.is_anomaly_enabled()`.",
+    )
+    parser.add_argument(
+        "--debug-artifacts",
+        action="store_true",
+        help="save model-provided debug artifacts after each training epoch.",
     )
     parser.add_argument(
         "--epilogue",
@@ -193,6 +204,11 @@ def execute(args: Namespace) -> None:
     epilogue_only = args.epilogue
     sanity_check_only = args.sanity_check
     resume_dir = args.resume_from
+    debug_artifacts = getattr(args, "debug_artifacts", False)
+
+    if getattr(args, "detect_anomaly", False):
+        torch.autograd.set_detect_anomaly(True)
+        logger.warning("PyTorch autograd anomaly detection is enabled.")
 
     model: CaBRNet = CaBRNet.build_from_config(config=model_arch, seed=args.seed)
 
@@ -271,4 +287,5 @@ def execute(args: Namespace) -> None:
         seed=seed,
         device=device,
         verbose=verbose,
+        debug_artifacts=debug_artifacts,
     )

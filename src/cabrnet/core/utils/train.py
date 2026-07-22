@@ -21,6 +21,7 @@ INITIAL_DIR = Path("init")
 BACKUP_DIR = Path("tmp")
 LOG_FILE = Path("log.txt")
 TB_LOGS = Path("tensorboard_logs")
+DEBUG_DIR = Path("debug")
 
 
 def best_dir(working_dir: Path) -> Path:
@@ -94,6 +95,7 @@ def training_loop(
     seed: int = 42,
     device: str | torch.device = "cuda:0",
     verbose: bool = False,
+    debug_artifacts: bool = False,
     logger_level: str | None = None,
 ) -> dict[str, Any]:
     r"""Implements the main training loop for CaBRNet models.
@@ -118,6 +120,8 @@ def training_loop(
         seed (int, optional): Initial random seed. Default: 42.
         device (str | device, optional): Hardware device. Default: cuda:0.
         verbose (bool, optional): If True, enables verbose mode. Default: False.
+        debug_artifacts (bool, optional): If True, saves model-provided debug artifacts after each epoch.
+            Default: False.
         logger_level (str, optional): If given, change logger level inside function. Default: None.
 
     Returns:
@@ -165,6 +169,9 @@ def training_loop(
 
     tboard_dir = working_dir / TB_LOGS
     writer = SummaryWriter(log_dir=tboard_dir)  # type: ignore
+    debug_dir = working_dir / DEBUG_DIR
+    if debug_artifacts:
+        debug_dir.mkdir(parents=True, exist_ok=True)
 
     epochs_since_best = 0
     trained = False
@@ -214,6 +221,8 @@ def training_loop(
         for key, value in train_info.items():
             writer.add_scalar(key, value, epoch)
         writer.flush()
+        if debug_artifacts:
+            model.save_debug_artifacts(output_dir=debug_dir, writer=writer, epoch=epoch)
 
         save_best_checkpoint = False
         if train_info.get(metric) is None:
