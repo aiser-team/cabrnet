@@ -54,6 +54,29 @@ class EvaluationResult(NamedTuple):
         return 0 if self.labels is None else len(self.labels)
 
 
+class EvaluationResult(NamedTuple):
+    r"""Results collected while evaluating a dataset.
+
+    Attributes:
+        stats: Batch statistics, averaged over all samples in the dataset.
+        logits: Prediction logits for all samples when requested, otherwise None.
+        labels: Targets for all samples when prediction collection is requested, otherwise None.
+    """
+
+    stats: dict[str, float]
+    logits: Tensor | None = None
+    labels: Tensor | None = None
+
+    @property
+    def num_inputs(self) -> int:
+        r"""Returns the number of collected predictions.
+
+        Returns:
+            Number of collected predictions, or zero when predictions were not collected.
+        """
+        return 0 if self.labels is None else len(self.labels)
+
+
 class CaBRNet(nn.Module):
     r"""Top-module of a Case-Based Reasoning Network (CaBRNet).
 
@@ -933,9 +956,9 @@ class CaBRNet(nn.Module):
         stats = {f"{dataset_name}/{key}": value for key, value in result.stats.items()}
 
         if profile:
-            if not isinstance(dataloader.sampler, Sized):
-                raise TypeError("Profiling requires a sized dataloader sampler")
-            stats[f"{dataset_name}/Gflops"] = flops * len(dataloader.sampler) / 1e9
+            if not isinstance(dataloader.dataset, Sized):
+                raise TypeError("Profiling requires a sized dataset")
+            stats[f"{dataset_name}/Gflops"] = flops * len(dataloader.dataset) / 1e9
 
         return stats
 
