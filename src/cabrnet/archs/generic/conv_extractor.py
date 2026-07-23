@@ -225,22 +225,22 @@ class ConvExtractor(nn.Module):
             output_tensors = None
 
         add_ons = {}
+        output_channels: dict[str, int | None] = {}
         for pipeline_name in self.source_layers.keys():
+            feature_tensor = output_tensors[pipeline_name] if output_tensors is not None else None
             add_on_module_path = "extractor.add_on"
             if self.num_pipelines > 1:
                 add_on_module_path = f"{add_on_module_path}.{pipeline_name}"
             add_ons[pipeline_name] = self.create_add_on(
                 config=config[pipeline_name].get("add_on"),
-                input_tensor=output_tensors[pipeline_name] if output_tensors is not None else None,
+                in_channels=feature_tensor.size(1) if feature_tensor is not None else None,
                 module_path=add_on_module_path,
             )
+            output_channels[pipeline_name] = self.infer_add_on_output_channels(add_ons[pipeline_name], feature_tensor)
 
         # Create a ModuleDict to register add-on layers as submodules, or simply use a single add-on module
         self.add_on = nn.ModuleDict(add_ons) if self.num_pipelines > 1 else add_ons[next(iter(add_ons))]
-        self.output_channels = {}
-        for pipeline_name, layer in add_ons.items():
-            input_tensor = output_tensors[pipeline_name] if output_tensors is not None else None
-            self.output_channels[pipeline_name] = self.infer_add_on_output_channels(layer, input_tensor)
+        self.output_channels = output_channels
 
     def forward(self, x: torch.Tensor, **kwargs) -> torch.Tensor | dict[str, torch.Tensor]:
         r"""Computes convolutional features.
@@ -268,13 +268,16 @@ class ConvExtractor(nn.Module):
 
     @staticmethod
     def create_add_on(
-        config: dict[str, dict] | None, input_tensor: torch.Tensor | None, module_path: str = "extractor.add_on"
+        config: dict[str, dict] | None, in_channels: int | None, module_path: str = "extractor.add_on"
     ) -> nn.Sequential | None:
-        r"""Builds add-on layers based on configuration.
+        r"""Builds configured add-on layers.
+
+        ``in_channels`` is inferred by an optional dummy backbone pass; when it is unavailable,
+        each ``Conv2d`` add-on must declare its input channels explicitly.
 
         Args:
             config (dictionary): Add-on layers configuration.
-            input_tensor (tensor, optional): Dummy feature tensor produced by the feature extractor.
+            in_channels (int, optional): Input channel count from the feature extractor.
             module_path (str, optional): Path of the add-on in a complete model state dictionary.
                 Default: "extractor.add_on".
 
@@ -318,16 +321,16 @@ class ConvExtractor(nn.Module):
                 if val["type"] == "Conv2d":
                     # Check or update in_channels
                     if params.get("in_channels") is None:
-                        if input_tensor is None:
+                        if in_channels is None:
                             raise ValueError(
                                 f"Could not infer input channels for convolutional add-on layer {key}. "
                                 "Set its in_channels explicitly."
                             )
-                        params["in_channels"] = input_tensor.size(1)
-                    elif input_tensor is not None and params["in_channels"] != input_tensor.size(1):
+                        params["in_channels"] = in_channels
+                    elif in_channels is not None and params["in_channels"] != in_channels:
                         raise ValueError(
                             f"Invalid number of input channels for layer {key}. "
-                            f"Should be {input_tensor.size(1)} but {params['in_channels']} was given."
+                            f"Should be {in_channels} but {params['in_channels']} was given."
                         )
                 layer_module = layer_constructor(**params)
             else:
@@ -355,7 +358,10 @@ class ConvExtractor(nn.Module):
 
     @staticmethod
     def infer_add_on_output_channels(layer: nn.Sequential | None, input_tensor: torch.Tensor | None) -> int | None:
-        r"""Infers the channel count produced by an add-on layer.
+        r"""Infers add-on output channels by running a dummy feature tensor.
+
+        Runtime inference supports custom layers whose output channels cannot be read from their configuration.
+        The probe uses evaluation mode and no gradients to avoid changing add-on state.
 
         Args:
             layer (Sequential, optional): Add-on layer to evaluate.
@@ -371,11 +377,16 @@ class ConvExtractor(nn.Module):
             return None
         if layer is None:
             return input_tensor.size(1)
+        was_training = layer.training
+        layer.eval()
         try:
-            output_tensor = layer(input_tensor)
+            with torch.no_grad():
+                output_tensor = layer(input_tensor)
         except Exception as error:
             logger.warning(f"Could not infer add-on output channels from the dummy feature tensor: {error}")
             return None
+        finally:
+            layer.train(was_training)
         if output_tensor.ndim != 4:
             raise ValueError(
                 "Add-on output must be a four-dimensional feature tensor "
