@@ -115,6 +115,9 @@ def check_args(args: Namespace) -> Namespace:
     Returns:
         Modified argument namespace.
     """
+    if args.resume_from is not None and args.load_weights:
+        raise ArgumentError("Cannot specify both options --resume-from and --load-weights")
+
     for dir_path, option_name in zip([args.resume_from, args.config_dir], ["--resume-from", "--config-dir"]):
         if dir_path is not None:
             for param, name in zip(
