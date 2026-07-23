@@ -24,6 +24,20 @@ def has_class_attributes(class_node: ast.ClassDef) -> bool:
     return any(isinstance(statement, ast.AnnAssign) for statement in class_node.body)
 
 
+def is_property(function_node: ast.FunctionDef) -> bool:
+    r"""Checks whether a function is decorated as a property.
+
+    Args:
+        function_node (FunctionDef): Function definition to inspect.
+
+    Returns:
+        True if the function uses the built-in property decorator.
+    """
+    return any(
+        isinstance(decorator, ast.Name) and decorator.id == "property" for decorator in function_node.decorator_list
+    )
+
+
 def create_parser() -> ArgumentParser:
     r"""Creates the argument parser for checking docstrings.
 
@@ -118,6 +132,7 @@ def parse_ast(ast_module: Any, filename: str, ignore_imperative_warnings: bool) 
                 return_location is None
                 and body_content.returns is not None
                 and not (isinstance(body_content.returns, ast.Constant) and body_content.returns.value is None)
+                and not is_property(body_content)
             ):
                 logger.error(
                     f"Missing docstring for return value in function '{function_name}' "

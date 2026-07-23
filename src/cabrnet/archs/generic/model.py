@@ -117,7 +117,7 @@ class CaBRNet(nn.Module):
             x (tensor): Input tensor.
 
         Returns:
-            Extracted convolutional features.
+            The raw features. For 2d images, those features are of shape (B, num_features, H, W).
         """
         return self.extractor(x, **kwargs)
 
@@ -161,7 +161,7 @@ class CaBRNet(nn.Module):
             proto_idx (int): Prototype index.
 
         Returns:
-            True if the prototype is active.
+            True if the given prototype is enabled, False otherwise.
         """
         return self.classifier.prototype_is_active(proto_idx)
 
@@ -835,10 +835,10 @@ class CaBRNet(nn.Module):
 
         Args:
             dataloader (DataLoader): Dataloader containing the evaluation data.
-            device (str | device): Hardware device.
-            tqdm_position (int): Position of the progress bar.
-            verbose (bool): Display progress bar.
-            collect_predictions (bool): If True, return all logits and labels in the result.
+            device (str | device, optional): Hardware device. Default: cuda:0.
+            tqdm_position (int, optional): Position of the progress bar. Default: 0.
+            verbose (bool, optional): Display progress bar. Default: False.
+            collect_predictions (bool, optional): If True, return all logits and labels in the result. Default: False.
 
         Returns:
             Evaluation statistics and, optionally, collected logits and labels.
