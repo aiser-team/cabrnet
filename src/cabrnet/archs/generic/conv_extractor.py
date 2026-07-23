@@ -1,7 +1,8 @@
+import importlib
 import warnings
 from collections import OrderedDict
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Tuple
 
 import torch
 import torch.nn as nn
@@ -12,9 +13,10 @@ from torchvision.models.feature_extraction import (
     get_graph_node_names,
 )
 
-from cabrnet.archs.custom_extractors import *
+from cabrnet.archs.custom_extractors.onnx_backbone import GenericONNXModel
 from cabrnet.core.utils.exceptions import check_mandatory_fields
 from cabrnet.core.utils.init import LAYER_INIT_FUNCTIONS
+from cabrnet.core.utils.state_dict import state_dict_for
 
 warnings.filterwarnings("ignore")
 
@@ -65,13 +67,28 @@ class ConvExtractor(nn.Module):
         )
 
         arch = backbone_config["arch"]
+        module_name = backbone_config.get("module")
         arch_params = backbone_config.get("params", {})
         weights = backbone_config["weights"]
 
-        # Check that model architecture is supported
-        assert arch.lower() in torch_models.list_models(), f"Unsupported model architecture: {arch}"
+        if module_name:
+            if weights not in (None, "None") and (not isinstance(weights, str) or not weights.lower().endswith(".pth")):
+                raise ValueError(
+                    f"Custom backbones only support null weights or a path ending in '.pth'. Got: {weights!r}"
+                )
+            backbone_module = importlib.import_module(module_name)
+            try:
+                model_constructor = getattr(backbone_module, arch)
+            except AttributeError as error:
+                raise ValueError(f"Backbone class '{arch}' does not exist in module '{module_name}'.") from error
+        else:
+            # Check that model architecture is supported
+            assert arch.lower() in torch_models.list_models(), f"Unsupported model architecture: {arch}"
 
-        if weights == "None":
+            def model_constructor(**kwargs):
+                return torch_models.get_model(arch, **kwargs)
+
+        if weights in (None, "None"):
             weights = ""
 
         if Path(weights).is_file():
@@ -84,14 +101,14 @@ class ConvExtractor(nn.Module):
             )
             loaded_weights = torch.load(weights, map_location="cpu", weights_only=False)
 
-            model = torch_models.get_model(arch, **arch_params)
-            if isinstance(loaded_weights, dict):
-                model.load_state_dict(loaded_weights)
+            model = model_constructor(**arch_params)
+            if isinstance(loaded_weights, Mapping):
+                model.load_state_dict(state_dict_for(loaded_weights, "extractor.convnet"))
             elif isinstance(loaded_weights, nn.Module):
                 model.load_state_dict(loaded_weights.state_dict(), strict=False)
             else:
                 raise ValueError(f"Unsupported weights type: {type(loaded_weights)}")
-        elif weights and hasattr(torch_models.get_model_weights(arch), weights):
+        elif not module_name and weights and hasattr(torch_models.get_model_weights(arch), weights):
             if not ignore_weight_errors:
                 logger.info(f"Loading pytorch weights: {weights}")
             loaded_weights = getattr(torch_models.get_model_weights(arch), weights)
@@ -102,7 +119,7 @@ class ConvExtractor(nn.Module):
                 "This might be OK if the model state dictionary is loaded afterwards, "
                 "or the model is in ONNX format and all parameters are provided in the ONNX file."
             )
-            model = torch_models.get_model(arch, **arch_params)
+            model = model_constructor(**arch_params)
         else:
             raise ValueError(f"Cannot load weights {weights} for model of type {arch}. Possible typo or missing file.")
 
@@ -167,21 +184,32 @@ class ConvExtractor(nn.Module):
                 logger.error("See model architecture below")
                 logger.info(model)
                 raise e
-        # Dummy inference to recover number of output channels from the feature extractor
-        self.convnet.eval()
-        output_tensors = self.convnet(torch.zeros((1, 3, 224, 224)))
 
-        add_ons, self.output_channels = {}, {}
+        # Dummy inference to recover feature shapes and build add-on layers
+        self.convnet.eval()
+        try:
+            output_tensors: dict[str, torch.Tensor] | None = self.convnet(torch.zeros((1, 3, 224, 224)))
+        except Exception as error:
+            logger.warning(f"Could not infer feature shapes from the backbone dummy tensor: {error}")
+            output_tensors = None
+
+        add_ons = {}
         for pipeline_name in self.source_layers.keys():
-            layer, num_channels = self.create_add_on(
+            add_on_module_path = "extractor.add_on"
+            if self.num_pipelines > 1:
+                add_on_module_path = f"{add_on_module_path}.{pipeline_name}"
+            add_ons[pipeline_name] = self.create_add_on(
                 config=config[pipeline_name].get("add_on"),
-                in_channels=output_tensors[pipeline_name].size(1),
+                input_tensor=output_tensors[pipeline_name] if output_tensors is not None else None,
+                module_path=add_on_module_path,
             )
-            add_ons[pipeline_name] = layer
-            self.output_channels[pipeline_name] = num_channels
 
         # Create a ModuleDict to register add-on layers as submodules, or simply use a single add-on module
         self.add_on = nn.ModuleDict(add_ons) if self.num_pipelines > 1 else add_ons[next(iter(add_ons))]
+        self.output_channels = {}
+        for pipeline_name, layer in add_ons.items():
+            input_tensor = output_tensors[pipeline_name] if output_tensors is not None else None
+            self.output_channels[pipeline_name] = self.infer_add_on_output_channels(layer, input_tensor)
 
     def forward(self, x: torch.Tensor, **kwargs) -> torch.Tensor | dict[str, torch.Tensor]:
         r"""Computes convolutional features.
@@ -208,12 +236,16 @@ class ConvExtractor(nn.Module):
         return features
 
     @staticmethod
-    def create_add_on(config: dict[str, dict] | None, in_channels: int) -> Tuple[nn.Sequential | None, int]:
+    def create_add_on(
+        config: dict[str, dict] | None, input_tensor: torch.Tensor | None, module_path: str = "extractor.add_on"
+    ) -> nn.Sequential | None:
         r"""Builds add-on layers based on configuration.
 
         Args:
             config (dictionary): Add-on layers configuration.
-            in_channels (int): Number of input channels (as given by the feature extractor).
+            input_tensor (tensor, optional): Dummy feature tensor produced by the feature extractor.
+            module_path (str, optional): Path of the add-on in a complete model state dictionary.
+                Default: "extractor.add_on".
 
         Returns:
             Module containing all add-on layers.
@@ -223,9 +255,10 @@ class ConvExtractor(nn.Module):
         """
         if config is None:
             # No add-on layers
-            return None, in_channels
+            return None
 
         layers: OrderedDict[str, nn.Module] = OrderedDict()
+        weights_paths: dict[str, str] = {}
         init_mode = None
         for key, val in config.items():
             if key == "init_mode":
@@ -234,23 +267,52 @@ class ConvExtractor(nn.Module):
                     raise ValueError(f"Unsupported add_on layers initialisation mode {val}")
                 init_mode = val
                 continue
-            if not hasattr(nn, val["type"]):
-                raise ValueError(f"Module {val['type']} not found in torch.nn")
+            module_name = val.get("module")
+            if module_name:
+                weights = val.get("weights")
+                if weights not in (None, "None") and (
+                    not isinstance(weights, str) or not weights.lower().endswith(".pth")
+                ):
+                    raise ValueError(
+                        f"Custom add-on layers only support null weights or a path ending in '.pth'. Got: {weights!r}"
+                    )
+                add_on_module = importlib.import_module(module_name)
+                try:
+                    layer_constructor = getattr(add_on_module, val["type"])
+                except AttributeError as error:
+                    raise ValueError(
+                        f"Add-on class '{val['type']}' does not exist in module '{module_name}'."
+                    ) from error
+            else:
+                if not hasattr(nn, val["type"]):
+                    raise ValueError(f"Module {val['type']} not found in torch.nn")
+                layer_constructor = getattr(nn, val["type"])
             params = val.get("params")
             if params is not None:
                 if val["type"] == "Conv2d":
                     # Check or update in_channels
                     if params.get("in_channels") is None:
-                        params["in_channels"] = in_channels
-                    elif params["in_channels"] != in_channels:
+                        if input_tensor is None:
+                            raise ValueError(
+                                f"Could not infer input channels for convolutional add-on layer {key}. "
+                                "Set its in_channels explicitly."
+                            )
+                        params["in_channels"] = input_tensor.size(1)
+                    elif input_tensor is not None and params["in_channels"] != input_tensor.size(1):
                         raise ValueError(
                             f"Invalid number of input channels for layer {key}. "
-                            f"Should be {in_channels} but {params['in_channels']} was given."
+                            f"Should be {input_tensor.size(1)} but {params['in_channels']} was given."
                         )
-                    in_channels = params["out_channels"]
-                layer_module = getattr(nn, val["type"])(**params)
+                layer_module = layer_constructor(**params)
             else:
-                layer_module = getattr(nn, val["type"])()
+                layer_module = layer_constructor()
+            if not isinstance(layer_module, nn.Module):
+                raise ValueError(f"Add-on class '{val['type']}' must return a torch.nn.Module.")
+            weights = val.get("weights")
+            if weights not in (None, "None"):
+                if not Path(weights).is_file():
+                    raise ValueError(f"Cannot load add-on weights from '{weights}': file does not exist.")
+                weights_paths[key] = weights
             layers[key] = layer_module
         add_on = nn.Sequential(layers)
 
@@ -258,4 +320,40 @@ class ConvExtractor(nn.Module):
         if init_mode:
             add_on.apply(LAYER_INIT_FUNCTIONS[init_mode])
 
-        return add_on, in_channels
+        for key, weights_path in weights_paths.items():
+            state_dict = torch.load(weights_path, map_location="cpu", weights_only=True)
+            if not isinstance(state_dict, Mapping):
+                raise ValueError(f"Checkpoint at '{weights_path}' does not contain a state dictionary.")
+            add_on._modules[key].load_state_dict(state_dict_for(state_dict, f"{module_path}.{key}"))
+
+        return add_on
+
+    @staticmethod
+    def infer_add_on_output_channels(layer: nn.Sequential | None, input_tensor: torch.Tensor | None) -> int | None:
+        r"""Infers the channel count produced by an add-on layer.
+
+        Args:
+            layer (Sequential, optional): Add-on layer to evaluate.
+            input_tensor (Tensor, optional): Dummy feature tensor passed to the add-on.
+
+        Returns:
+            Output channel count, or None when it cannot be inferred.
+
+        Raises:
+            ValueError: If the add-on output is not a four-dimensional feature tensor.
+        """
+        if input_tensor is None:
+            return None
+        if layer is None:
+            return input_tensor.size(1)
+        try:
+            output_tensor = layer(input_tensor)
+        except Exception as error:
+            logger.warning(f"Could not infer add-on output channels from the dummy feature tensor: {error}")
+            return None
+        if output_tensor.ndim != 4:
+            raise ValueError(
+                "Add-on output must be a four-dimensional feature tensor "
+                f"[batch, channels, height, width], got shape {tuple(output_tensor.shape)}."
+            )
+        return output_tensor.size(1)

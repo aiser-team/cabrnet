@@ -123,6 +123,10 @@
               "type": "string",
               "description": "Supported model architecture for the backbone (must belong to torchvision.models.list_models())."
             },
+            "module": {
+              "type": "string",
+              "description": "Optional Python module that provides a custom backbone class named by arch."
+            },
             "layer": {
               "type": "string",
               "description": "Layer name inside the backbone for feature extraction."
@@ -166,6 +170,10 @@
             "arch": {
               "type": "string",
               "description": "Supported model architecture for the backbone (must belong to torchvision.models.list_models())."
+            },
+            "module": {
+              "type": "string",
+              "description": "Optional Python module that provides a custom backbone class named by arch."
             },
             "weights": {
               "type": "string",
@@ -220,6 +228,17 @@
             "type": "string",
             "description": "Layer type."
           },
+          "module": {
+            "type": "string",
+            "description": "Optional Python module that provides a custom add-on class named by type."
+          },
+          "weights": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Optional state-dict path for a custom add-on layer."
+          },
           "params": {
             "type": "object",
             "description": "Layer parameters.",
@@ -238,4 +257,3 @@
     }
   }
 }
-
