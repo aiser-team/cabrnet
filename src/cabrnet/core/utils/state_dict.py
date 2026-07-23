@@ -1,6 +1,6 @@
 """Helpers for loading state dictionaries into submodules."""
 
-from collections.abc import Mapping
+from collections.abc import Mapping, MutableMapping
 from typing import Any
 
 import torch.nn as nn
@@ -71,3 +71,31 @@ def state_dict_key_with_matching_shape(
         if key_fragment in candidate_key and state_dict[candidate_key].size() == reference.size():
             return candidate_key
     return None
+
+
+def remap_state_dict_entry(
+    state_dict: MutableMapping[str, Any],
+    target_state_dict: Mapping[str, Any],
+    remaining_target_keys: list[str],
+    source_key: str,
+    target_key: str,
+) -> None:
+    r"""Validates and moves a legacy state-dictionary entry to its target key.
+
+    Args:
+        state_dict (mutable mapping): State dictionary being converted.
+        target_state_dict (mapping): State dictionary of the target model.
+        remaining_target_keys (list[str]): Target keys not yet matched.
+        source_key (str): Legacy state-dictionary key.
+        target_key (str): Destination key in the target state dictionary.
+
+    Raises:
+        ValueError: If the source and target tensor shapes differ.
+    """
+    if target_state_dict[target_key].size() != state_dict[source_key].size():
+        raise ValueError(
+            f"Mismatching parameter size for {source_key} and {target_key}. "
+            f"Expected {target_state_dict[target_key].size()}, got {state_dict[source_key].size()}"
+        )
+    state_dict[target_key] = state_dict.pop(source_key)
+    remaining_target_keys.remove(target_key)

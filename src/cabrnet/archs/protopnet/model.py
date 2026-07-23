@@ -17,6 +17,7 @@ from cabrnet.archs.generic.model import CaBRNet
 from cabrnet.archs.protopnet.decision import ProtoPNetClassifier
 from cabrnet.core.utils.image import safe_open_image
 from cabrnet.core.utils.optimizers import OptimizerManager
+from cabrnet.core.utils.state_dict import remap_state_dict_entry, state_dict_key_with_matching_shape
 from cabrnet.core.visualization.depictor import ProtoDepictor
 from cabrnet.core.visualization.explainer import ExplanationGraph
 
@@ -87,29 +88,16 @@ class ProtoPNet(CaBRNet):
                     raise ValueError(f"No parameter matching {legacy_key}. Check that model architectures are similar.")
             elif legacy_key.startswith("add_on_layers"):
                 # Add-on layers, find matching parameter based on size
-                ref_size = legacy_state[legacy_key].size()
-                found_match = False
-                for cbrn_key in cbrn_keys:
-                    if "add_on" in cbrn_key:
-                        if cbrn_state[cbrn_key].size() == ref_size:
-                            logger.info(f"Matching parameters {cbrn_key} to {legacy_key} based on identical size.")
-                            found_match = True
-                            break
-                if not found_match:
+                cbrn_key = state_dict_key_with_matching_shape(cbrn_state, cbrn_keys, "add_on", legacy_state[legacy_key])
+                if cbrn_key is None:
                     raise ValueError(f"No parameter matching {legacy_key}. Check that model architectures are similar.")
+                logger.info(f"Matching parameters {cbrn_key} to {legacy_key} based on identical size.")
             elif legacy_key in legacy_to_cabrnet.keys():
                 cbrn_key = legacy_to_cabrnet[legacy_key]
             else:
                 final_state[legacy_key] = torch.unsqueeze(final_state[legacy_key], 0)
 
-            # Update state
-            if cbrn_state[cbrn_key].size() != final_state[legacy_key].size():
-                raise ValueError(
-                    f"Mismatching parameter size for {legacy_key} and {cbrn_key}. "
-                    f"Expected {cbrn_state[cbrn_key].size()}, got {final_state[legacy_key].size()}"
-                )
-            final_state[cbrn_key] = final_state.pop(legacy_key)
-            cbrn_keys.remove(cbrn_key)
+            remap_state_dict_entry(final_state, cbrn_state, cbrn_keys, legacy_key, cbrn_key)
         super().load_state_dict(final_state, strict=False)
 
     def load_state_dict(self, state_dict: dict[str, Any], **kwargs) -> None:  # type:ignore
