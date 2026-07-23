@@ -329,7 +329,7 @@ class CaBRNet(nn.Module):
             default=[],
             metavar="[/path/to/model.pth | ref.or.submodule=/path/to/state.pth]",
             help=(
-                "load a a state dictionary into a module or a submodule; can be repeated."
+                "load a state dictionary into a module or a submodule; can be repeated. "
                 "Example: --load-weights extractor.convnet=encoder.pth --load-weights classifier=classifier.pth"
             ),
         )

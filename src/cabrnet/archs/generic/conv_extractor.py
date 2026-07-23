@@ -3,6 +3,7 @@ import warnings
 from collections import OrderedDict
 from collections.abc import Mapping
 from pathlib import Path
+from typing import Any
 
 import torch
 import torch.nn as nn
@@ -19,6 +20,39 @@ from cabrnet.core.utils.init import LAYER_INIT_FUNCTIONS
 from cabrnet.core.utils.state_dict import state_dict_for
 
 warnings.filterwarnings("ignore")
+
+
+def _normalize_optional_weights(weights: Any, location: str) -> Any:
+    r"""Converts the legacy string sentinel for absent weights to ``None``.
+
+    Args:
+        weights (any): Configured weight value.
+        location (str): Configuration field being normalized.
+
+    Returns:
+        The normalized weight value.
+    """
+    if isinstance(weights, str) and weights == "None":
+        logger.warning(
+            f"Deprecated weights value 'None' in {location}; use YAML null instead. "
+            "Support for the string value will be removed in a future release."
+        )
+        return None
+    return weights
+
+
+def _validate_custom_weights(weights: Any, location: str) -> None:
+    r"""Validates weights configured for a custom component.
+
+    Args:
+        weights (any): Configured weight value.
+        location (str): Custom component type for error reporting.
+
+    Raises:
+        ValueError: If weights are neither absent nor a ``.pth`` checkpoint path.
+    """
+    if weights is not None and (not isinstance(weights, str) or not weights.lower().endswith(".pth")):
+        raise ValueError(f"Custom {location} only support null weights or a path ending in '.pth'. Got: {weights!r}")
 
 
 class ConvExtractor(nn.Module):
@@ -69,13 +103,10 @@ class ConvExtractor(nn.Module):
         arch = backbone_config["arch"]
         module_name = backbone_config.get("module")
         arch_params = backbone_config.get("params", {})
-        weights = backbone_config["weights"]
+        weights = _normalize_optional_weights(backbone_config["weights"], "backbone configuration")
 
         if module_name:
-            if weights not in (None, "None") and (not isinstance(weights, str) or not weights.lower().endswith(".pth")):
-                raise ValueError(
-                    f"Custom backbones only support null weights or a path ending in '.pth'. Got: {weights!r}"
-                )
+            _validate_custom_weights(weights, "backbones")
             backbone_module = importlib.import_module(module_name)
             try:
                 model_constructor = getattr(backbone_module, arch)
@@ -88,7 +119,7 @@ class ConvExtractor(nn.Module):
             def model_constructor(**kwargs):
                 return torch_models.get_model(arch, **kwargs)
 
-        if weights in (None, "None"):
+        if weights is None:
             weights = ""
 
         if Path(weights).is_file():
@@ -268,14 +299,9 @@ class ConvExtractor(nn.Module):
                 init_mode = val
                 continue
             module_name = val.get("module")
+            weights = _normalize_optional_weights(val.get("weights"), f"add-on layer '{key}'")
             if module_name:
-                weights = val.get("weights")
-                if weights not in (None, "None") and (
-                    not isinstance(weights, str) or not weights.lower().endswith(".pth")
-                ):
-                    raise ValueError(
-                        f"Custom add-on layers only support null weights or a path ending in '.pth'. Got: {weights!r}"
-                    )
+                _validate_custom_weights(weights, "add-on layers")
                 add_on_module = importlib.import_module(module_name)
                 try:
                     layer_constructor = getattr(add_on_module, val["type"])
@@ -308,8 +334,7 @@ class ConvExtractor(nn.Module):
                 layer_module = layer_constructor()
             if not isinstance(layer_module, nn.Module):
                 raise ValueError(f"Add-on class '{val['type']}' must return a torch.nn.Module.")
-            weights = val.get("weights")
-            if weights not in (None, "None"):
+            if weights is not None:
                 if not Path(weights).is_file():
                     raise ValueError(f"Cannot load add-on weights from '{weights}': file does not exist.")
                 weights_paths[key] = weights

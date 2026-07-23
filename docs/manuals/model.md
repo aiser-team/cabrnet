@@ -76,7 +76,7 @@ Notes on the configuration of the backbone:
 - `arch`: By default, a backbone architecture from
  [torchvision.models.list_models()](https://pytorch.org/vision/main/generated/torchvision.models.list_models.html).
  When `module` is provided, it is the name of a class in that Python module instead (see below).
-- `module`: Optional importable Python module providing a custom `torch.nn.Module` (see below)
+- `module`: Optional importable Python module providing a custom `torch.nn.Module` (see below).
 - `weights`: The backbone parameters can be either initialized:
     - randomly (`null` keyword).
     - by providing the path to an existing state dictionary or trained model.
@@ -107,7 +107,6 @@ using the `add_on` keyword. In this case, each layer is identified by a layer na
 - `type`: Supported layer types can be found in [torch.nn](https://pytorch.org/docs/stable/nn.html).
 - `params`: An optional field that contains the information necessary to build the layer.
 
-
 CaBRNet also supports the (optional) use of special function for the initialization of the add-on layers,
 through the `init_mode` keyword:
 
@@ -117,8 +116,8 @@ for convolutional layers and a static starting configuration for BatchNorm layer
 
 ### Custom architectures and weights
 
-Most configuration files in CaBRNet support custom Python classes as torch modules.
-The pattern is always the same: specify the Python path to a file, then specify which class in this file you want to use.
+Custom backbone and add-on classes can be imported from a Python module. Specify the importable module path and
+the class name to use. Custom components support either `null` weights or the path to a `.pth` checkpoint.
 
 ```yaml
 extractor:
@@ -135,17 +134,17 @@ extractor:
       special:
         module: cabrnet.core.archs.my_arch.my_addon
         type: CustomAddOn # Class name in the module above
+        weights: null
 ```
 
 Notice that you can pass a `.pth` file to load the backbone model weights. This can be either the backbone state dict
-or a trained CaBRNet checkpoint; in the latter case, CaBRNet selects `extractor.convnet` automatically (same for addons).
+or a trained CaBRNet checkpoint; in the latter case, CaBRNet selects `extractor.convnet` automatically (same for add-ons).
 
 You can also load the weights from the app CLI using the `--load-weights` command.
 
 ```bash
 cabrnet train -c configs/... -o result/... --load-weights extractor.convnet=path/to/backbone_weights.pth
 ```
-
 
 ### Multi-layer extraction
 To extract features from multiple layers simultaneously, CaBRNet proposes an alternate way to describe

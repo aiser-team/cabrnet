@@ -3,8 +3,8 @@
 from collections.abc import Mapping, MutableMapping
 from typing import Any
 
-import torch.nn as nn
 import torch
+import torch.nn as nn
 
 
 def state_dict_for(state_dict: Mapping[str, Any], key: str) -> Mapping[str, Any]:
