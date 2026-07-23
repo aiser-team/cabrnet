@@ -49,7 +49,15 @@ def state_dict_for(state_dict: Mapping[str, Any], key: str) -> Mapping[str, Any]
 
 
 def available_module_paths(module: nn.Module, max_depth: int = 3) -> list[str]:
-    r"""Lists module paths up to a maximum nesting depth."""
+    r"""Lists module paths up to a maximum nesting depth.
+
+    Args:
+        module (nn.module): Module to get the names from.
+        max_depth (int, optional): Max depth of the extracted module names. Default: 3.
+
+    Returns:
+        list of all identifiers of the children modules.
+    """
     return [name for name, _ in module.named_modules() if name and name.count(".") < max_depth]
 
 
