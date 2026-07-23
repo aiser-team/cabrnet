@@ -5,8 +5,9 @@ import importlib
 import random
 import shutil
 import time
+from collections.abc import Sized
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any, Callable, NamedTuple
 
 import numpy as np
 import torch
@@ -27,6 +28,29 @@ from cabrnet.core.utils.parser import load_config
 if TYPE_CHECKING:
     from cabrnet.core.visualization.depictor import ProtoDepictor
     from torch.utils.tensorboard.writer import SummaryWriter
+
+
+class EvaluationResult(NamedTuple):
+    r"""Results collected while evaluating a dataset.
+
+    Attributes:
+        stats: Batch statistics, averaged over all samples in the dataset.
+        logits: Prediction logits for all samples when requested, otherwise None.
+        labels: Targets for all samples when prediction collection is requested, otherwise None.
+    """
+
+    stats: dict[str, float]
+    logits: Tensor | None = None
+    labels: Tensor | None = None
+
+    @property
+    def num_inputs(self) -> int:
+        r"""Returns the number of collected predictions.
+
+        Returns:
+            Number of collected predictions, or zero when predictions were not collected.
+        """
+        return 0 if self.labels is None else len(self.labels)
 
 
 class CaBRNet(nn.Module):
@@ -794,6 +818,75 @@ class CaBRNet(nn.Module):
 
         return outputs, all_labels, timing_info
 
+    def _evaluate_batches(
+        self,
+        dataloader: DataLoader,
+        device: str | torch.device = "cuda:0",
+        tqdm_position: int = 0,
+        verbose: bool = False,
+        collect_predictions: bool = False,
+        **kwargs,
+    ) -> EvaluationResult:
+        r"""Evaluates all batches from a dataloader in a single inference pass.
+
+        This helper computes the usual batch-averaged statistics. When ``collect_predictions`` is enabled, it also
+        collects logits and labels on the CPU so subclasses can compute metrics that require the complete dataset
+        (for example, AUROC or mean average precision) without running inference twice.
+
+        Args:
+            dataloader (DataLoader): Dataloader containing the evaluation data.
+            device (str | device): Hardware device.
+            tqdm_position (int): Position of the progress bar.
+            verbose (bool): Display progress bar.
+            collect_predictions (bool): If True, return all logits and labels in the result.
+
+        Returns:
+            Evaluation statistics and, optionally, collected logits and labels.
+        """
+        self.eval()
+        self.to(device)
+
+        stats: dict[str, float] = {}
+        nb_inputs = 0
+        logits: list[Tensor] = []
+        labels: list[Tensor] = []
+
+        data_iter = tqdm(
+            dataloader,
+            desc="Model evaluation",
+            total=len(dataloader),
+            leave=False,
+            position=tqdm_position,
+            disable=not verbose,
+        )
+        with torch.no_grad():
+            ref_time = time.time()
+            for xs, ys in data_iter:
+                nb_inputs += xs.size(0)
+                xs, ys = xs.to(device), ys.to(device)
+                data_time = time.time() - ref_time
+
+                model_output = self.forward(xs, **kwargs)
+                _, batch_stats = self.loss(model_output, ys)
+
+                for key, value in batch_stats.items():
+                    stats[key] = stats.get(key, 0.0) + value * xs.size(0)
+
+                if collect_predictions:
+                    logits.append(model_output[0].detach().cpu())
+                    labels.append(ys.detach().cpu())
+
+                batch_time = time.time() - ref_time
+                batch_stats_str = ", ".join([f"{loss}: {value:.2f}" for (loss, value) in batch_stats.items()])
+                postfix_str = batch_stats_str + f", time: {batch_time:.2f}s (data: {data_time:.2f})"
+                data_iter.set_postfix_str(postfix_str)
+                ref_time = time.time()
+
+        stats = {key: value / nb_inputs for key, value in stats.items()}
+        if collect_predictions and logits:
+            return EvaluationResult(stats=stats, logits=torch.cat(logits), labels=torch.cat(labels))
+        return EvaluationResult(stats=stats)
+
     def evaluate(
         self,
         dataloaders: dict[str, DataLoader],
@@ -820,56 +913,28 @@ class CaBRNet(nn.Module):
         logger.info("Evaluating classifier")
         self.eval()
         self.to(device)
-
-        # Global stats
-        stats = {}
-        nb_inputs = 0
-
-        # Show progress on progress bar if needed
         dataloader = dataloaders[dataset_name]
-        data_iter = tqdm(
-            dataloader,
-            desc="Model evaluation",
-            total=len(dataloader),
-            leave=False,
-            position=tqdm_position,
-            disable=not verbose,
-        )
-        with torch.no_grad():
-            if profile:
-                # Get computing stats
-                xs, _ = next(iter(dataloader))
-                xs = xs.to(device)
-                flops = profile_batch(self, inputs=(xs,), verbose=False)[0]
-                flops /= xs.size(0)
-
-            ref_time = time.time()
-            for xs, ys in data_iter:
-                nb_inputs += xs.size(0)
-                xs, ys = xs.to(device), ys.to(device)
-                data_time = time.time() - ref_time
-
-                # Perform inference and compute loss
-                ys_pred = self.forward(xs, **kwargs)
-                _, batch_stats = self.loss(ys_pred, ys)
-
-                # Update all metrics
-                if not stats:
-                    stats = {key: 0.0 for key in batch_stats}
-                for key, value in batch_stats.items():
-                    stats[key] += value * xs.size(0)
-
-                # Update progress bar
-                batch_time = time.time() - ref_time
-                batch_stats_str = ", ".join([f"{loss}: {value:.2f}" for (loss, value) in batch_stats.items()])
-                postfix_str = batch_stats_str + f", time: {batch_time:.2f}s (data: {data_time:.2f})"
-                data_iter.set_postfix_str(postfix_str)
-                ref_time = time.time()
-
-        stats = {f"{dataset_name}/{key}": value / nb_inputs for key, value in stats.items()}
 
         if profile:
-            stats[f"{dataset_name}/Gflops"] = flops * nb_inputs / 1e9
+            # Get computing stats
+            xs, _ = next(iter(dataloader))
+            xs = xs.to(device)
+            flops = profile_batch(self, inputs=(xs,), verbose=False)[0]
+            flops /= xs.size(0)
+
+        result = self._evaluate_batches(
+            dataloader=dataloader,
+            device=device,
+            tqdm_position=tqdm_position,
+            verbose=verbose,
+            **kwargs,
+        )
+        stats = {f"{dataset_name}/{key}": value for key, value in result.stats.items()}
+
+        if profile:
+            if not isinstance(dataloader.dataset, Sized):
+                raise TypeError("Profiling requires a sized dataset")
+            stats[f"{dataset_name}/Gflops"] = flops * len(dataloader.dataset) / 1e9
 
         return stats
 

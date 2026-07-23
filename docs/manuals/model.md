@@ -565,19 +565,23 @@ class ArchName(CaBRNet):
 
     def evaluate(
         self,
-        dataloader: DataLoader,
+        dataloaders: dict[str, DataLoader],
+        dataset_name: str = "test_set",
         device: str | torch.device = "cuda:0",
         tqdm_position: int = 0,
         verbose: bool = False,
+        profile: bool = False,
         **kwargs,
     ) -> dict[str, float]:
         r"""Evaluates the model.
 
         Args:
-            dataloader (DataLoader): Dataloader containing evaluation data.
+            dataloaders (dictionary): Dictionary of dataloaders.
+            dataset_name (str, optional): Name of the dataset used for evaluation. Default: test_set.
             device (str | device, optional): Hardware device. Default: cuda:0.
             tqdm_position (int, optional): Position of the progress bar. Default: 0.
             verbose (bool, optional): Display progress bar. Default: 0.
+            profile (bool, optional): Profile model. Default: False.
 
         Returns:
             Dictionary containing evaluation statistics.
@@ -705,3 +709,11 @@ class ArchName(CaBRNet):
 Note that the [CaBRNet](https://github.com/aiser-team/cabrnet/blob/main/src/cabrnet/archs/generic/model.py)
 class provides an internal function `_train_epoch` that implements a standard training loop iterating over
 batches of data. This loop can be customized by implementing a method `_training_batch_hook` which is called **after each batch**.
+
+For metrics requiring all evaluation samples, override `evaluate` and collect predictions in its existing inference pass.
+`EvaluationResult` provides averaged batch statistics and CPU logits and labels.
+
+```python
+result = self._evaluate_batches(dataloaders[dataset_name], collect_predictions=True, device=device)
+result.stats["map"] = compute_map(result.logits, result.labels)
+```

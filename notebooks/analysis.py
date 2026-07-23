@@ -42,7 +42,7 @@ def _():
     mo.md(r"""
     # Cabrnet's model analyser
 
-    This script enables you to select a trained model and visualize explainations in a wide range of situations.
+    This script enables you to select a trained model and visualize explanations in a wide range of situations.
     """)
     return
 
@@ -128,20 +128,21 @@ def _(dataloaders, device_selector, model, run_button):
         not run_button.value,
         mo.callout("Click on previous button to evaluate model", "info"),
     )
-    outputs, labels, _timing = model.collect_predictions(
+    evaluation = model._evaluate_batches(
         dataloader=dataloaders["test_set"],
-        dataset_name="test_set",
         device=device_selector.value,
         verbose=True,
+        collect_predictions=True,
     )
-    return labels, outputs
+    stats_eval = {f"test_set/{key}": value for key, value in evaluation.stats.items()}
+    outputs, labels = evaluation.logits, evaluation.labels
+    return labels, outputs, stats_eval
 
 
 @app.cell(hide_code=True)
-def _(device_selector, labels, model, outputs):
+def _(labels, outputs, stats_eval):
     preds = outputs.argmax(1)
     confusion = confusion_matrix(labels.cpu(), preds.cpu())
-    _, stats_eval = model.loss(outputs, labels.to(device_selector.value))
     mo.ui.tabs(
         {
             "Evaluation statistics": {k: round(v, 3) for k, v in stats_eval.items()},
