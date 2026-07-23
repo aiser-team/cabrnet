@@ -244,6 +244,10 @@ def execute(args: Namespace) -> None:
             r"""Returns the statistics for this trial."""
             # Build model
             model = CaBRNet.build_from_config(config=self.model_arch, seed=seed)
+            for module_path, weights_path in CaBRNet.parse_load_weights(args.load_weights).items():
+                model.load_submodule_state_dict(
+                    module_path, torch.load(weights_path, map_location="cpu", weights_only=True)
+                )
             # Register auxiliary training parameters directly into model
             model.register_training_params(self.training_config)
 

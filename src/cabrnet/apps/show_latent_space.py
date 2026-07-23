@@ -260,6 +260,8 @@ def execute(args: Namespace) -> None:
 
     # Build model and load state dictionary
     model = CaBRNet.build_from_config(config=args.model_arch, state_dict_path=args.model_state_dict)
+    for module_path, weights_path in CaBRNet.parse_load_weights(args.load_weights).items():
+        model.load_submodule_state_dict(module_path, torch.load(weights_path, map_location="cpu", weights_only=True))
 
     dataloaders = DatasetManager.get_dataloaders(config=args.dataset, sampling_ratio=args.sampling_ratio)
 
