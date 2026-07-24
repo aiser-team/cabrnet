@@ -1,8 +1,9 @@
 import argparse
 import importlib
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 import torch
 from loguru import logger
@@ -62,6 +63,10 @@ class ProtoDepictor(ABC):
     r"""Base class for *depictors*.
 
     A depictor generates and saves interpretations of a prototype to a human-readable format (image, audio ...).
+
+    Attributes:
+        config_file: Path to the configuration file used to build this object, if any.
+        transform: Preprocessing transform applied to raw input. Must be set to (lambda x: x) if no transform.
     """
 
     DEFAULT_VISUALIZATION_CONFIG = Path("visualization.yml")
@@ -72,14 +77,15 @@ class ProtoDepictor(ABC):
     config_file: Path | None
 
     transform: Callable
-    """
-    transformed used to generate model input from raw data. Must be set to (lambda x: x) if no transform.
-    """
 
     @property
     @abstractmethod
     def extension(self) -> str:
-        r"""File extension for output files (without dot)."""
+        r"""File extension for output files (without dot).
+
+        Returns:
+            File extension without a leading dot.
+        """
         raise NotImplementedError
 
     @abstractmethod
@@ -95,12 +101,13 @@ class ProtoDepictor(ABC):
         r"""Generates and saves a visualization.
 
         Args:
-            raw_input: Raw input data (e.g., PIL Image, audio tensor).
-            folder: Output directory.
-            filename: Filename without extension.
-            proto_idx: Prototype index.
-            device: Hardware device.
-            location: Optional location inside the similarity map.
+            raw_input (Any): Raw input data (e.g., PIL Image, audio tensor).
+            folder (Path): Output directory.
+            filename (str): Filename without extension.
+            proto_idx (int): Prototype index.
+            device (str | device): Hardware device.
+            location (tuple[int, int] | str | None, optional): Location inside the similarity map.
+                Default: None.
 
         Returns:
             Path to the saved file.
@@ -115,8 +122,8 @@ class ProtoDepictor(ABC):
         r"""Creates the argument parser for a depictor.
 
         Args:
-            parser: Existing parser (if any). Default: None.
-            mandatory_config: If True, makes the configuration mandatory. Default: False.
+            parser (ArgumentParser, optional): Existing parser (if any). Default: None.
+            mandatory_config (bool, optional): If True, makes the configuration mandatory. Default: False.
 
         Returns:
             The parser itself.
@@ -140,13 +147,12 @@ class ProtoDepictor(ABC):
         r"""Builds a depictor from a configuration file or dictionary.
 
         Args:
-            config: Path to configuration file or dictionary.
-            model: Target model.
-            dataset_config: Dataset configuration dictionary.
+            config (Path | dict): Path to configuration file or dictionary.
+            model (CaBRNet): Target model.
+            dataset_config (dict): Dataset configuration dictionary.
 
         Returns:
             Depictor instance.
-
         """
         from cabrnet.core.utils.parser import load_config
 
