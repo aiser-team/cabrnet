@@ -6,9 +6,9 @@ from pathlib import Path
 from typing import Any
 
 import torch
-import torch.nn as nn
 import torchvision.models as torch_models
 from loguru import logger
+from torch import nn
 from torchvision.models.feature_extraction import (
     create_feature_extractor,
     get_graph_node_names,
@@ -20,6 +20,26 @@ from cabrnet.core.utils.init import LAYER_INIT_FUNCTIONS
 from cabrnet.core.utils.state_dict import state_dict_for
 
 warnings.filterwarnings("ignore")
+
+CHANNEL_PRESERVING_ADD_ON_LAYERS = (
+    nn.AdaptiveAvgPool2d,
+    nn.AvgPool2d,
+    nn.BatchNorm2d,
+    nn.Dropout,
+    nn.Dropout2d,
+    nn.ELU,
+    nn.GELU,
+    nn.Identity,
+    nn.LeakyReLU,
+    nn.MaxPool2d,
+    nn.PReLU,
+    nn.ReLU,
+    nn.SELU,
+    nn.SiLU,
+    nn.Sigmoid,
+    nn.Softplus,
+    nn.Tanh,
+)
 
 
 def _normalize_optional_weights(weights: Any, location: str) -> Any:
@@ -55,6 +75,100 @@ def _validate_custom_weights(weights: Any, location: str) -> None:
         raise ValueError(f"Custom {location} only support null weights or a path ending in '.pth'. Got: {weights!r}")
 
 
+def _create_layer(
+    layer_name: str, config: dict[str, Any], input_channels: int | None, weights: Any
+) -> tuple[nn.Module, int | None]:
+    r"""Builds an add-on layer and determines its output channels when possible.
+    This allows to create a sequence of addon layers without specifying the number of channels for each component.
+
+    Args:
+        layer_name (str): Add-on layer identifier.
+        config (dictionary): Layer configuration.
+        input_channels (int, optional): Number of channels produced by the preceding layer.
+        weights (any): Optional layer checkpoint path.
+
+    Returns:
+        The layer and its output channel count, if known.
+
+    Raises:
+        ValueError: If the configuration is invalid.
+    """
+    module_name = config.get("module")
+    if module_name is not None:
+        _validate_custom_weights(weights, "add-on layers")
+        add_on_module = importlib.import_module(module_name)
+        try:
+            layer_constructor = getattr(add_on_module, config["type"])
+        except AttributeError as error:
+            raise ValueError(f"Add-on class '{config['type']}' does not exist in module '{module_name}'.") from error
+    else:
+        if not hasattr(nn, config["type"]):
+            raise ValueError(f"Module {config['type']} not found in torch.nn")
+        layer_constructor = getattr(nn, config["type"])
+
+    params = config.get("params")
+    if module_name is None and config["type"] == "Conv2d":
+        layer_module = _create_conv2d(layer_name, params, input_channels)
+    elif params is not None:
+        layer_module = layer_constructor(**params)
+    else:
+        layer_module = layer_constructor()
+    if not isinstance(layer_module, nn.Module):
+        raise ValueError(f"Add-on class '{config['type']}' must return a torch.nn.Module.")
+
+    return layer_module, _output_channels_for(layer_module, input_channels, module_name)
+
+
+def _create_conv2d(layer_name: str, params: dict[str, Any] | None, input_channels: int | None) -> nn.Conv2d:
+    r"""Builds a convolutional add-on layer with validated input channels.
+
+    Args:
+        layer_name (str): Add-on layer identifier.
+        params (dictionary, optional): Convolution parameters.
+        input_channels (int, optional): Number of channels produced by the preceding layer.
+
+    Returns:
+        Configured convolutional layer.
+
+    Raises:
+        ValueError: If input channels cannot be inferred or do not match the configuration.
+    """
+    if params is None:
+        raise ValueError(f"Convolutional add-on layer {layer_name} must provide parameters.")
+    configured_channels = params.get("in_channels")
+    if configured_channels is None:
+        if input_channels is None:
+            raise ValueError(
+                f"Could not infer input channels for convolutional add-on layer {layer_name}. "
+                "Set its in_channels explicitly."
+            )
+        params["in_channels"] = input_channels
+    elif input_channels is not None and configured_channels != input_channels:
+        raise ValueError(
+            f"Invalid number of input channels for layer {layer_name}. "
+            f"Should be {input_channels} but {configured_channels} was given."
+        )
+    return nn.Conv2d(**params)
+
+
+def _output_channels_for(layer: nn.Module, input_channels: int | None, module_name: str | None) -> int | None:
+    r"""Returns output channels for a layer whose channel behavior is known.
+
+    Args:
+        layer (Module): Configured add-on layer.
+        input_channels (int, optional): Number of channels produced by the preceding layer.
+        module_name (str, optional): Module that provided the layer class.
+
+    Returns:
+        Output channels, or None for custom and channel-changing layers.
+    """
+    if isinstance(layer, nn.Conv2d):
+        return layer.out_channels
+    if module_name is None and isinstance(layer, CHANNEL_PRESERVING_ADD_ON_LAYERS):
+        return input_channels
+    return None
+
+
 class ConvExtractor(nn.Module):
     r"""Class representing the feature extractor.
 
@@ -85,7 +199,7 @@ class ConvExtractor(nn.Module):
         Raises:
             ValueError when configuration is invalid.
         """
-        super(ConvExtractor, self).__init__()
+        super().__init__()
 
         # Check mandatory fields
         check_mandatory_fields(
@@ -224,19 +338,22 @@ class ConvExtractor(nn.Module):
             logger.warning(f"Could not infer feature shapes from the backbone dummy tensor: {error}")
             output_tensors = None
 
-        add_ons = {}
-        output_channels: dict[str, int | None] = {}
-        for pipeline_name in self.source_layers.keys():
+        add_ons, output_channels = {}, {}
+        for pipeline_name in self.source_layers:
             feature_tensor = output_tensors[pipeline_name] if output_tensors is not None else None
             add_on_module_path = "extractor.add_on"
             if self.num_pipelines > 1:
                 add_on_module_path = f"{add_on_module_path}.{pipeline_name}"
-            add_ons[pipeline_name] = self.create_add_on(
+            add_on_result = self.create_add_on(
                 config=config[pipeline_name].get("add_on"),
                 in_channels=feature_tensor.size(1) if feature_tensor is not None else None,
                 module_path=add_on_module_path,
             )
-            output_channels[pipeline_name] = self.infer_add_on_output_channels(add_ons[pipeline_name], feature_tensor)
+            if add_on_result is None:
+                add_ons[pipeline_name] = None
+                output_channels[pipeline_name] = feature_tensor.size(1) if feature_tensor is not None else None
+            else:
+                add_ons[pipeline_name], output_channels[pipeline_name] = add_on_result
 
         # Create a ModuleDict to register add-on layers as submodules, or simply use a single add-on module
         self.add_on = nn.ModuleDict(add_ons) if self.num_pipelines > 1 else add_ons[next(iter(add_ons))]
@@ -269,12 +386,12 @@ class ConvExtractor(nn.Module):
     @staticmethod
     def create_add_on(
         config: dict[str, dict] | None, in_channels: int | None, module_path: str = "extractor.add_on"
-    ) -> nn.Sequential | None:
+    ) -> tuple[nn.Sequential, int | None] | None:
         r"""Builds configured add-on layers.
 
-        ``in_channels`` is inferred by an optional dummy backbone pass. When custom add-on
-        layers are mixed with ``Conv2d`` layers, every convolution must declare its input
-        channels explicitly.
+        ``in_channels`` is inferred by an optional dummy backbone pass. Channel flow is
+        propagated through built-in convolutional and channel-preserving layers without
+        executing the add-on. Custom layers have unknown output channels.
 
         Args:
             config (dictionary): Add-on layers configuration.
@@ -283,7 +400,7 @@ class ConvExtractor(nn.Module):
                 Default: "extractor.add_on".
 
         Returns:
-            Module containing all add-on layers.
+            The add-on module and its output channel count, if known; None when no add-on is configured.
 
         Raises:
             ValueError when the configuration is invalid.
@@ -295,20 +412,7 @@ class ConvExtractor(nn.Module):
         layers: OrderedDict[str, nn.Module] = OrderedDict()
         weights_paths: dict[str, str] = {}
         init_mode = None
-        layer_configs = [val for key, val in config.items() if key != "init_mode"]
-        has_custom_layer = any(val.get("module") is not None for val in layer_configs)
-        has_conv2d = any(val.get("module") is None and val["type"] == "Conv2d" for val in layer_configs)
-        requires_explicit_channels = has_custom_layer and has_conv2d
-        if requires_explicit_channels:
-            for key, val in config.items():
-                if key == "init_mode" or val.get("module") is not None or val["type"] != "Conv2d":
-                    continue
-                params = val.get("params")
-                if params is None or params.get("in_channels") is None:
-                    raise ValueError(
-                        f"Convolutional add-on layer {key} must declare in_channels when mixed with "
-                        "custom add-on layers."
-                    )
+        output_channels = in_channels
 
         for key, val in config.items():
             if key == "init_mode":
@@ -317,46 +421,8 @@ class ConvExtractor(nn.Module):
                     raise ValueError(f"Unsupported add_on layers initialisation mode {val}")
                 init_mode = val
                 continue
-            module_name = val.get("module")
             weights = _normalize_optional_weights(val.get("weights"), f"add-on layer '{key}'")
-            if module_name is not None:
-                _validate_custom_weights(weights, "add-on layers")
-                add_on_module = importlib.import_module(module_name)
-                try:
-                    layer_constructor = getattr(add_on_module, val["type"])
-                except AttributeError as error:
-                    raise ValueError(
-                        f"Add-on class '{val['type']}' does not exist in module '{module_name}'."
-                    ) from error
-            else:
-                if not hasattr(nn, val["type"]):
-                    raise ValueError(f"Module {val['type']} not found in torch.nn")
-                layer_constructor = getattr(nn, val["type"])
-            params = val.get("params")
-            if params is not None:
-                if module_name is None and val["type"] == "Conv2d":
-                    # Check or update in_channels
-                    if params.get("in_channels") is None:
-                        if in_channels is None:
-                            raise ValueError(
-                                f"Could not infer input channels for convolutional add-on layer {key}. "
-                                "Set its in_channels explicitly."
-                            )
-                        params["in_channels"] = in_channels
-                    elif (
-                        not requires_explicit_channels
-                        and in_channels is not None
-                        and params["in_channels"] != in_channels
-                    ):
-                        raise ValueError(
-                            f"Invalid number of input channels for layer {key}. "
-                            f"Should be {in_channels} but {params['in_channels']} was given."
-                        )
-                layer_module = layer_constructor(**params)
-            else:
-                layer_module = layer_constructor()
-            if not isinstance(layer_module, nn.Module):
-                raise ValueError(f"Add-on class '{val['type']}' must return a torch.nn.Module.")
+            layer_module, output_channels = _create_layer(key, val, output_channels, weights)
             if weights is not None:
                 if not Path(weights).is_file():
                     raise ValueError(f"Cannot load add-on weights from '{weights}': file does not exist.")
@@ -375,42 +441,4 @@ class ConvExtractor(nn.Module):
                 raise ValueError(f"Checkpoint at '{weights_path}' does not contain a state dictionary.")
             add_on._modules[key].load_state_dict(state_dict_for(state_dict, f"{module_path}.{key}"))
 
-        return add_on
-
-    @staticmethod
-    def infer_add_on_output_channels(layer: nn.Sequential | None, input_tensor: torch.Tensor | None) -> int | None:
-        r"""Infers add-on output channels by running a dummy feature tensor.
-
-        Runtime inference supports custom layers whose output channels cannot be read from their configuration.
-        The probe uses evaluation mode and no gradients to avoid changing add-on state.
-
-        Args:
-            layer (Sequential, optional): Add-on layer to evaluate.
-            input_tensor (Tensor, optional): Dummy feature tensor passed to the add-on.
-
-        Returns:
-            Output channel count, or None when it cannot be inferred.
-
-        Raises:
-            ValueError: If the add-on output is not a four-dimensional feature tensor.
-        """
-        if input_tensor is None:
-            return None
-        if layer is None:
-            return input_tensor.size(1)
-        was_training = layer.training
-        layer.eval()
-        try:
-            with torch.no_grad():
-                output_tensor = layer(input_tensor)
-        except Exception as error:
-            logger.warning(f"Could not infer add-on output channels from the dummy feature tensor: {error}")
-            return None
-        finally:
-            layer.train(was_training)
-        if output_tensor.ndim != 4:
-            raise ValueError(
-                "Add-on output must be a four-dimensional feature tensor "
-                f"[batch, channels, height, width], got shape {tuple(output_tensor.shape)}."
-            )
-        return output_tensor.size(1)
+        return add_on, output_channels
