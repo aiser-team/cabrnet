@@ -38,10 +38,10 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         "--targets",
         type=str,
         nargs="+",
-        default=["test_set"],
+        default=None,
         required=False,
         metavar="dataset-name",
-        help="name of the target dataset(s). Default: test_set",
+        help="name of the target dataset(s). Default: all declared test sets",
     )
     return parser
 
@@ -89,12 +89,16 @@ def execute(args: Namespace) -> None:
     dataloaders = DatasetManager.get_dataloaders(config=args.dataset, sampling_ratio=args.sampling_ratio)
     model.to(args.device)
 
+    targets = args.targets if args.targets is not None else DatasetManager.test_set_names(dataloaders)
+    if not targets:
+        raise ArgumentError("No test set declared in the dataset configuration.")
+
     # Check relevance of all targets first
-    for target in args.targets:
+    for target in targets:
         if not dataloaders.get(target):
             raise ArgumentError(f"Unknown target dataset: {target}")
 
-    for target in args.targets:
+    for target in targets:
         logger.info(f"Target: {target}")
         stats = model.evaluate(
             dataloaders=dataloaders, dataset_name=target, device=args.device, tqdm_position=0, verbose=args.verbose

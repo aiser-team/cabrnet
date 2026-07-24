@@ -1,0 +1,66 @@
+test_set:
+  module: torchvision.datasets.mnist
+  name: MNIST
+  params:
+    root: data
+    download: true
+    train: false
+    transform:
+      convert:
+        module: cabrnet.core.utils.custom_preprocess
+        type: convert_to_rgb
+      resize:
+        type: Resize
+        params:
+          size: [128, 128]
+      to_tensor:
+        type: ToTensor
+  batch_size: 4
+  shuffle: false
+  partition: [0.9, 0.91]
+  partition_seed: 0
+
+# Two named validation sets, each 1% of the MNIST test split (disjoint slices).
+val_sets:
+  slice_a:
+    module: torchvision.datasets.mnist
+    name: MNIST
+    params:
+      root: data
+      download: true
+      train: false
+      transform:
+        convert:
+          module: cabrnet.core.utils.custom_preprocess
+          type: convert_to_rgb
+        resize:
+          type: Resize
+          params:
+            size: [128, 128]
+        to_tensor:
+          type: ToTensor
+    batch_size: 4
+    shuffle: false
+    partition: [0.0, 0.01]
+    partition_seed: 0
+  slice_b:
+    module: torchvision.datasets.mnist
+    name: MNIST
+    params:
+      root: data
+      download: true
+      train: false
+      transform:
+        convert:
+          module: cabrnet.core.utils.custom_preprocess
+          type: convert_to_rgb
+        resize:
+          type: Resize
+          params:
+            size: [128, 128]
+        to_tensor:
+          type: ToTensor
+    batch_size: 4
+    shuffle: false
+    partition: [0.5, 0.51]
+    partition_seed: 0

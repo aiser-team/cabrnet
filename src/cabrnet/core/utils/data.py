@@ -37,6 +37,62 @@ SUPPORTED_COLLATE_FUNCTIONS = {"concat_collate": concat_collate}
 DATA_ROOT_VARENV = "CABRNET_DATA_ROOT"
 
 
+# Dataset roles that can be declared either as a single legacy entry or as a named collection.
+_SINGULAR_TO_PLURAL = {"test_set": "test_sets", "val_set": "val_sets"}
+
+
+def named_dataset_configs(dataset_cfg: dict, singular: str) -> dict[str, dict]:
+    r"""Returns named dataset configurations for a role declared either as a single legacy entry or as a
+    collection of named entries, using their internal loader names.
+
+    A legacy config has one top-level entry (e.g. ``test_set``). A collection under the plural key (e.g.
+    ``test_sets``) is flattened to ``<plural>/<name>`` for the dataloader and metric namespaces, while the
+    user-facing YAML remains nested.
+
+    Args:
+        dataset_cfg (dict): Dataset configuration dictionary.
+        singular (str): Legacy top-level key for this role ('test_set' or 'val_set').
+
+    Returns:
+        Mapping of internal loader name to dataset configuration, for each declared entry of this role.
+    """
+    plural = _SINGULAR_TO_PLURAL[singular]
+    has_legacy_entry = singular in dataset_cfg
+    has_collection = plural in dataset_cfg
+    if has_legacy_entry and has_collection:
+        raise ValueError(f"Specify either '{singular}' or '{plural}', not both.")
+    if has_legacy_entry:
+        return {singular: dataset_cfg[singular]}
+    if not has_collection:
+        return {}
+
+    collection = dataset_cfg[plural]
+    if not isinstance(collection, dict):
+        raise TypeError(f"'{plural}' must be a mapping of dataset names to dataset configurations.")
+    if not collection:
+        raise ValueError(f"'{plural}' must contain at least one dataset configuration.")
+    return {f"{plural}/{name}": config for name, config in collection.items()}
+
+
+def flatten_dataset_collections(dataset_cfg: dict) -> dict:
+    r"""Flattens named dataset collections to the format expected by ``DatasetManager``.
+
+    Args:
+        dataset_cfg (dict): Dataset configuration dictionary.
+
+    Returns:
+        Dataset configuration dictionary with named collections flattened to internal loader names.
+    """
+    reserved_keys = set(_SINGULAR_TO_PLURAL) | set(_SINGULAR_TO_PLURAL.values())
+    flattened = {name: config for name, config in dataset_cfg.items() if name not in reserved_keys}
+    for singular, plural in _SINGULAR_TO_PLURAL.items():
+        for name, config in named_dataset_configs(dataset_cfg, singular).items():
+            if name in flattened:
+                raise ValueError(f"Duplicate dataset name after flattening {plural}: {name}")
+            flattened[name] = config
+    return flattened
+
+
 class VisionDatasetSubset(Subset):
     r"""Overwrites the Subset class so that it exposes all properties of a VisionDataset."""
 
@@ -128,12 +184,17 @@ class DatasetManager:
             raise ValueError(f"Unsupported configuration format: {type(config)}")
         if isinstance(config, Path):
             config = load_config(config)
+        has_test_collection = "test_sets" in config
+        config = flatten_dataset_collections(config)
         if sampling_ratio > 1:
             logger.warning(f"{'=' * 20} SAMPLING RATIO > 1: PROCESSING 1/{sampling_ratio} IMAGES {'=' * 20}")
         datasets: dict[str, dict[str, Dataset]] = {}
 
-        # Configuration should include at least train and projection sets
-        mandatory_sets = ["train_set", "projection_set", "test_set"]
+        # Legacy configurations expose one ``test_set``. New configurations
+        # may provide a named ``test_sets`` collection instead.
+        mandatory_sets = ["train_set", "projection_set"]
+        if not has_test_collection:
+            mandatory_sets.append("test_set")
         for dataset_name in mandatory_sets:
             if dataset_name not in config:
                 logger.error(f"Missing configuration for {dataset_name}.")
@@ -255,6 +316,7 @@ class DatasetManager:
             raise ValueError(f"Unsupported configuration format: {type(config)}")
         if isinstance(config, Path):
             config = load_config(config)
+        config = flatten_dataset_collections(config)
 
         datasets = DatasetManager.get_datasets(
             config=config, sampling_ratio=sampling_ratio, load_segmentation=load_segmentation
@@ -312,6 +374,50 @@ class DatasetManager:
         return dataloaders
 
     @staticmethod
+    def named_dataloaders(dataloaders: dict[str, DataLoader], singular: str) -> list[str]:
+        r"""Returns the names of all dataloaders for a role declared either as a single legacy entry or as a
+        named collection (e.g. 'test_set'/'test_sets' or 'val_set'/'val_sets').
+
+        Args:
+            dataloaders (dict): Dictionary of dataloaders, as returned by get_dataloaders.
+            singular (str): Legacy top-level key for this role ('test_set' or 'val_set').
+
+        Returns:
+            Names of the legacy loader and/or any collection loaders for this role, excluding their
+            '_raw'/'_seg' companion loaders.
+        """
+        plural = _SINGULAR_TO_PLURAL[singular]
+        return [
+            name
+            for name in dataloaders
+            if (name == singular or name.startswith(f"{plural}/")) and not name.endswith(("_raw", "_seg"))
+        ]
+
+    @staticmethod
+    def test_set_names(dataloaders: dict[str, DataLoader]) -> list[str]:
+        r"""Returns the names of all test-set dataloaders in a dataloader dictionary.
+
+        Args:
+            dataloaders (dict): Dictionary of dataloaders, as returned by get_dataloaders.
+
+        Returns:
+            Names of the legacy 'test_set' loader and/or any 'test_sets/<name>' collection loaders.
+        """
+        return DatasetManager.named_dataloaders(dataloaders, "test_set")
+
+    @staticmethod
+    def val_set_names(dataloaders: dict[str, DataLoader]) -> list[str]:
+        r"""Returns the names of all validation-set dataloaders in a dataloader dictionary.
+
+        Args:
+            dataloaders (dict): Dictionary of dataloaders, as returned by get_dataloaders.
+
+        Returns:
+            Names of the legacy 'val_set' loader and/or any 'val_sets/<name>' collection loaders.
+        """
+        return DatasetManager.named_dataloaders(dataloaders, "val_set")
+
+    @staticmethod
     def get_dataset_transform(
         config: Path | dict[str, Any], dataset: str = "test_set", keyword: str = "transform"
     ) -> Callable | None:
@@ -330,6 +436,7 @@ class DatasetManager:
         """
         if isinstance(config, Path):
             config = load_config(config)
+        config = flatten_dataset_collections(config)
         if dataset not in config:
             raise ValueError(f"Missing configuration for dataset {dataset} in {config}.")
         if "params" not in config[dataset]:
