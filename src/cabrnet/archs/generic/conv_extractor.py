@@ -272,8 +272,9 @@ class ConvExtractor(nn.Module):
     ) -> nn.Sequential | None:
         r"""Builds configured add-on layers.
 
-        ``in_channels`` is inferred by an optional dummy backbone pass; when it is unavailable,
-        each ``Conv2d`` add-on must declare its input channels explicitly.
+        ``in_channels`` is inferred by an optional dummy backbone pass. When custom add-on
+        layers are mixed with ``Conv2d`` layers, every convolution must declare its input
+        channels explicitly.
 
         Args:
             config (dictionary): Add-on layers configuration.
@@ -294,6 +295,21 @@ class ConvExtractor(nn.Module):
         layers: OrderedDict[str, nn.Module] = OrderedDict()
         weights_paths: dict[str, str] = {}
         init_mode = None
+        layer_configs = [val for key, val in config.items() if key != "init_mode"]
+        has_custom_layer = any(val.get("module") is not None for val in layer_configs)
+        has_conv2d = any(val.get("module") is None and val["type"] == "Conv2d" for val in layer_configs)
+        requires_explicit_channels = has_custom_layer and has_conv2d
+        if requires_explicit_channels:
+            for key, val in config.items():
+                if key == "init_mode" or val.get("module") is not None or val["type"] != "Conv2d":
+                    continue
+                params = val.get("params")
+                if params is None or params.get("in_channels") is None:
+                    raise ValueError(
+                        f"Convolutional add-on layer {key} must declare in_channels when mixed with "
+                        "custom add-on layers."
+                    )
+
         for key, val in config.items():
             if key == "init_mode":
                 # Extract initialisation mode
@@ -303,7 +319,7 @@ class ConvExtractor(nn.Module):
                 continue
             module_name = val.get("module")
             weights = _normalize_optional_weights(val.get("weights"), f"add-on layer '{key}'")
-            if module_name:
+            if module_name is not None:
                 _validate_custom_weights(weights, "add-on layers")
                 add_on_module = importlib.import_module(module_name)
                 try:
@@ -318,7 +334,7 @@ class ConvExtractor(nn.Module):
                 layer_constructor = getattr(nn, val["type"])
             params = val.get("params")
             if params is not None:
-                if val["type"] == "Conv2d":
+                if module_name is None and val["type"] == "Conv2d":
                     # Check or update in_channels
                     if params.get("in_channels") is None:
                         if in_channels is None:
@@ -327,7 +343,11 @@ class ConvExtractor(nn.Module):
                                 "Set its in_channels explicitly."
                             )
                         params["in_channels"] = in_channels
-                    elif in_channels is not None and params["in_channels"] != in_channels:
+                    elif (
+                        not requires_explicit_channels
+                        and in_channels is not None
+                        and params["in_channels"] != in_channels
+                    ):
                         raise ValueError(
                             f"Invalid number of input channels for layer {key}. "
                             f"Should be {in_channels} but {params['in_channels']} was given."
@@ -342,6 +362,7 @@ class ConvExtractor(nn.Module):
                     raise ValueError(f"Cannot load add-on weights from '{weights}': file does not exist.")
                 weights_paths[key] = weights
             layers[key] = layer_module
+
         add_on = nn.Sequential(layers)
 
         # Apply initialisation function (if any)
