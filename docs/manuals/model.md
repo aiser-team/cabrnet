@@ -143,7 +143,7 @@ or a trained CaBRNet checkpoint; in the latter case, CaBRNet selects `extractor.
 You can also load the weights from the app CLI using the `--load-weights` command.
 
 ```bash
-cabrnet train -c configs/... -o result/... --load-weights extractor.convnet=path/to/backbone_weights.pth
+cabrnet train -c configs/... -o result/... --load-weights extractor.convnet=path/to/backbone_weights.pth --load-weights classifier=path/to/classifier.ph
 ```
 
 ### Multi-layer extraction
