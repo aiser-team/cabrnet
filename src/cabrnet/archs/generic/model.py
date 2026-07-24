@@ -161,13 +161,28 @@ class CaBRNet(nn.Module):
     def load_submodule_state_dict(self, module_path: str, state_dict: Mapping[str, Any]) -> None:
         r"""Loads a state dictionary into this model or one of its submodules.
 
-        A submodule state dictionary may be component-local, nested under its
-        module path, or have that path as a prefix on its flattened keys.
-
         Args:
-            module_path (str): Target submodule path. An empty path targets the
-                complete model.
+            module_path (str): Target submodule path. An empty path targets the complete model.
             state_dict (mapping): State dictionary to load.
+
+        Examples:
+            Consider a model with the following structure:
+
+            ```
+            - extractor
+                - convnet
+                - add_on
+                    - a1
+                    - a2
+            - classifier
+                - head
+            ```
+
+            If ``module_path="extractor.add_on.a1"``, then the state dictionary will loaded into ``a1``.
+            The state dictionnary may have one of these structures:
+            - ``{"weight": ...}``
+            - ``{"extractor.add_on.a1.weight": ...}``
+            - ``{"extractor": {"add_on": {"a1": {"weight": ...}}}}``
 
         Raises:
             ValueError: If the module path does not identify a submodule.
