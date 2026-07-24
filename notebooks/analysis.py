@@ -28,6 +28,7 @@ with app.setup:
     from cabrnet.core.utils.data import DatasetManager
     from cabrnet.core.utils.parser import load_config
     from cabrnet.core.utils.save import load_projection_info
+    from cabrnet.core.visualization.depictor import check_attribution_type, check_view_type
     from cabrnet.core.visualization.explainer import PrototypeAnalysisGraph
     from cabrnet.core.visualization.radar_plot import radar_plot
     from cabrnet.core.visualization.view import SUPPORTED_VIEWING_FUNCTIONS
@@ -181,6 +182,12 @@ def _(checkpoint_path, output_directory_picker):
     if viz_config_file.exists():
         with open(viz_config_file) as f:
             _existing_viz_config = yaml.safe_load(f)
+        check_attribution_type(
+            _existing_viz_config.get("attribution", {}).get("type", "saliency"),
+            SimilarityVisualizer.SUPPORTED_ATTRIBUTION_METHODS,
+            viz_config_file,
+        )
+        check_view_type(_existing_viz_config.get("view", {}).get("type", "heatmap"), viz_config_file)
         default_attribution = _existing_viz_config.get("attribution", {}).get("type", "saliency")
         default_attribution_params = _existing_viz_config.get("attribution", {}).get("params", {})
         default_view = _existing_viz_config.get("view", {}).get("type", "heatmap")

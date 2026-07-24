@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable, Literal, get_args
+from typing import Any, Literal, get_args
 
 import numpy as np
 import torch
@@ -10,19 +11,19 @@ from PIL import Image
 from torch import Tensor
 
 from cabrnet.archs.generic.model import CaBRNet
+from cabrnet.core.attribution.attribute import attribute_prototypes
 from cabrnet.core.attribution.augmentors import GaussianNoiseAugmentor
+from cabrnet.core.attribution.prp_utils import get_cabrnet_lrp_composite_model
 from cabrnet.core.utils.data import DatasetManager
 from cabrnet.core.utils.exceptions import check_mandatory_fields
 from cabrnet.core.utils.parser import load_config
-from cabrnet.core.visualization.depictor import ProtoDepictor
-from cabrnet.core.attribution.attribute import attribute_prototypes
-from cabrnet.core.attribution.prp_utils import get_cabrnet_lrp_composite_model
+from cabrnet.core.visualization.depictor import ProtoDepictor, check_attribution_type, check_view_type
 from cabrnet.core.visualization.postprocess import post_process
 from cabrnet.core.visualization.upsampling import cubic_upsampling
 from cabrnet.core.visualization.view import SUPPORTED_VIEWING_FUNCTIONS
 
 # Type alias for attribution methods
-AttributionMethod = Literal["saliency", "smoothgrad", "prp", "randgrad", "cubic"]
+AttributionMethod = Literal["saliency", "smoothgrad", "prp", "randgrad", "cubic_upsampling"]
 
 
 def compute_attribution(
@@ -58,7 +59,7 @@ def compute_attribution(
     else:
         augmentors = []
 
-    if attribution_method == "cubic":
+    if attribution_method == "cubic_upsampling":
         return cubic_upsampling(
             model=model,
             img_size=img_size,
@@ -272,27 +273,28 @@ class SimilarityVisualizer(ProtoDepictor):
         if isinstance(config, Path):
             logger.info(f"Loading patch visualizer from {config}.")
             config_dict = load_config(config)
+            config_file = config
         else:
             # Configuration is given in dictionary form
             config_dict = config
+            config_file = None
 
         # Sanity checks on mandatory field
         check_mandatory_fields(
-            config_dict=config_dict, mandatory_fields=["attribution", "view"], location="visualizer configuration"
+            config_dict=config_dict,
+            mandatory_fields=["attribution", "view"],
+            location=str(config_file) if config_file is not None else "visualizer configuration",
         )
 
         # Visualization function
         attribution_method = config_dict["attribution"]["type"]
-        if attribution_method not in SimilarityVisualizer.SUPPORTED_ATTRIBUTION_METHODS:
-            raise NotImplementedError(f"Unknown visualization function {config_dict['attribution']['type']}")
-        attribution_params = config_dict["attribution"]["params"] if "params" in config_dict["attribution"] else None
+        check_attribution_type(attribution_method, SimilarityVisualizer.SUPPORTED_ATTRIBUTION_METHODS, config_file)
+        attribution_params = config_dict["attribution"].get("params", None)
 
         # Viewing function
-        if config_dict["view"]["type"] in SUPPORTED_VIEWING_FUNCTIONS:
-            view_fn = SUPPORTED_VIEWING_FUNCTIONS[config_dict["view"]["type"]]
-        else:
-            raise NotImplementedError(f"Unknown viewing function {config_dict['view']['type']}")
-        view_params = config_dict["view"]["params"] if "params" in config_dict["view"] else None
+        check_view_type(config_dict["view"]["type"], config_file)
+        view_fn = SUPPORTED_VIEWING_FUNCTIONS[config_dict["view"]["type"]]
+        view_params = config_dict["view"].get("params", None)
 
         return SimilarityVisualizer(
             model=model,
@@ -301,5 +303,5 @@ class SimilarityVisualizer(ProtoDepictor):
             transform=transform,
             attribution_params=attribution_params,
             view_params=view_params,
-            config_file=config if isinstance(config, Path) else None,
+            config_file=config_file,
         )

@@ -8,6 +8,54 @@ import torch
 from loguru import logger
 
 from cabrnet.archs.generic.model import CaBRNet
+from cabrnet.core.visualization.view import SUPPORTED_VIEWING_FUNCTIONS
+
+# Attribution types renamed in a previous version, mapped to their current name, so that
+# stale configuration files (e.g. from checkpoints exported before the rename) get an
+# actionable error message instead of a generic "unsupported type" one.
+_RENAMED_ATTRIBUTION_TYPES = {"cubic": "cubic_upsampling"}
+
+
+def check_attribution_type(
+    attribution_type: str, supported_methods: tuple[str, ...], config_file: Path | None = None
+) -> None:
+    r"""Validates that an attribution type is supported by a depictor class, raising a clear error naming the
+    configuration file and, for types renamed in a previous version, how to migrate.
+
+    Args:
+        attribution_type (str): Attribution type read from a configuration file.
+        supported_methods (tuple): Attribution types supported by the target depictor class.
+        config_file (Path, optional): Path to the configuration file, if any, used to build the error message.
+            Default: None.
+    """
+    if attribution_type in supported_methods:
+        return
+    location = f" in {config_file}" if config_file is not None else ""
+    hint = (
+        f" '{attribution_type}' was renamed to '{_RENAMED_ATTRIBUTION_TYPES[attribution_type]}'."
+        if attribution_type in _RENAMED_ATTRIBUTION_TYPES
+        else ""
+    )
+    raise NotImplementedError(
+        f"Unknown attribution type '{attribution_type}'{location}. "
+        f"Supported types: {', '.join(supported_methods)}.{hint}"
+    )
+
+
+def check_view_type(view_type: str, config_file: Path | None = None) -> None:
+    r"""Validates that a view type is supported, raising a clear error naming the configuration file.
+
+    Args:
+        view_type (str): View type read from a configuration file.
+        config_file (Path, optional): Path to the configuration file, if any, used to build the error message.
+            Default: None.
+    """
+    if view_type in SUPPORTED_VIEWING_FUNCTIONS:
+        return
+    location = f" in {config_file}" if config_file is not None else ""
+    raise NotImplementedError(
+        f"Unknown view type '{view_type}'{location}. Supported types: {', '.join(SUPPORTED_VIEWING_FUNCTIONS)}."
+    )
 
 
 class ProtoDepictor(ABC):
