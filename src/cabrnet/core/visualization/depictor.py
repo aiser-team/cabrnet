@@ -19,27 +19,32 @@ _RENAMED_ATTRIBUTION_TYPES = {"cubic": "cubic_upsampling"}
 
 def check_attribution_type(
     attribution_type: str, supported_methods: tuple[str, ...], config_file: Path | None = None
-) -> None:
+) -> str:
     r"""Validates that an attribution type is supported by a depictor class, raising a clear error naming the
-    configuration file and, for types renamed in a previous version, how to migrate.
+    configuration file. Types renamed in a previous version are still accepted: a warning is logged and the
+    current name is returned instead.
 
     Args:
         attribution_type (str): Attribution type read from a configuration file.
         supported_methods (tuple): Attribution types supported by the target depictor class.
         config_file (Path, optional): Path to the configuration file, if any, used to build the error message.
             Default: None.
+
+    Returns:
+        The resolved attribution type, identical to attribution_type unless it was renamed in a previous version.
     """
     if attribution_type in supported_methods:
-        return
+        return attribution_type
     location = f" in {config_file}" if config_file is not None else ""
-    hint = (
-        f" '{attribution_type}' was renamed to '{_RENAMED_ATTRIBUTION_TYPES[attribution_type]}'."
-        if attribution_type in _RENAMED_ATTRIBUTION_TYPES
-        else ""
-    )
+    if attribution_type in _RENAMED_ATTRIBUTION_TYPES:
+        resolved_type = _RENAMED_ATTRIBUTION_TYPES[attribution_type]
+        logger.warning(
+            f"Attribution type '{attribution_type}'{location} was renamed to '{resolved_type}'. "
+            "Update the configuration file to silence this warning."
+        )
+        return resolved_type
     raise NotImplementedError(
-        f"Unknown attribution type '{attribution_type}'{location}. "
-        f"Supported types: {', '.join(supported_methods)}.{hint}"
+        f"Unknown attribution type '{attribution_type}'{location}. Supported types: {', '.join(supported_methods)}."
     )
 
 

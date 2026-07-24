@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Literal, get_args
+from typing import Any, Literal, cast, get_args
 
 import numpy as np
 import torch
@@ -287,8 +287,12 @@ class SimilarityVisualizer(ProtoDepictor):
         )
 
         # Visualization function
-        attribution_method = config_dict["attribution"]["type"]
-        check_attribution_type(attribution_method, SimilarityVisualizer.SUPPORTED_ATTRIBUTION_METHODS, config_file)
+        attribution_method = cast(
+            AttributionMethod,
+            check_attribution_type(
+                config_dict["attribution"]["type"], SimilarityVisualizer.SUPPORTED_ATTRIBUTION_METHODS, config_file
+            ),
+        )
         attribution_params = config_dict["attribution"].get("params", None)
 
         # Viewing function
