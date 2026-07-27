@@ -48,6 +48,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+models = ["zenodo-get==3.0.3"]
 tune = [
     "ray[tune]~=2.34.0",
     "optuna~=3.6.1",

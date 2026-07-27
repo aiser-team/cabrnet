@@ -1,21 +1,8 @@
 import zipfile
 from argparse import ArgumentParser, RawTextHelpFormatter
 from pathlib import Path
-from urllib.request import urlretrieve
 
-
-def download_zenodo_file(record: str, filename: str, destination: Path) -> None:
-    r"""Downloads one file from a Zenodo record through the current REST API."""
-    import json
-    from urllib.request import urlopen
-
-    with urlopen(f"https://zenodo.org/api/records/{record}") as response:
-        files = json.load(response)["files"]
-    match = next((file for file in files if file["key"] == filename), None)
-    if match is None:
-        raise FileNotFoundError(f"Zenodo record {record} does not contain {filename}.")
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    urlretrieve(match["links"]["content"], destination)
+from zenodo_get import download as download_zenodo
 
 FILE_LIST = [
     {
@@ -147,8 +134,8 @@ def main() -> None:
     for entry in files_to_download:
         target_path = entry["dir"]
         if entry["type"] == "zenodo":
+            download_zenodo(entry["record"], output_dir=target_path, file_glob=entry["file"])
             filepath = Path(target_path) / entry["file"]
-            download_zenodo_file(entry["record"], entry["file"], filepath)
             if entry["file"].endswith(".zip"):
                 with zipfile.ZipFile(filepath, "r") as zip_ref:
                     zip_ref.extractall(target_path)
