@@ -956,9 +956,9 @@ class CaBRNet(nn.Module):
         stats = {f"{dataset_name}/{key}": value for key, value in result.stats.items()}
 
         if profile:
-            if not isinstance(dataloader.dataset, Sized):
-                raise TypeError("Profiling requires a sized dataset")
-            stats[f"{dataset_name}/Gflops"] = flops * len(dataloader.dataset) / 1e9
+            if not isinstance(dataloader.sampler, Sized):
+                raise TypeError("Profiling requires a sized dataloader sampler")
+            stats[f"{dataset_name}/Gflops"] = flops * len(dataloader.sampler) / 1e9
 
         return stats
 

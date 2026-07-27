@@ -6,8 +6,6 @@ from pathlib import Path
 if "zenodo_get" not in packages_distributions():
     raise ImportError("Model downloads require `uv sync --extra models`.")
 
-from zenodo_get import download as download_zenodo
-
 FILE_LIST = [
     {
         "identifier": "resnet50_inat",
@@ -138,6 +136,8 @@ def main() -> None:
     for entry in files_to_download:
         target_path = entry["dir"]
         if entry["type"] == "zenodo":
+            from zenodo_get import download as download_zenodo
+
             download_zenodo(entry["record"], output_dir=target_path, file_glob=entry["file"])
             filepath = Path(target_path) / entry["file"]
             if entry["file"].endswith(".zip"):
