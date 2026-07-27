@@ -27,4 +27,4 @@ for entry in "${legacy_repos[@]}"; do
   fi
 done
 
-python3 tools/download_examples.py -t legacy_models
+python3 tools/download_models.py -t legacy_models
