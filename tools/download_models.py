@@ -1,6 +1,10 @@
 import zipfile
 from argparse import ArgumentParser, RawTextHelpFormatter
+from importlib.metadata import packages_distributions
 from pathlib import Path
+
+if "zenodo_get" not in packages_distributions():
+    raise ImportError("Model downloads require `uv sync --extra models`.")
 
 from zenodo_get import download as download_zenodo
 
