@@ -200,6 +200,10 @@ class DatasetManager:
                 logger.error(f"Missing configuration for {dataset_name}.")
 
         for dataset_name in config:
+            # Top-level underscore-prefixed mappings provide YAML anchors and other
+            # metadata; they are not dataset definitions.
+            if str(dataset_name).startswith("_"):
+                continue
             dataset: dict[str, Dataset] = {}
             logger.info(f"Loading dataset {dataset_name}")
             dconfig = config[dataset_name]
