@@ -238,7 +238,9 @@ def patches_relevance_analysis(
     model.to(device)
 
     # Create dataloaders and visualizer
-    datasets = DatasetManager.get_datasets(dataset_config, sampling_ratio=sampling_ratio, load_segmentation=True)
+    datasets, selected_indices_by_dataset = DatasetManager.get_datasets_and_indices(
+        dataset_config, sampling_ratio=sampling_ratio, load_segmentation=True
+    )
     visualizer = SimilarityVisualizer.build_from_config(
         config=visualization_config, model=model, dataset_config=load_config(dataset_config)
     )
@@ -247,18 +249,21 @@ def patches_relevance_analysis(
     preprocess = getattr(datasets["test_set"]["dataset"], "transform", ToTensor())
     test_set = datasets["test_set"]["raw_dataset"]
     segmentation_set = datasets["test_set"]["seg_dataset"]
+    selected_indices = selected_indices_by_dataset["test_set"]
 
     test_iter = tqdm(
-        enumerate(zip(test_set, segmentation_set)),  # type: ignore
+        enumerate(selected_indices),
         desc="Benchmark on test patches",
-        total=len(test_set),  # type: ignore
+        total=len(selected_indices),
         leave=False,
         position=tqdm_position,
         disable=not verbose,
     )
 
     stats = []
-    for img_id, ((img, _), (seg, _)) in test_iter:  # type: ignore
+    for img_id, source_idx in test_iter:
+        img, _ = test_set[int(source_idx)]
+        seg, _ = segmentation_set[int(source_idx)]
         stats += analyze(
             model=model,
             img=img,
@@ -314,7 +319,7 @@ def proto_relevance_analysis(
     model.to(device)
 
     # Create dataloaders and visualizer
-    datasets = DatasetManager.get_datasets(dataset_config, load_segmentation=True)
+    datasets, _ = DatasetManager.get_datasets_and_indices(dataset_config, load_segmentation=True)
     visualizer = SimilarityVisualizer.build_from_config(
         config=visualization_config, model=model, dataset_config=load_config(dataset_config)
     )
@@ -340,10 +345,15 @@ def proto_relevance_analysis(
     for proto_info in proto_iter:
         # Recover source image for the prototype
         proto_idx = proto_info["proto_idx"]
-        img = projection_set[proto_info["img_idx"]][0]  # type: ignore
+        img_idx = int(proto_info["img_idx"])
+        img = projection_set[img_idx][0]
+        if not isinstance(img, Image.Image):
+            raise TypeError(f"Expected a PIL image from the projection dataset, got {type(img).__name__}.")
         h, w = int(proto_info["h"]), int(proto_info["w"])
 
-        seg = segmentation_set[proto_info["img_idx"]][0]  # type: ignore
+        seg = segmentation_set[img_idx][0]
+        if not isinstance(seg, Image.Image):
+            raise TypeError(f"Expected a PIL image from the segmentation dataset, got {type(seg).__name__}.")
 
         stats += analyze(
             model=model,
@@ -352,7 +362,7 @@ def proto_relevance_analysis(
             preprocess=preprocess,
             visualizer=visualizer,
             device=device,
-            img_id=int(proto_info["img_idx"]),
+            img_id=img_idx,
             prototype_location=(proto_idx, h, w),
             **kwargs,
         )
@@ -399,8 +409,8 @@ def execute(
     output_dir.mkdir(parents=True, exist_ok=True)
 
     if debug_mode and not prototype_dir.is_dir():
-        # Get dataloaders and projection info, then build prototypes
-        dataloaders = DatasetManager.get_dataloaders(config=dataset_config)
+        # Get projection dataset and info, then build prototypes
+        datasets, _ = DatasetManager.get_datasets_and_indices(config=dataset_config)
         projection_info = load_projection_info(projection_file)
         visualizer = SimilarityVisualizer.build_from_config(
             config=visualization_config, model=model, dataset_config=load_config(dataset_config)
@@ -408,7 +418,7 @@ def execute(
 
         # Avoid generating prototypes if the directory already exists
         model.extract_prototypes(
-            dataloader_raw=dataloaders["projection_set_raw"],
+            raw_dataset=datasets["projection_set"]["raw_dataset"],
             projection_info=projection_info,
             depictor=visualizer,
             dir_path=prototype_dir,

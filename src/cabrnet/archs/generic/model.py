@@ -16,11 +16,12 @@ from loguru import logger
 from PIL import Image
 from thop import profile as profile_batch
 from torch import Tensor
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 
 from cabrnet.archs.generic.conv_extractor import LAYER_INIT_FUNCTIONS, ConvExtractor
 from cabrnet.archs.generic.decision import CaBRNetClassifier
+from cabrnet.core.utils.data import get_dataloader_indices
 from cabrnet.core.utils.exceptions import ArgumentError, check_mandatory_fields
 from cabrnet.core.utils.optimizers import OptimizerManager
 from cabrnet.core.utils.parser import load_config
@@ -932,9 +933,9 @@ class CaBRNet(nn.Module):
         stats = {f"{dataset_name}/{key}": value for key, value in result.stats.items()}
 
         if profile:
-            if not isinstance(dataloader.dataset, Sized):
-                raise TypeError("Profiling requires a sized dataset")
-            stats[f"{dataset_name}/Gflops"] = flops * len(dataloader.dataset) / 1e9
+            if not isinstance(dataloader.sampler, Sized):
+                raise TypeError("Profiling requires a sized dataloader sampler")
+            stats[f"{dataset_name}/Gflops"] = flops * len(dataloader.sampler) / 1e9
 
         return stats
 
@@ -1034,7 +1035,6 @@ class CaBRNet(nn.Module):
             if not self._compatibility_mode
             else torch.zeros_like(self.classifier.prototypes)
         )
-
         with torch.no_grad():
             for batch_idx, (xs, ys) in data_iter:
                 # Map to device and perform inference
@@ -1110,8 +1110,9 @@ class CaBRNet(nn.Module):
 
                     for proto_idx, h, w in prototype_updates:
                         batch_size = 1 if dataloader.batch_size is None else dataloader.batch_size
+                        sample_position = batch_idx * batch_size + img_idx
                         projection_info[proto_idx] = {
-                            "img_idx": batch_idx * batch_size + img_idx,
+                            "img_idx": int(get_dataloader_indices(dataloader)[sample_position]),
                             "h": h,
                             "w": w,
                             "score": similarities[img_idx, proto_idx, h, w].item(),
@@ -1162,7 +1163,7 @@ class CaBRNet(nn.Module):
 
     def extract_prototypes(
         self,
-        dataloader_raw: DataLoader,
+        raw_dataset: Dataset,
         projection_info: list[dict],
         depictor: ProtoDepictor,
         dir_path: Path,
@@ -1173,7 +1174,7 @@ class CaBRNet(nn.Module):
         r"""Shows prototypes based on projection info.
 
         Args:
-            dataloader_raw (DataLoader): Dataloader containing raw projection images (without preprocessing).
+            raw_dataset (Dataset): Projection dataset without preprocessing.
             projection_info (list): Projection information (as returned by project method).
             depictor (Depictor): Depictor instance.
             dir_path (Path): Destination directory.
@@ -1211,8 +1212,7 @@ class CaBRNet(nn.Module):
             if not self.classifier.prototype_is_active(proto_idx):
                 # Skip pruned prototype
                 continue
-            # Original image obtained from dataloader without normalization
-            img = dataloader_raw.dataset[proto_info["img_idx"]][0]
+            raw_sample = raw_dataset[int(proto_info["img_idx"])][0]
             h, w = proto_info["h"], proto_info["w"]
 
             # Determine filename based on prototype count
@@ -1226,7 +1226,7 @@ class CaBRNet(nn.Module):
 
             # Save visualization using depictor interface
             depictor.save(
-                raw_input=img,
+                raw_input=raw_sample,
                 folder=dir_path,
                 filename=filename,
                 proto_idx=proto_idx,

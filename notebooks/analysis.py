@@ -70,17 +70,15 @@ def _(checkpoint_browser):
         mo.callout("Selected path does not contain checkpoint", "danger"),
     )
     dataloaders = DatasetManager.get_dataloaders(checkpoint_path / DatasetManager.DEFAULT_DATASET_CONFIG)
-    test_dataset = DatasetManager.get_datasets(checkpoint_path / DatasetManager.DEFAULT_DATASET_CONFIG)["test_set"][
-        "dataset"
-    ]
-    test_dataset_raw = DatasetManager.get_datasets(checkpoint_path / DatasetManager.DEFAULT_DATASET_CONFIG)["test_set"][
-        "raw_dataset"
-    ]
+    datasets, _ = DatasetManager.get_datasets_and_indices(checkpoint_path / DatasetManager.DEFAULT_DATASET_CONFIG)
+    test_dataset = datasets["test_set"]["dataset"]
+    test_dataset_raw = datasets["test_set"]["raw_dataset"]
     classes = test_dataset.classes
     return (
         checkpoint_path,
         classes,
         dataloaders,
+        datasets,
         state_dict_path,
         test_dataset,
         test_dataset_raw,
@@ -374,7 +372,7 @@ def _(existing_viz_config, viz_config):
 @app.cell(hide_code=True)
 def _(
     checkpoint_path,
-    dataloaders,
+    datasets,
     device_selector,
     existing_viz_config,
     model,
@@ -395,7 +393,7 @@ def _(
 
     if run_extract_proto.value:
         model.extract_prototypes(
-            dataloader_raw=dataloaders["projection_set_raw"],
+            raw_dataset=datasets["projection_set"]["raw_dataset"],
             projection_info=load_projection_info(filename=checkpoint_path / CaBRNet.DEFAULT_PROJECTION_INFO),
             depictor=visualizer,
             dir_path=prototype_path,

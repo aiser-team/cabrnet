@@ -9,7 +9,7 @@ import pandas as pd
 import torch
 from loguru import logger
 from PIL import Image
-from torchvision.transforms import ColorJitter, GaussianBlur, ToTensor
+from torchvision.transforms import ColorJitter, GaussianBlur
 from tqdm import tqdm
 
 from cabrnet.archs.generic.model import CaBRNet
@@ -265,6 +265,7 @@ def analyze(
         model (Module): CaBRNet model, assumed to be in eval mode and already mapped on the correct device.
         img (Image): Input image.
         img_id (int | str): Image identifier.
+        preprocess (Callable): Transform applied before evaluating model similarities.
         visualizer (SimilarityVisualizer): Patch visualizer.
         device (str | device): Hardware device.
         perturbations (dict[str,dict]): Map of perturbations whose key is the name of the perturbation
@@ -464,7 +465,9 @@ def execute(
     model.to(device)
 
     # Create dataloaders and visualizer
-    datasets = DatasetManager.get_datasets(dataset_config, sampling_ratio=sampling_ratio)
+    datasets, selected_indices_by_dataset = DatasetManager.get_datasets_and_indices(
+        dataset_config, sampling_ratio=sampling_ratio
+    )
 
     # Get projection dataset for visualizer (required for transform)
     visualizer = SimilarityVisualizer.build_from_config(
@@ -472,11 +475,12 @@ def execute(
     )
 
     dataset = datasets["test_set"]["raw_dataset"]
+    selected_indices = selected_indices_by_dataset["test_set"]
 
     test_iter = tqdm(
-        enumerate(dataset),  # type: ignore
+        enumerate(selected_indices),
         desc="Benchmark on test set",
-        total=len(dataset),  # type: ignore
+        total=len(selected_indices),
         leave=False,
         position=tqdm_position,
         disable=not verbose,
@@ -494,14 +498,14 @@ def execute(
         for dir_name in ["images", "perturbations"]:
             (debug_dir / dir_name).mkdir(parents=True, exist_ok=True)
 
-        # Get dataloaders and projection info, then build prototypes
-        dataloaders = DatasetManager.get_dataloaders(config=dataset_config)
+        # Get projection dataset and info, then build prototypes
+        projection_datasets, _ = DatasetManager.get_datasets_and_indices(config=dataset_config)
         projection_info = load_projection_info(projection_file)
 
         # Avoid generating prototypes if the directory already exists
         if not prototype_dir.is_dir():
             model.extract_prototypes(
-                dataloader_raw=dataloaders["projection_set_raw"],
+                raw_dataset=projection_datasets["projection_set"]["raw_dataset"],
                 projection_info=projection_info,
                 depictor=visualizer,
                 dir_path=prototype_dir,
@@ -510,7 +514,8 @@ def execute(
             )
 
     stats = []
-    for img_id, (img, _) in test_iter:  # type: ignore
+    for img_id, source_idx in test_iter:
+        img, _ = dataset[int(source_idx)]
         stats += analyze(
             model=model,
             img=img,

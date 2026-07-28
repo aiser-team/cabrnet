@@ -9,10 +9,11 @@ from collections.abc import Sized
 from pathlib import Path
 from typing import Any, Callable
 
+import numpy as np
 import torch
 import torchvision.transforms
 from loguru import logger
-from torch.utils.data import DataLoader, Dataset, Subset
+from torch.utils.data import DataLoader, Dataset, Sampler
 
 from cabrnet.core.utils.parser import load_config
 from cabrnet.core.utils.transform import TRANSFORM_FIELDS, load_transform
@@ -93,33 +94,59 @@ def flatten_dataset_collections(dataset_cfg: dict) -> dict:
     return flattened
 
 
-class VisionDatasetSubset(Subset):
-    r"""Overwrites the Subset class so that it exposes all properties of a VisionDataset."""
+class IndexSampler(Sampler[int]):
+    r"""Sampler over resolved source-dataset indices.
 
-    @property
-    def transform(self) -> Any:
-        r"""Returns the 'transform' function of the original dataset.
+    It is used to turn a dataset into a dataloader, managing subseting (selecting indices) and shuffling.
+    This way, datasets are never modified.
+    """
+
+    def __init__(self, indices: np.ndarray, shuffle: bool) -> None:
+        r"""Initializes the sampler.
+
+        Args:
+            indices (numpy.ndarray): Source-dataset indices to iterate over.
+            shuffle (bool): Whether to randomize their order on each iteration.
+        """
+        self.indices = np.asarray(indices, dtype=np.intp)
+        self.shuffle = shuffle
+        self.iterated_indices = self.indices
+
+    def __iter__(self):
+        r"""Yields source-dataset indices in configured order."""
+        if self.shuffle:
+            order = torch.randperm(len(self.indices)).tolist()
+            self.iterated_indices = self.indices[order]
+        else:
+            self.iterated_indices = self.indices
+        yield from (int(index) for index in self.iterated_indices)
+
+    def __len__(self) -> int:
+        r"""Returns the number of selected indices.
 
         Returns:
-            Transform function, if defined.
+            Number of selected source-dataset indices.
         """
-        return getattr(self.dataset, "transform", None)
+        return len(self.indices)
 
-    def target_transform(self) -> Any:
-        r"""Returns the 'target_transform' function of the original dataset.
 
-        Returns:
-            Target transform function, if defined.
-        """
-        return getattr(self.dataset, "target_transform", None)
+def get_dataloader_indices(dataloader: DataLoader) -> np.ndarray:
+    r"""Returns the source-dataset indices in a dataloader's current sampling order.
 
-    def transforms(self) -> Any:
-        r"""Returns the 'transforms' function of the original dataset.
+    Args:
+        dataloader (DataLoader): Dataloader to inspect.
 
-        Returns:
-            Transform collection, if defined.
-        """
-        return getattr(self.dataset, "transforms", None)
+    Returns:
+        Source-dataset indices in sampling order.
+
+    Raises:
+        TypeError: If the dataloader's dataset has no defined length.
+    """
+    if isinstance(dataloader.sampler, IndexSampler):
+        return dataloader.sampler.iterated_indices
+    if not isinstance(dataloader.dataset, Sized):
+        raise TypeError("Projection requires a map-style dataset with a defined length.")
+    return np.arange(len(dataloader.dataset), dtype=np.intp)
 
 
 class DatasetManager:
@@ -162,10 +189,11 @@ class DatasetManager:
         return parser
 
     @staticmethod
-    def get_datasets(
+    @staticmethod
+    def get_datasets_and_indices(
         config: Path | dict[str, Any], sampling_ratio: int = 1, load_segmentation: bool = False
-    ) -> dict[str, dict[str, Dataset]]:
-        r"""Loads datasets from a configuration file.
+    ) -> tuple[dict[str, dict[str, Dataset]], dict[str, np.ndarray]]:
+        r"""Loads datasets and resolves their selected source indices.
 
         Args:
             config (Path, dict): Path to configuration file, or configuration dictionary.
@@ -173,10 +201,8 @@ class DatasetManager:
             load_segmentation (bool, optional): If True, loads segmentation datasets if available. Default: False.
 
         Returns:
-            Dictionary datasets:
-                - dataset: Dataset with data preprocessing
-                - raw_dataset: Dataset without data preprocessing
-                - seg_dataset: If load_segmentation is True, dataset of segmentation masks without data preprocessing
+            Unmodified datasets and selected source indices for each configured
+            dataset.
         Raises:
             ValueError whenever a dataset could not be loaded.
         """
@@ -186,9 +212,12 @@ class DatasetManager:
             config = load_config(config)
         has_test_collection = "test_sets" in config
         config = flatten_dataset_collections(config)
+        if sampling_ratio < 1:
+            raise ValueError(f"sampling_ratio must be at least 1, got {sampling_ratio}")
         if sampling_ratio > 1:
             logger.warning(f"{'=' * 20} SAMPLING RATIO > 1: PROCESSING 1/{sampling_ratio} IMAGES {'=' * 20}")
         datasets: dict[str, dict[str, Dataset]] = {}
+        selected_indices: dict[str, np.ndarray] = {}
 
         # Legacy configurations expose one ``test_set``. New configurations
         # may provide a named ``test_sets`` collection instead.
@@ -249,55 +278,47 @@ class DatasetManager:
                 except FileNotFoundError:
                     logger.warning(f"Segmentation set unavailable for dataset {dataset_name}")
 
-            # Handle Deterministic Partitioning (Splitting Train into Train/Val)
+            dataset_to_select = dataset["dataset"]
+            if not isinstance(dataset_to_select, Sized):
+                raise TypeError(f"Dataset {dataset_name} does not define a length")
+            total_len = len(dataset_to_select)
+            indices = np.arange(total_len, dtype=np.intp)
+
+            # Handle deterministic partitioning (splitting train into train/val).
             if "partition" in dconfig:
                 start_frac, end_frac = dconfig["partition"]
-                dataset_to_partition = dataset["dataset"]
-                if not isinstance(dataset_to_partition, Sized):
-                    raise TypeError(f"Dataset {dataset_name} does not define a length")
-                total_len = len(dataset_to_partition)
 
-                # Create the full list of indices
-                indices = list(range(total_len))
-
-                # Deterministic Shuffle if requested
+                # Use the existing Python-random ordering for backwards-compatible partitions.
                 if "partition_seed" in dconfig:
                     seed = dconfig["partition_seed"]
                     logger.info(f"Shuffling {dataset_name} indices with seed {seed} before partitioning.")
-                    # Use a local Random instance to avoid affecting global state
-                    random.Random(seed).shuffle(indices)
+                    shuffled_indices = indices.tolist()
+                    random.Random(seed).shuffle(shuffled_indices)
+                    indices = np.asarray(shuffled_indices, dtype=np.intp)
 
-                # Calculate integer slice points
                 start_idx = int(start_frac * total_len)
                 end_idx = int(end_frac * total_len)
-
-                # Select the specific indices for this split
-                selected_indices = indices[start_idx:end_idx]
+                indices = indices[start_idx:end_idx]
 
                 logger.info(
-                    f"Partitioning {dataset_name}: using range [{start_frac}-{end_frac}] ({len(selected_indices)} samples)."
+                    f"Partitioning {dataset_name}: using range [{start_frac}-{end_frac}] ({len(indices)} samples)."
                 )
 
-                # Apply subsetting to all loaded dataset variants (main, raw, seg)
-                for key in ["dataset", "raw_dataset", "seg_dataset"]:
-                    if dataset.get(key) is not None:
-                        dataset[key] = VisionDatasetSubset(dataset[key], selected_indices)
-
             if sampling_ratio > 1:
-                # Apply data sub-selection
-                dataset_to_sample = dataset["dataset"]
-                if not isinstance(dataset_to_sample, Sized):
-                    raise TypeError(f"Dataset {dataset_name} does not define a length")
-                selected_indices = list(range(len(dataset_to_sample)))[::sampling_ratio]
-                for key in ["dataset", "raw_dataset", "seg_dataset"]:
-                    if dataset.get(key) is not None:
-                        dset = dataset[key]
-                        if not isinstance(dset, Dataset):
-                            raise TypeError(f"{dataset[key]} should be a dataset, but is of type {type(dataset[key])}")
-                        dataset[key] = VisionDatasetSubset(dset, selected_indices)
+                indices = indices[::sampling_ratio]
+
+            for variant_name, variant in dataset.items():
+                if not isinstance(variant, Sized):
+                    raise TypeError(f"Dataset variant {dataset_name}/{variant_name} does not define a length")
+                if len(variant) != total_len:
+                    raise ValueError(
+                        f"Dataset variant {dataset_name}/{variant_name} has {len(variant)} samples, "
+                        f"but the main dataset has {total_len}."
+                    )
 
             datasets[dataset_name] = dataset
-        return datasets
+            selected_indices[dataset_name] = indices
+        return datasets, selected_indices
 
     @staticmethod
     def get_dataloaders(
@@ -320,11 +341,10 @@ class DatasetManager:
             raise ValueError(f"Unsupported configuration format: {type(config)}")
         if isinstance(config, Path):
             config = load_config(config)
-        config = flatten_dataset_collections(config)
-
-        datasets = DatasetManager.get_datasets(
+        datasets, selected_indices = DatasetManager.get_datasets_and_indices(
             config=config, sampling_ratio=sampling_ratio, load_segmentation=load_segmentation
         )
+        config = flatten_dataset_collections(config)
         dataloaders: dict[str, DataLoader] = {}
 
         def _safe_item_load(item, t):
@@ -332,9 +352,9 @@ class DatasetManager:
                 raise TypeError(f"{item} is of type {type(item)} but should be of type {t}.")
             return item
 
-        for dataset_name in datasets:
-            dataset = _safe_item_load(datasets[dataset_name]["dataset"], Dataset)
-            raw_dataset = _safe_item_load(datasets[dataset_name]["raw_dataset"], Dataset)
+        for dataset_name, variants in datasets.items():
+            dataset = _safe_item_load(variants["dataset"], Dataset)
+            raw_dataset = _safe_item_load(variants["raw_dataset"], Dataset)
 
             dconfig = config[dataset_name]
             for key in ["batch_size", "shuffle"]:
@@ -347,7 +367,6 @@ class DatasetManager:
             num_workers = _safe_item_load(dconfig.get("num_workers", 0), int)
             drop_last = _safe_item_load(dconfig.get("drop_last", False), bool)
             pin_memory = _safe_item_load(dconfig.get("pin_memory", False), bool)
-
             # Optional collate function
             collate_fn = dconfig.get("collate_fn")
             if collate_fn:
@@ -358,20 +377,26 @@ class DatasetManager:
             dataloaders[dataset_name] = DataLoader(
                 dataset=dataset,
                 batch_size=batch_size,
-                shuffle=shuffle,
+                sampler=IndexSampler(selected_indices[dataset_name], shuffle=shuffle),
                 num_workers=num_workers,
                 collate_fn=collate_fn,
                 drop_last=drop_last,
                 pin_memory=pin_memory,
             )
             dataloaders[dataset_name + "_raw"] = DataLoader(
-                dataset=raw_dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers
+                dataset=raw_dataset,
+                batch_size=batch_size,
+                sampler=IndexSampler(selected_indices[dataset_name], shuffle=shuffle),
+                num_workers=num_workers,
             )
             if load_segmentation:
                 try:
-                    seg_dataset = _safe_item_load(datasets[dataset_name]["seg_dataset"], Dataset)
+                    seg_dataset = _safe_item_load(variants["seg_dataset"], Dataset)
                     dataloaders[dataset_name + "_seg"] = DataLoader(
-                        dataset=seg_dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers
+                        dataset=seg_dataset,
+                        batch_size=batch_size,
+                        sampler=IndexSampler(selected_indices[dataset_name], shuffle=shuffle),
+                        num_workers=num_workers,
                     )
                 except KeyError:
                     pass

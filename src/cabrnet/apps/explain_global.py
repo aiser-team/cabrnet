@@ -128,11 +128,11 @@ def execute(args: Namespace) -> None:
     depictor = ProtoDepictor.build_from_config(config=args.visualization, model=model, dataset_config=dataset_config)
 
     # Build prototypes
-    dataloaders = DatasetManager.get_dataloaders(config=args.dataset)
+    datasets, _ = DatasetManager.get_datasets_and_indices(config=args.dataset)
     projection_info = load_projection_info(args.projection_info)
     if args.overwrite or not (args.output_dir / "prototypes").exists():
         model.extract_prototypes(
-            dataloader_raw=dataloaders["projection_set_raw"],
+            raw_dataset=datasets["projection_set"]["raw_dataset"],
             projection_info=projection_info,
             depictor=depictor,
             dir_path=args.output_dir / "prototypes",
