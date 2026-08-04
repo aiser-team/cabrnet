@@ -60,7 +60,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         required=False,
         metavar="/path/to/config/dir",
         help="path to directory containing all configuration files to start training "
-        "(alternative to --model-arch, --dataset and --training)",
+             "(alternative to --model-arch, --dataset and --training)",
     )
     x_group.add_argument(
         "-r",
@@ -81,7 +81,7 @@ def create_parser(parser: ArgumentParser | None = None) -> ArgumentParser:
         "--overwrite",
         action="store_true",
         help="allow output directory to be overwritten with new results. This option should be enabled when "
-        "resuming training from a given checkpoint.",
+             "resuming training from a given checkpoint.",
     )
     parser.add_argument(
         "--sanity-check",
@@ -118,7 +118,7 @@ def check_args(args: Namespace) -> Namespace:
     for dir_path, option_name in zip([args.resume_from, args.config_dir], ["--resume-from", "--config-dir"]):
         if dir_path is not None:
             for param, name in zip(
-                [args.model_arch, args.dataset, args.training], ["--model-arch", "--dataset", "--training"]
+                    [args.model_arch, args.dataset, args.training], ["--model-arch", "--dataset", "--training"]
             ):
                 if param is not None:
                     raise ArgumentError(f"Cannot specify both options {name} and {option_name}")
@@ -135,7 +135,7 @@ def check_args(args: Namespace) -> Namespace:
             args.training = dir_path / OptimizerManager.DEFAULT_TRAINING_CONFIG
 
     for param, name, option in zip(
-        [args.model_arch, args.dataset, args.training], ["model", "dataset", "training"], ["-m", "-d", "-t"]
+            [args.model_arch, args.dataset, args.training], ["model", "dataset", "training"], ["-m", "-d", "-t"]
     ):
         if param is None:
             raise ArgumentError(f"Missing {name} configuration file (option {option}).")
@@ -163,10 +163,10 @@ def check_args(args: Namespace) -> Namespace:
     # (resume mode), check that the best model directory is available
     for dir_path in [best_dir(args.output_dir), latest_dir(args.output_dir)]:
         if (
-            dir_path.exists()
-            and not args.overwrite
-            and not args.epilogue
-            and (args.resume_from is None or args.resume_from.parent != args.output_dir)
+                dir_path.exists()
+                and not args.overwrite
+                and not args.epilogue
+                and (args.resume_from is None or args.resume_from.parent != args.output_dir)
         ):
             raise ArgumentError(
                 f"Output directory {dir_path} is not empty. To overwrite existing results, use --overwrite option."
@@ -204,11 +204,11 @@ def execute(args: Namespace) -> None:
     epilogue_only = args.epilogue
     sanity_check_only = args.sanity_check
     resume_dir = args.resume_from
-    debug_artifacts = getattr(args, "debug_artifacts", False)
+    debug_artifacts = args.debug_artifacts
 
-    if getattr(args, "detect_anomaly", False):
+    if args.detect_anomaly:
         torch.autograd.set_detect_anomaly(True)
-        logger.warning("PyTorch autograd anomaly detection is enabled.")
+        logger.warning("PyTorch autograd anomaly detection is enabled")
 
     model: CaBRNet = CaBRNet.build_from_config(config=model_arch, seed=args.seed)
 

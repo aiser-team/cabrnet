@@ -98,15 +98,15 @@ Alternatively, the `--sampling-ratio` allows a finer control of the portion of d
 ### Debug checks
 
 The `--detect-anomaly` option enables PyTorch autograd anomaly detection. This reports the forward operation that
-caused an invalid gradient during backpropagation. It's intended to debuging purposes only.
+caused an invalid gradient during backpropagation. It's intended for debuging purposes only.
 
-You can add additional assertions in this way:
+You can include assertions in your code in this way:
 ```py
 if torch.is_anomaly_detected():
     assert not this_tensor.isnan().any(), "this_tensor contains NaN"
 ```
 
-This code will run only when `--detect-anomaly` is set in the command line.
+The check will be performed only when `--detect-anomaly` is set in the command line.
 
 ### Resuming computations
 
