@@ -103,6 +103,9 @@ class ProtoTreeClassifier(CaBRNetClassifier):
 
         Args:
             proto_idx (int): Prototype index.
+
+        Returns:
+            True if the prototype is active.
         """
         return proto_idx in self._active_prototypes
 

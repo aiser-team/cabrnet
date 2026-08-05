@@ -75,14 +75,22 @@ class TreeNode(nn.Module):
         raise NotImplementedError
 
     def child_nodes(self) -> Iterator[TreeNode]:
-        r"""Iterates over this node's tree children."""
+        r"""Iterates over this node's tree children.
+
+        Returns:
+            Iterator over child nodes.
+        """
         for child in self.children():
             if not isinstance(child, TreeNode):
                 raise TypeError(f"Expected a TreeNode child, got {type(child).__name__}")
             yield child
 
     def named_child_nodes(self) -> Iterator[tuple[str, TreeNode]]:
-        r"""Iterates over this node's named tree children."""
+        r"""Iterates over this node's named tree children.
+
+        Returns:
+            Iterator over child-name and child-node pairs.
+        """
         for name, child in self.named_children():
             if not isinstance(child, TreeNode):
                 raise TypeError(f"Expected a TreeNode child, got {type(child).__name__}")
@@ -93,6 +101,9 @@ class TreeNode(nn.Module):
 
         Args:
             target (str): Module path of the child node.
+
+        Returns:
+            Requested child node.
         """
         child = self.get_submodule(target)
         if not isinstance(child, TreeNode):
@@ -101,12 +112,20 @@ class TreeNode(nn.Module):
 
     @property
     def num_prototypes(self) -> int:
-        r"""Returns the total number of prototypes pointed by this node and all its children."""
+        r"""Returns the total number of prototypes pointed by this node and all its children.
+
+        Returns:
+            Number of prototypes.
+        """
         raise NotImplementedError
 
     @property
     def num_nodes(self) -> int:
-        r"""Returns the total size of the subtree, including this node."""
+        r"""Returns the total size of the subtree, including this node.
+
+        Returns:
+            Number of nodes.
+        """
         raise NotImplementedError
 
     def prune_children(self, threshold: float = 0.01) -> None:
@@ -177,26 +196,42 @@ class TreeNode(nn.Module):
             self.add_module(childfullname, grandchild)
 
     def size(self) -> int:
-        r"""Returns self.num_nodes."""
+        r"""Returns self.num_nodes.
+
+        Returns:
+            Number of nodes.
+        """
         return self.num_nodes
 
     @property
     def leaves(self) -> Iterator[LeafNode]:
-        r"""Returns iterator on all leaves."""
+        r"""Returns iterator on all leaves.
+
+        Returns:
+            Iterator over leaf nodes.
+        """
         for child in self.child_nodes():
             for leaf in child.leaves:
                 yield leaf
 
     @property
     def active_prototypes(self) -> list[int]:
-        r"""Returns list of active prototypes."""
+        r"""Returns list of active prototypes.
+
+        Returns:
+            Indices of active prototypes.
+        """
         res: list[int] = self.proto_idxs.copy() if self.proto_idxs is not None else []
         res += [proto_idx for child in self.child_nodes() for proto_idx in child.active_prototypes]
         return res
 
     @property
     def num_leaves(self) -> int:
-        r"""Returns the total number of leaves."""
+        r"""Returns the total number of leaves.
+
+        Returns:
+            Number of leaves.
+        """
         return sum(child.num_leaves for child in self.child_nodes())
 
     def get_mapping(self, mode: MappingMode) -> dict[Any, Any]:
@@ -210,6 +245,9 @@ class TreeNode(nn.Module):
                 - NODE_TO_PROTOTYPE: Returns the list of prototype indexes associated to each node ID.
                 - NODE_PATHS: Returns the path (list of node IDs) for each node ID.
                 - ID_TO_NODE: Returns the TreeNode for each node ID.
+
+        Returns:
+            Mapping selected by mode.
         """
         mapping = dict()
         mapped_classes = set([torch.argmax(leaf.distribution).item() for leaf in self.leaves])
@@ -248,7 +286,11 @@ class TreeNode(nn.Module):
         return mapping
 
     def export_arch(self) -> dict[str, Any]:
-        r"""Returns the tree architecture (useful after pruning)."""
+        r"""Returns the tree architecture (useful after pruning).
+
+        Returns:
+            Serialized tree architecture.
+        """
         arch = {
             "module": self.__class__.__name__,
             "node_id": self.node_id,
@@ -291,7 +333,11 @@ class TreeNode(nn.Module):
         raise NotImplementedError(f"Unsupported tree module {arch['module']}")
 
     def extra_repr(self) -> str:
-        r"""Overwrites extra_repr from torch.nn.Module to return the node ID."""
+        r"""Overwrites extra_repr from torch.nn.Module to return the node ID.
+
+        Returns:
+            Node identifier.
+        """
         return self.node_id
 
 
@@ -385,12 +431,20 @@ class ComparativeNode(TreeNode):
 
     @property
     def num_prototypes(self) -> int:
-        r"""Returns the total number of prototypes pointed by this node and all its children."""
+        r"""Returns the total number of prototypes pointed by this node and all its children.
+
+        Returns:
+            Number of prototypes.
+        """
         return sum(child.num_prototypes for child in self.child_nodes())
 
     @property
     def num_nodes(self) -> int:
-        r"""Returns the total size of the subtree, including this node."""
+        r"""Returns the total size of the subtree, including this node.
+
+        Returns:
+            Number of nodes.
+        """
         return 1 + sum(child.size() for child in self.child_nodes())
 
 
@@ -500,12 +554,20 @@ class BinaryNode(TreeNode):
 
     @property
     def num_prototypes(self) -> int:
-        r"""Returns the total number of prototypes pointed by this node and all its children."""
+        r"""Returns the total number of prototypes pointed by this node and all its children.
+
+        Returns:
+            Number of prototypes.
+        """
         return 1 + sum(child.num_prototypes for child in self.child_nodes())
 
     @property
     def num_nodes(self) -> int:
-        r"""Returns the total size of the subtree, including this node."""
+        r"""Returns the total size of the subtree, including this node.
+
+        Returns:
+            Number of nodes.
+        """
         return 1 + sum(child.size() for child in self.child_nodes())
 
     @staticmethod
@@ -590,7 +652,11 @@ class LeafNode(TreeNode):
 
     @property
     def distribution(self) -> Tensor:
-        r"""Returns normalized leaf distribution. Shape (1, C)."""
+        r"""Returns normalized leaf distribution. Shape (1, C).
+
+        Returns:
+            Normalized class distribution.
+        """
 
         def stable_softmax(x: Tensor) -> Tensor:
             return torch.softmax(x - torch.max(x, dim=1)[0], dim=1)
@@ -628,26 +694,46 @@ class LeafNode(TreeNode):
 
     @property
     def num_prototypes(self) -> int:
-        r"""Returns the total number of prototypes pointed by this node and all its children."""
+        r"""Returns the total number of prototypes pointed by this node and all its children.
+
+        Returns:
+            Number of prototypes.
+        """
         return 0
 
     @property
     def num_nodes(self) -> int:
-        r"""Returns the total size of the subtree, including this node."""
+        r"""Returns the total size of the subtree, including this node.
+
+        Returns:
+            Number of nodes.
+        """
         return 1
 
     @property
     def leaves(self) -> Iterator[LeafNode]:
-        r"""Returns self."""
+        r"""Returns self.
+
+        Returns:
+            Iterator containing this leaf.
+        """
         yield self
 
     @property
     def num_leaves(self) -> int:
-        r"""Returns the total number of leaves (here: 1)."""
+        r"""Returns the total number of leaves (here: 1).
+
+        Returns:
+            Number of leaves.
+        """
         return 1
 
     def export_arch(self) -> dict[str, Any]:
-        r"""Returns the tree architecture (useful after pruning)."""
+        r"""Returns the tree architecture (useful after pruning).
+
+        Returns:
+            Serialized tree architecture.
+        """
         arch = {
             "module": self.__class__.__name__,
             "node_id": self.node_id,

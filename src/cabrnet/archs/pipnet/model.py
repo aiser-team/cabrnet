@@ -16,7 +16,7 @@ from cabrnet.archs.generic.decision import CaBRNetClassifier
 from cabrnet.archs.generic.model import CaBRNet
 from cabrnet.core.utils.image import safe_open_image
 from cabrnet.core.utils.optimizers import OptimizerManager
-from cabrnet.core.visualization.visualizer import SimilarityVisualizer
+from cabrnet.core.visualization.depictor import ProtoDepictor
 
 
 @runtime_checkable
@@ -590,7 +590,7 @@ class PIPNet(CaBRNet):
         self,
         img: Path | Image.Image,
         preprocess: Callable | None,
-        visualizer: SimilarityVisualizer,
+        depictor: ProtoDepictor,
         prototype_dir: Path,
         output_dir: Path,
         output_format: str = "pdf",
@@ -606,7 +606,7 @@ class PIPNet(CaBRNet):
         Args:
             img (str or Image): Path to image or image itself.
             preprocess (Callable): Preprocessing function.
-            visualizer (SimilarityVisualizer): Similarity visualizer.
+            depictor (Depictor): Similarity visualizer.
             prototype_dir (Path): Path to directory containing prototype visualizations.
             output_dir (Path): Path to output directory.
             output_format (str, optional): Output file format. Default: pdf.
@@ -622,6 +622,9 @@ class PIPNet(CaBRNet):
             and <similar> indicates whether the prototype is considered similar or dissimilar.
         """
         self.eval()
+
+        # PIPNet only supports image explanations
+        assert depictor.extension == "png", "PIPNet only supports image explanations"
 
         with safe_open_image(img, preprocess) as (img, img_tensor):
             # Map to device
@@ -677,10 +680,14 @@ class PIPNet(CaBRNet):
                 )
 
                 # Generate test image patch
-                patch_image_path = output_dir / "test_patches" / f"proto_similarity_{proto_idx}.png"
                 if not disable_rendering:
-                    patch_image = visualizer.forward(img=img, img_tensor=img_tensor, proto_idx=proto_idx, device=device)
-                    patch_image.save(patch_image_path)
+                    patch_image_path = depictor.save(
+                        raw_input=img,
+                        folder=output_dir.absolute() / "test_patches",
+                        filename=f"proto_similarity_{proto_idx}",
+                        proto_idx=proto_idx,
+                        device=device,
+                    )
 
                 explanation_graph.node(
                     name=f"patch_{proto_idx}",

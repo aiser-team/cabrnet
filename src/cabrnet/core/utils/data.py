@@ -42,15 +42,27 @@ class VisionDatasetSubset(Subset):
 
     @property
     def transform(self) -> Any:
-        r"""Returns the 'transform' function of the original dataset."""
+        r"""Returns the 'transform' function of the original dataset.
+
+        Returns:
+            Transform function, if defined.
+        """
         return getattr(self.dataset, "transform", None)
 
     def target_transform(self) -> Any:
-        r"""Returns the 'target_transform' function of the original dataset."""
+        r"""Returns the 'target_transform' function of the original dataset.
+
+        Returns:
+            Target transform function, if defined.
+        """
         return getattr(self.dataset, "target_transform", None)
 
     def transforms(self) -> Any:
-        r"""Returns the 'transforms' function of the original dataset."""
+        r"""Returns the 'transforms' function of the original dataset.
+
+        Returns:
+            Transform collection, if defined.
+        """
         return getattr(self.dataset, "transforms", None)
 
 

@@ -265,7 +265,6 @@ def analyze(
         model (Module): CaBRNet model, assumed to be in eval mode and already mapped on the correct device.
         img (Image): Input image.
         img_id (int | str): Image identifier.
-        preprocess (Callable): Preprocessing function.
         visualizer (SimilarityVisualizer): Patch visualizer.
         device (str | device): Hardware device.
         perturbations (dict[str,dict]): Map of perturbations whose key is the name of the perturbation
@@ -308,7 +307,7 @@ def analyze(
     most_relevant_prototypes = model.explain(
         img=img,
         preprocess=preprocess,
-        visualizer=visualizer,
+        depictor=visualizer,
         prototype_dir=Path.cwd(),
         output_dir=Path.cwd(),
         device=device,
@@ -327,9 +326,7 @@ def analyze(
 
     for proto_idx in most_relevant_prototypes:
         # Compute attribution map and expand to (H x W x 1)
-        attribution = visualizer.get_attribution(
-            img=img, img_tensor=img_tensor, proto_idx=proto_idx, location="max", device=device
-        )
+        attribution = visualizer.get_attribution(img=img, proto_idx=proto_idx, location="max", device=device)
         attribution_heatmap = heatmap(img=img, sim_map=attribution, overlay=True)
         attribution = np.expand_dims(attribution, axis=-1)
 
@@ -468,10 +465,12 @@ def execute(
 
     # Create dataloaders and visualizer
     datasets = DatasetManager.get_datasets(dataset_config, sampling_ratio=sampling_ratio)
-    visualizer = SimilarityVisualizer.build_from_config(config=visualization_config, model=model)
 
-    # Recover preprocessing function
-    preprocess = getattr(datasets["test_set"]["dataset"], "transform", ToTensor())
+    # Get projection dataset for visualizer (required for transform)
+    visualizer = SimilarityVisualizer.build_from_config(
+        config=visualization_config, model=model, dataset_config=load_config(dataset_config)
+    )
+
     dataset = datasets["test_set"]["raw_dataset"]
 
     test_iter = tqdm(
@@ -503,9 +502,8 @@ def execute(
         if not prototype_dir.is_dir():
             model.extract_prototypes(
                 dataloader_raw=dataloaders["projection_set_raw"],
-                dataloader=dataloaders["projection_set"],
                 projection_info=projection_info,
-                visualizer=visualizer,
+                depictor=visualizer,
                 dir_path=prototype_dir,
                 device=device,
                 verbose=verbose,
@@ -517,7 +515,6 @@ def execute(
             model=model,
             img=img,
             img_id=img_id,
-            preprocess=preprocess,
             visualizer=visualizer,
             device=device,
             debug_dir=debug_dir if debug_mode else None,

@@ -18,8 +18,8 @@ from cabrnet.archs.protopool.decision import ProtoPoolClassifier
 from cabrnet.core.utils.custom_preprocess import batch_mixup
 from cabrnet.core.utils.image import safe_open_image
 from cabrnet.core.utils.optimizers import OptimizerManager
+from cabrnet.core.visualization.depictor import ProtoDepictor
 from cabrnet.core.visualization.explainer import ExplanationGraph
-from cabrnet.core.visualization.visualizer import SimilarityVisualizer
 
 
 class ProtoPool(CaBRNet):
@@ -488,7 +488,7 @@ class ProtoPool(CaBRNet):
         self,
         img: Path | Image.Image,
         preprocess: Callable | None,
-        visualizer: SimilarityVisualizer,
+        depictor: ProtoDepictor,
         prototype_dir: Path = Path.cwd(),
         output_dir: Path = Path.cwd(),
         output_format: str = "pdf",
@@ -504,7 +504,7 @@ class ProtoPool(CaBRNet):
         Args:
             img (Path | Image): Path to image or image itself.
             preprocess (Callable): Preprocessing function.
-            visualizer (SimilarityVisualizer): Similarity visualizer.
+            depictor (Depictor): Similarity visualizer.
             prototype_dir (Path, optional): Path to directory containing prototype visualizations. Default: "".
             output_dir (Path, optional): Path to output directory. Default: "".
             output_format (str, optional): Output file format. Default: pdf.
@@ -520,6 +520,9 @@ class ProtoPool(CaBRNet):
             and <similar> indicates whether the prototype is considered similar or dissimilar.
         """
         self.eval()
+
+        # ProtoPool only supports image explanations
+        assert depictor.extension == "png", "ProtoPool only supports image explanations"
 
         # Compute mapping between classes and prototypes
         class_mapping = self.classifier.class_mapping
@@ -566,8 +569,13 @@ class ProtoPool(CaBRNet):
                 # Generate test image patch
                 patch_image_path = output_dir.absolute() / "test_patches" / f"proto_similarity_{proto_idx}.png"
                 if not disable_rendering:
-                    patch_image = visualizer.forward(img=img, img_tensor=img_tensor, proto_idx=proto_idx, device=device)
-                    patch_image.save(patch_image_path)
+                    patch_image_path = depictor.save(
+                        raw_input=img,
+                        folder=output_dir.absolute() / "test_patches",
+                        filename=f"proto_similarity_{proto_idx}",
+                        proto_idx=proto_idx,
+                        device=device,
+                    )
                 in_class_slot = proto_idx in class_mapping[class_idx]
                 explanation.add_similarity(
                     prototype_img_path=prototype_image_path,

@@ -147,7 +147,7 @@ def analyze(
         most_relevant_prototypes = model.explain(
             img=img,
             preprocess=preprocess,
-            visualizer=visualizer,
+            depictor=visualizer,
             prototype_dir=Path.cwd(),
             output_dir=Path.cwd(),
             device=device,
@@ -170,9 +170,7 @@ def analyze(
 
     for proto_idx in most_relevant_prototypes:
         # Compute attribution map
-        attribution = visualizer.get_attribution(
-            img=img, img_tensor=img_tensor, proto_idx=proto_idx, location="max", device=device
-        )
+        attribution = visualizer.get_attribution(img=img, proto_idx=proto_idx, location="max", device=device)
 
         # Compute pointing game stats
         mask_relevance = pg_mask_relevance(attribution, np.asarray(seg), area_percentage)
@@ -241,7 +239,9 @@ def patches_relevance_analysis(
 
     # Create dataloaders and visualizer
     datasets = DatasetManager.get_datasets(dataset_config, sampling_ratio=sampling_ratio, load_segmentation=True)
-    visualizer = SimilarityVisualizer.build_from_config(config=visualization_config, model=model)
+    visualizer = SimilarityVisualizer.build_from_config(
+        config=visualization_config, model=model, dataset_config=load_config(dataset_config)
+    )
 
     # Recover preprocessing function
     preprocess = getattr(datasets["test_set"]["dataset"], "transform", ToTensor())
@@ -315,7 +315,9 @@ def proto_relevance_analysis(
 
     # Create dataloaders and visualizer
     datasets = DatasetManager.get_datasets(dataset_config, load_segmentation=True)
-    visualizer = SimilarityVisualizer.build_from_config(config=visualization_config, model=model)
+    visualizer = SimilarityVisualizer.build_from_config(
+        config=visualization_config, model=model, dataset_config=load_config(dataset_config)
+    )
 
     # Recover preprocessing function
     preprocess = getattr(datasets["projection_set"]["dataset"], "transform", ToTensor())
@@ -400,14 +402,15 @@ def execute(
         # Get dataloaders and projection info, then build prototypes
         dataloaders = DatasetManager.get_dataloaders(config=dataset_config)
         projection_info = load_projection_info(projection_file)
-        visualizer = SimilarityVisualizer.build_from_config(config=visualization_config, model=model)
+        visualizer = SimilarityVisualizer.build_from_config(
+            config=visualization_config, model=model, dataset_config=load_config(dataset_config)
+        )
 
         # Avoid generating prototypes if the directory already exists
         model.extract_prototypes(
             dataloader_raw=dataloaders["projection_set_raw"],
-            dataloader=dataloaders["projection_set"],
             projection_info=projection_info,
-            visualizer=visualizer,
+            depictor=visualizer,
             dir_path=prototype_dir,
             device=device,
             verbose=verbose,

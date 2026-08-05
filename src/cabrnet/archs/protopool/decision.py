@@ -96,7 +96,11 @@ class ProtoPoolClassifier(CaBRNetClassifier):
 
     @property
     def class_mapping(self) -> np.ndarray:
-        r"""Returns the mapping between each class and a subset of prototypes."""
+        r"""Returns the mapping between each class and a subset of prototypes.
+
+        Returns:
+            Mapping from classes to prototypes.
+        """
         with torch.no_grad():
             if self._compatibility_mode:
                 # Makes the computation of the class mapping deterministic
@@ -113,6 +117,9 @@ class ProtoPoolClassifier(CaBRNetClassifier):
 
         Args:
             proto_idx (int): Prototype index.
+
+        Returns:
+            True if the prototype is active.
         """
         return proto_idx in list(self.class_mapping.reshape(-1))
 

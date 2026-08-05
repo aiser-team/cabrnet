@@ -6,7 +6,7 @@ import random
 import shutil
 import time
 from pathlib import Path
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any, Callable
 
 import numpy as np
 import torch
@@ -14,7 +14,7 @@ import torch.nn as nn
 from loguru import logger
 from PIL import Image
 from thop import profile as profile_batch
-from torch import LongTensor, Tensor
+from torch import Tensor
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
@@ -23,7 +23,9 @@ from cabrnet.archs.generic.decision import CaBRNetClassifier
 from cabrnet.core.utils.exceptions import ArgumentError, check_mandatory_fields
 from cabrnet.core.utils.optimizers import OptimizerManager
 from cabrnet.core.utils.parser import load_config
-from cabrnet.core.visualization.visualizer import SimilarityVisualizer
+
+if TYPE_CHECKING:
+    from cabrnet.core.visualization.depictor import ProtoDepictor
 
 
 class CaBRNet(nn.Module):
@@ -88,6 +90,9 @@ class CaBRNet(nn.Module):
 
         Args:
             x (tensor): Input tensor.
+
+        Returns:
+            Extracted convolutional features.
         """
         return self.extractor(x, **kwargs)
 
@@ -117,7 +122,11 @@ class CaBRNet(nn.Module):
 
     @property
     def num_prototypes(self) -> int:
-        r"""Returns the number of prototypes."""
+        r"""Returns the number of prototypes.
+
+        Returns:
+            Number of prototypes.
+        """
         return self.classifier.num_prototypes
 
     def prototype_is_active(self, proto_idx: int) -> bool:
@@ -125,6 +134,9 @@ class CaBRNet(nn.Module):
 
         Args:
             proto_idx (int): Prototype index.
+
+        Returns:
+            True if the prototype is active.
         """
         return self.classifier.prototype_is_active(proto_idx)
 
@@ -1074,9 +1086,8 @@ class CaBRNet(nn.Module):
     def extract_prototypes(
         self,
         dataloader_raw: DataLoader,
-        dataloader: DataLoader,
         projection_info: list[dict],
-        visualizer: SimilarityVisualizer,
+        depictor: ProtoDepictor,
         dir_path: Path,
         device: str | torch.device = "cuda:0",
         verbose: bool = False,
@@ -1086,9 +1097,8 @@ class CaBRNet(nn.Module):
 
         Args:
             dataloader_raw (DataLoader): Dataloader containing raw projection images (without preprocessing).
-            dataloader (DataLoader): Dataloader containing projection tensors (with preprocessing).
             projection_info (list): Projection information (as returned by project method).
-            visualizer (SimilarityVisualizer): Similarity visualizer.
+            depictor (Depictor): Depictor instance.
             dir_path (Path): Destination directory.
             device (str | device, optional): Hardware device. Default: cuda:0.
             verbose (bool, optional): Display progress bar. Default: 0.
@@ -1098,14 +1108,14 @@ class CaBRNet(nn.Module):
         # Create destination directory if necessary
         dir_path.mkdir(parents=True, exist_ok=True)
         # Copy visualizer configuration file
-        if visualizer.config_file is not None and visualizer.config_file.is_file():
+        if depictor.config_file is not None and depictor.config_file.is_file():
             try:
                 shutil.copyfile(
-                    src=visualizer.config_file,
-                    dst=dir_path / SimilarityVisualizer.DEFAULT_VISUALIZATION_CONFIG,
+                    src=depictor.config_file,
+                    dst=dir_path / depictor.DEFAULT_VISUALIZATION_CONFIG,
                 )
             except shutil.SameFileError:
-                logger.warning(f"Ignoring file copy from {visualizer.config_file} to itself.")
+                logger.warning(f"Ignoring file copy from {depictor.config_file} to itself.")
                 pass
 
         proto_count = {}
@@ -1126,30 +1136,32 @@ class CaBRNet(nn.Module):
                 continue
             # Original image obtained from dataloader without normalization
             img = dataloader_raw.dataset[proto_info["img_idx"]][0]
-            # Preprocessed image tensor
-            img_tensor = dataloader.dataset[proto_info["img_idx"]][0]
             h, w = proto_info["h"], proto_info["w"]
-            prototype_part = visualizer.forward(
-                img=img,
-                img_tensor=img_tensor,
+
+            # Determine filename based on prototype count
+            if proto_count.get(proto_idx):
+                # Handles multiple representations of the same prototype
+                filename = f"prototype_{proto_idx}_{proto_count.get(proto_idx)}"
+                proto_count[proto_idx] += 1
+            else:
+                filename = f"prototype_{proto_idx}"
+                proto_count[proto_idx] = 1
+
+            # Save visualization using depictor interface
+            depictor.save(
+                raw_input=img,
+                folder=dir_path,
+                filename=filename,
                 proto_idx=proto_idx,
                 device=device,
                 location=(h, w),
             )
-            if proto_count.get(proto_idx):
-                # Handles multiple representations of the same prototype
-                img_path = dir_path / f"prototype_{proto_idx}_{proto_count.get(proto_idx)}.png"
-                proto_count[proto_idx] += 1
-            else:
-                img_path = dir_path / f"prototype_{proto_idx}.png"
-                proto_count[proto_idx] = 1
-            prototype_part.save(fp=img_path)
 
     def explain(
         self,
         img: Path | Image.Image,
         preprocess: Callable | None,
-        visualizer: SimilarityVisualizer,
+        depictor: ProtoDepictor,
         prototype_dir: Path,
         output_dir: Path,
         output_format: str = "pdf",
@@ -1163,7 +1175,7 @@ class CaBRNet(nn.Module):
         Args:
             img (Path or Image): Path to image or image itself.
             preprocess (Callable): Preprocessing function.
-            visualizer (SimilarityVisualizer): Similarity visualizer.
+            depictor (Depictor): Depictor instance.
             prototype_dir (Path): Path to directory containing prototype visualizations.
             output_dir (Path): Path to output directory.
             output_format (str, optional): Output file format. Default: pdf.

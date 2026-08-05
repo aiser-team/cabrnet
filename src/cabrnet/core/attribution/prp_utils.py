@@ -1,17 +1,17 @@
 import copy
 import operator
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, cast
 
 import torch
 import torch.nn as nn
 from captum.attr._utils.lrp_rules import IdentityRule, PropagationRule
-from loguru import logger
 from torch import Tensor
 from torch.fx import symbolic_trace
 from torch.nn import functional as F
 
 from cabrnet.archs.generic.decision import CaBRNetClassifier
+from cabrnet.archs.generic.model import CaBRNet
 from cabrnet.core.utils.similarities import ProtoPNetSimilarity
 
 
@@ -911,17 +911,17 @@ def get_extractor_lrp_composite_model(
 
 
 def get_cabrnet_lrp_composite_model(
-    model: nn.Module,
+    model: CaBRNet,
     set_bias_to_zero: bool = True,
     stability_factor: float = 1e-6,
     use_zbeta: bool = True,
     zbeta_lower_bound: float = min([-0.485 / 0.229, -0.456 / 0.224, -0.406 / 0.225]),
     zbeta_upper_bound: float = max([(1 - 0.485) / 0.229, (1 - 0.456) / 0.224, (1 - 0.406) / 0.225]),
-) -> nn.Module:
+) -> CaBRNet:
     r"""Prepares a CaBRNet model for composite LRP.
 
     Args:
-        model (Module): Target model.
+        model (CaBRNet): Target model.
         set_bias_to_zero (bool, optional): If True, ignore bias in linear layers. Default: True.
         stability_factor (float, optional): Epsilon value used for numerical stability. Default: 1e-6.
         use_zbeta (bool, optional): If True, use z-beta rule on first convolution. Default: True.
@@ -933,20 +933,7 @@ def get_cabrnet_lrp_composite_model(
     Returns:
         Copy of the model, ready for running Captum LRP.
     """
-    if not hasattr(model, "extractor"):
-        # Check attribute presence rather than using isinstance(model, CaBRNet) to avoid circular dependencies
-        logger.warning("Target is not a CaBRNet model, using generic function instead.")
-        # Try to convert the model using the more generic function
-        return get_extractor_lrp_composite_model(
-            model=model,
-            set_bias_to_zero=set_bias_to_zero,
-            stability_factor=stability_factor,
-            use_zbeta=use_zbeta,
-            zbeta_lower_bound=zbeta_lower_bound,
-            zbeta_upper_bound=zbeta_upper_bound,
-        )
-
-    lrp_model = copy.deepcopy(model)
+    lrp_model = cast(CaBRNet, copy.deepcopy(model))
 
     # Convert feature extractor
     # FIXME: Should be fixed with model loading rewrite.

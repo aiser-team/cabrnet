@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.23.3"
+__generated_with = "0.23.4"
 app = marimo.App(width="medium")
 
 with app.setup:
@@ -26,25 +26,24 @@ with app.setup:
         analyze as pointing_game_analyze,
     )
     from cabrnet.core.utils.data import DatasetManager
+    from cabrnet.core.utils.parser import load_config
     from cabrnet.core.utils.save import load_projection_info
+    from cabrnet.core.visualization.depictor import check_attribution_type, check_view_type
     from cabrnet.core.visualization.explainer import PrototypeAnalysisGraph
     from cabrnet.core.visualization.radar_plot import radar_plot
     from cabrnet.core.visualization.view import SUPPORTED_VIEWING_FUNCTIONS
     from cabrnet.core.visualization.visualizer import (
-        SUPPORTED_ATTRIBUTION_FUNCTIONS,
         SimilarityVisualizer,
     )
 
 
 @app.cell(hide_code=True)
 def _():
-    mo.md(
-        r"""
+    mo.md(r"""
     # Cabrnet's model analyser
 
-    This script enables you to select a trained model and visualize explanations in a wide range of situations.
-    """
-    )
+    This script enables you to select a trained model and visualize explainations in a wide range of situations.
+    """)
     return
 
 
@@ -110,11 +109,9 @@ def _(checkpoint_path, device_selector, state_dict_path):
 
 @app.cell(hide_code=True)
 def _():
-    mo.md(
-        r"""
+    mo.md(r"""
     ## Evaluation
-    """
-    )
+    """)
     return
 
 
@@ -131,24 +128,20 @@ def _(dataloaders, device_selector, model, run_button):
         not run_button.value,
         mo.callout("Click on previous button to evaluate model", "info"),
     )
-    stats_eval = model.evaluate(
-        dataloaders=dataloaders,
+    outputs, labels, _timing = model.collect_predictions(
+        dataloader=dataloaders["test_set"],
         dataset_name="test_set",
         device=device_selector.value,
         verbose=True,
     )
-    outputs, labels, _timing = model.collect_predictions(
-        dataloader=dataloaders["test_set"],
-        device=device_selector.value,
-        verbose=True,
-    )
-    return labels, outputs, stats_eval
+    return labels, outputs
 
 
 @app.cell(hide_code=True)
-def _(labels, outputs, stats_eval):
+def _(device_selector, labels, model, outputs):
     preds = outputs.argmax(1)
-    confusion = confusion_matrix(preds.cpu(), labels.cpu())
+    confusion = confusion_matrix(labels.cpu(), preds.cpu())
+    _, stats_eval = model.loss(outputs, labels.to(device_selector.value))
     mo.ui.tabs(
         {
             "Evaluation statistics": {k: round(v, 3) for k, v in stats_eval.items()},
@@ -160,11 +153,9 @@ def _(labels, outputs, stats_eval):
 
 @app.cell(hide_code=True)
 def _():
-    mo.md(
-        r"""
+    mo.md(r"""
     ## Analysis
-    """
-    )
+    """)
     return
 
 
@@ -191,7 +182,12 @@ def _(checkpoint_path, output_directory_picker):
     if viz_config_file.exists():
         with open(viz_config_file) as f:
             _existing_viz_config = yaml.safe_load(f)
-        default_attribution = _existing_viz_config.get("attribution", {}).get("type", "saliency")
+        default_attribution = check_attribution_type(
+            _existing_viz_config.get("attribution", {}).get("type", "saliency"),
+            SimilarityVisualizer.SUPPORTED_ATTRIBUTION_METHODS,
+            viz_config_file,
+        )
+        check_view_type(_existing_viz_config.get("view", {}).get("type", "heatmap"), viz_config_file)
         default_attribution_params = _existing_viz_config.get("attribution", {}).get("params", {})
         default_view = _existing_viz_config.get("view", {}).get("type", "heatmap")
         default_view_params = _existing_viz_config.get("view", {}).get("params", {})
@@ -213,7 +209,7 @@ def _(checkpoint_path, output_directory_picker):
 @app.cell
 def _(default_attribution):
     attribution_selector = mo.ui.radio(
-        list(SUPPORTED_ATTRIBUTION_FUNCTIONS.keys()),
+        SimilarityVisualizer.SUPPORTED_ATTRIBUTION_METHODS,
         value=default_attribution,
         inline=True,
     )
@@ -257,9 +253,6 @@ def _(attribution_selector, default_attribution_params):
         "grads_x_input": mo.ui.switch(
             value=default_attribution_params.get("grads_x_input", False),
         ),
-        "normalize": mo.ui.switch(
-            value=default_attribution_params.get("normalize", True),
-        ),
     }
 
     # Only include relevant parameters based on attribution method
@@ -271,7 +264,6 @@ def _(attribution_selector, default_attribution_params):
             "gaussian_ksize",
             "similarity_threshold",
             "grads_x_input",
-            "normalize",
         ],
         "prp": ["stability_factor", "normalize"],
         "saliency": [
@@ -279,17 +271,12 @@ def _(attribution_selector, default_attribution_params):
             "gaussian_ksize",
             "similarity_threshold",
             "grads_x_input",
-            "normalize",
         ],
         "randgrad": [
             "polarity",
             "gaussian_ksize",
             "similarity_threshold",
             "grads_x_input",
-            "normalize",
-        ],
-        "cubic_upsampling": [
-            "normalize",
         ],
     }
 
@@ -348,6 +335,7 @@ def _(default_view_params, view_selector):
 @app.cell(hide_code=True)
 def _(
     attribution_selector,
+    checkpoint_path,
     explanation_parameters,
     model,
     view_parameters,
@@ -368,8 +356,7 @@ def _(
             existing_viz_config = yaml.safe_load(_f)
 
     visualizer = SimilarityVisualizer.build_from_config(
-        viz_config,
-        model=model,
+        viz_config, model=model, dataset_config=load_config(checkpoint_path / DatasetManager.DEFAULT_DATASET_CONFIG)
     )
     return existing_viz_config, visualizer, viz_config
 
@@ -408,9 +395,8 @@ def _(
     if run_extract_proto.value:
         model.extract_prototypes(
             dataloader_raw=dataloaders["projection_set_raw"],
-            dataloader=dataloaders["projection_set"],
             projection_info=load_projection_info(filename=checkpoint_path / CaBRNet.DEFAULT_PROJECTION_INFO),
-            visualizer=visualizer,
+            depictor=visualizer,
             dir_path=prototype_path,
             device=device_selector.value,
             verbose=True,
@@ -427,7 +413,14 @@ def _(
 
 
 @app.cell(hide_code=True)
-def _():
+def _(existing_viz_config, run_extract_proto, viz_config):
+    mo.stop(
+        not run_extract_proto.value and existing_viz_config != viz_config,
+        mo.callout(
+            "Prototypes must be re-generated, click on 'Extract prototypes'",
+            "warn",
+        ),
+    )
     run_explain_global = mo.ui.run_button(label="Generate global explanation")
     run_explain_global
     return (run_explain_global,)
@@ -480,11 +473,9 @@ def sample_examples_from_dataset(
 
 @app.cell(hide_code=True)
 def _():
-    mo.md(
-        r"""
+    mo.md(r"""
     **Select sample image**
-    """
-    )
+    """)
     return
 
 
@@ -562,10 +553,10 @@ def _(
         mo.callout("Click on previous button to run explanation", "info"),
     )
 
-    model_with_prototypes.explain(
+    model_with_prototypes.to("cuda:0").explain(
         img=img,
         preprocess=test_dataset.transform,
-        visualizer=visualizer,
+        depictor=visualizer,
         device=device_selector.value,
         prototype_dir=prototype_path,
         output_dir=checkpoint_path / "explanations",
@@ -579,25 +570,21 @@ def _(
 
 @app.cell(hide_code=True)
 def _():
-    mo.md(
-        r"""
+    mo.md(r"""
     # Explanation metrics
 
     This part provides different ways to measure the correctness / robustness of the provided explanations
-    """
-    )
+    """)
     return
 
 
 @app.cell(hide_code=True)
 def _():
-    mo.md(
-        r"""
+    mo.md(r"""
     ## Local perturbation analysis
 
     Tests prototype robustness to image perturbations (brightness, contrast, saturation, hue, blur, distortion).
-    """
-    )
+    """)
     return
 
 
