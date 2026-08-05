@@ -26,6 +26,7 @@ from cabrnet.core.utils.parser import load_config
 
 if TYPE_CHECKING:
     from cabrnet.core.visualization.depictor import ProtoDepictor
+    from torch.utils.tensorboard.writer import SummaryWriter
 
 
 class CaBRNet(nn.Module):
@@ -177,6 +178,17 @@ class CaBRNet(nn.Module):
                 if key not in getattr(self, attribute_name).keys():
                     raise ValueError(f"Unknown parameter name '{key}' in attribute '{attribute_name}'")
             getattr(self, attribute_name).update(attribute_dict)
+
+    def save_debug_artifacts(self, output_dir: Path, writer: SummaryWriter, epoch: int) -> None:
+        r"""Saves optional artifacts used to debug training.
+
+        Subclasses can override this hook to write files under *output_dir* and values to *writer*.
+
+        Args:
+            output_dir (Path): Directory in which debug artifacts are saved.
+            writer (SummaryWriter): TensorBoard writer for the current training run.
+            epoch (int): Index of the epoch that just completed.
+        """
 
     @staticmethod
     def create_parser(

@@ -95,6 +95,19 @@ For a quick sanity check of a particular architecture or overall training config
 `--sanity-check` option that only processes 1\% of the dataset and only one epoch per training period.
 Alternatively, the `--sampling-ratio` allows a finer control of the portion of data that is processed.
 
+### Debug checks
+
+The `--detect-anomaly` option enables PyTorch autograd anomaly detection. This reports the forward operation that
+caused an invalid gradient during backpropagation. It's intended for debuging purposes only.
+
+You can include assertions in your code in this way:
+```py
+if torch.is_anomaly_detected():
+    assert not this_tensor.isnan().any(), "this_tensor contains NaN"
+```
+
+The check will be performed only when `--detect-anomaly` is set in the command line.
+
 ### Resuming computations
 
 CaBRNet provides options to save training checkpoints and resuming the training process from a given checkpoint.
@@ -441,4 +454,3 @@ usually `allclose` from pytorch point of view),
 the use of the **L2 distance between vectors tends to amplify the phenomenon**. In particular, this may have an effect
 during prototype projection, where an image patch may
 be considered closer or farther than another patch depending on the batch size.
-
