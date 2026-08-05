@@ -86,7 +86,7 @@ class ProtoDepictor(ABC):
     @property
     @abstractmethod
     def extension(self) -> str:
-        r"""File extension for output files (without dot).
+        r"""Provides the file extension for output files (without dot).
 
         Returns:
             File extension without a leading dot.
