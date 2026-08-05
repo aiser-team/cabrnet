@@ -14,6 +14,7 @@ from tqdm import tqdm
 
 from cabrnet.archs.generic.decision import CaBRNetClassifier
 from cabrnet.archs.generic.model import CaBRNet
+from cabrnet.core.utils.data import get_dataloader_indices
 from cabrnet.core.utils.image import safe_open_image
 from cabrnet.core.utils.optimizers import OptimizerManager
 from cabrnet.core.visualization.depictor import ProtoDepictor
@@ -431,7 +432,6 @@ class PIPNet(CaBRNet):
         #   - the coordinates of the vector inside the latent representation of each image
         #   - the corresponding similarity score
         projection_info = {proto_idx: [] for proto_idx in range(self.num_prototypes)}
-
         with torch.no_grad():
             for batch_idx, (xs, ys) in data_iter:
                 # Map to device and perform inference
@@ -462,9 +462,10 @@ class PIPNet(CaBRNet):
                             update_scores = True
                         if update_scores:
                             batch_size = 1 if dataloader.batch_size is None else dataloader.batch_size
+                            sample_position = batch_idx * batch_size + img_idx
                             projection_info[proto_idx].append(
                                 {
-                                    "img_idx": batch_idx * batch_size + img_idx,
+                                    "img_idx": int(get_dataloader_indices(dataloader)[sample_position]),
                                     "h": best_score_loc[img_idx, proto_idx].item() // W,
                                     "w": best_score_loc[img_idx, proto_idx].item() % W,
                                     "score": best_score[img_idx, proto_idx].item(),

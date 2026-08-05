@@ -1,10 +1,10 @@
+from collections.abc import Sized
 from pathlib import Path
 from typing import Any
 
 import numpy
 import pandas as pd
 import torch
-from collections.abc import Sized
 from sklearn.metrics import average_precision_score, roc_auc_score
 from tqdm import tqdm
 
@@ -106,9 +106,9 @@ def gather_statistics(
         y_trues: matrix such that y_trues[p][img_index] iff prototype p should activate in img_index.
         values: matrix such that values[p][img_index] is the activation of p in img_index.
     """
-    if not isinstance(dataloader.dataset, Sized):
-        raise TypeError("Prototype discrimination requires a sized dataset")
-    num_images = len(dataloader.dataset)
+    if not isinstance(dataloader.sampler, Sized):
+        raise TypeError("Prototype discrimination requires a sized dataloader sampler")
+    num_images = len(dataloader.sampler)
     class_of_proto = compute_class_of_proto(model)
 
     data_iter = tqdm(dataloader, desc="Model evaluation", total=len(dataloader), disable=not verbose)

@@ -42,7 +42,7 @@ def _():
     mo.md(r"""
     # Cabrnet's model analyser
 
-    This script enables you to select a trained model and visualize explainations in a wide range of situations.
+    This script enables you to select a trained model and visualize explanations in a wide range of situations.
     """)
     return
 
@@ -70,17 +70,15 @@ def _(checkpoint_browser):
         mo.callout("Selected path does not contain checkpoint", "danger"),
     )
     dataloaders = DatasetManager.get_dataloaders(checkpoint_path / DatasetManager.DEFAULT_DATASET_CONFIG)
-    test_dataset = DatasetManager.get_datasets(checkpoint_path / DatasetManager.DEFAULT_DATASET_CONFIG)["test_set"][
-        "dataset"
-    ]
-    test_dataset_raw = DatasetManager.get_datasets(checkpoint_path / DatasetManager.DEFAULT_DATASET_CONFIG)["test_set"][
-        "raw_dataset"
-    ]
+    datasets, _ = DatasetManager.get_datasets_and_indices(checkpoint_path / DatasetManager.DEFAULT_DATASET_CONFIG)
+    test_dataset = datasets["test_set"]["dataset"]
+    test_dataset_raw = datasets["test_set"]["raw_dataset"]
     classes = test_dataset.classes
     return (
         checkpoint_path,
         classes,
         dataloaders,
+        datasets,
         state_dict_path,
         test_dataset,
         test_dataset_raw,
@@ -128,20 +126,21 @@ def _(dataloaders, device_selector, model, run_button):
         not run_button.value,
         mo.callout("Click on previous button to evaluate model", "info"),
     )
-    outputs, labels, _timing = model.collect_predictions(
+    evaluation = model._evaluate_batches(
         dataloader=dataloaders["test_set"],
-        dataset_name="test_set",
         device=device_selector.value,
         verbose=True,
+        collect_predictions=True,
     )
-    return labels, outputs
+    stats_eval = {f"test_set/{key}": value for key, value in evaluation.stats.items()}
+    outputs, labels = evaluation.logits, evaluation.labels
+    return labels, outputs, stats_eval
 
 
 @app.cell(hide_code=True)
-def _(device_selector, labels, model, outputs):
+def _(labels, outputs, stats_eval):
     preds = outputs.argmax(1)
     confusion = confusion_matrix(labels.cpu(), preds.cpu())
-    _, stats_eval = model.loss(outputs, labels.to(device_selector.value))
     mo.ui.tabs(
         {
             "Evaluation statistics": {k: round(v, 3) for k, v in stats_eval.items()},
@@ -373,7 +372,7 @@ def _(existing_viz_config, viz_config):
 @app.cell(hide_code=True)
 def _(
     checkpoint_path,
-    dataloaders,
+    datasets,
     device_selector,
     existing_viz_config,
     model,
@@ -394,7 +393,7 @@ def _(
 
     if run_extract_proto.value:
         model.extract_prototypes(
-            dataloader_raw=dataloaders["projection_set_raw"],
+            raw_dataset=datasets["projection_set"]["raw_dataset"],
             projection_info=load_projection_info(filename=checkpoint_path / CaBRNet.DEFAULT_PROJECTION_INFO),
             depictor=visualizer,
             dir_path=prototype_path,

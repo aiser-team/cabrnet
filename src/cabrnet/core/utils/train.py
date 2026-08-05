@@ -9,6 +9,7 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard.writer import SummaryWriter
 
 from cabrnet.archs.generic.model import CaBRNet
+from cabrnet.core.utils.data import DatasetManager
 from cabrnet.core.utils.monitoring import metrics_to_str
 from cabrnet.core.utils.optimizers import OptimizerManager
 from cabrnet.core.utils.parser import load_config
@@ -139,6 +140,17 @@ def training_loop(
     if isinstance(dataset_config, Path):
         dataset_config = load_config(dataset_config)
 
+    test_set_names = DatasetManager.test_set_names(dataloaders)
+    if not test_set_names:
+        raise ValueError("Dataset configuration must define 'test_set' or a non-empty 'test_sets' mapping.")
+
+    # Some existing model epilogues use the literal ``test_set`` loader. Keep
+    # them compatible with collection configs; final metrics remain per set.
+    if "test_set" not in dataloaders:
+        primary_test_set = test_set_names[0]
+        dataloaders = {**dataloaders, "test_set": dataloaders[primary_test_set]}
+        logger.warning(f"Using '{primary_test_set}' as the compatibility test_set alias for the model epilogue.")
+
     def save(dir_name: Path, epoch: int | str, optimizer: OptimizerManager | None) -> None:
         r"""Saves the model by calling :func:`~cabrnet.core.utils.save.save_checkpoint`. Most parameters are already known
         in [training_loop], which is why they do not need to be repeated when calling this subroutine.
@@ -213,8 +225,8 @@ def training_loop(
         # Apply scheduler
         optimizer_mngr.scheduler_step(epoch=epoch, metric=train_info.get(metric))
 
-        if "val_set" in dataloaders.keys():
-            val_info = model.evaluate(dataloaders, "val_set", device=device, tqdm_position=1, verbose=verbose)
+        for val_set_name in DatasetManager.val_set_names(dataloaders):
+            val_info = model.evaluate(dataloaders, val_set_name, device=device, tqdm_position=1, verbose=verbose)
             train_info |= val_info
 
         # Add all stats to Tensorboard
@@ -278,9 +290,13 @@ def training_loop(
         **epilogue_params,
     )
 
-    # Evaluate model
-    eval_info = model.evaluate(dataloaders=dataloaders, dataset_name="test_set", device=device, verbose=verbose)
-    logger.info(f"Metrics on test set: {metrics_to_str(eval_info)}")
+    # Evaluate every declared test set. Each loader name is retained in the
+    # metric keys, so distinct populations are never silently pooled.
+    eval_info: dict[str, float] = {}
+    for test_set_name in test_set_names:
+        test_info = model.evaluate(dataloaders=dataloaders, dataset_name=test_set_name, device=device, verbose=verbose)
+        eval_info.update(test_info)
+        logger.info(f"Metrics on {test_set_name}: {metrics_to_str(test_info)}")
     if save_final:
         save(dir_name=FINAL_DIR, epoch=num_epochs, optimizer=None)
     return eval_info

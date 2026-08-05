@@ -5,8 +5,9 @@ import importlib
 import random
 import shutil
 import time
+from collections.abc import Sized
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any, Callable, NamedTuple
 
 import numpy as np
 import torch
@@ -15,11 +16,12 @@ from loguru import logger
 from PIL import Image
 from thop import profile as profile_batch
 from torch import Tensor
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 
 from cabrnet.archs.generic.conv_extractor import LAYER_INIT_FUNCTIONS, ConvExtractor
 from cabrnet.archs.generic.decision import CaBRNetClassifier
+from cabrnet.core.utils.data import get_dataloader_indices
 from cabrnet.core.utils.exceptions import ArgumentError, check_mandatory_fields
 from cabrnet.core.utils.optimizers import OptimizerManager
 from cabrnet.core.utils.parser import load_config
@@ -27,6 +29,29 @@ from cabrnet.core.utils.parser import load_config
 if TYPE_CHECKING:
     from cabrnet.core.visualization.depictor import ProtoDepictor
     from torch.utils.tensorboard.writer import SummaryWriter
+
+
+class EvaluationResult(NamedTuple):
+    r"""Results collected while evaluating a dataset.
+
+    Attributes:
+        stats: Batch statistics, averaged over all samples in the dataset.
+        logits: Prediction logits for all samples when requested, otherwise None.
+        labels: Targets for all samples when prediction collection is requested, otherwise None.
+    """
+
+    stats: dict[str, float]
+    logits: Tensor | None = None
+    labels: Tensor | None = None
+
+    @property
+    def num_inputs(self) -> int:
+        r"""Returns the number of collected predictions.
+
+        Returns:
+            Number of collected predictions, or zero when predictions were not collected.
+        """
+        return 0 if self.labels is None else len(self.labels)
 
 
 class CaBRNet(nn.Module):
@@ -93,7 +118,7 @@ class CaBRNet(nn.Module):
             x (tensor): Input tensor.
 
         Returns:
-            Extracted convolutional features.
+            The raw features. For 2d images, those features are of shape (B, num_features, H, W).
         """
         return self.extractor(x, **kwargs)
 
@@ -137,7 +162,7 @@ class CaBRNet(nn.Module):
             proto_idx (int): Prototype index.
 
         Returns:
-            True if the prototype is active.
+            True if the given prototype is enabled, False otherwise.
         """
         return self.classifier.prototype_is_active(proto_idx)
 
@@ -794,6 +819,75 @@ class CaBRNet(nn.Module):
 
         return outputs, all_labels, timing_info
 
+    def _evaluate_batches(
+        self,
+        dataloader: DataLoader,
+        device: str | torch.device = "cuda:0",
+        tqdm_position: int = 0,
+        verbose: bool = False,
+        collect_predictions: bool = False,
+        **kwargs,
+    ) -> EvaluationResult:
+        r"""Evaluates all batches from a dataloader in a single inference pass.
+
+        This helper computes the usual batch-averaged statistics. When ``collect_predictions`` is enabled, it also
+        collects logits and labels on the CPU so subclasses can compute metrics that require the complete dataset
+        (for example, AUROC or mean average precision) without running inference twice.
+
+        Args:
+            dataloader (DataLoader): Dataloader containing the evaluation data.
+            device (str | device, optional): Hardware device. Default: cuda:0.
+            tqdm_position (int, optional): Position of the progress bar. Default: 0.
+            verbose (bool, optional): Display progress bar. Default: False.
+            collect_predictions (bool, optional): If True, return all logits and labels in the result. Default: False.
+
+        Returns:
+            Evaluation statistics and, optionally, collected logits and labels.
+        """
+        self.eval()
+        self.to(device)
+
+        stats: dict[str, float] = {}
+        nb_inputs = 0
+        logits: list[Tensor] = []
+        labels: list[Tensor] = []
+
+        data_iter = tqdm(
+            dataloader,
+            desc="Model evaluation",
+            total=len(dataloader),
+            leave=False,
+            position=tqdm_position,
+            disable=not verbose,
+        )
+        with torch.no_grad():
+            ref_time = time.time()
+            for xs, ys in data_iter:
+                nb_inputs += xs.size(0)
+                xs, ys = xs.to(device), ys.to(device)
+                data_time = time.time() - ref_time
+
+                model_output = self.forward(xs, **kwargs)
+                _, batch_stats = self.loss(model_output, ys)
+
+                for key, value in batch_stats.items():
+                    stats[key] = stats.get(key, 0.0) + value * xs.size(0)
+
+                if collect_predictions:
+                    logits.append(model_output[0].detach().cpu())
+                    labels.append(ys.detach().cpu())
+
+                batch_time = time.time() - ref_time
+                batch_stats_str = ", ".join([f"{loss}: {value:.2f}" for (loss, value) in batch_stats.items()])
+                postfix_str = batch_stats_str + f", time: {batch_time:.2f}s (data: {data_time:.2f})"
+                data_iter.set_postfix_str(postfix_str)
+                ref_time = time.time()
+
+        stats = {key: value / nb_inputs for key, value in stats.items()}
+        if collect_predictions and logits:
+            return EvaluationResult(stats=stats, logits=torch.cat(logits), labels=torch.cat(labels))
+        return EvaluationResult(stats=stats)
+
     def evaluate(
         self,
         dataloaders: dict[str, DataLoader],
@@ -820,56 +914,28 @@ class CaBRNet(nn.Module):
         logger.info("Evaluating classifier")
         self.eval()
         self.to(device)
-
-        # Global stats
-        stats = {}
-        nb_inputs = 0
-
-        # Show progress on progress bar if needed
         dataloader = dataloaders[dataset_name]
-        data_iter = tqdm(
-            dataloader,
-            desc="Model evaluation",
-            total=len(dataloader),
-            leave=False,
-            position=tqdm_position,
-            disable=not verbose,
-        )
-        with torch.no_grad():
-            if profile:
-                # Get computing stats
-                xs, _ = next(iter(dataloader))
-                xs = xs.to(device)
-                flops = profile_batch(self, inputs=(xs,), verbose=False)[0]
-                flops /= xs.size(0)
-
-            ref_time = time.time()
-            for xs, ys in data_iter:
-                nb_inputs += xs.size(0)
-                xs, ys = xs.to(device), ys.to(device)
-                data_time = time.time() - ref_time
-
-                # Perform inference and compute loss
-                ys_pred = self.forward(xs, **kwargs)
-                _, batch_stats = self.loss(ys_pred, ys)
-
-                # Update all metrics
-                if not stats:
-                    stats = {key: 0.0 for key in batch_stats}
-                for key, value in batch_stats.items():
-                    stats[key] += value * xs.size(0)
-
-                # Update progress bar
-                batch_time = time.time() - ref_time
-                batch_stats_str = ", ".join([f"{loss}: {value:.2f}" for (loss, value) in batch_stats.items()])
-                postfix_str = batch_stats_str + f", time: {batch_time:.2f}s (data: {data_time:.2f})"
-                data_iter.set_postfix_str(postfix_str)
-                ref_time = time.time()
-
-        stats = {f"{dataset_name}/{key}": value / nb_inputs for key, value in stats.items()}
 
         if profile:
-            stats[f"{dataset_name}/Gflops"] = flops * nb_inputs / 1e9
+            # Get computing stats
+            xs, _ = next(iter(dataloader))
+            xs = xs.to(device)
+            flops = profile_batch(self, inputs=(xs,), verbose=False)[0]
+            flops /= xs.size(0)
+
+        result = self._evaluate_batches(
+            dataloader=dataloader,
+            device=device,
+            tqdm_position=tqdm_position,
+            verbose=verbose,
+            **kwargs,
+        )
+        stats = {f"{dataset_name}/{key}": value for key, value in result.stats.items()}
+
+        if profile:
+            if not isinstance(dataloader.sampler, Sized):
+                raise TypeError("Profiling requires a sized dataloader sampler")
+            stats[f"{dataset_name}/Gflops"] = flops * len(dataloader.sampler) / 1e9
 
         return stats
 
@@ -969,7 +1035,6 @@ class CaBRNet(nn.Module):
             if not self._compatibility_mode
             else torch.zeros_like(self.classifier.prototypes)
         )
-
         with torch.no_grad():
             for batch_idx, (xs, ys) in data_iter:
                 # Map to device and perform inference
@@ -1045,8 +1110,9 @@ class CaBRNet(nn.Module):
 
                     for proto_idx, h, w in prototype_updates:
                         batch_size = 1 if dataloader.batch_size is None else dataloader.batch_size
+                        sample_position = batch_idx * batch_size + img_idx
                         projection_info[proto_idx] = {
-                            "img_idx": batch_idx * batch_size + img_idx,
+                            "img_idx": int(get_dataloader_indices(dataloader)[sample_position]),
                             "h": h,
                             "w": w,
                             "score": similarities[img_idx, proto_idx, h, w].item(),
@@ -1097,7 +1163,7 @@ class CaBRNet(nn.Module):
 
     def extract_prototypes(
         self,
-        dataloader_raw: DataLoader,
+        raw_dataset: Dataset,
         projection_info: list[dict],
         depictor: ProtoDepictor,
         dir_path: Path,
@@ -1108,7 +1174,7 @@ class CaBRNet(nn.Module):
         r"""Shows prototypes based on projection info.
 
         Args:
-            dataloader_raw (DataLoader): Dataloader containing raw projection images (without preprocessing).
+            raw_dataset (Dataset): Projection dataset without preprocessing.
             projection_info (list): Projection information (as returned by project method).
             depictor (Depictor): Depictor instance.
             dir_path (Path): Destination directory.
@@ -1146,8 +1212,7 @@ class CaBRNet(nn.Module):
             if not self.classifier.prototype_is_active(proto_idx):
                 # Skip pruned prototype
                 continue
-            # Original image obtained from dataloader without normalization
-            img = dataloader_raw.dataset[proto_info["img_idx"]][0]
+            raw_sample = raw_dataset[int(proto_info["img_idx"])][0]
             h, w = proto_info["h"], proto_info["w"]
 
             # Determine filename based on prototype count
@@ -1161,7 +1226,7 @@ class CaBRNet(nn.Module):
 
             # Save visualization using depictor interface
             depictor.save(
-                raw_input=img,
+                raw_input=raw_sample,
                 folder=dir_path,
                 filename=filename,
                 proto_idx=proto_idx,
