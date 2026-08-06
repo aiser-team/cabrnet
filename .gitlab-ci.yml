@@ -62,7 +62,7 @@ user_manual:
    paths:
      - result/docs/manuals/user_manual.pdf
 
-loading_modules:
+unit-tests:
   stage: tests
   allow_failure: true
   script:
