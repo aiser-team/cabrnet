@@ -1,8 +1,10 @@
-import os
 import zipfile
 from argparse import ArgumentParser, RawTextHelpFormatter
+from importlib.metadata import packages_distributions
+from pathlib import Path
 
-from zenodo_get import zenodo_get
+if "zenodo_get" not in packages_distributions():
+    raise ImportError("Model downloads require `uv sync --extra models`.")
 
 FILE_LIST = [
     {
@@ -105,7 +107,7 @@ def create_parser() -> ArgumentParser:
     Returns:
         Parser containing all the arguments.
     """
-    parser = ArgumentParser(description="Download datasets and pretrained models", formatter_class=RawTextHelpFormatter)
+    parser = ArgumentParser(description="Download pretrained models", formatter_class=RawTextHelpFormatter)
     parser.add_argument(
         "--target",
         "-t",
@@ -134,9 +136,11 @@ def main() -> None:
     for entry in files_to_download:
         target_path = entry["dir"]
         if entry["type"] == "zenodo":
-            zenodo_get(["-o", target_path, "-r", entry["record"]])
+            from zenodo_get import download as download_zenodo
+
+            download_zenodo(entry["record"], output_dir=target_path, file_glob=entry["file"])
+            filepath = Path(target_path) / entry["file"]
             if entry["file"].endswith(".zip"):
-                filepath = os.path.join(target_path, entry["file"])
                 with zipfile.ZipFile(filepath, "r") as zip_ref:
                     zip_ref.extractall(target_path)
 
