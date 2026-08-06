@@ -115,6 +115,9 @@ def check_args(args: Namespace) -> Namespace:
     Returns:
         Modified argument namespace.
     """
+    if args.resume_from is not None and args.load_weights:
+        raise ArgumentError("Cannot specify both options --resume-from and --load-weights")
+
     for dir_path, option_name in zip([args.resume_from, args.config_dir], ["--resume-from", "--config-dir"]):
         if dir_path is not None:
             for param, name in zip(
@@ -211,6 +214,8 @@ def execute(args: Namespace) -> None:
         logger.warning("PyTorch autograd anomaly detection is enabled")
 
     model: CaBRNet = CaBRNet.build_from_config(config=model_arch, seed=args.seed)
+    for module_path, weights_path in CaBRNet.parse_load_weights(args.load_weights).items():
+        model.load_submodule_state_dict(module_path, torch.load(weights_path, map_location="cpu", weights_only=True))
 
     # Training configuration
     trainer = load_config(training_config)

@@ -5,7 +5,7 @@ import importlib
 import random
 import shutil
 import time
-from collections.abc import Sized
+from collections.abc import Mapping, Sized
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, NamedTuple
 
@@ -25,10 +25,34 @@ from cabrnet.core.utils.data import get_dataloader_indices
 from cabrnet.core.utils.exceptions import ArgumentError, check_mandatory_fields
 from cabrnet.core.utils.optimizers import OptimizerManager
 from cabrnet.core.utils.parser import load_config
+from cabrnet.core.utils.state_dict import available_module_paths, state_dict_for
 
 if TYPE_CHECKING:
     from cabrnet.core.visualization.depictor import ProtoDepictor
     from torch.utils.tensorboard.writer import SummaryWriter
+
+
+class EvaluationResult(NamedTuple):
+    r"""Results collected while evaluating a dataset.
+
+    Attributes:
+        stats: Batch statistics, averaged over all samples in the dataset.
+        logits: Prediction logits for all samples when requested, otherwise None.
+        labels: Targets for all samples when prediction collection is requested, otherwise None.
+    """
+
+    stats: dict[str, float]
+    logits: Tensor | None = None
+    labels: Tensor | None = None
+
+    @property
+    def num_inputs(self) -> int:
+        r"""Returns the number of collected predictions.
+
+        Returns:
+            Number of collected predictions, or zero when predictions were not collected.
+        """
+        return 0 if self.labels is None else len(self.labels)
 
 
 class EvaluationResult(NamedTuple):
@@ -133,6 +157,47 @@ class CaBRNet(nn.Module):
         """
         x = self.extractor(x, **kwargs)
         return self.classifier(x, **kwargs)
+
+    def load_submodule_state_dict(self, module_path: str, state_dict: Mapping[str, Any]) -> None:
+        r"""Loads a state dictionary into this model or one of its submodules.
+
+        Args:
+            module_path (str): Target submodule path. An empty path targets the complete model.
+            state_dict (mapping): State dictionary to load.
+
+        Examples:
+            Consider a model with the following structure:
+
+            ```
+            - extractor
+                - convnet
+                - add_on
+                    - a1
+                    - a2
+            - classifier
+                - head
+            ```
+
+            If ``module_path="extractor.add_on.a1"``, then the state dictionary will loaded into ``a1``.
+            The state dictionnary may have one of these structures:
+            - ``{"weight": ...}``
+            - ``{"extractor.add_on.a1.weight": ...}``
+            - ``{"extractor": {"add_on": {"a1": {"weight": ...}}}}``
+
+        Raises:
+            ValueError: If the module path does not identify a submodule.
+        """
+        if not isinstance(state_dict, Mapping):
+            raise ValueError("State dictionary must be a mapping.")
+        if not module_path:
+            self.load_state_dict(state_dict)
+            return
+        try:
+            module = self.get_submodule(module_path)
+        except AttributeError as error:
+            paths = available_module_paths(self)
+            raise ValueError(f"Unknown module path '{module_path}'. Available paths: {paths}") from error
+        module.load_state_dict(state_dict_for(state_dict, module_path))
 
     def features(self, x: Tensor, **kwargs) -> Tensor:
         r"""Computes convolutional features only.
@@ -273,7 +338,45 @@ class CaBRNet(nn.Module):
                 metavar="/path/to/model/state.pth",
                 help="path to the model state dictionary",
             )
+        parser.add_argument(
+            "--load-weights",
+            action="append",
+            default=[],
+            metavar="[/path/to/model.pth | ref.or.submodule=/path/to/state.pth]",
+            help=(
+                "load a state dictionary into a module or a submodule; can be repeated. "
+                "Example: --load-weights extractor.convnet=encoder.pth --load-weights classifier=classifier.pth"
+            ),
+        )
         return parser
+
+    @staticmethod
+    def parse_load_weights(options: list[str]) -> dict[str, Path]:
+        r"""Parses repeatable module-path-to-state-dictionary assignments.
+
+        Args:
+            options (list[str]): Command-line assignments to checkpoint paths.
+
+        Returns:
+            State-dictionary paths keyed by their destination module paths.
+        """
+        load_weights = {}
+        for option in options:
+            module_path, separator, path = option.partition("=")
+            if not separator:
+                module_path, path = "", option
+            if not path or (separator and not module_path):
+                raise ArgumentError(
+                    f"Invalid --load-weights value '{option}'. Expected /path/to/model.pth or module-path=/path/to/state.pth."
+                )
+            if module_path in load_weights:
+                label = module_path or "the full model"
+                raise ArgumentError(f"Duplicate --load-weights target for {label}.")
+            weights_path = Path(path)
+            if weights_path.suffix != ".pth" or not weights_path.is_file():
+                raise ArgumentError(f"Invalid --load-weights file '{weights_path}'. Expected an existing .pth file.")
+            load_weights[module_path] = weights_path
+        return load_weights
 
     ARCHITECTURE_ALTERNATIVE = [("--model-arch", DEFAULT_MODEL_CONFIG)]
     STATE_ALTERNATIVE = [("--model-state-dict", DEFAULT_MODEL_STATE)]
@@ -487,7 +590,9 @@ class CaBRNet(nn.Module):
         #    (for instance if the feature extractor is left untouched during training). In this particular instance,
         #    the original weights of the feature extractor should be loaded.
         extractor = ConvExtractor(
-            config_dict["extractor"], seed=seed, ignore_weight_errors=(state_dict_path is not None)
+            config_dict["extractor"],
+            seed=seed,
+            ignore_weight_errors=(state_dict_path is not None),
         )
 
         # Build classifier
@@ -499,17 +604,30 @@ class CaBRNet(nn.Module):
 
         # Check coherency between extractor and classifier
         num_features = extractor.output_channels
-        if "num_features" not in classifier_config["params"]:
+        inferred_num_features = num_features["convnet"]
+        configured_num_features = classifier_config["params"].get("num_features")
+        if inferred_num_features is None:
+            if configured_num_features is None:
+                error = ValueError(
+                    "Could not infer the number of feature channels from the extractor. "
+                    "Set classifier.params.num_features explicitly."
+                )
+                raise error
+            logger.warning(
+                "Could not infer the number of feature channels from the extractor. "
+                f"Using classifier.params.num_features={configured_num_features}."
+            )
+        elif configured_num_features is None:
             logger.warning(
                 f"num_features not set in classifier configuration. "
-                f"Using value {num_features['convnet']} inferred from feature extractor"
+                f"Using value {inferred_num_features} inferred from feature extractor"
             )
-            classifier_config["params"]["num_features"] = num_features["convnet"]
-        elif classifier_config["params"]["num_features"] != num_features["convnet"]:
+            classifier_config["params"]["num_features"] = inferred_num_features
+        elif configured_num_features != inferred_num_features:
             raise ValueError(
                 f"Mismatching number of channels between extractor and classifier: "
-                f"expected {classifier_config['params']['num_features']} "
-                f"but feature extractor outputs {num_features['convnet']} channels"
+                f"expected {configured_num_features} "
+                f"but feature extractor outputs {inferred_num_features} channels"
             )
 
         # Update compatibility mode if necessary

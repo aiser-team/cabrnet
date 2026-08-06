@@ -1,6 +1,8 @@
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
 
+import torch
+
 from loguru import logger
 
 from cabrnet.archs.generic.model import CaBRNet
@@ -120,6 +122,8 @@ def execute(args: Namespace) -> None:
 
     # Build model and load state dictionary
     model: CaBRNet = CaBRNet.build_from_config(config=args.model_arch, state_dict_path=args.model_state_dict)
+    for module_path, weights_path in CaBRNet.parse_load_weights(args.load_weights).items():
+        model.load_submodule_state_dict(module_path, torch.load(weights_path, map_location="cpu", weights_only=True))
 
     # Load dataset config for visualizer
     dataset_config = load_config(args.dataset)

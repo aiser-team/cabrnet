@@ -115,6 +115,9 @@ def check_args(args: Namespace) -> Namespace:
     Returns:
         Modified argument namespace.
     """
+    if args.resume_from is not None and args.load_weights:
+        raise ArgumentError("Cannot specify both options --resume-from and --load-weights")
+
     # Check environment variable
     assert os.environ.get("RAY_CHDIR_TO_TRIAL_DIR") == "0", (
         "Environment variable RAY_CHDIR_TO_TRIAL_DIR should be set to 0"
@@ -244,6 +247,10 @@ def execute(args: Namespace) -> None:
             r"""Returns the statistics for this trial."""
             # Build model
             model = CaBRNet.build_from_config(config=self.model_arch, seed=seed)
+            for module_path, weights_path in CaBRNet.parse_load_weights(args.load_weights).items():
+                model.load_submodule_state_dict(
+                    module_path, torch.load(weights_path, map_location="cpu", weights_only=True)
+                )
             # Register auxiliary training parameters directly into model
             model.register_training_params(self.training_config)
 
